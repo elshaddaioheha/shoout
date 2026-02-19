@@ -78,7 +78,7 @@ export default function OnboardingFlow() {
     };
 
     const handleGetStarted = () => {
-        router.replace('/(tabs)');
+        router.push('/(auth)/login');
     };
 
     const currentScreenData = screens[currentScreen];
