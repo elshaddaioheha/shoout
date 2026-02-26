@@ -32,7 +32,8 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack initialRouteName="(auth)/onboarding">
+      <Stack initialRouteName="(auth)/role-selection">
+        <Stack.Screen name="(auth)/role-selection" options={{ headerShown: false }} />
         <Stack.Screen name="(auth)/onboarding" options={{ headerShown: false }} />
         <Stack.Screen name="(auth)/login" options={{ headerShown: false }} />
         <Stack.Screen name="(auth)/signup" options={{ headerShown: false }} />

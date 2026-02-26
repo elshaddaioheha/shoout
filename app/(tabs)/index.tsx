@@ -1,42 +1,48 @@
-import React, { useState } from 'react';
+import Sidebar from '@/components/Sidebar';
+import { usePlaybackStore } from '@/store/usePlaybackStore';
+import { BlurView } from 'expo-blur';
+import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  TextInput,
-  ScrollView,
-  SafeAreaView,
-  Dimensions,
-  StatusBar,
-  Image,
-  Platform
-} from 'react-native';
-import {
-  Search,
   Bell,
-  Play,
-  Pause,
-  ShoppingCart,
   Heart,
+  Menu,
+  Mic2,
   MoreVertical,
   Music,
-  Users,
-  Cloud
+  Play,
+  Search,
+  ShoppingCart,
+  Sparkles,
+  Users
 } from 'lucide-react-native';
-import { BlurView } from 'expo-blur';
-import { LinearGradient } from 'expo-linear-gradient';
+import React, { useState } from 'react';
+import {
+  Dimensions,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
+} from 'react-native';
 
 const { width, height } = Dimensions.get('window');
 
 export default function HomeScreen() {
+  const router = useRouter();
   const [showWelcomeModal, setShowWelcomeModal] = useState(true);
   const [modalStep, setModalStep] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const modals = [
     {
-      icon: null,
+      icon: <Music size={80} color="#EC5C39" strokeWidth={1.5} />,
       title: "Welcome to Shoouts",
       description: "your space to Discover, Create, Sell, Buy and share Afro sounds like never before.",
       buttons: [
@@ -45,7 +51,7 @@ export default function HomeScreen() {
       ]
     },
     {
-      icon: <Music size={48} color="#EC5C39" />,
+      icon: <Mic2 size={80} color="#EC5C39" strokeWidth={1.5} />,
       title: "For Artists",
       description: "Upload your Music, Beats and Store and Share with fans",
       buttons: [
@@ -54,28 +60,9 @@ export default function HomeScreen() {
       ]
     },
     {
-      icon: (
-        <View style={{ position: 'relative', width: 48, height: 48, alignItems: 'center', justifyContent: 'center' }}>
-          <Users size={32} color="#EC5C39" />
-          <Music size={16} color="#EC5C39" style={{ position: 'absolute', right: 0, bottom: 0 }} />
-        </View>
-      ),
-      title: "For Fans",
+      icon: <Sparkles size={80} color="#EC5C39" strokeWidth={1.5} />,
+      title: "For Fans & Everyone",
       description: "Stream authentic Afro vibes, follow your favorite creators, and unlock exclusive content.",
-      buttons: [
-        { label: "Skip", variant: "outline", action: () => setShowWelcomeModal(false) },
-        { label: "Next", variant: "solid", action: () => setModalStep(3) }
-      ]
-    },
-    {
-      icon: (
-        <View style={{ position: 'relative', width: 66, height: 67, alignItems: 'center', justifyContent: 'center' }}>
-          <Cloud size={52} color="#EC5C39" />
-          <Music size={24} color="#EC5C39" style={{ position: 'absolute', bottom: 8, right: 8 }} />
-        </View>
-      ),
-      title: "For Everyone",
-      description: "A home for Afro beats, culture, and community.",
       buttons: [
         { label: "Let's Get Started", variant: "solid", action: () => setShowWelcomeModal(false) }
       ]
@@ -92,16 +79,29 @@ export default function HomeScreen() {
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            <View style={styles.userProfileCircle}>
-              <Text style={styles.userProfileInitial}>C</Text>
-            </View>
-            <View style={styles.logoWrapper}>
-              <Text style={styles.logoText}>ShooutS</Text>
-            </View>
+            <TouchableOpacity
+              style={styles.logoWrapper}
+              onPress={() => router.push('/profile')}
+              activeOpacity={0.7}
+            >
+              <Image
+                source={require('@/assets/images/logo-rings.png')}
+                style={styles.logoImage}
+                contentFit="contain"
+              />
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity style={styles.iconButton}>
-            <Bell size={20} color="white" />
-          </TouchableOpacity>
+          <View style={styles.headerRight}>
+            <TouchableOpacity style={styles.iconButton}>
+              <Bell size={20} color="white" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.iconButton, { marginLeft: 12 }]}
+              onPress={() => setIsSidebarOpen(true)}
+            >
+              <Menu size={20} color="white" />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Search Bar */}
@@ -128,6 +128,9 @@ export default function HomeScreen() {
         <PopularBeatsSection />
       </ScrollView>
 
+      {/* Right Sidebar */}
+      <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+
       {/* Welcome Modal Overlay */}
       {showWelcomeModal && (
         <View style={styles.modalOverlay}>
@@ -138,15 +141,9 @@ export default function HomeScreen() {
           />
           <View style={styles.modalContent}>
             <View style={styles.modalInner}>
-              {modalStep === 0 ? (
-                <View style={styles.modalLogoContainer}>
-                  <Text style={styles.modalLogoText}>ShooutS</Text>
-                </View>
-              ) : (
-                <View style={styles.modalIconContainer}>
-                  {currentModal.icon}
-                </View>
-              )}
+              <View style={styles.modalIconContainer}>
+                {currentModal.icon}
+              </View>
 
               <Text style={styles.modalTitle}>{currentModal.title}</Text>
               <Text style={styles.modalDescription}>{currentModal.description}</Text>
@@ -176,37 +173,7 @@ export default function HomeScreen() {
         </View>
       )}
 
-      {/* Mini Player */}
-      <View style={styles.miniPlayerContainer}>
-        <View style={styles.miniPlayerBg} />
 
-        {/* Progress Bar */}
-        <View style={styles.progressBarContainer}>
-          <View style={[styles.progressBarFull, { width: '15%' }]} />
-        </View>
-
-        {/* Player Content */}
-        <View style={styles.playerContent}>
-          <View style={styles.playerLeft}>
-            <View style={styles.playerAlbumArt} />
-            <View style={styles.playerInfo}>
-              <Text style={styles.playerSongTitle}>Essence</Text>
-              <Text style={styles.playerArtistName}>Wizkid ft Tems</Text>
-            </View>
-          </View>
-
-          <TouchableOpacity
-            onPress={() => setIsPlaying(!isPlaying)}
-            style={styles.playerPlayButton}
-          >
-            {isPlaying ? (
-              <Pause size={14} color="#1D1B20" fill="#1D1B20" />
-            ) : (
-              <Play size={14} color="#1D1B20" fill="#1D1B20" />
-            )}
-          </TouchableOpacity>
-        </View>
-      </View>
 
       {/* Home Indicator */}
       <View style={styles.homeIndicator} />
@@ -216,10 +183,11 @@ export default function HomeScreen() {
 
 // Sub-sections
 function TrendingSection() {
+  const setTrack = usePlaybackStore(state => state.setTrack);
   const songs = [
-    { title: "With You", artist: "Davido ft Omolye", price: "NGN 3000.00", bgColor: "#D9D9D9" },
-    { title: "Paradise", artist: "Jungle G", bgColor: "#C9A959" },
-    { title: "Lost in Love", artist: "Jungle G", bgColor: "#8B7355" }
+    { id: '1', title: "With You", artist: "Davido ft Omolye", url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3', bgColor: "#D9D9D9" },
+    { id: '2', title: "Paradise", artist: "Jungle G", url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3', bgColor: "#C9A959" },
+    { id: '3', title: "Lost in Love", artist: "Jungle G", url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3', bgColor: "#8B7355" }
   ];
 
   return (
@@ -235,9 +203,11 @@ function TrendingSection() {
                   <Users size={14} color="white" />
                   <Text style={styles.artistName}>{song.artist}</Text>
                 </View>
-                {song.price && <Text style={styles.songPrice}>{song.price}</Text>}
               </View>
-              <TouchableOpacity style={styles.playButton}>
+              <TouchableOpacity
+                style={styles.playButton}
+                onPress={() => setTrack({ id: song.id, title: song.title, artist: song.artist, url: song.url })}
+              >
                 <Play size={20} color="white" fill="white" />
               </TouchableOpacity>
             </View>
@@ -282,11 +252,12 @@ function PlaylistSection() {
 }
 
 function FreeMusicSection() {
+  const setTrack = usePlaybackStore(state => state.setTrack);
   const songs = [
-    { title: "With You", artist: "Davido ft Omaley" },
-    { title: "Essences", artist: "Wizkid ft Tems" },
-    { title: "Promise Keeper", artist: "Sound of Salem" },
-    { title: "Paradise Instrumental", artist: "Jungle G" }
+    { id: 'free1', title: "With You", artist: "Davido ft Omaley", url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3' },
+    { id: 'free2', title: "Essences", artist: "Wizkid ft Tems", url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3' },
+    { id: 'free3', title: "Promise Keeper", artist: "Sound of Salem", url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3' },
+    { id: 'free4', title: "Paradise Instrumental", artist: "Jungle G", url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3' }
   ];
 
   return (
@@ -297,7 +268,11 @@ function FreeMusicSection() {
       </View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
         {songs.map((song, idx) => (
-          <View key={idx} style={styles.freeMusicItem}>
+          <TouchableOpacity
+            key={idx}
+            style={styles.freeMusicItem}
+            onPress={() => setTrack({ id: song.id, title: song.title, artist: song.artist, url: song.url })}
+          >
             <View style={styles.squarePlaceholder} />
             <Text style={styles.itemTitle}>{song.title}</Text>
             <Text style={styles.itemSubtitle}>{song.artist}</Text>
@@ -305,7 +280,7 @@ function FreeMusicSection() {
               <TouchableOpacity><ShoppingCart size={14} color="#EC5C39" /></TouchableOpacity>
               <TouchableOpacity><Heart size={12} color="#EC5C39" /></TouchableOpacity>
             </View>
-          </View>
+          </TouchableOpacity>
         ))}
       </ScrollView>
     </View>
@@ -334,11 +309,12 @@ function ArtistsSection() {
 }
 
 function PopularBeatsSection() {
+  const setTrack = usePlaybackStore(state => state.setTrack);
   const beats = [
-    { title: "Afro Beats", artist: "Sound of Salem", price: "NGN 3000.00" },
-    { title: "Sonic Beats", artist: "Sound of Salem", price: "NGN 3000.00" },
-    { title: "DA Beats", artist: "Sound of Salem", price: "NGN 3000.00" },
-    { title: "Project B", artist: "Sound of Salem", price: "NGN 3000.00" }
+    { id: 'beat1', title: "Afro Beats", artist: "Sound of Salem", price: "NGN 3000.00", url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3' },
+    { id: 'beat2', title: "Sonic Beats", artist: "Sound of Salem", price: "NGN 3000.00", url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-9.mp3' },
+    { id: 'beat3', title: "DA Beats", artist: "Sound of Salem", price: "NGN 3000.00", url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-10.mp3' },
+    { id: 'beat4', title: "Project B", artist: "Sound of Salem", price: "NGN 3000.00", url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-11.mp3' }
   ];
 
   return (
@@ -350,7 +326,10 @@ function PopularBeatsSection() {
       <View style={styles.beatsList}>
         {beats.map((beat, idx) => (
           <View key={idx} style={styles.beatItem}>
-            <View style={styles.beatRow}>
+            <TouchableOpacity
+              style={styles.beatRow}
+              onPress={() => setTrack({ id: beat.id, title: beat.title, artist: beat.artist, url: beat.url })}
+            >
               <View style={styles.beatImagePlaceholder} />
               <View style={{ flex: 1 }}>
                 <Text style={styles.itemTitle}>{beat.title}</Text>
@@ -364,7 +343,7 @@ function PopularBeatsSection() {
               <TouchableOpacity>
                 <MoreVertical size={24} color="white" />
               </TouchableOpacity>
-            </View>
+            </TouchableOpacity>
             {idx < beats.length - 1 && <View style={styles.beatDivider} />}
           </View>
         ))}
@@ -389,16 +368,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     height: 60,
   },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   logoWrapper: {
     paddingVertical: 10,
   },
-  logoText: {
-    color: 'white',
-    fontSize: 20,
-    fontFamily: 'Poppins-Bold',
+  logoImage: {
+    width: 60,
+    height: 30,
   },
   iconButton: {
     padding: 6,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 20,
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   searchContainer: {
     marginHorizontal: 20,
@@ -680,90 +672,5 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     borderRadius: 3,
     opacity: 0.5,
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  userProfileCircle: {
-    width: 33,
-    height: 35,
-    backgroundColor: '#EC5C39',
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  userProfileInitial: {
-    color: 'white',
-    fontSize: 16,
-    fontFamily: 'Poppins-SemiBold',
-  },
-  miniPlayerContainer: {
-    position: 'absolute',
-    bottom: 60, // Above the tab bar area
-    left: 16,
-    right: 16,
-    height: 47,
-    justifyContent: 'center',
-  },
-  miniPlayerBg: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#C2B9AC',
-    borderRadius: 10,
-    opacity: 0.6, // Blend of black 0.4 and color as per user spec
-  },
-  progressBarContainer: {
-    position: 'absolute',
-    bottom: -1,
-    left: 5,
-    right: 5,
-    height: 1,
-    backgroundColor: '#464646',
-    borderRadius: 6,
-  },
-  progressBarFull: {
-    height: '100%',
-    backgroundColor: 'white',
-    borderRadius: 6,
-  },
-  playerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 8,
-  },
-  playerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  playerAlbumArt: {
-    width: 37,
-    height: 37,
-    backgroundColor: '#D9D9D9',
-    borderRadius: 9,
-  },
-  playerInfo: {
-    justifyContent: 'center',
-  },
-  playerSongTitle: {
-    color: 'white',
-    fontSize: 10,
-    fontFamily: 'Poppins-SemiBold',
-    lineHeight: 14,
-  },
-  playerArtistName: {
-    color: 'rgba(255,255,255,0.8)',
-    fontSize: 8,
-    fontFamily: 'Poppins-Regular',
-    lineHeight: 12,
-  },
-  playerPlayButton: {
-    width: 24,
-    height: 24,
-    backgroundColor: 'transparent',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 });

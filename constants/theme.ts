@@ -1,10 +1,84 @@
 /**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
+ * Design tokens for the Shouuts app.
+ * Centralized colors, fonts, spacing, and border radius values.
+ * Use these tokens instead of hardcoding values in individual components.
  */
 
 import { Platform } from 'react-native';
 
+// ──────────────────────────────────────────────
+// Brand Colors
+// ──────────────────────────────────────────────
+export const Brand = {
+  primary: '#EC5C39',
+  primaryDark: '#D32626',
+  primaryLight: '#C96F6F',
+  background: '#140F10',
+  surface: '#1E1A1B',
+  border: '#464646',
+  borderLight: '#333',
+  textPrimary: '#FFFFFF',
+  textSecondary: 'rgba(255, 255, 255, 0.7)',
+  textMuted: 'rgba(255, 255, 255, 0.4)',
+  textPlaceholder: 'rgba(255, 255, 255, 0.6)',
+  error: '#FF4D4D',
+  success: '#319F43',
+  placeholder: '#D9D9D9',
+};
+
+// ──────────────────────────────────────────────
+// Spacing Scale (4px base)
+// ──────────────────────────────────────────────
+export const Spacing = {
+  xs: 4,
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 20,
+  '2xl': 24,
+  '3xl': 28,
+  '4xl': 32,
+  '5xl': 40,
+  screenPadding: 28, // Standard horizontal padding for all screens
+};
+
+// ──────────────────────────────────────────────
+// Border Radius Scale
+// ──────────────────────────────────────────────
+export const Radius = {
+  xs: 4,
+  sm: 8,
+  md: 10,
+  lg: 12,
+  xl: 16,
+  '2xl': 20,
+  '3xl': 24,
+  full: 9999,
+};
+
+// ──────────────────────────────────────────────
+// Typography
+// ──────────────────────────────────────────────
+export const FontFamily = {
+  regular: 'Poppins-Regular',
+  semiBold: 'Poppins-SemiBold',
+  bold: 'Poppins-Bold',
+};
+
+export const FontSize = {
+  xs: 10,
+  sm: 12,
+  md: 14,
+  lg: 16,
+  xl: 18,
+  '2xl': 20,
+  '3xl': 24,
+  '4xl': 32,
+};
+
+// ──────────────────────────────────────────────
+// Legacy Colors (kept for compatibility with themed components)
+// ──────────────────────────────────────────────
 const tintColorLight = '#0a7ea4';
 const tintColorDark = '#fff';
 
@@ -29,13 +103,9 @@ export const Colors = {
 
 export const Fonts = Platform.select({
   ios: {
-    /** iOS `UIFontDescriptorSystemDesignDefault` */
     sans: 'system-ui',
-    /** iOS `UIFontDescriptorSystemDesignSerif` */
     serif: 'ui-serif',
-    /** iOS `UIFontDescriptorSystemDesignRounded` */
     rounded: 'ui-rounded',
-    /** iOS `UIFontDescriptorSystemDesignMonospaced` */
     mono: 'ui-monospace',
   },
   default: {

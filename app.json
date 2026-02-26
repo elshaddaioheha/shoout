@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "shouuts",
+    "name": "Shoouts",
     "slug": "shouuts",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -12,9 +12,10 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.shouuts.app",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundColor": "#140F10",
+        "foregroundImage": "./assets/images/logo-rings.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
@@ -30,10 +31,10 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
+          "image": "./assets/images/logo-rings.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff",
+          "backgroundColor": "#140F10",
           "dark": {
             "backgroundColor": "#000000"
           }
@@ -44,6 +45,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "536db878-94a0-4cff-9221-dd105ed01d48"
+      }
     }
   }
 }

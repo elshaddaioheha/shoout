@@ -1,18 +1,20 @@
+import SharedHeader from '@/components/SharedHeader';
+import Sidebar from '@/components/Sidebar';
+import { LinearGradient } from 'expo-linear-gradient';
+import { ChevronLeft, Heart, MoreVertical, Search, ShoppingCart } from 'lucide-react-native';
 import React, { useState } from 'react';
 import {
-    View,
-    Text,
-    StyleSheet,
-    TouchableOpacity,
-    TextInput,
-    ScrollView,
-    SafeAreaView,
     Dimensions,
+    Platform,
+    SafeAreaView,
+    ScrollView,
     StatusBar,
-    Platform
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
 } from 'react-native';
-import { Search, ChevronLeft, ShoppingCart, Heart, MoreVertical, Compass } from 'lucide-react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 
 const { width } = Dimensions.get('window');
 
@@ -21,6 +23,7 @@ type ViewMode = 'browse' | 'allGenres' | 'results';
 export default function SearchScreen() {
     const [viewMode, setViewMode] = useState<ViewMode>('browse');
     const [searchQuery, setSearchQuery] = useState('');
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
     const featuredGenres = [
         { name: "Paradise", colors: ["#EC5C39", "#863420"] },
@@ -74,46 +77,38 @@ export default function SearchScreen() {
         <View style={styles.container}>
             <StatusBar barStyle="light-content" />
 
-            {/* Header Area */}
-            <SafeAreaView style={styles.safeArea}>
-                <View style={styles.header}>
-                    {viewMode !== 'browse' ? (
+            {/* Header */}
+            {viewMode === 'browse' ? (
+                <SharedHeader onMenuPress={() => setIsSidebarOpen(true)} title="Search" />
+            ) : (
+                <SafeAreaView style={styles.safeArea}>
+                    <View style={styles.header}>
                         <View style={styles.resultsHeaderRow}>
                             <TouchableOpacity onPress={goBack} style={styles.backButton}>
                                 <ChevronLeft size={24} color="#D9D9D9" />
                             </TouchableOpacity>
                             <View style={styles.headerLeftWithBack}>
-                                <View style={styles.userProfileCircle}>
-                                    <Text style={styles.userProfileInitial}>C</Text>
-                                </View>
                                 <Text style={styles.headerTitle}>{viewMode === 'allGenres' ? 'Search' : (searchQuery || 'Results')}</Text>
                             </View>
                         </View>
-                    ) : (
-                        <View style={styles.headerLeft}>
-                            <View style={styles.userProfileCircle}>
-                                <Text style={styles.userProfileInitial}>C</Text>
-                            </View>
-                            <Text style={styles.headerTitle}>Search</Text>
-                        </View>
-                    )}
-                </View>
-
-                {/* Search Bar (Hidden in All Genres view as per design screenshots usually, but let's keep it if not specifically removed) */}
-                {viewMode !== 'allGenres' && (
-                    <View style={styles.searchBar}>
-                        <Search size={24} color="black" />
-                        <TextInput
-                            placeholder="Search the best Afro Music"
-                            placeholderTextColor="rgba(0,0,0,0.5)"
-                            style={styles.searchInput}
-                            value={searchQuery}
-                            onChangeText={setSearchQuery}
-                            onSubmitEditing={() => setViewMode('results')}
-                        />
                     </View>
-                )}
-            </SafeAreaView>
+                </SafeAreaView>
+            )}
+
+            {/* Search Bar */}
+            {viewMode !== 'allGenres' && (
+                <View style={styles.searchBar}>
+                    <Search size={24} color="black" />
+                    <TextInput
+                        placeholder="Search the best Afro Music"
+                        placeholderTextColor="rgba(0,0,0,0.5)"
+                        style={styles.searchInput}
+                        value={searchQuery}
+                        onChangeText={setSearchQuery}
+                        onSubmitEditing={() => setViewMode('results')}
+                    />
+                </View>
+            )}
 
             {/* Content Area */}
             <ScrollView
@@ -137,6 +132,9 @@ export default function SearchScreen() {
 
             {/* Home Indicator */}
             <View style={styles.homeIndicator} />
+
+            {/* Sidebar */}
+            <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
         </View>
     );
 }

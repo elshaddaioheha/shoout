@@ -1,75 +1,88 @@
+import MiniPlayer from '@/components/MiniPlayer';
+import { useUserStore } from '@/store/useUserStore';
 import { Tabs } from 'expo-router';
+import { Home, Library, MoreHorizontal, Search, ShoppingCart } from 'lucide-react-native';
 import React from 'react';
-import { View, StyleSheet, Platform, TouchableOpacity } from 'react-native';
-import { Home, Search, ShoppingCart, Compass, MoreVertical } from 'lucide-react-native';
+import { Platform, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function TabLayout() {
+  const { role, viewMode } = useUserStore();
+  const insets = useSafeAreaInsets();
+
+  const tabHeight = Platform.OS === 'ios' ? 90 : (60 + insets.bottom);
+  const tabPadding = Platform.OS === 'ios' ? insets.bottom : (insets.bottom > 0 ? insets.bottom : 10);
+
   return (
-    <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: '#EC5C39',
-        tabBarInactiveTintColor: '#FFFFFF',
-        headerShown: false,
-        tabBarStyle: {
-          backgroundColor: '#140F10',
-          borderTopColor: 'rgba(0,0,0,0.1)',
-          height: Platform.OS === 'ios' ? 90 : 70,
-          paddingBottom: Platform.OS === 'ios' ? 30 : 10,
-          elevation: 0,
-          shadowOpacity: 0,
-        },
-        tabBarLabelStyle: {
-          fontFamily: 'Poppins-Regular',
-          fontSize: 10,
-          display: 'none', // Matching user mock with no labels
-        },
-      }}>
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <Home size={24} color={color} fill={color === '#EC5C39' ? '#EC5C39' : 'none'} />,
-        }}
-      />
-      <Tabs.Screen
-        name="search"
-        options={{
-          title: 'Search',
-          tabBarIcon: ({ color }) => <Search size={24} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="studio"
-        options={{
-          title: 'Shop',
-          tabBarIcon: ({ color }) => <ShoppingCart size={24} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => (
-            <View style={styles.exploreWrapper}>
-              <Compass size={24} color={color} />
-              <TouchableOpacity style={styles.moreButton}>
-                <MoreVertical size={24} color="white" />
-              </TouchableOpacity>
-            </View>
-          ),
-        }}
-      />
-    </Tabs>
+    <>
+      <Tabs
+        screenOptions={{
+          tabBarActiveTintColor: '#EC5C39',
+          tabBarInactiveTintColor: '#FFFFFF',
+          headerShown: false,
+          tabBarStyle: {
+            backgroundColor: '#140F10',
+            borderTopColor: 'rgba(255,255,255,0.05)',
+            height: tabHeight,
+            paddingBottom: tabPadding,
+            elevation: 0,
+            shadowOpacity: 0,
+            borderTopWidth: 1,
+          },
+          tabBarLabelStyle: {
+            fontFamily: 'Poppins-Regular',
+            fontSize: 10,
+            display: 'none',
+          },
+        }}>
+        <Tabs.Screen
+          name="index"
+          options={{
+            title: 'Home',
+            tabBarIcon: ({ color }) => <Home size={24} color={color} fill={color === '#EC5C39' ? '#EC5C39' : 'none'} />,
+          }}
+        />
+        <Tabs.Screen
+          name="search"
+          options={{
+            title: 'Search',
+            tabBarIcon: ({ color }) => <Search size={24} color={color} />,
+          }}
+        />
+        <Tabs.Screen
+          name="marketplace"
+          options={{
+            title: 'Shop',
+            tabBarIcon: ({ color }) => <ShoppingCart size={24} color={color} />,
+          }}
+        />
+        <Tabs.Screen
+          name="library"
+          options={{
+            title: 'Library',
+            tabBarIcon: ({ color }) => <Library size={24} color={color} />,
+          }}
+        />
+        <Tabs.Screen
+          name="more"
+          options={{
+            title: 'More',
+            tabBarIcon: ({ color }) => <MoreHorizontal size={24} color={color} />,
+          }}
+        />
+        {/* Hide default/unused screens */}
+        <Tabs.Screen
+          name="profile"
+          options={{ href: null }}
+        />
+        <Tabs.Screen
+          name="explore"
+          options={{ href: null }}
+        />
+      </Tabs>
+      <MiniPlayer />
+    </>
   );
 }
 
-const styles = StyleSheet.create({
-  exploreWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 40, // Space between Explore and More
-  },
-  moreButton: {
-    padding: 4,
-  }
-});
+const styles = StyleSheet.create({});

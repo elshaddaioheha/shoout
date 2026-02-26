@@ -1,0 +1,443 @@
+import SafeScreenWrapper from '@/components/SafeScreenWrapper';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import {
+    ChevronDown,
+    ChevronLeft,
+    Image as ImageIcon,
+    Music,
+    Upload as UploadIcon,
+    X
+} from 'lucide-react-native';
+import React, { useState } from 'react';
+import {
+    ActivityIndicator,
+    Dimensions,
+    Image,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
+} from 'react-native';
+
+const { width } = Dimensions.get('window');
+
+const GENRES = ['Afrobeat', 'Amapiano', 'Trap', 'Drill', 'R&B', 'Dancehall'];
+
+export default function UploadScreen() {
+    const router = useRouter();
+    const [title, setTitle] = useState('');
+    const [genre, setGenre] = useState('');
+    const [bpm, setBpm] = useState('');
+    const [price, setPrice] = useState('');
+    const [description, setDescription] = useState('');
+    const [uploading, setUploading] = useState(false);
+    const [showGenrePicker, setShowGenrePicker] = useState(false);
+
+    const handleBack = () => {
+        router.back();
+    };
+
+    const handleUpload = () => {
+        setUploading(true);
+        // Simulate upload
+        setTimeout(() => {
+            setUploading(false);
+            router.back();
+        }, 2000);
+    };
+
+    return (
+        <SafeScreenWrapper>
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={{ flex: 1 }}
+            >
+                <View style={styles.container}>
+                    {/* Header */}
+                    <View style={styles.header}>
+                        <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+                            <ChevronLeft size={24} color="#FFF" />
+                        </TouchableOpacity>
+                        <Text style={styles.headerTitle}>Upload Music</Text>
+                        <View style={{ width: 40 }} />
+                    </View>
+
+                    <ScrollView
+                        showsVerticalScrollIndicator={false}
+                        contentContainerStyle={styles.scrollContent}
+                    >
+                        {/* Artwork Upload */}
+                        <TouchableOpacity style={styles.artworkUpload}>
+                            <LinearGradient
+                                colors={['rgba(255,255,255,0.05)', 'rgba(255,255,255,0.02)']}
+                                style={styles.artworkGradient}
+                            >
+                                <ImageIcon size={32} color="rgba(255,255,255,0.4)" />
+                                <Text style={styles.uploadArtText}>Tap to add Cover Art</Text>
+                                <Text style={styles.uploadArtSub}>1:1 Ratio recommended</Text>
+                            </LinearGradient>
+                        </TouchableOpacity>
+
+                        {/* File Upload Section */}
+                        <TouchableOpacity style={styles.fileUploadBox}>
+                            <View style={styles.fileIconContainer}>
+                                <Music size={24} color="#EC5C39" />
+                            </View>
+                            <View style={styles.fileInfo}>
+                                <Text style={styles.fileTitle}>Select Audio File</Text>
+                                <Text style={styles.fileSub}>MP3, WAV or FLAC (Max 50MB)</Text>
+                            </View>
+                            <UploadIcon size={20} color="rgba(255,255,255,0.4)" />
+                        </TouchableOpacity>
+
+                        {/* Form Fields */}
+                        <View style={styles.form}>
+                            <View style={styles.inputGroup}>
+                                <Text style={styles.label}>Track Title</Text>
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="Enter song or beat name"
+                                    placeholderTextColor="rgba(255,255,255,0.3)"
+                                    value={title}
+                                    onChangeText={setTitle}
+                                />
+                            </View>
+
+                            <View style={styles.rowInputs}>
+                                <View style={[styles.inputGroup, { flex: 1 }]}>
+                                    <Text style={styles.label}>Genre</Text>
+                                    <TouchableOpacity
+                                        style={styles.pickerTrigger}
+                                        onPress={() => setShowGenrePicker(true)}
+                                    >
+                                        <Text style={[styles.pickerText, !genre && { color: 'rgba(255,255,255,0.3)' }]}>
+                                            {genre || 'Select Genre'}
+                                        </Text>
+                                        <ChevronDown size={18} color="rgba(255,255,255,0.6)" />
+                                    </TouchableOpacity>
+                                </View>
+                                <View style={[styles.inputGroup, { width: 100 }]}>
+                                    <Text style={styles.label}>BPM</Text>
+                                    <TextInput
+                                        style={styles.input}
+                                        placeholder="120"
+                                        placeholderTextColor="rgba(255,255,255,0.3)"
+                                        keyboardType="numeric"
+                                        value={bpm}
+                                        onChangeText={setBpm}
+                                    />
+                                </View>
+                            </View>
+
+                            <View style={styles.inputGroup}>
+                                <Text style={styles.label}>Price (optional)</Text>
+                                <View style={styles.priceInputWrapper}>
+                                    <Text style={styles.currencyPrefix}>$</Text>
+                                    <TextInput
+                                        style={[styles.input, { paddingLeft: 30 }]}
+                                        placeholder="29.99"
+                                        placeholderTextColor="rgba(255,255,255,0.3)"
+                                        keyboardType="decimal-pad"
+                                        value={price}
+                                        onChangeText={setPrice}
+                                    />
+                                </View>
+                            </View>
+
+                            <View style={styles.inputGroup}>
+                                <Text style={styles.label}>Description</Text>
+                                <TextInput
+                                    style={[styles.input, styles.textArea]}
+                                    placeholder="Write something about your track..."
+                                    placeholderTextColor="rgba(255,255,255,0.3)"
+                                    multiline
+                                    numberOfLines={4}
+                                    value={description}
+                                    onChangeText={setDescription}
+                                />
+                            </View>
+                        </View>
+
+                        {/* Upload Button */}
+                        <TouchableOpacity
+                            style={styles.publishButton}
+                            onPress={handleUpload}
+                            disabled={uploading}
+                        >
+                            <LinearGradient
+                                colors={['#EC5C39', '#863420']}
+                                style={styles.publishGradient}
+                            >
+                                {uploading ? (
+                                    <ActivityIndicator color="#FFF" />
+                                ) : (
+                                    <View style={styles.buttonContent}>
+                                        <Image
+                                            source={require('@/assets/images/check-circle.png')}
+                                            style={{ width: 20, height: 20, marginRight: 8 }}
+                                            contentFit="contain"
+                                        />
+                                        <Text style={styles.publishText}>Publish Track</Text>
+                                    </View>
+                                )}
+                            </LinearGradient>
+                        </TouchableOpacity>
+
+                        <View style={{ height: 100 }} />
+                    </ScrollView>
+                </View>
+
+                {/* Genre Picker Modal Placeholder */}
+                {showGenrePicker && (
+                    <TouchableOpacity
+                        style={styles.modalOverlay}
+                        activeOpacity={1}
+                        onPress={() => setShowGenrePicker(false)}
+                    >
+                        <View style={styles.pickerContent}>
+                            <View style={styles.pickerHeader}>
+                                <Text style={styles.pickerTitle}>Select Genre</Text>
+                                <TouchableOpacity onPress={() => setShowGenrePicker(false)}>
+                                    <X size={24} color="#FFF" />
+                                </TouchableOpacity>
+                            </View>
+                            {GENRES.map((g) => (
+                                <TouchableOpacity
+                                    key={g}
+                                    style={styles.genreItem}
+                                    onPress={() => {
+                                        setGenre(g);
+                                        setShowGenrePicker(false);
+                                    }}
+                                >
+                                    <Text style={[styles.genreItemText, genre === g && { color: '#EC5C39' }]}>
+                                        {g}
+                                    </Text>
+                                    {genre === g && (
+                                        <Image
+                                            source={require('@/assets/images/check-circle.png')}
+                                            style={{ width: 18, height: 18 }}
+                                            contentFit="contain"
+                                        />
+                                    )}
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                    </TouchableOpacity>
+                )}
+            </KeyboardAvoidingView>
+        </SafeScreenWrapper>
+    );
+}
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        paddingHorizontal: 20,
+    },
+    header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingVertical: 15,
+        marginBottom: 10,
+    },
+    backButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(255,255,255,0.05)',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    headerTitle: {
+        fontSize: 20,
+        fontFamily: 'Poppins-Bold',
+        color: '#FFF',
+    },
+    scrollContent: {
+        paddingBottom: 40,
+    },
+    artworkUpload: {
+        width: '100%',
+        aspectRatio: 1,
+        borderRadius: 24,
+        overflow: 'hidden',
+        marginBottom: 25,
+        borderWidth: 1,
+        borderStyle: 'dashed',
+        borderColor: 'rgba(255,255,255,0.1)',
+    },
+    artworkGradient: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    uploadArtText: {
+        color: '#FFF',
+        fontFamily: 'Poppins-SemiBold',
+        fontSize: 16,
+        marginTop: 12,
+    },
+    uploadArtSub: {
+        color: 'rgba(255,255,255,0.4)',
+        fontFamily: 'Poppins-Regular',
+        fontSize: 12,
+        marginTop: 4,
+    },
+    fileUploadBox: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(236, 92, 57, 0.05)',
+        borderRadius: 16,
+        padding: 16,
+        marginBottom: 30,
+        borderWidth: 1,
+        borderColor: 'rgba(236, 92, 57, 0.1)',
+    },
+    fileIconContainer: {
+        width: 48,
+        height: 48,
+        borderRadius: 12,
+        backgroundColor: 'rgba(236, 92, 57, 0.1)',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    fileInfo: {
+        flex: 1,
+        marginLeft: 15,
+    },
+    fileTitle: {
+        color: '#FFF',
+        fontFamily: 'Poppins-Bold',
+        fontSize: 14,
+    },
+    fileSub: {
+        color: 'rgba(255,255,255,0.4)',
+        fontFamily: 'Poppins-Regular',
+        fontSize: 11,
+        marginTop: 2,
+    },
+    form: {
+        gap: 20,
+    },
+    inputGroup: {
+        gap: 8,
+    },
+    label: {
+        color: 'rgba(255,255,255,0.6)',
+        fontFamily: 'Poppins-SemiBold',
+        fontSize: 13,
+        marginLeft: 4,
+    },
+    input: {
+        backgroundColor: 'rgba(255,255,255,0.05)',
+        borderRadius: 12,
+        paddingHorizontal: 16,
+        paddingVertical: 14,
+        color: '#FFF',
+        fontFamily: 'Poppins-Regular',
+        fontSize: 14,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.05)',
+    },
+    textArea: {
+        height: 100,
+        textAlignVertical: 'top',
+    },
+    rowInputs: {
+        flexDirection: 'row',
+        gap: 15,
+    },
+    pickerTrigger: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        backgroundColor: 'rgba(255,255,255,0.05)',
+        borderRadius: 12,
+        paddingHorizontal: 16,
+        paddingVertical: 14,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.05)',
+    },
+    pickerText: {
+        color: '#FFF',
+        fontFamily: 'Poppins-Regular',
+        fontSize: 14,
+    },
+    priceInputWrapper: {
+        position: 'relative',
+        justifyContent: 'center',
+    },
+    currencyPrefix: {
+        position: 'absolute',
+        left: 16,
+        color: 'rgba(255,255,255,0.4)',
+        fontFamily: 'Poppins-Bold',
+        fontSize: 14,
+        zIndex: 1,
+    },
+    publishButton: {
+        marginTop: 40,
+        height: 56,
+        borderRadius: 16,
+        overflow: 'hidden',
+    },
+    publishGradient: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    buttonContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    publishText: {
+        color: '#FFF',
+        fontFamily: 'Poppins-Bold',
+        fontSize: 16,
+    },
+    modalOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(0,0,0,0.8)',
+        justifyContent: 'flex-end',
+        zIndex: 1000,
+    },
+    pickerContent: {
+        backgroundColor: '#1A1516',
+        borderTopLeftRadius: 30,
+        borderTopRightRadius: 30,
+        padding: 24,
+        paddingBottom: 40,
+        maxHeight: '70%',
+    },
+    pickerHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 20,
+    },
+    pickerTitle: {
+        color: '#FFF',
+        fontFamily: 'Poppins-Bold',
+        fontSize: 18,
+    },
+    genreItem: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingVertical: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(255,255,255,0.05)',
+    },
+    genreItemText: {
+        color: 'rgba(255,255,255,0.6)',
+        fontFamily: 'Poppins-SemiBold',
+        fontSize: 16,
+    }
+});

@@ -1,18 +1,17 @@
-import React, { useState, useEffect, useRef } from 'react';
-import {
-    View,
-    Text,
-    StyleSheet,
-    Dimensions,
-    TouchableOpacity,
-    Animated,
-    SafeAreaView,
-    StatusBar
-} from 'react-native';
-import { ChevronRight } from 'lucide-react-native';
-import Svg, { Circle, Rect, Path, Ellipse } from 'react-native-svg';
-import { useRouter } from 'expo-router';
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import { ChevronRight } from 'lucide-react-native';
+import React, { useRef, useState } from 'react';
+import {
+    Animated,
+    Dimensions,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
+} from 'react-native';
 
 const { width, height } = Dimensions.get('window');
 
@@ -160,9 +159,27 @@ export default function OnboardingFlow() {
 
                 {/* Illustration Container */}
                 <View style={styles.illustrationContainer}>
-                    {currentScreen === 0 && <AfricanIllustration />}
-                    {currentScreen === 1 && <DiscoverIllustration />}
-                    {currentScreen === 2 && <JourneyIllustration />}
+                    {currentScreen === 0 && (
+                        <Image
+                            source={require('@/assets/images/welcome-1.png')}
+                            style={styles.illustrationImage}
+                            contentFit="contain"
+                        />
+                    )}
+                    {currentScreen === 1 && (
+                        <Image
+                            source={require('@/assets/images/welcome-2.png')}
+                            style={styles.illustrationImage}
+                            contentFit="contain"
+                        />
+                    )}
+                    {currentScreen === 2 && (
+                        <Image
+                            source={require('@/assets/images/welcome-3.png')}
+                            style={styles.illustrationImage}
+                            contentFit="contain"
+                        />
+                    )}
                 </View>
 
             </Animated.View>
@@ -173,44 +190,7 @@ export default function OnboardingFlow() {
     );
 }
 
-// Illustration Components
-function AfricanIllustration() {
-    return (
-        <Svg width={width * 0.9} height={width * 0.9} viewBox="0 0 352 329">
-            <Circle cx="176" cy="120" r="80" fill="#F05A3B" opacity="0.8" />
-            <Circle cx="100" cy="200" r="60" fill="#FFFFFF" opacity="0.6" />
-            <Circle cx="250" cy="200" r="60" fill="#FFFFFF" opacity="0.6" />
-            <Path d="M120 180 L140 220 L160 180" stroke="#FFFFFF" strokeWidth="8" strokeLinecap="round" fill="none" />
-            <Path d="M190 180 L210 220 L230 180" stroke="#FFFFFF" strokeWidth="8" strokeLinecap="round" fill="none" />
-            <Ellipse cx="176" cy="260" rx="80" ry="40" fill="#F05A3B" opacity="0.5" />
-        </Svg>
-    );
-}
-
-function DiscoverIllustration() {
-    return (
-        <Svg width={width} height={width * 0.9} viewBox="0 0 393 361">
-            <Circle cx="280" cy="100" r="90" fill="#EC5C39" opacity="0.9" />
-            <Rect x="50" y="200" width="150" height="150" rx="20" fill="#FFFFFF" opacity="0.7" />
-            <Circle cx="125" cy="275" r="40" fill="#EC5C39" />
-            <Path d="M100 250 L125 275 L150 250" stroke="#FFFFFF" strokeWidth="6" strokeLinecap="round" fill="none" />
-        </Svg>
-    );
-}
-
-function JourneyIllustration() {
-    return (
-        <Svg width={width * 0.8} height={width * 0.8} viewBox="0 0 299 294">
-            <Circle cx="250" cy="150" r="35" fill="#EC5C39" opacity="0.8" />
-            <Circle cx="60" cy="120" r="50" fill="#EC5C39" opacity="0.8" />
-            <Circle cx="220" cy="200" r="40" fill="#EC5C39" opacity="0.8" />
-            <Circle cx="70" cy="200" r="40" fill="#EC5C39" opacity="0.8" />
-            <Path d="M60 120 Q150 50 250 150" stroke="#EC5C39" strokeWidth="4" fill="none" opacity="0.6" />
-            <Path d="M220 200 Q150 250 70 200" stroke="#EC5C39" strokeWidth="4" fill="none" opacity="0.6" />
-            <Rect x="100" y="220" width="100" height="60" rx="8" fill="#EC5C39" opacity="0.3" />
-        </Svg>
-    );
-}
+// SVG illustrations removed in favor of images
 
 const styles = StyleSheet.create({
     container: {
@@ -290,11 +270,15 @@ const styles = StyleSheet.create({
     },
     illustrationContainer: {
         position: 'absolute',
-        bottom: 50,
+        bottom: 80,
         left: 0,
         right: 0,
         alignItems: 'center',
         zIndex: -1,
+    },
+    illustrationImage: {
+        width: width * 0.8,
+        height: width * 0.8,
     },
     homeIndicator: {
         position: 'absolute',
