@@ -1,15 +1,56 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, SafeAreaView, ScrollView } from 'react-native';
-import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { doc, setDoc } from 'firebase/firestore';
+import React from 'react';
+import { SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { auth, db } from '../../firebaseConfig';
 
 export default function SignupScreen() {
     const router = useRouter();
+    const [fullName, setFullName] = React.useState('');
+    const [email, setEmail] = React.useState('');
+    const [password, setPassword] = React.useState('');
+    const [confirmPassword, setConfirmPassword] = React.useState('');
+    const [loading, setLoading] = React.useState(false);
+
+    const handleSignup = async () => {
+        if (!email || !password || !fullName) return;
+        if (password !== confirmPassword) {
+            alert("Passwords don't match");
+            return;
+        }
+
+        setLoading(true);
+        try {
+            // 1. Create secure Auth account
+            const userCred = await createUserWithEmailAndPassword(auth, email, password);
+            if (userCred.user) {
+                await updateProfile(userCred.user, { displayName: fullName });
+
+                // 2. Save physical user metadata to Firestore Database
+                await setDoc(doc(db, "users", userCred.user.uid), {
+                    fullName,
+                    email,
+                    role: 'vault', // Default initial role
+                    createdAt: new Date().toISOString()
+                });
+
+                // Route to real role selection 
+                router.replace('/(auth)/role-selection');
+            }
+        } catch (error: any) {
+            console.error('Signup error:', error.message);
+            alert(error.message);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     return (
         <SafeAreaView style={styles.container}>
             <ScrollView contentContainerStyle={styles.content}>
-                <Text style={styles.title}>Join Shouut</Text>
+                <Text style={styles.title}>Join ShooutS</Text>
                 <Text style={styles.subtitle}>Create an account to start sharing your sound</Text>
 
                 <View style={styles.form}>
@@ -17,6 +58,8 @@ export default function SignupScreen() {
                         style={styles.input}
                         placeholder="Full Name"
                         placeholderTextColor="#666"
+                        value={fullName}
+                        onChangeText={setFullName}
                     />
                     <TextInput
                         style={styles.input}
@@ -24,29 +67,36 @@ export default function SignupScreen() {
                         placeholderTextColor="#666"
                         keyboardType="email-address"
                         autoCapitalize="none"
+                        value={email}
+                        onChangeText={setEmail}
                     />
                     <TextInput
                         style={styles.input}
                         placeholder="Password"
                         placeholderTextColor="#666"
                         secureTextEntry
+                        value={password}
+                        onChangeText={setPassword}
                     />
                     <TextInput
                         style={styles.input}
                         placeholder="Confirm Password"
                         placeholderTextColor="#666"
                         secureTextEntry
+                        value={confirmPassword}
+                        onChangeText={setConfirmPassword}
                     />
 
                     <TouchableOpacity
-                        onPress={() => router.replace('/(tabs)')}
+                        onPress={handleSignup}
                         activeOpacity={0.8}
+                        disabled={loading}
                     >
                         <LinearGradient
                             colors={['#ED5639', '#C96F6F']}
                             style={styles.button}
                         >
-                            <Text style={styles.buttonText}>Sign Up</Text>
+                            <Text style={styles.buttonText}>{loading ? 'Signing Up...' : 'Sign Up'}</Text>
                         </LinearGradient>
                     </TouchableOpacity>
                 </View>

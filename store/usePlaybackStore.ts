@@ -1,5 +1,7 @@
 import { Audio } from 'expo-av';
+import { doc, increment, updateDoc } from 'firebase/firestore';
 import { create } from 'zustand';
+import { db } from '../firebaseConfig';
 
 export interface Track {
   id: string;
@@ -7,6 +9,7 @@ export interface Track {
   artist: string;
   artworkUrl?: string;
   url: string; // Required for expo-av
+  uploaderId?: string; // Links listener to creator's backend vault
 }
 
 interface PlaybackState {
@@ -77,6 +80,18 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => ({
           }
         }
       );
+
+      // Log successful play in Creator's Analytics vault if track metadata exists
+      if (track.id && track.uploaderId && !track.id.startsWith('lib-')) {
+        try {
+          const trackRef = doc(db, `users/${track.uploaderId}/uploads/${track.id}`);
+          await updateDoc(trackRef, {
+            listenCount: increment(1)
+          });
+        } catch (e) {
+          console.log('Failed to tally analytics listen:', e);
+        }
+      }
 
       set({ sound, isBuffering: false, isPlaying: true });
     } catch (error) {

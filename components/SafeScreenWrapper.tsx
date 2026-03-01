@@ -1,5 +1,7 @@
 import React from 'react';
-import { StyleSheet, SafeAreaView, View, ViewProps, StatusBar, Platform } from 'react-native';
+import { StyleSheet, View, ViewProps } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { theme } from '../constants/theme';
 
 interface SafeScreenWrapperProps extends ViewProps {
     children: React.ReactNode;
@@ -8,7 +10,11 @@ interface SafeScreenWrapperProps extends ViewProps {
 
 export default function SafeScreenWrapper({ children, style, transparent = false, ...props }: SafeScreenWrapperProps) {
     return (
-        <SafeAreaView style={[styles.container, transparent && styles.transparent, style]} {...props}>
+        <SafeAreaView
+            style={[styles.container, transparent && styles.transparent, style]}
+            edges={['top', 'left', 'right']} // Exclude bottom if handled by tab bar, or adjust dynamically if needed
+            {...props}
+        >
             <View style={styles.content}>
                 {children}
             </View>
@@ -19,8 +25,7 @@ export default function SafeScreenWrapper({ children, style, transparent = false
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#140F10',
-        paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+        backgroundColor: theme.colors.background,
     },
     transparent: {
         backgroundColor: 'transparent',

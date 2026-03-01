@@ -1,6 +1,10 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
+import * as DocumentPicker from 'expo-document-picker';
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { getDownloadURL, ref, uploadBytesResumable } from 'firebase/storage';
 import {
     ChevronDown,
     ChevronLeft,
@@ -13,7 +17,6 @@ import React, { useState } from 'react';
 import {
     ActivityIndicator,
     Dimensions,
-    Image,
     KeyboardAvoidingView,
     Platform,
     ScrollView,
@@ -21,8 +24,9 @@ import {
     Text,
     TextInput,
     TouchableOpacity,
-    View
+    View,
 } from 'react-native';
+import { auth, db, storage } from '../../firebaseConfig';
 
 const { width } = Dimensions.get('window');
 
@@ -38,17 +42,82 @@ export default function UploadScreen() {
     const [uploading, setUploading] = useState(false);
     const [showGenrePicker, setShowGenrePicker] = useState(false);
 
+    const [audioFile, setAudioFile] = useState<any>(null);
+
     const handleBack = () => {
         router.back();
     };
 
-    const handleUpload = () => {
+    const handleSelectFile = async () => {
+        try {
+            const result = await DocumentPicker.getDocumentAsync({
+                type: 'audio/*',
+                copyToCacheDirectory: true
+            });
+            if (result.canceled === false) {
+                setAudioFile(result.assets[0]);
+            }
+        } catch (error) {
+            console.error('Document picker error:', error);
+            alert('Failed to pick file.');
+        }
+    };
+
+    const handleUpload = async () => {
+        if (!title) {
+            alert("Please enter a title");
+            return;
+        }
+        if (!audioFile) {
+            alert("Please select an audio file to upload");
+            return;
+        }
+        if (!auth.currentUser) {
+            alert("Authentication error - Please log in again");
+            return;
+        }
+
         setUploading(true);
-        // Simulate upload
-        setTimeout(() => {
-            setUploading(false);
+        try {
+            // 1. Convert local URI into a blob that Firebase Cloud Storage can digest
+            const response = await fetch(audioFile.uri);
+            const blob = await response.blob();
+
+            // 2. Reference in Cloud Storage bucket (/vaults/userId/trackName_timestamp.mp3)
+            const safeFileName = `${title.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}`;
+            const storageRef = ref(storage, `vaults/${auth.currentUser.uid}/${safeFileName}`);
+
+            // 3. Upload bytes to bucket
+            const uploadTask = await uploadBytesResumable(storageRef, blob);
+
+            // 4. Get the permanent streamable URL
+            const downloadUrl = await getDownloadURL(uploadTask.ref);
+
+            // 5. Save the metadata pointer natively into Firestore Collections
+            await addDoc(collection(db, `users/${auth.currentUser.uid}/uploads`), {
+                title,
+                genre: genre || "Unknown",
+                bpm: parseInt(bpm) || 0,
+                price: parseFloat(price) || 0,
+                description,
+                audioUrl: downloadUrl,
+                fileName: audioFile.name,
+                listenCount: 0,
+                createdAt: serverTimestamp(),
+                isPublic: true,
+                userId: auth.currentUser.uid,
+                uploaderName: auth.currentUser.displayName || "Shoouter",
+                category: genre === 'Drum Kit' || genre === 'Vocal Pack' ? 'Sample' : 'Beat' // Simple heuristic for now
+            });
+
+            alert("Track uploaded to your Vault successfully!");
             router.back();
-        }, 2000);
+        } catch (error: any) {
+            console.error("Upload error: ", error);
+            alert("Failed to upload: " + error.message);
+        } finally {
+            setUploading(false);
+        }
     };
 
     return (
@@ -84,15 +153,15 @@ export default function UploadScreen() {
                         </TouchableOpacity>
 
                         {/* File Upload Section */}
-                        <TouchableOpacity style={styles.fileUploadBox}>
+                        <TouchableOpacity style={styles.fileUploadBox} onPress={handleSelectFile}>
                             <View style={styles.fileIconContainer}>
                                 <Music size={24} color="#EC5C39" />
                             </View>
                             <View style={styles.fileInfo}>
-                                <Text style={styles.fileTitle}>Select Audio File</Text>
-                                <Text style={styles.fileSub}>MP3, WAV or FLAC (Max 50MB)</Text>
+                                <Text style={styles.fileTitle} numberOfLines={1}>{audioFile ? audioFile.name : 'Select Audio File'}</Text>
+                                <Text style={styles.fileSub}>{audioFile && audioFile.size ? `${(audioFile.size / (1024 * 1024)).toFixed(2)} MB` : 'MP3, WAV or FLAC (Max 50MB)'}</Text>
                             </View>
-                            <UploadIcon size={20} color="rgba(255,255,255,0.4)" />
+                            <UploadIcon size={20} color={audioFile ? "#EC5C39" : "rgba(255,255,255,0.4)"} />
                         </TouchableOpacity>
 
                         {/* Form Fields */}

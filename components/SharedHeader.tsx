@@ -1,6 +1,6 @@
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import { Bell, Menu } from 'lucide-react-native';
+import { Bell, Menu, MessageSquare, ShoppingCart } from 'lucide-react-native';
 import React from 'react';
 import { Platform, SafeAreaView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
@@ -8,9 +8,12 @@ interface SharedHeaderProps {
     onMenuPress: () => void;
     title?: string;
     showSearch?: boolean;
+    showCart?: boolean;
+    cartCount?: number;
+    showMessages?: boolean;
 }
 
-export default function SharedHeader({ onMenuPress, title }: SharedHeaderProps) {
+export default function SharedHeader({ onMenuPress, title, showCart, cartCount, showMessages }: SharedHeaderProps) {
     const router = useRouter();
 
     return (
@@ -31,6 +34,27 @@ export default function SharedHeader({ onMenuPress, title }: SharedHeaderProps) 
                     {title && <Text style={styles.headerTitle}>{title}</Text>}
                 </View>
                 <View style={styles.headerRight}>
+                    {showMessages && (
+                        <TouchableOpacity
+                            style={[styles.iconButton, { marginRight: 12 }]}
+                            onPress={() => router.push('/chat')}
+                        >
+                            <MessageSquare size={20} color="white" />
+                        </TouchableOpacity>
+                    )}
+                    {showCart && (
+                        <TouchableOpacity
+                            style={[styles.iconButton, { marginRight: 12 }]}
+                            onPress={() => router.push('/cart')}
+                        >
+                            <ShoppingCart size={20} color="white" />
+                            {cartCount && cartCount > 0 ? (
+                                <View style={styles.badge}>
+                                    <Text style={styles.badgeText}>{cartCount}</Text>
+                                </View>
+                            ) : null}
+                        </TouchableOpacity>
+                    )}
                     <TouchableOpacity style={styles.iconButton}>
                         <Bell size={20} color="white" />
                     </TouchableOpacity>
@@ -87,5 +111,23 @@ const styles = StyleSheet.create({
         height: 36,
         alignItems: 'center',
         justifyContent: 'center',
+    },
+    badge: {
+        position: 'absolute',
+        top: -4,
+        right: -4,
+        backgroundColor: '#EC5C39',
+        borderRadius: 8,
+        width: 16,
+        height: 16,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1.5,
+        borderColor: '#140F10',
+    },
+    badgeText: {
+        color: 'white',
+        fontSize: 9,
+        fontFamily: 'Poppins-Bold',
     },
 });

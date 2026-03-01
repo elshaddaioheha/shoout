@@ -1,31 +1,123 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import SharedHeader from '@/components/SharedHeader';
 import Sidebar from '@/components/Sidebar';
+import { useCartStore } from '@/store/useCartStore';
 import { usePlaybackStore } from '@/store/usePlaybackStore';
 import { useUserStore } from '@/store/useUserStore';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { DollarSign, Filter, Music, Search, Upload } from 'lucide-react-native';
-import React, { useState } from 'react';
-import { Dimensions, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { collectionGroup, limit, onSnapshot, orderBy, query, where } from 'firebase/firestore';
+import {
+    DollarSign,
+    Filter,
+    Music,
+    Search,
+    ShoppingBag,
+    Upload
+} from 'lucide-react-native';
+import React, { useEffect, useState } from 'react';
+import {
+    ActivityIndicator,
+    Dimensions,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
+} from 'react-native';
+import { db } from '../../firebaseConfig';
 
 const { width } = Dimensions.get('window');
 
 export default function MarketplaceScreen() {
     const router = useRouter();
     const { role, viewMode } = useUserStore();
+    const cartItems = useCartStore(state => state.items);
     const [searchQuery, setSearchQuery] = useState('');
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [loading, setLoading] = useState(true);
+
+    const [trending, setTrending] = useState<any[]>([]);
+    const [samples, setSamples] = useState<any[]>([]);
+    const [arrivals, setArrivals] = useState<any[]>([]);
+
+    useEffect(() => {
+        // Fetch All Public Tracks
+        const q = query(
+            collectionGroup(db, 'uploads'),
+            where('isPublic', '==', true),
+            orderBy('listenCount', 'desc'),
+            limit(10)
+        );
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const allItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+            // Logic to segment for MVP
+            setTrending(allItems.slice(0, 5));
+            setSamples(allItems.filter((i: any) => i.category === 'Sample').slice(0, 5));
+            setArrivals(allItems.slice().sort((a: any, b: any) =>
+                (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)
+            ).slice(0, 5));
+
+            setLoading(false);
+        }, (err) => {
+            console.warn("Marketplace query failed (Check for Firestore Index):", err);
+            setLoading(false);
+        });
+
+        return () => unsubscribe();
+    }, []);
 
     const isStudioMode = viewMode === 'studio';
+
+    const filterItems = (items: any[]) => {
+        if (!searchQuery) return items;
+        return items.filter(item =>
+            item.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            item.uploaderName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            item.genre?.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+    };
+
+    const filteredTrending = filterItems(trending);
+    const filteredSamples = filterItems(samples);
+    const filteredArrivals = filterItems(arrivals);
 
     return (
         <SafeScreenWrapper>
             <View style={styles.container}>
-                {/* Header */}
-                <SharedHeader onMenuPress={() => setIsSidebarOpen(true)} title="Marketplace" />
+                <SharedHeader
+                    onMenuPress={() => setIsSidebarOpen(true)}
+                    title="Marketplace"
+                    showCart={true}
+                    cartCount={cartItems.length}
+                    showMessages={true}
+                />
 
                 <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+                    {/* Merch Store Entry */}
+                    <TouchableOpacity
+                        style={styles.merchBanner}
+                        onPress={() => router.push('/merch')}
+                    >
+                        <LinearGradient
+                            colors={['#EC5C39', '#863420']}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 0 }}
+                            style={styles.merchGradient}
+                        >
+                            <View style={styles.merchTextContent}>
+                                <Text style={styles.merchTitle}>Visit Merch Store</Text>
+                                <Text style={styles.merchSub}>Buy custom apparel & vinyl</Text>
+                            </View>
+                            <View style={styles.merchIconCircle}>
+                                <ShoppingBag size={24} color="#FFF" />
+                            </View>
+                        </LinearGradient>
+                    </TouchableOpacity>
+
                     {/* Search & Filter */}
                     <View style={styles.searchRow}>
                         <View style={styles.searchBar}>
@@ -72,10 +164,25 @@ export default function MarketplaceScreen() {
                         </LinearGradient>
                     )}
 
-                    {/* Featured Sections */}
-                    <MarketplaceSection title="Trending Beats" items={TRENDING_BEATS} />
-                    <MarketplaceSection title="Top Samples" items={TOP_SAMPLES} />
-                    <MarketplaceSection title="Exclusive Kits" items={EXCLUSIVE_KITS} />
+                    {loading ? (
+                        <View style={{ padding: 40, alignItems: 'center' }}>
+                            <ActivityIndicator color="#EC5C39" />
+                            <Text style={{ color: 'rgba(255,255,255,0.4)', marginTop: 10 }}>Loading Store...</Text>
+                        </View>
+                    ) : (
+                        <>
+                            <MarketplaceSection title="Trending Beats" items={filteredTrending} />
+                            <MarketplaceSection title="Top Samples" items={filteredSamples} />
+                            <MarketplaceSection title="New Arrivals" items={filteredArrivals} />
+
+                            {filteredTrending.length === 0 && filteredSamples.length === 0 && filteredArrivals.length === 0 && (
+                                <View style={{ padding: 40, alignItems: 'center' }}>
+                                    <Music size={40} color="rgba(255,255,255,0.1)" />
+                                    <Text style={{ color: 'rgba(255,255,255,0.3)', marginTop: 10 }}>No results found for "{searchQuery}"</Text>
+                                </View>
+                            )}
+                        </>
+                    )}
 
                     <View style={{ height: 100 }} />
                 </ScrollView>
@@ -87,6 +194,10 @@ export default function MarketplaceScreen() {
 
 function MarketplaceSection({ title, items }: any) {
     const setTrack = usePlaybackStore(state => state.setTrack);
+    const router = useRouter();
+
+    if (items.length === 0) return null;
+
     return (
         <View style={styles.section}>
             <View style={styles.sectionHeader}>
@@ -96,44 +207,45 @@ function MarketplaceSection({ title, items }: any) {
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
                 {items.map((item: any, idx: number) => (
                     <TouchableOpacity
-                        key={idx}
+                        key={item.id || idx}
                         style={styles.marketCard}
-                        onPress={() => setTrack({
-                            id: `mkt-${idx}-${item.title}`,
-                            title: item.title,
-                            artist: item.artist,
-                            url: item.url || 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3'
-                        })}
+                        onPress={() => router.push({ pathname: '/listing/[id]', params: { id: item.id } })}
                     >
                         <View style={styles.cardImage}>
                             <Music size={32} color="rgba(255,255,255,0.1)" />
                             <View style={styles.priceBadge}>
-                                <Text style={styles.priceText}>${item.price}</Text>
+                                <Text style={styles.priceText}>${item.price?.toFixed(2) || '0.00'}</Text>
                             </View>
+                            {/* Play Preview Fast Action */}
+                            <TouchableOpacity
+                                style={styles.previewPlay}
+                                onPress={(e) => {
+                                    e.stopPropagation();
+                                    setTrack({
+                                        id: item.id,
+                                        title: item.title,
+                                        artist: item.uploaderName || "Creator",
+                                        url: item.audioUrl,
+                                        uploaderId: item.userId
+                                    });
+                                }}
+                            >
+                                <LinearGradient
+                                    colors={['#EC5C39', '#863420']}
+                                    style={styles.previewCircle}
+                                >
+                                    <Music size={14} color="#FFF" />
+                                </LinearGradient>
+                            </TouchableOpacity>
                         </View>
                         <Text style={styles.itemTitle} numberOfLines={1}>{item.title}</Text>
-                        <Text style={styles.itemArtist}>{item.artist}</Text>
+                        <Text style={styles.itemArtist}>{item.uploaderName || 'Shoouter'}</Text>
                     </TouchableOpacity>
                 ))}
             </ScrollView>
         </View>
     );
 }
-
-const TRENDING_BEATS = [
-    { title: 'Lagos Fire', artist: 'Dozie Beats', price: '29.99', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-12.mp3' },
-    { title: 'Amapiano King', artist: 'Kabza', price: '49.99', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-13.mp3' },
-    { title: 'Drill Flow', artist: 'Ghost Producer', price: '34.99', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-14.mp3' },
-];
-
-const TOP_SAMPLES = [
-    { title: 'Afro Vocal Pack', artist: 'Seyi Shay', price: '19.99', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-15.mp3' },
-    { title: 'Drum Kit v2', artist: 'P-Prime', price: '15.00', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-16.mp3' },
-];
-
-const EXCLUSIVE_KITS = [
-    { title: 'Grammy Melodies', artist: 'Kel-P', price: '99.99' },
-];
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#140F10' },
@@ -166,4 +278,59 @@ const styles = StyleSheet.create({
     priceText: { color: '#FFF', fontSize: 12, fontFamily: 'Poppins-Bold' },
     itemTitle: { color: '#FFF', fontSize: 15, fontFamily: 'Poppins-SemiBold' },
     itemArtist: { color: 'rgba(255,255,255,0.4)', fontSize: 12, fontFamily: 'Poppins-Regular' },
+    previewPlay: {
+        position: 'absolute',
+        top: 12,
+        left: 12,
+        zIndex: 10,
+    },
+    previewCircle: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: 'rgba(236, 92, 57, 0.2)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        elevation: 4,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+    },
+    merchBanner: {
+        marginHorizontal: 20,
+        marginBottom: 25,
+        borderRadius: 20,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: 'rgba(236, 92, 57, 0.3)',
+    },
+    merchGradient: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: 20,
+    },
+    merchTextContent: {
+        flex: 1,
+    },
+    merchTitle: {
+        color: '#FFF',
+        fontSize: 18,
+        fontFamily: 'Poppins-Bold',
+    },
+    merchSub: {
+        color: 'rgba(255,255,255,0.7)',
+        fontSize: 12,
+        fontFamily: 'Poppins-Regular',
+        marginTop: 2,
+    },
+    merchIconCircle: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: 'rgba(255,255,255,0.15)',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
 });

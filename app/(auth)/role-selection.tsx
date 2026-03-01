@@ -2,6 +2,7 @@ import { UserRole, useUserStore } from '@/store/useUserStore';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import { doc, updateDoc } from 'firebase/firestore';
 import {
     ChevronRight,
     Crown,
@@ -18,61 +19,123 @@ import {
 import React, { useEffect, useRef, useState } from 'react';
 import {
     Animated,
-    Dimensions,
     Easing,
+    ScrollView,
     StatusBar,
     StyleSheet,
     Text,
     TouchableOpacity,
     View,
 } from 'react-native';
+import SafeScreenWrapper from '../../components/SafeScreenWrapper';
+import { theme } from '../../constants/theme';
+import { auth, db } from '../../firebaseConfig';
+import { normalize } from '../../utils/responsive';
 
-const { width } = Dimensions.get('window');
-
-const ROLES = [
+const SUBSCRIPTION_TIERS = [
+    // --- VAULT PLANS ---
     {
-        id: 'vault' as UserRole,
-        title: 'Vault',
-        subtitle: 'Stream & Discover',
-        description: 'Enjoy unlimited streaming and build your musical library with authentic Afro sounds.',
+        id: 'vault_free' as UserRole,
+        title: 'Vault Free',
+        subtitle: 'Basic Storage & Streaming',
+        description: 'Perfect for casual listeners and creators trying out Shoouts with 50MB of storage.',
         icon: Headphones,
-        gradient: ['#1E1A1B', '#2A2520'] as [string, string],
-        accentColor: '#FFF',
-        features: ['Unlimited streaming', 'Curated playlists', 'Follow creators'],
-        featureIcons: [Music, Star, Headphones],
+        gradient: [theme.colors.surface, '#2A2520'] as [string, string],
+        accentColor: theme.colors.textSecondary,
+        features: ['50MB Storage', 'Streaming access', 'Basic support'],
+        featureIcons: [Download, Music, Star],
+    },
+    {
+        id: 'vault_creator' as UserRole,
+        title: 'Vault Creator',
+        subtitle: 'For Active Creators ($5/mo)',
+        description: 'Boost your storage and organize your demos with Private Folder sharing.',
+        icon: Star,
+        gradient: [theme.colors.surface, '#3D2A1F'] as [string, string],
+        accentColor: theme.colors.primary,
+        features: ['500MB Storage', 'Private Folder Sharing', 'Shareable Secure Links'],
+        featureIcons: [Download, Mic2, Zap],
     },
     {
         id: 'vault_pro' as UserRole,
         title: 'Vault Pro',
-        subtitle: 'Pro Listener',
-        description: 'Elevated experience with higher song upload limits and premium playback quality.',
+        subtitle: 'Professional Storage ($10/mo)',
+        description: 'Advanced features for producers sharing beats and protecting files.',
         icon: Crown,
-        gradient: ['#EC5C39', '#863420'] as [string, string],
+        gradient: ['#863420', '#4A1D13'] as [string, string],
         accentColor: '#FFD700',
-        features: ['Higher upload limits', 'Lossless audio', 'No advertisements'],
-        featureIcons: [Zap, Download, Sparkles],
+        features: ['1GB Storage', 'Advanced Analytics', 'File Locking & Permissions'],
+        featureIcons: [Zap, TrendingUp, Crown],
     },
     {
-        id: 'studio' as UserRole,
-        title: 'Studio',
-        subtitle: 'Artist & Producer',
-        description: 'The professional choice. Upload music, sell beats, and access deep analytics.',
+        id: 'vault_executive' as UserRole,
+        title: 'Vault Executive',
+        subtitle: 'For Labels & Teams ($18/mo)',
+        description: 'Maximum security and team collaboration for label executives.',
+        icon: ShoppingCart, // Placeholder for team/executive
+        gradient: ['#1A1A1A', '#000000'] as [string, string],
+        accentColor: '#FFFFFF',
+        features: ['5GB Storage', 'Team Access', 'Priority Support'],
+        featureIcons: [Download, Sparkles, Crown],
+    },
+
+    // --- STUDIO PLANS ---
+    {
+        id: 'studio_free' as UserRole,
+        title: 'Studio Free',
+        subtitle: 'Start Selling Music',
+        description: 'Set up your catalog and start testing the marketplace for free.',
         icon: Mic2,
-        gradient: ['#9333EA', '#4C1D95'] as [string, string],
-        accentColor: '#C084FC',
-        features: ['Sell Beats & Music', 'Upload Unlimited', 'Studio Analytics'],
-        featureIcons: [Music, TrendingUp, Star],
+        gradient: [theme.colors.surface, '#2A1A3A'] as [string, string],
+        accentColor: '#A78BFA',
+        features: ['Limited Listings', 'Sell beats & songs', '10% Transaction Fee'],
+        featureIcons: [Music, ShoppingCart, TrendingUp],
     },
     {
-        id: 'hybrid' as UserRole,
-        title: 'Hybrid',
-        subtitle: 'Ultimate Experience',
-        description: 'The best of both worlds. All Vault Pro benefits plus full Studio capabilities.',
+        id: 'studio_pro' as UserRole,
+        title: 'Studio Pro',
+        subtitle: 'Active Sellers ($18.99/mo)',
+        description: 'Control your pricing, unlock analytics, and chat with buyers directly.',
+        icon: TrendingUp,
+        gradient: ['#7C3AED', '#4C1D95'] as [string, string],
+        accentColor: '#C4B5FD',
+        features: ['Unlimited Listings', 'Buyer-Seller Chat', 'Pricing Control'],
+        featureIcons: [Zap, Mic2, Star],
+    },
+    {
+        id: 'studio_plus' as UserRole,
+        title: 'Studio Plus',
+        subtitle: 'High-Volume Brands ($69.99/mo)',
+        description: 'Maximum visibility, advanced analytics, and promotional boosts in search.',
         icon: Sparkles,
-        gradient: ['#EC5C39', '#9333EA'] as [string, string],
+        gradient: ['#9333EA', '#3B0764'] as [string, string],
         accentColor: '#FFD700',
-        features: ['Unlimited everything', 'Earning & Analytics', 'Premium Marketplace'],
-        featureIcons: [Zap, TrendingUp, ShoppingCart],
+        features: ['Priority Search Visibility', 'Promotional Boosts', 'Advanced Sales Analytics'],
+        featureIcons: [Crown, TrendingUp, Zap],
+    },
+
+    // --- HYBRID PLANS ---
+    {
+        id: 'hybrid_creator' as UserRole,
+        title: 'Hybrid Creator',
+        subtitle: 'Best of Both Worlds ($15/mo)',
+        description: 'Professional independent creators who need both Vault storage and Studio sales.',
+        icon: Crown,
+        gradient: [theme.colors.primary, '#9333EA'] as [string, string],
+        accentColor: '#FFD700',
+        features: ['5GB Vault Storage', 'Sell Directly from Vault', 'Priority Marketplace Visibility'],
+        featureIcons: [Download, ShoppingCart, Sparkles],
+    },
+    {
+        id: 'hybrid_executive' as UserRole,
+        title: 'Hybrid Executive',
+        subtitle: 'The Ultimate Plan ($25/mo)',
+        description: '10GB storage, unified analytics, team access, and dedicated support for major labels.',
+        icon: Zap,
+        gradient: ['#221133', '#4A0E17'] as [string, string],
+        accentColor: '#FFD700',
+        features: ['10GB Storage', 'Team Collaboration', 'Dedicated Support'],
+        featureIcons: [Crown, TrendingUp, Star],
     },
 ];
 
@@ -80,10 +143,11 @@ export default function RoleSelectionScreen() {
     const router = useRouter();
     const { setRole } = useUserStore();
     const [selectedRole, setSelectedRole] = useState<UserRole | null>(null);
+    const [loading, setLoading] = useState(false);
 
     // Staggered entry animations
     const headerAnim = useRef(new Animated.Value(0)).current;
-    const cardAnims = useRef(ROLES.map(() => new Animated.Value(0))).current;
+    const cardAnims = useRef(SUBSCRIPTION_TIERS.map(() => new Animated.Value(0))).current;
     const buttonAnim = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
@@ -117,7 +181,6 @@ export default function RoleSelectionScreen() {
         }).start();
     }, []);
 
-    // Selection pulse animation
     const pulseAnim = useRef(new Animated.Value(1)).current;
     useEffect(() => {
         if (selectedRole) {
@@ -128,182 +191,207 @@ export default function RoleSelectionScreen() {
         }
     }, [selectedRole]);
 
-    const handleContinue = () => {
+    const handleContinue = async () => {
         if (!selectedRole) return;
-        setRole(selectedRole);
-        router.replace('/(tabs)');
+        setLoading(true);
+        try {
+            // Write Role selection to Firebase Database if logged in
+
+            if (auth.currentUser) {
+                await updateDoc(doc(db, "users", auth.currentUser.uid), {
+                    role: selectedRole,
+                    updatedAt: new Date().toISOString()
+                });
+            }
+
+            // Fallback for local state
+            setRole(selectedRole);
+            router.replace('/(tabs)');
+        } catch (error: any) {
+            console.error('Failed to sync role:', error);
+            alert('Failed to save role: ' + error.message);
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
-        <View style={styles.container}>
+        <SafeScreenWrapper>
             <StatusBar barStyle="light-content" />
 
             {/* Background decorative circles */}
             <Animated.View style={[styles.bgCircle1, { opacity: headerAnim }]} />
             <Animated.View style={[styles.bgCircle2, { opacity: headerAnim }]} />
 
-            {/* Header */}
-            <Animated.View style={[styles.header, {
-                opacity: headerAnim,
-                transform: [{ translateY: headerAnim.interpolate({ inputRange: [0, 1], outputRange: [-30, 0] }) }]
-            }]}>
-                <Text style={styles.title}>How will you use{'\n'}ShooutS?</Text>
-                <Text style={styles.subtitle}>Choose your experience. You can always change this later.</Text>
-            </Animated.View>
+            <ScrollView
+                contentContainerStyle={styles.scrollContent}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                bounces={false}
+            >
+                {/* Header */}
+                <Animated.View style={[styles.header, {
+                    opacity: headerAnim,
+                    transform: [{ translateY: headerAnim.interpolate({ inputRange: [0, 1], outputRange: [-30, 0] }) }]
+                }]}>
+                    <Text style={styles.title} allowFontScaling={false}>How will you use{'\n'}ShooutS?</Text>
+                    <Text style={styles.subtitle} allowFontScaling={false}>Choose your experience. You can always change this later.</Text>
+                </Animated.View>
 
-            {/* Role Cards */}
-            <View style={styles.cardsContainer}>
-                {ROLES.map((role, index) => {
-                    const isSelected = selectedRole === role.id;
-                    const Icon = role.icon;
-                    const cardAnim = cardAnims[index];
+                {/* Role Cards */}
+                <View style={styles.cardsContainer}>
+                    {SUBSCRIPTION_TIERS.map((role, index) => {
+                        const isSelected = selectedRole === role.id;
+                        const Icon = role.icon;
+                        const cardAnim = cardAnims[index];
 
-                    return (
-                        <Animated.View
-                            key={role.id}
-                            style={[{
-                                opacity: cardAnim,
-                                transform: [
-                                    { translateY: cardAnim.interpolate({ inputRange: [0, 1], outputRange: [40, 0] }) },
-                                    { scale: isSelected ? pulseAnim : 1 }
-                                ]
-                            }]}
-                        >
-                            <TouchableOpacity
-                                activeOpacity={0.85}
-                                onPress={() => setSelectedRole(role.id)}
+                        return (
+                            <Animated.View
+                                key={role.id}
+                                style={[{
+                                    opacity: cardAnim,
+                                    transform: [
+                                        { translateY: cardAnim.interpolate({ inputRange: [0, 1], outputRange: [40, 0] }) },
+                                        { scale: isSelected ? pulseAnim : 1 }
+                                    ]
+                                }]}
                             >
-                                <LinearGradient
-                                    colors={isSelected ? role.gradient : ['#1E1A1B', '#1E1A1B']}
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 1 }}
-                                    style={[
-                                        styles.roleCard,
-                                        isSelected && styles.roleCardSelected,
-                                    ]}
+                                <TouchableOpacity
+                                    activeOpacity={0.85}
+                                    onPress={() => setSelectedRole(role.id)}
                                 >
-                                    <View style={styles.roleCardContent}>
-                                        <View style={[styles.roleIconContainer, isSelected && { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
-                                            <Icon size={24} color={isSelected ? '#FFF' : '#EC5C39'} />
+                                    <LinearGradient
+                                        colors={isSelected ? role.gradient : [theme.colors.surface, theme.colors.surface]}
+                                        start={{ x: 0, y: 0 }}
+                                        end={{ x: 1, y: 1 }}
+                                        style={[
+                                            styles.roleCard,
+                                            isSelected && styles.roleCardSelected,
+                                        ]}
+                                    >
+                                        <View style={styles.roleCardContent}>
+                                            <View style={[styles.roleIconContainer, isSelected && { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
+                                                <Icon size={theme.iconSize.lg} color={isSelected ? theme.colors.textPrimary : theme.colors.primary} />
+                                            </View>
+                                            <View style={styles.roleTextContent}>
+                                                <Text style={styles.roleTitle} allowFontScaling={false}>{role.title}</Text>
+                                                <Text style={[styles.roleSubtitle, isSelected && { color: 'rgba(255,255,255,0.8)' }]} allowFontScaling={false}>
+                                                    {role.subtitle}
+                                                </Text>
+                                            </View>
+                                            <View style={styles.checkIndicatorContainer}>
+                                                {isSelected && (
+                                                    <Image
+                                                        source={require('@/assets/images/check-circle.png')}
+                                                        style={styles.checkImage}
+                                                        contentFit="contain"
+                                                    />
+                                                )}
+                                            </View>
                                         </View>
-                                        <View style={styles.roleTextContent}>
-                                            <Text style={styles.roleTitle}>{role.title}</Text>
-                                            <Text style={[styles.roleSubtitle, isSelected && { color: 'rgba(255,255,255,0.8)' }]}>
-                                                {role.subtitle}
-                                            </Text>
-                                        </View>
-                                        <View style={styles.checkIndicatorContainer}>
-                                            {isSelected && (
-                                                <Image
-                                                    source={require('@/assets/images/check-circle.png')}
-                                                    style={styles.checkImage}
-                                                    contentFit="contain"
-                                                />
-                                            )}
-                                        </View>
-                                    </View>
 
-                                    {/* Expanded features */}
-                                    {isSelected && (
-                                        <View style={styles.featuresContainer}>
-                                            {role.features.map((feature, fi) => {
-                                                const FeatureIcon = role.featureIcons[fi];
-                                                return (
-                                                    <View key={fi} style={styles.featureRow}>
-                                                        <FeatureIcon size={14} color="rgba(255,255,255,0.7)" />
-                                                        <Text style={styles.featureText}>{feature}</Text>
-                                                    </View>
-                                                );
-                                            })}
-                                        </View>
-                                    )}
-                                </LinearGradient>
-                            </TouchableOpacity>
-                        </Animated.View>
-                    );
-                })}
-            </View>
+                                        {/* Expanded features */}
+                                        {isSelected && (
+                                            <View style={styles.featuresContainer}>
+                                                {role.features.map((feature, fi) => {
+                                                    const FeatureIcon = role.featureIcons[fi];
+                                                    return (
+                                                        <View key={fi} style={styles.featureRow}>
+                                                            <FeatureIcon size={theme.iconSize.sm} color={theme.colors.textSecondary} />
+                                                            <Text style={styles.featureText} allowFontScaling={false}>{feature}</Text>
+                                                        </View>
+                                                    );
+                                                })}
+                                            </View>
+                                        )}
+                                    </LinearGradient>
+                                </TouchableOpacity>
+                            </Animated.View>
+                        );
+                    })}
+                </View>
 
-            {/* Continue Button */}
-            <Animated.View style={[styles.buttonContainer, {
-                opacity: buttonAnim,
-                transform: [{ translateY: buttonAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }]
-            }]}>
-                <TouchableOpacity
-                    onPress={handleContinue}
-                    activeOpacity={0.85}
-                    disabled={!selectedRole}
-                    style={[styles.continueButton, !selectedRole && { opacity: 0.4 }]}
-                >
-                    <LinearGradient
-                        colors={selectedRole ? ['#EC5C39', '#863420'] : ['#333', '#222']}
-                        style={styles.continueGradient}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 0 }}
+                {/* Continue Button */}
+                <Animated.View style={[styles.buttonContainer, {
+                    opacity: buttonAnim,
+                    transform: [{ translateY: buttonAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }]
+                }]}>
+                    <TouchableOpacity
+                        onPress={handleContinue}
+                        activeOpacity={0.85}
+                        disabled={!selectedRole || loading}
+                        style={[styles.continueButton, (!selectedRole || loading) && { opacity: 0.4 }]}
                     >
-                        <Text style={styles.continueText}>Continue</Text>
-                        <ChevronRight size={20} color="#FFF" />
-                    </LinearGradient>
-                </TouchableOpacity>
-            </Animated.View>
-        </View>
+                        <LinearGradient
+                            colors={selectedRole ? [theme.colors.primary, '#863420'] : [theme.colors.borderLight, '#222']}
+                            style={styles.continueGradient}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 0 }}
+                        >
+                            <Text style={styles.continueText} allowFontScaling={false}>{loading ? 'Saving...' : 'Continue'}</Text>
+                            <ChevronRight size={theme.iconSize.md} color={theme.colors.textPrimary} />
+                        </LinearGradient>
+                    </TouchableOpacity>
+                </Animated.View>
+            </ScrollView>
+        </SafeScreenWrapper>
     );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#140F10',
-        paddingHorizontal: 24,
-        justifyContent: 'center',
+    scrollContent: {
+        flexGrow: 1,
+        paddingHorizontal: theme.spacing.screenPadding,
+        paddingTop: theme.spacing.xxl,
+        paddingBottom: theme.spacing.xxl * 2,
     },
     bgCircle1: {
         position: 'absolute',
-        top: -80,
-        right: -60,
-        width: 200,
-        height: 200,
-        borderRadius: 100,
+        top: -normalize(80),
+        right: -normalize(60),
+        width: normalize(200),
+        height: normalize(200),
+        borderRadius: theme.radius.full,
         backgroundColor: 'rgba(236, 92, 57, 0.04)',
     },
     bgCircle2: {
         position: 'absolute',
-        bottom: -100,
-        left: -80,
-        width: 250,
-        height: 250,
-        borderRadius: 125,
+        bottom: -normalize(100),
+        left: -normalize(80),
+        width: normalize(250),
+        height: normalize(250),
+        borderRadius: theme.radius.full,
         backgroundColor: 'rgba(147, 51, 234, 0.03)',
     },
     header: {
-        marginBottom: 35,
+        marginBottom: theme.spacing.xl,
     },
     title: {
-        color: '#FFF',
-        fontSize: 30,
-        fontFamily: 'Poppins-Bold',
-        lineHeight: 38,
+        color: theme.colors.textPrimary,
+        fontFamily: theme.typography.h1.fontFamily || 'Poppins-Bold',
+        fontSize: theme.typography.h1.fontSize,
+        lineHeight: theme.typography.h1.lineHeight,
         letterSpacing: -0.5,
     },
     subtitle: {
-        color: 'rgba(255,255,255,0.5)',
-        fontSize: 14,
+        color: theme.colors.textSecondary,
         fontFamily: 'Poppins-Regular',
-        marginTop: 10,
-        lineHeight: 22,
+        fontSize: theme.typography.body.fontSize,
+        marginTop: theme.spacing.sm,
+        lineHeight: theme.typography.body.lineHeight,
     },
     cardsContainer: {
-        gap: 14,
+        gap: theme.spacing.md,
     },
     roleCard: {
-        borderRadius: 20,
-        padding: 18,
+        borderRadius: theme.radius['2xl'] || theme.radius.xl,
+        padding: theme.spacing.md,
         borderWidth: 1.5,
         borderColor: 'rgba(255,255,255,0.06)',
     },
     roleCardSelected: {
         borderColor: 'rgba(255,255,255,0.15)',
-        shadowColor: '#EC5C39',
+        shadowColor: theme.colors.primary,
         shadowOffset: { width: 0, height: 8 },
         shadowOpacity: 0.3,
         shadowRadius: 16,
@@ -314,73 +402,74 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     roleIconContainer: {
-        width: 48,
-        height: 48,
-        borderRadius: 14,
+        width: normalize(48),
+        height: normalize(48),
+        borderRadius: theme.radius.lg,
         backgroundColor: 'rgba(236, 92, 57, 0.1)',
         alignItems: 'center',
         justifyContent: 'center',
     },
     roleTextContent: {
         flex: 1,
-        marginLeft: 16,
+        marginLeft: theme.spacing.md,
     },
     roleTitle: {
-        color: '#FFF',
-        fontSize: 18,
+        color: theme.colors.textPrimary,
         fontFamily: 'Poppins-Bold',
+        fontSize: theme.typography.h3.fontSize,
     },
     roleSubtitle: {
-        color: 'rgba(255,255,255,0.45)',
-        fontSize: 13,
+        color: theme.colors.textDisabled,
         fontFamily: 'Poppins-Regular',
+        fontSize: theme.typography.caption.fontSize,
         marginTop: 1,
     },
     checkIndicatorContainer: {
-        width: 32,
-        height: 32,
+        width: normalize(32),
+        height: normalize(32),
         alignItems: 'center',
         justifyContent: 'center',
     },
     checkImage: {
-        width: 32,
-        height: 32,
+        width: normalize(32),
+        height: normalize(32),
     },
     featuresContainer: {
-        marginTop: 16,
-        paddingTop: 14,
+        marginTop: theme.spacing.md,
+        paddingTop: theme.spacing.md,
         borderTopWidth: 1,
         borderTopColor: 'rgba(255,255,255,0.15)',
-        gap: 10,
+        gap: theme.spacing.sm,
     },
     featureRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 10,
+        gap: theme.spacing.sm,
     },
     featureText: {
         color: 'rgba(255,255,255,0.85)',
-        fontSize: 13,
         fontFamily: 'Poppins-Regular',
+        fontSize: theme.typography.caption.fontSize,
     },
     buttonContainer: {
-        marginTop: 35,
+        marginTop: theme.spacing.xl,
     },
     continueButton: {
-        borderRadius: 16,
+        borderRadius: theme.radius.lg,
         overflow: 'hidden',
-        height: 56,
+        height: normalize(56),
     },
     continueGradient: {
         flex: 1,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 8,
+        gap: theme.spacing.sm,
     },
     continueText: {
-        color: '#FFF',
-        fontSize: 16,
+        color: theme.colors.textPrimary,
         fontFamily: 'Poppins-Bold',
+        fontSize: theme.typography.button.fontSize,
+        letterSpacing: theme.typography.button.letterSpacing,
     },
 });

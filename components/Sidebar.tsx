@@ -1,7 +1,7 @@
 import { useUserStore } from '@/store/useUserStore';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
-import { ChevronRight, LogOut, Mic2, Music, Sparkles, User, X } from 'lucide-react-native';
+import { ChevronRight, LogOut, Mic2, Music, Sparkles, User, X, Zap } from 'lucide-react-native';
 import React from 'react';
 import { Animated, Dimensions, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
@@ -16,16 +16,41 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     const router = useRouter();
     const { role, viewMode, setViewMode, reset } = useUserStore();
     const translateX = React.useRef(new Animated.Value(width)).current;
+    const opacityAnim = React.useRef(new Animated.Value(0)).current;
+    const [render, setRender] = React.useState(isOpen);
 
     React.useEffect(() => {
-        Animated.spring(translateX, {
-            toValue: isOpen ? 0 : width,
-            useNativeDriver: true,
-            bounciness: 0,
-        }).start();
+        if (isOpen) {
+            setRender(true);
+            Animated.parallel([
+                Animated.spring(translateX, {
+                    toValue: 0,
+                    useNativeDriver: true,
+                    bounciness: 0,
+                    speed: 18,
+                }),
+                Animated.timing(opacityAnim, {
+                    toValue: 1,
+                    duration: 300,
+                    useNativeDriver: true,
+                })
+            ]).start();
+        } else {
+            Animated.parallel([
+                Animated.spring(translateX, {
+                    toValue: width,
+                    useNativeDriver: true,
+                    bounciness: 0,
+                    speed: 18,
+                }),
+                Animated.timing(opacityAnim, {
+                    toValue: 0,
+                    duration: 250,
+                    useNativeDriver: true,
+                })
+            ]).start(() => setRender(false));
+        }
     }, [isOpen]);
-
-    if (!isOpen) return null;
 
     const handleModeSwitch = (mode: 'vault' | 'studio') => {
         setViewMode(mode);
@@ -38,13 +63,17 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         router.replace('/(auth)/login');
     };
 
-    const isHybrid = role === 'hybrid';
+    const isHybrid = role.startsWith('hybrid');
+
+    if (!render) return null;
 
     return (
-        <View style={StyleSheet.absoluteFill}>
-            <Pressable style={styles.overlay} onPress={onClose}>
-                <BlurView intensity={20} style={StyleSheet.absoluteFill} tint="dark" />
-            </Pressable>
+        <View style={[StyleSheet.absoluteFill, { zIndex: 9999, elevation: 9999 }]}>
+            <Animated.View style={[StyleSheet.absoluteFill, { opacity: opacityAnim }]}>
+                <Pressable style={styles.overlay} onPress={onClose}>
+                    <BlurView intensity={20} style={StyleSheet.absoluteFill} tint="dark" />
+                </Pressable>
+            </Animated.View>
 
             <Animated.View style={[styles.sidebar, { transform: [{ translateX }] }]}>
                 <View style={styles.header}>
@@ -62,7 +91,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                         label="Vault Mode"
                         active={viewMode === 'vault'}
                         onPress={() => handleModeSwitch('vault')}
-                        disabled={role === 'studio'}
+                        disabled={role.startsWith('studio')}
                     />
 
                     <ModeItem
@@ -70,7 +99,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                         label="Studio Mode"
                         active={viewMode === 'studio'}
                         onPress={() => handleModeSwitch('studio')}
-                        disabled={role === 'vault' || role === 'vault_pro'}
+                        disabled={role.startsWith('vault')}
                     />
 
                     {isHybrid && (
@@ -87,6 +116,14 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                             <User size={20} color="#FFF" />
                         </View>
                         <Text style={styles.profileLabel}>View Profile</Text>
+                        <ChevronRight size={18} color="rgba(255,255,255,0.3)" />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity style={styles.profileLink} onPress={() => { router.push('/settings/subscriptions'); onClose(); }}>
+                        <View style={styles.profileIcon}>
+                            <Zap size={20} color="#FFF" />
+                        </View>
+                        <Text style={styles.profileLabel}>Premium Plans</Text>
                         <ChevronRight size={18} color="rgba(255,255,255,0.3)" />
                     </TouchableOpacity>
 

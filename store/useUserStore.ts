@@ -1,14 +1,26 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useState } from 'react';
 
-export type UserRole = 'vault' | 'vault_pro' | 'studio' | 'hybrid';
+export type UserRole =
+    | 'vault_free' | 'vault_creator' | 'vault_pro' | 'vault_executive'
+    | 'studio_free' | 'studio_pro' | 'studio_plus'
+    | 'hybrid_creator' | 'hybrid_executive';
+
 export type ViewMode = 'vault' | 'studio';
 
 interface UserState {
     role: UserRole;
     name: string;
     isPremium: boolean;
-    viewMode: ViewMode; // Especially for Hybrid users to toggle
+    viewMode: ViewMode;
+
+    // Extracted capabilities based on active Role
+    storageLimitGB: number;
+    canSell: boolean;
+    hasTeamAccess: boolean;
+    hasAdvancedAnalytics: boolean;
+    transactionFeePercent: number;
+
     setRole: (role: UserRole) => void;
     setName: (name: string) => void;
     setPremium: (isPremium: boolean) => void;
@@ -16,18 +28,65 @@ interface UserState {
     reset: () => void;
 }
 
-const STORAGE_KEY = 'user-storage-v2'; // Bump version for new schema
+const STORAGE_KEY = 'shoouts-user-preferences-v3';
 
 const defaultState: UserState = {
-    role: 'vault',
+    role: 'vault_free',
     name: 'User',
     isPremium: false,
     viewMode: 'vault',
+    storageLimitGB: 0.05, // 50MB
+    canSell: false,
+    hasTeamAccess: false,
+    hasAdvancedAnalytics: false,
+    transactionFeePercent: 10,
     setRole: () => { },
     setName: () => { },
     setPremium: () => { },
     setViewMode: () => { },
     reset: () => { },
+};
+
+const getRoleCapabilities = (role: UserRole) => {
+    // Shared defaults
+    let capabilities = {
+        isPremium: false,
+        storageLimitGB: 0.05,
+        canSell: false,
+        hasTeamAccess: false,
+        hasAdvancedAnalytics: false,
+        transactionFeePercent: 10,
+        viewMode: 'vault' as ViewMode
+    };
+
+    switch (role) {
+        // Vault Plans
+        case 'vault_free':
+            return { ...capabilities };
+        case 'vault_creator':
+            return { ...capabilities, isPremium: true, storageLimitGB: 0.5 };
+        case 'vault_pro':
+            return { ...capabilities, isPremium: true, storageLimitGB: 1, hasAdvancedAnalytics: true };
+        case 'vault_executive':
+            return { ...capabilities, isPremium: true, storageLimitGB: 5, hasAdvancedAnalytics: true, hasTeamAccess: true };
+
+        // Studio Plans
+        case 'studio_free':
+            return { ...capabilities, viewMode: 'studio' as ViewMode, canSell: true };
+        case 'studio_pro':
+            return { ...capabilities, viewMode: 'studio' as ViewMode, isPremium: true, canSell: true }; // Basic analytics implicitly true
+        case 'studio_plus':
+            return { ...capabilities, viewMode: 'studio' as ViewMode, isPremium: true, canSell: true, hasAdvancedAnalytics: true };
+
+        // Hybrid Plans
+        case 'hybrid_creator':
+            return { ...capabilities, viewMode: 'vault' as ViewMode, isPremium: true, canSell: true, storageLimitGB: 5, hasAdvancedAnalytics: true };
+        case 'hybrid_executive':
+            return { ...capabilities, viewMode: 'vault' as ViewMode, isPremium: true, canSell: true, storageLimitGB: 10, hasAdvancedAnalytics: true, hasTeamAccess: true };
+
+        default:
+            return capabilities;
+    }
 };
 
 export function useUserStore<T = UserState>(
@@ -44,11 +103,14 @@ export function useUserStore<T = UserState>(
                 const raw = await AsyncStorage.getItem(STORAGE_KEY);
                 if (raw && !cancelled) {
                     const parsed = JSON.parse(raw) as Partial<UserState>;
-                    setState((prev) => ({
-                        ...prev,
-                        ...parsed,
-                        isPremium: parsed.role === 'vault_pro' || parsed.role === 'hybrid' || !!parsed.isPremium,
-                    }));
+                    if (parsed.role) {
+                        const caps = getRoleCapabilities(parsed.role);
+                        setState((prev) => ({
+                            ...prev,
+                            ...parsed,
+                            ...caps, // Enforce current DB caps over cached caps
+                        }));
+                    }
                 }
             } catch {
                 // Ignore storage errors
@@ -65,22 +127,22 @@ export function useUserStore<T = UserState>(
         const toPersist = {
             role: state.role,
             name: state.name,
-            isPremium: state.isPremium,
             viewMode: state.viewMode,
         };
         AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(toPersist)).catch(() => {
             // Ignore storage errors
         });
-    }, [state.role, state.name, state.isPremium, state.viewMode]);
+    }, [state.role, state.name, state.viewMode]);
 
     const setRole = useCallback((role: UserRole) => {
-        setState((prev) => ({
-            ...prev,
-            role,
-            isPremium: role === 'vault_pro' || role === 'hybrid' || prev.isPremium,
-            // Default view mode based on role
-            viewMode: role === 'studio' ? 'studio' : 'vault',
-        }));
+        setState((prev) => {
+            const caps = getRoleCapabilities(role);
+            return {
+                ...prev,
+                role,
+                ...caps,
+            };
+        });
     }, []);
 
     const setViewMode = useCallback((viewMode: ViewMode) => {
@@ -105,13 +167,7 @@ export function useUserStore<T = UserState>(
     }, []);
 
     const reset = useCallback(() => {
-        setState((prev) => ({
-            ...prev,
-            role: 'vault',
-            name: 'User',
-            isPremium: false,
-            viewMode: 'vault',
-        }));
+        setState(defaultState);
     }, []);
 
     const store: UserState = {

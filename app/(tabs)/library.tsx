@@ -3,13 +3,51 @@ import SharedHeader from '@/components/SharedHeader';
 import Sidebar from '@/components/Sidebar';
 import { usePlaybackStore } from '@/store/usePlaybackStore';
 import { useUserStore } from '@/store/useUserStore';
+import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
 import { Download, Heart, MoreVertical, Music } from 'lucide-react-native';
-import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { auth, db } from '../../firebaseConfig';
 
 export default function LibraryScreen() {
     const { viewMode } = useUserStore();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [uploads, setUploads] = useState<any[]>([]);
+    const [purchases, setPurchases] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        if (!auth.currentUser) return;
+
+        const uploadsQuery = query(
+            collection(db, `users/${auth.currentUser.uid}/uploads`),
+            orderBy('createdAt', 'desc')
+        );
+
+        const purchasesQuery = query(
+            collection(db, `users/${auth.currentUser.uid}/purchases`),
+            orderBy('purchasedAt', 'desc')
+        );
+
+        // Listener for personal uploads
+        const unsubUploads = onSnapshot(uploadsQuery, (snapshot) => {
+            const tracks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setUploads(tracks);
+            if (loading) setLoading(false);
+        });
+
+        // Listener for purchased tracks
+        const unsubPurchases = onSnapshot(purchasesQuery, (snapshot) => {
+            const tracks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setPurchases(tracks);
+            setLoading(false);
+        });
+
+        return () => {
+            unsubUploads();
+            unsubPurchases();
+        };
+    }, []);
 
     return (
         <SafeScreenWrapper>
@@ -28,12 +66,52 @@ export default function LibraryScreen() {
                         <CategoryItem icon={Download} label="Downloads" count="8" />
                     </View>
 
-                    {/* Recent Items */}
-                    <Text style={styles.sectionTitle}>Recently Added</Text>
+                    {/* Purchased Items */}
+                    {purchases.length > 0 && (
+                        <>
+                            <Text style={styles.sectionTitle}>Purchased Music</Text>
+                            <View style={styles.list}>
+                                {purchases.map((track) => (
+                                    <LibraryItem
+                                        key={track.id}
+                                        id={track.id}
+                                        uploaderId={track.uploaderId}
+                                        title={track.title}
+                                        artist={track.artist}
+                                        type="Purchase"
+                                        url={track.audioUrl}
+                                    />
+                                ))}
+                            </View>
+                            <View style={{ height: 24 }} />
+                        </>
+                    )}
+
+                    {/* Personal Uploads / Vault Items */}
+                    <Text style={styles.sectionTitle}>
+                        {viewMode === 'studio' ? 'Published Songs' : 'Private Vault Uploads'}
+                    </Text>
                     <View style={styles.list}>
-                        <LibraryItem title="Midnight Afro" artist="Jungle G" type="Song" />
-                        <LibraryItem title="Lagos Vibe" artist="Sound of Salem" type="Beat" />
-                        <LibraryItem title="Essence Remix" artist="Wizkid" type="Song" />
+                        {loading ? (
+                            <ActivityIndicator color="#EC5C39" style={{ marginVertical: 20 }} />
+                        ) : uploads.length > 0 ? (
+                            uploads.map((track) => (
+                                <LibraryItem
+                                    key={track.id}
+                                    id={track.id}
+                                    uploaderId={auth.currentUser?.uid}
+                                    title={track.title}
+                                    artist={viewMode === 'studio' ? 'You' : 'Self-Uploaded'}
+                                    type={track.genre || (track.price > 0 ? 'Marketplace' : 'Vault')}
+                                    url={track.audioUrl}
+                                />
+                            ))
+                        ) : (
+                            <View style={styles.emptyContainer}>
+                                <Music size={32} color="rgba(255,255,255,0.2)" />
+                                <Text style={styles.emptyText}>No tracks found</Text>
+                            </View>
+                        )}
                     </View>
 
                     <View style={{ height: 100 }} />
@@ -57,16 +135,29 @@ function CategoryItem({ icon: Icon, label, count }: any) {
     );
 }
 
-function LibraryItem({ title, artist, type }: any) {
+function LibraryItem({ id, uploaderId, title, artist, type, url }: any) {
     const setTrack = usePlaybackStore(state => state.setTrack);
+
+    const handleShare = async () => {
+        if (!url) return;
+        try {
+            await Share.share({
+                message: `Listen to my secure track "${title}" on Shoouts Vault:\n\n${url}`,
+            });
+        } catch (error: any) {
+            console.error('Error sharing link:', error.message);
+        }
+    };
+
     return (
         <TouchableOpacity
             style={styles.itemRow}
             onPress={() => setTrack({
-                id: `lib-${title}`,
+                id: id || `lib-${title}`,
+                uploaderId: uploaderId,
                 title,
                 artist,
-                url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3'
+                url: url
             })}
         >
             <View style={styles.itemArtwork} />
@@ -74,7 +165,7 @@ function LibraryItem({ title, artist, type }: any) {
                 <Text style={styles.itemTitle}>{title}</Text>
                 <Text style={styles.itemArtist}>{artist} • {type}</Text>
             </View>
-            <TouchableOpacity style={styles.moreButton}>
+            <TouchableOpacity style={styles.moreButton} onPress={handleShare}>
                 <MoreVertical size={20} color="rgba(255,255,255,0.4)" />
             </TouchableOpacity>
         </TouchableOpacity>
@@ -119,4 +210,20 @@ const styles = StyleSheet.create({
     itemTitle: { color: '#FFF', fontSize: 15, fontFamily: 'Poppins-SemiBold' },
     itemArtist: { color: 'rgba(255,255,255,0.5)', fontSize: 12, fontFamily: 'Poppins-Regular' },
     moreButton: { padding: 4 },
+    emptyContainer: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 40,
+        backgroundColor: 'rgba(255,255,255,0.01)',
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.05)',
+        borderStyle: 'dashed',
+    },
+    emptyText: {
+        color: 'rgba(255,255,255,0.3)',
+        fontFamily: 'Poppins-Regular',
+        fontSize: 14,
+        marginTop: 12,
+    },
 });

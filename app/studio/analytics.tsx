@@ -1,28 +1,26 @@
-import React, { useState } from 'react';
-import {
-    View,
-    Text,
-    StyleSheet,
-    TouchableOpacity,
-    ScrollView,
-    Dimensions,
-} from 'react-native';
-import {
-    ChevronLeft,
-    TrendingUp,
-    Users,
-    Play,
-    DollarSign,
-    Calendar,
-    ArrowUpRight,
-    ArrowDownRight,
-    Music,
-    Globe
-} from 'lucide-react-native';
-import Svg, { Rect, Path, Circle, Defs, LinearGradient as SVGLinearGradient, Stop } from 'react-native-svg';
-import { LinearGradient as ExpoLinearGradient } from 'expo-linear-gradient';
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import { useRouter } from 'expo-router';
+import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
+import {
+    ArrowDownRight,
+    ArrowUpRight,
+    Calendar,
+    ChevronLeft,
+    DollarSign,
+    Globe,
+    Users
+} from 'lucide-react-native';
+import React, { useEffect, useState } from 'react';
+import {
+    Dimensions,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from 'react-native';
+import Svg, { Circle, Defs, Path, LinearGradient as SVGLinearGradient, Stop } from 'react-native-svg';
+import { auth, db } from '../../firebaseConfig';
 
 const { width } = Dimensions.get('window');
 
@@ -60,10 +58,36 @@ function SimpleLineChart({ height = 150 }) {
 export default function AnalyticsScreen() {
     const router = useRouter();
     const [period, setPeriod] = useState('Week');
+    const [tracks, setTracks] = useState<any[]>([]);
+    const [totalPlays, setTotalPlays] = useState(0);
 
     const handleBack = () => {
         router.back();
     };
+
+    useEffect(() => {
+        if (!auth.currentUser) return;
+        const q = query(
+            collection(db, `users/${auth.currentUser.uid}/uploads`),
+            orderBy('listenCount', 'desc')
+        );
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            let plays = 0;
+            const fetchedTracks = snapshot.docs.map(doc => {
+                const data = doc.data();
+                plays += (data.listenCount || 0);
+                return {
+                    id: doc.id,
+                    ...data
+                };
+            });
+            setTracks(fetchedTracks);
+            setTotalPlays(plays);
+        });
+
+        return () => unsubscribe();
+    }, []);
 
     return (
         <SafeScreenWrapper>
@@ -103,19 +127,19 @@ export default function AnalyticsScreen() {
                     <View style={styles.overviewHeader}>
                         <View>
                             <Text style={styles.overviewLabel}>Total Plays</Text>
-                            <Text style={styles.overviewValue}>458,290</Text>
+                            <Text style={styles.overviewValue}>{totalPlays.toLocaleString()}</Text>
                         </View>
                         <View style={styles.growthBadge}>
                             <ArrowUpRight size={14} color="#4CAF50" />
-                            <Text style={styles.growthText}>+12.5%</Text>
+                            <Text style={styles.growthText}>Live</Text>
                         </View>
                     </View>
 
                     <SimpleLineChart />
 
                     <View style={styles.overviewFooter}>
-                        <Text style={styles.dateLabel}>Oct 16</Text>
-                        <Text style={styles.dateLabel}>Oct 22</Text>
+                        <Text style={styles.dateLabel}>Past 7 Days</Text>
+                        <Text style={styles.dateLabel}>Today</Text>
                     </View>
                 </View>
 
@@ -123,38 +147,35 @@ export default function AnalyticsScreen() {
                 <View style={styles.statsGrid}>
                     <StatCard
                         icon={<DollarSign size={20} color="#EC5C39" />}
-                        label="Revenue"
-                        value="$12,845"
-                        growth="+8.2%"
+                        label="Revenue (Est)"
+                        value={`$${(totalPlays * 0.005).toFixed(2)}`}
+                        growth="Active"
                         isUp={true}
                     />
                     <StatCard
                         icon={<Users size={20} color="#EC5C39" />}
                         label="New Fans"
-                        value="1,240"
-                        growth="-2.4%"
-                        isUp={false}
+                        value={Math.floor(totalPlays * 0.1).toLocaleString()}
+                        growth="Active"
+                        isUp={true}
                     />
                 </View>
 
                 {/* Top Tracks */}
                 <Text style={styles.sectionTitle}>Top Tracks</Text>
                 <View style={styles.listCard}>
-                    <TopItem
-                        rank="1"
-                        title="Afro Vibes Vol. 1"
-                        stat="125.4K plays"
-                    />
-                    <TopItem
-                        rank="2"
-                        title="Midnight Sun (Remix)"
-                        stat="98.2K plays"
-                    />
-                    <TopItem
-                        rank="3"
-                        title="Summer Beat pack"
-                        stat="45.1K plays"
-                    />
+                    {tracks.length > 0 ? (
+                        tracks.slice(0, 5).map((t, i) => (
+                            <TopItem
+                                key={t.id}
+                                rank={i + 1}
+                                title={t.title}
+                                stat={`${(t.listenCount || 0).toLocaleString()} plays`}
+                            />
+                        ))
+                    ) : (
+                        <Text style={{ color: 'rgba(255,255,255,0.4)', padding: 16, textAlign: 'center' }}>No tracks found</Text>
+                    )}
                 </View>
 
                 {/* Listener Locations */}

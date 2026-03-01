@@ -130,9 +130,6 @@ export default function SearchScreen() {
                 )}
             </ScrollView>
 
-            {/* Home Indicator */}
-            <View style={styles.homeIndicator} />
-
             {/* Sidebar */}
             <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
         </View>
@@ -349,14 +346,14 @@ const styles = StyleSheet.create({
     searchBar: {
         marginHorizontal: 20,
         marginTop: 10,
-        height: 41,
+        height: 50, // Increased height to prevent text clipping
         backgroundColor: '#FFFFFF',
         borderWidth: 1.5,
         borderColor: 'rgba(20,15,16,0.9)',
-        borderRadius: 10,
+        borderRadius: 12, // Increased border radius slightly for a modern look
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 11,
+        paddingHorizontal: 16, // Increased horizontal padding
     },
     searchInput: {
         flex: 1,
@@ -364,6 +361,7 @@ const styles = StyleSheet.create({
         color: 'black',
         fontSize: 15,
         fontFamily: 'Poppins-Regular',
+        height: '100%', // Ensure input takes full height
     },
     scrollContent: {
         paddingHorizontal: 20,
@@ -506,15 +504,5 @@ const styles = StyleSheet.create({
         fontFamily: 'Poppins-Regular',
         textAlign: 'center',
         marginTop: 4,
-    },
-    homeIndicator: {
-        position: 'absolute',
-        bottom: 8,
-        alignSelf: 'center',
-        width: 134,
-        height: 5,
-        backgroundColor: 'white',
-        borderRadius: 3,
-        opacity: 0.5,
     },
 });

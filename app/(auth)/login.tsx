@@ -1,22 +1,24 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'expo-router';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
+import { Eye, EyeOff } from 'lucide-react-native';
+import React, { useState } from 'react';
 import {
-    View,
-    Text,
-    StyleSheet,
-    TouchableOpacity,
-    TextInput,
-    SafeAreaView,
-    StatusBar,
     Dimensions,
-    Modal as RNModal,
     KeyboardAvoidingView,
     Platform,
-    ScrollView
+    Modal as RNModal,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
 } from 'react-native';
-import { Eye, EyeOff, ChevronRight } from 'lucide-react-native';
-import { useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Circle, Rect, Path, Ellipse } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
+import { auth, db } from '../../firebaseConfig';
+import { useUserStore } from '../../store/useUserStore';
 
 const { width, height } = Dimensions.get('window');
 
@@ -25,50 +27,41 @@ export default function LoginScreen() {
     const [showPassword, setShowPassword] = useState(false);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [showEmailVerifyModal, setShowEmailVerifyModal] = useState(false);
-    const [showOTPModal, setShowOTPModal] = useState(false);
-    const [showSuccessModal, setShowSuccessModal] = useState(false);
-    const [otp, setOtp] = useState(['', '', '', '']);
-    const [resendTimer, setResendTimer] = useState(38);
+    const [loading, setLoading] = useState(false);
+    const { setRole } = useUserStore();
 
-    const otpRefs = [useRef<TextInput>(null), useRef<TextInput>(null), useRef<TextInput>(null), useRef<TextInput>(null)];
+    const handleLogin = async () => {
+        if (!email || !password) return;
+        setLoading(true);
+        try {
+            // 1. Authenticate with Firebase securely
+            const userCred = await signInWithEmailAndPassword(auth, email, password);
 
-    // OTP Resend Timer
-    useEffect(() => {
-        if (showOTPModal && resendTimer > 0) {
-            const timer = setTimeout(() => setResendTimer(resendTimer - 1), 1000);
-            return () => clearTimeout(timer);
-        }
-    }, [showOTPModal, resendTimer]);
+            // 2. Fetch their metadata (Role, etc) from Firestore
+            const userDoc = await getDoc(doc(db, "users", userCred.user.uid));
 
-    const handleOTPChange = (index: number, value: string) => {
-        if (value.length <= 1 && /^\d*$/.test(value)) {
-            const newOtp = [...otp];
-            newOtp[index] = value;
-            setOtp(newOtp);
-
-            // Auto-focus next input
-            if (value && index < 3) {
-                otpRefs[index + 1].current?.focus();
+            if (userDoc.exists()) {
+                const userData = userDoc.data();
+                if (userData.role) {
+                    setRole(userData.role);
+                } else {
+                    setRole('vault'); // fallback
+                }
+            } else {
+                setRole('vault');
             }
+
+            router.replace('/(tabs)');
+        } catch (error: any) {
+            console.error('Login error:', error.message);
+            alert(error.message);
+        } finally {
+            setLoading(false);
         }
     };
 
-    const handleLogin = () => {
-        if (email && password) {
-            setShowEmailVerifyModal(true);
-        }
-    };
-
-    const handleVerifyEmail = () => {
-        setShowEmailVerifyModal(false);
-        setShowOTPModal(true);
-        setResendTimer(38);
-    };
-
-    const handleVerifyOTP = () => {
-        setShowOTPModal(false);
-        setShowSuccessModal(true);
+    const handleGoogleLogin = async () => {
+        alert("Google OAuth Triggered! (Requires active AuthSession configuring)");
     };
 
     return (
@@ -91,7 +84,7 @@ export default function LoginScreen() {
                     {/* Social Login Buttons */}
                     <View style={styles.socialContainer}>
                         <SocialButton icon={<AppleIcon />} text="Login with Apple" />
-                        <SocialButton icon={<GoogleIcon />} text="Login with Google" />
+                        <SocialButton icon={<GoogleIcon />} text="Login with Google" onPress={handleGoogleLogin} />
                     </View>
 
                     {/* Divider */}
@@ -141,8 +134,9 @@ export default function LoginScreen() {
                             onPress={handleLogin}
                             style={styles.loginButton}
                             activeOpacity={0.8}
+                            disabled={loading}
                         >
-                            <Text style={styles.loginButtonText}>Login</Text>
+                            <Text style={styles.loginButtonText}>{loading ? 'Logging in...' : 'Login'}</Text>
                         </TouchableOpacity>
                     </View>
 
@@ -156,104 +150,15 @@ export default function LoginScreen() {
                 </ScrollView>
             </KeyboardAvoidingView>
 
-            {/* Home Indicator Mimic */}
-            <View style={styles.homeIndicator} />
-
-            {/* Modals */}
-            <ActionModal visible={showEmailVerifyModal} onClose={() => setShowEmailVerifyModal(false)}>
-                <View style={styles.modalContent}>
-                    <Text style={styles.modalLabel}>Verify Your Email Address</Text>
-                    <Text style={styles.modalEmail}>{email || 'Breezy@example.com'}</Text>
-                    <Text style={styles.modalDescription}>
-                        We will send the authentication code to your email address you entered. Do you want to continue?
-                    </Text>
-
-                    <View style={styles.modalButtons}>
-                        <TouchableOpacity
-                            onPress={() => setShowEmailVerifyModal(false)}
-                            style={[styles.modalButton, styles.cancelButton]}
-                        >
-                            <Text style={styles.cancelButtonText}>Cancel</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            onPress={handleVerifyEmail}
-                            style={[styles.modalButton, styles.continueButton]}
-                        >
-                            <Text style={styles.continueButtonText}>Continue</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-            </ActionModal>
-
-            <ActionModal visible={showOTPModal} onClose={() => setShowOTPModal(false)}>
-                <View style={styles.modalContent}>
-                    <Text style={styles.otpTitle}>Enter OTP</Text>
-                    <Text style={styles.modalDescription}>
-                        A verification code has been sent to {email || 'breezy@example.com'}
-                    </Text>
-
-                    <View style={styles.otpInputsContainer}>
-                        {[0, 1, 2, 3].map((index) => (
-                            <TextInput
-                                key={index}
-                                ref={otpRefs[index]}
-                                style={styles.otpInput}
-                                maxLength={1}
-                                keyboardType="number-pad"
-                                value={otp[index]}
-                                onChangeText={(val) => handleOTPChange(index, val)}
-                            />
-                        ))}
-                    </View>
-
-                    <TouchableOpacity
-                        onPress={handleVerifyOTP}
-                        style={styles.verifyButton}
-                    >
-                        <Text style={styles.verifyButtonText}>Verify</Text>
-                    </TouchableOpacity>
-
-                    <Text style={styles.resendText}>
-                        Didn't receive the code? <Text style={styles.registerText}>Resend ({resendTimer}s)</Text>
-                    </Text>
-                </View>
-            </ActionModal>
-
-            <ActionModal visible={showSuccessModal} onClose={() => setShowSuccessModal(false)}>
-                <View style={styles.modalContent}>
-                    <View style={styles.successIconContainer}>
-                        <View style={styles.successCircleOuter} />
-                        <View style={styles.successCircleInner}>
-                            <Svg width="50" height="50" viewBox="0 0 50 50">
-                                <Path d="M10 25 L20 35 L40 15" stroke="white" strokeWidth="5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-                            </Svg>
-                        </View>
-                    </View>
-
-                    <Text style={styles.successTitle}>Account Created Successfully</Text>
-                    <Text style={styles.modalDescription}>
-                        Your account has been verified and created successfully
-                    </Text>
-
-                    <TouchableOpacity
-                        onPress={() => {
-                            setShowSuccessModal(false);
-                            router.replace('/(tabs)');
-                        }}
-                        style={styles.verifyButton}
-                    >
-                        <Text style={styles.verifyButtonText}>Continue to Dashboard</Text>
-                    </TouchableOpacity>
-                </View>
-            </ActionModal>
+            {/* Modals Removed for Firebase Auth Native UI */}
         </View>
     );
 }
 
 // Sub-components
-function SocialButton({ icon, text }: { icon: React.ReactNode, text: string }) {
+function SocialButton({ icon, text, onPress }: { icon: React.ReactNode, text: string, onPress?: () => void }) {
     return (
-        <TouchableOpacity style={styles.socialButton}>
+        <TouchableOpacity style={styles.socialButton} onPress={onPress}>
             {icon}
             <Text style={styles.socialButtonText}>{text}</Text>
         </TouchableOpacity>
@@ -452,16 +357,6 @@ const styles = StyleSheet.create({
         color: '#EC5C39',
         fontSize: 15,
         fontFamily: 'Poppins-SemiBold',
-    },
-    homeIndicator: {
-        position: 'absolute',
-        bottom: 8,
-        alignSelf: 'center',
-        width: 134,
-        height: 5,
-        backgroundColor: 'white',
-        borderRadius: 3,
-        opacity: 0.5,
     },
     modalOverlay: {
         flex: 1,

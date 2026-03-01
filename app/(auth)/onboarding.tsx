@@ -183,9 +183,6 @@ export default function OnboardingFlow() {
                 </View>
 
             </Animated.View>
-
-            {/* Home Indicator Mimic */}
-            <View style={styles.homeIndicator} />
         </View>
     );
 }
@@ -279,15 +276,5 @@ const styles = StyleSheet.create({
     illustrationImage: {
         width: width * 0.8,
         height: width * 0.8,
-    },
-    homeIndicator: {
-        position: 'absolute',
-        bottom: 8,
-        alignSelf: 'center',
-        width: 134,
-        height: 5,
-        backgroundColor: 'white',
-        borderRadius: 3,
-        opacity: 0.5,
     }
 });

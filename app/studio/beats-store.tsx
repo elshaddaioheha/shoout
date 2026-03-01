@@ -1,90 +1,72 @@
-import React, { useState } from 'react';
+import SafeScreenWrapper from '@/components/SafeScreenWrapper';
+import { usePlaybackStore } from '@/store/usePlaybackStore';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import { collection, deleteDoc, doc, onSnapshot, orderBy, query } from 'firebase/firestore';
 import {
-    View,
-    Text,
-    StyleSheet,
-    TouchableOpacity,
-    ScrollView,
-    Dimensions,
-    TextInput,
-    FlatList,
-    Alert
-} from 'react-native';
-import {
+    CheckCircle2,
     ChevronLeft,
-    Plus,
-    Search,
-    Filter,
+    Clock,
+    DollarSign,
+    Edit3,
     MoreVertical,
     Music,
-    DollarSign,
-    BarChart2,
-    Clock,
+    Play,
+    Plus,
+    Search,
     Tag,
-    Share2,
-    Trash2,
-    Edit3,
-    CheckCircle2,
-    AlertCircle
+    Trash2
 } from 'lucide-react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import SafeScreenWrapper from '@/components/SafeScreenWrapper';
-import { useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import {
+    ActivityIndicator,
+    Alert,
+    Dimensions,
+    FlatList,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
+} from 'react-native';
+import { auth, db } from '../../firebaseConfig';
 
 const { width } = Dimensions.get('window');
-
-// Mock Data
-const MOCK_BEATS = [
-    {
-        id: '1',
-        title: 'Dark Knight Trap',
-        bpm: '140',
-        genre: 'Trap',
-        price: '29.99',
-        sales: 12,
-        status: 'Active',
-        date: 'Oct 12, 2023'
-    },
-    {
-        id: '2',
-        title: 'Sunset Melodies',
-        bpm: '95',
-        genre: 'Afrobeat',
-        price: '45.00',
-        sales: 8,
-        status: 'Active',
-        date: 'Oct 05, 2023'
-    },
-    {
-        id: '3',
-        title: 'Drill Sergeant',
-        bpm: '144',
-        genre: 'UK Drill',
-        price: '35.00',
-        sales: 0,
-        status: 'Draft',
-        date: 'Oct 20, 2023'
-    },
-    {
-        id: '4',
-        title: 'Soulful Sessions',
-        bpm: '88',
-        genre: 'R&B',
-        price: '50.00',
-        sales: 24,
-        status: 'Active',
-        date: 'Sep 28, 2023'
-    }
-];
 
 export default function BeatsStoreManagement() {
     const router = useRouter();
     const [searchQuery, setSearchQuery] = useState('');
     const [activeTab, setActiveTab] = useState('All');
+    const [beats, setBeats] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
 
-    const filteredBeats = MOCK_BEATS.filter(beat => {
-        const matchesSearch = beat.title.toLowerCase().includes(searchQuery.toLowerCase());
-        const matchesTab = activeTab === 'All' || beat.status === activeTab;
+    useEffect(() => {
+        if (!auth.currentUser) return;
+
+        const q = query(
+            collection(db, `users/${auth.currentUser.uid}/uploads`),
+            orderBy('createdAt', 'desc')
+        );
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const fetchedBeats = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
+            setBeats(fetchedBeats);
+            setLoading(false);
+        }, (err) => {
+            console.error("Error fetching beats store:", err);
+            setLoading(false);
+        });
+
+        return () => unsubscribe();
+    }, []);
+
+    const filteredBeats = beats.filter(beat => {
+        const matchesSearch = beat.title?.toLowerCase().includes(searchQuery.toLowerCase());
+        const status = beat.price > 0 ? 'Active' : 'Draft'; // Derived logic for MVP
+        const matchesTab = activeTab === 'All' || status === activeTab;
         return matchesSearch && matchesTab;
     });
 
@@ -94,14 +76,28 @@ export default function BeatsStoreManagement() {
 
     const handleDeleteBeat = (id: string) => {
         Alert.alert(
-            "Delete Beat",
-            "Are you sure you want to delete this beat? This action cannot be undone.",
+            "Delete Track",
+            "Are you sure you want to remove this track from your store and vault?",
             [
                 { text: "Cancel", style: "cancel" },
-                { text: "Delete", style: "destructive", onPress: () => console.log('Deleted', id) }
+                {
+                    text: "Delete",
+                    style: "destructive",
+                    onPress: async () => {
+                        try {
+                            await deleteDoc(doc(db, `users/${auth.currentUser?.uid}/uploads`, id));
+                            Alert.alert("Success", "Track deleted successfully.");
+                        } catch (e) {
+                            Alert.alert("Error", "Failed to delete track.");
+                        }
+                    }
+                }
             ]
         );
     };
+
+    const totalSales = beats.reduce((acc, curr) => acc + (curr.salesCount || 0), 0);
+    const monthlyRevenue = beats.reduce((acc, curr) => acc + (curr.revenue || 0), 0);
 
     return (
         <SafeScreenWrapper>
@@ -112,7 +108,10 @@ export default function BeatsStoreManagement() {
                         <ChevronLeft size={24} color="#FFF" />
                     </TouchableOpacity>
                     <Text style={styles.headerTitle}>Beats Store</Text>
-                    <TouchableOpacity style={styles.addButton}>
+                    <TouchableOpacity
+                        style={styles.addButton}
+                        onPress={() => router.push('/studio/upload')}
+                    >
                         <LinearGradient
                             colors={['#EC5C39', '#863420']}
                             style={styles.addGradient}
@@ -134,9 +133,6 @@ export default function BeatsStoreManagement() {
                             onChangeText={setSearchQuery}
                         />
                     </View>
-                    <TouchableOpacity style={styles.filterButton}>
-                        <Filter size={20} color="#FFF" />
-                    </TouchableOpacity>
                 </View>
 
                 {/* Tabs */}
@@ -157,46 +153,57 @@ export default function BeatsStoreManagement() {
                 {/* Stats Summary */}
                 <View style={styles.summaryContainer}>
                     <View style={styles.summaryItem}>
-                        <Text style={styles.summaryLabel}>Total Beats</Text>
-                        <Text style={styles.summaryValue}>{MOCK_BEATS.length}</Text>
+                        <Text style={styles.summaryLabel}>Total Tracks</Text>
+                        <Text style={styles.summaryValue}>{beats.length}</Text>
                     </View>
                     <View style={styles.summaryDivider} />
                     <View style={styles.summaryItem}>
-                        <Text style={styles.summaryLabel}>Total Sales</Text>
-                        <Text style={styles.summaryValue}>44</Text>
+                        <Text style={styles.summaryLabel}>Total Plays</Text>
+                        <Text style={styles.summaryValue}>
+                            {beats.reduce((acc, curr) => acc + (curr.listenCount || 0), 0)}
+                        </Text>
                     </View>
                     <View style={styles.summaryDivider} />
                     <View style={styles.summaryItem}>
-                        <Text style={styles.summaryLabel}>This Month</Text>
-                        <Text style={[styles.summaryValue, { color: '#4CAF50' }]}>+$420</Text>
+                        <Text style={styles.summaryLabel}>Revenue</Text>
+                        <Text style={[styles.summaryValue, { color: '#4CAF50' }]}>
+                            ${monthlyRevenue.toFixed(2)}
+                        </Text>
                     </View>
                 </View>
 
                 {/* Beats List */}
-                <FlatList
-                    data={filteredBeats}
-                    keyExtractor={(item) => item.id}
-                    renderItem={({ item }) => (
-                        <BeatCard
-                            beat={item}
-                            onDelete={() => handleDeleteBeat(item.id)}
-                        />
-                    )}
-                    contentContainerStyle={styles.listContent}
-                    showsVerticalScrollIndicator={false}
-                    ListEmptyComponent={
-                        <View style={styles.emptyContainer}>
-                            <Music size={48} color="rgba(255,255,255,0.2)" />
-                            <Text style={styles.emptyText}>No beats found</Text>
-                        </View>
-                    }
-                />
+                {loading ? (
+                    <ActivityIndicator color="#EC5C39" style={{ marginTop: 40 }} />
+                ) : (
+                    <FlatList
+                        data={filteredBeats}
+                        keyExtractor={(item) => item.id}
+                        renderItem={({ item }) => (
+                            <BeatCard
+                                beat={item}
+                                onDelete={() => handleDeleteBeat(item.id)}
+                            />
+                        )}
+                        contentContainerStyle={styles.listContent}
+                        showsVerticalScrollIndicator={false}
+                        ListEmptyComponent={
+                            <View style={styles.emptyContainer}>
+                                <Music size={48} color="rgba(255,255,255,0.2)" />
+                                <Text style={styles.emptyText}>No beats found in store</Text>
+                            </View>
+                        }
+                    />
+                )}
             </View>
         </SafeScreenWrapper>
     );
 }
 
 function BeatCard({ beat, onDelete }: any) {
+    const setTrack = usePlaybackStore(state => state.setTrack);
+    const status = beat.price > 0 ? 'Active' : 'Draft';
+
     return (
         <View style={styles.beatCard}>
             <View style={styles.beatHeader}>
@@ -204,11 +211,11 @@ function BeatCard({ beat, onDelete }: any) {
                     <Music size={24} color="#EC5C39" />
                 </View>
                 <View style={styles.beatInfo}>
-                    <Text style={styles.beatTitle}>{beat.title}</Text>
+                    <Text style={styles.beatTitle} numberOfLines={1}>{beat.title}</Text>
                     <View style={styles.beatMeta}>
-                        <Text style={styles.beatMetaText}>{beat.genre}</Text>
+                        <Text style={styles.beatMetaText}>{beat.genre || 'Afro'}</Text>
                         <Text style={styles.metaDivider}>•</Text>
-                        <Text style={styles.beatMetaText}>{beat.bpm} BPM</Text>
+                        <Text style={styles.beatMetaText}>{beat.bpm || '--'} BPM</Text>
                     </View>
                 </View>
                 <TouchableOpacity style={styles.moreButton}>
@@ -219,35 +226,44 @@ function BeatCard({ beat, onDelete }: any) {
             <View style={styles.beatStatsRow}>
                 <View style={styles.beatStat}>
                     <DollarSign size={14} color="rgba(255,255,255,0.5)" />
-                    <Text style={styles.beatStatText}>${beat.price}</Text>
+                    <Text style={styles.beatStatText}>${beat.price || '0.00'}</Text>
                 </View>
                 <View style={styles.beatStat}>
                     <Tag size={14} color="rgba(255,255,255,0.5)" />
-                    <Text style={styles.beatStatText}>{beat.sales} Sales</Text>
+                    <Text style={styles.beatStatText}>{beat.salesCount || 0} Sales</Text>
                 </View>
                 <View style={styles.beatStat}>
-                    {beat.status === 'Active' ? (
+                    {status === 'Active' ? (
                         <CheckCircle2 size={14} color="#4CAF50" />
                     ) : (
                         <Clock size={14} color="#FFC107" />
                     )}
                     <Text style={[
                         styles.beatStatText,
-                        { color: beat.status === 'Active' ? '#4CAF50' : '#FFC107' }
+                        { color: status === 'Active' ? '#4CAF50' : '#FFC107' }
                     ]}>
-                        {beat.status}
+                        {status}
                     </Text>
                 </View>
             </View>
 
             <View style={styles.cardActions}>
+                <TouchableOpacity
+                    style={[styles.cardActionButton, { backgroundColor: '#EC5C39' }]}
+                    onPress={() => setTrack({
+                        id: beat.id,
+                        title: beat.title,
+                        artist: auth.currentUser?.displayName || 'Creator',
+                        url: beat.audioUrl,
+                        uploaderId: auth.currentUser?.uid
+                    })}
+                >
+                    <Play size={18} color="#FFF" />
+                    <Text style={styles.cardActionText}>Listen</Text>
+                </TouchableOpacity>
                 <TouchableOpacity style={styles.cardActionButton}>
                     <Edit3 size={18} color="#FFF" />
                     <Text style={styles.cardActionText}>Edit</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.cardActionButton}>
-                    <Share2 size={18} color="#FFF" />
-                    <Text style={styles.cardActionText}>Share</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.cardActionButton} onPress={onDelete}>
                     <Trash2 size={18} color="rgba(255,255,255,0.6)" />
@@ -317,14 +333,6 @@ const styles = StyleSheet.create({
         color: '#FFF',
         fontFamily: 'Poppins-Regular',
         fontSize: 14,
-    },
-    filterButton: {
-        width: 48,
-        height: 48,
-        borderRadius: 12,
-        backgroundColor: 'rgba(255,255,255,0.05)',
-        alignItems: 'center',
-        justifyContent: 'center',
     },
     tabsContainer: {
         flexDirection: 'row',

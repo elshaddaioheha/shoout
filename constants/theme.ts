@@ -1,34 +1,55 @@
-/**
- * Design tokens for the Shouuts app.
- * Centralized colors, fonts, spacing, and border radius values.
- * Use these tokens instead of hardcoding values in individual components.
- */
+import { colors } from './colors';
+import { spacing } from './spacing';
+import { FontFamily, LegacyFonts, typography } from './typography';
 
-import { Platform } from 'react-native';
-
-// ──────────────────────────────────────────────
-// Brand Colors
-// ──────────────────────────────────────────────
-export const Brand = {
-  primary: '#EC5C39',
-  primaryDark: '#D32626',
-  primaryLight: '#C96F6F',
-  background: '#140F10',
-  surface: '#1E1A1B',
-  border: '#464646',
-  borderLight: '#333',
-  textPrimary: '#FFFFFF',
-  textSecondary: 'rgba(255, 255, 255, 0.7)',
-  textMuted: 'rgba(255, 255, 255, 0.4)',
-  textPlaceholder: 'rgba(255, 255, 255, 0.6)',
-  error: '#FF4D4D',
-  success: '#319F43',
-  placeholder: '#D9D9D9',
+export const theme = {
+  spacing,
+  colors,
+  typography,
+  radius: {
+    sm: 4,
+    md: 8,
+    lg: 16,
+    xl: 24,
+    full: 9999,
+  },
+  shadow: {
+    sm: {
+      shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.06, shadowRadius: 2, elevation: 2,
+    },
+    md: {
+      shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.1, shadowRadius: 8, elevation: 5,
+    },
+    lg: {
+      shadowColor: '#000', shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.14, shadowRadius: 16, elevation: 10,
+    },
+  },
+  iconSize: { sm: 16, md: 20, lg: 24, xl: 32 },
 };
 
 // ──────────────────────────────────────────────
-// Spacing Scale (4px base)
+// Legacy Exports (kept to prevent immediate breakages, will be phased out)
 // ──────────────────────────────────────────────
+export const Brand = {
+  primary: colors.primary,
+  primaryDark: colors.primaryDark,
+  primaryLight: colors.primaryLight,
+  background: colors.background,
+  surface: colors.surface,
+  border: colors.border,
+  borderLight: colors.borderLight,
+  textPrimary: colors.textPrimary,
+  textSecondary: colors.textSecondary,
+  textMuted: colors.textDisabled,
+  textPlaceholder: colors.textPlaceholder,
+  error: colors.error,
+  success: colors.success,
+  placeholder: colors.placeholder,
+};
+
 export const Spacing = {
   xs: 4,
   sm: 8,
@@ -39,12 +60,9 @@ export const Spacing = {
   '3xl': 28,
   '4xl': 32,
   '5xl': 40,
-  screenPadding: 28, // Standard horizontal padding for all screens
+  screenPadding: 28,
 };
 
-// ──────────────────────────────────────────────
-// Border Radius Scale
-// ──────────────────────────────────────────────
 export const Radius = {
   xs: 4,
   sm: 8,
@@ -56,14 +74,7 @@ export const Radius = {
   full: 9999,
 };
 
-// ──────────────────────────────────────────────
-// Typography
-// ──────────────────────────────────────────────
-export const FontFamily = {
-  regular: 'Poppins-Regular',
-  semiBold: 'Poppins-SemiBold',
-  bold: 'Poppins-Bold',
-};
+export { FontFamily };
 
 export const FontSize = {
   xs: 10,
@@ -76,9 +87,6 @@ export const FontSize = {
   '4xl': 32,
 };
 
-// ──────────────────────────────────────────────
-// Legacy Colors (kept for compatibility with themed components)
-// ──────────────────────────────────────────────
 const tintColorLight = '#0a7ea4';
 const tintColorDark = '#fff';
 
@@ -101,23 +109,4 @@ export const Colors = {
   },
 };
 
-export const Fonts = Platform.select({
-  ios: {
-    sans: 'system-ui',
-    serif: 'ui-serif',
-    rounded: 'ui-rounded',
-    mono: 'ui-monospace',
-  },
-  default: {
-    sans: 'normal',
-    serif: 'serif',
-    rounded: 'normal',
-    mono: 'monospace',
-  },
-  web: {
-    sans: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
-    serif: "Georgia, 'Times New Roman', serif",
-    rounded: "'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Meiryo, 'MS PGothic', sans-serif",
-    mono: "SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
-  },
-});
+export const Fonts = LegacyFonts;

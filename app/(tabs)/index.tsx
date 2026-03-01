@@ -1,18 +1,16 @@
+import SharedHeader from '@/components/SharedHeader';
 import Sidebar from '@/components/Sidebar';
+import { useCartStore } from '@/store/useCartStore';
 import { usePlaybackStore } from '@/store/usePlaybackStore';
 import { BlurView } from 'expo-blur';
-import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import {
-  Bell,
   Heart,
-  Menu,
   Mic2,
   MoreVertical,
   Music,
   Play,
-  Search,
   ShoppingCart,
   Sparkles,
   Users
@@ -20,25 +18,22 @@ import {
 import React, { useState } from 'react';
 import {
   Dimensions,
-  Platform,
-  SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View
 } from 'react-native';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
 export default function HomeScreen() {
   const router = useRouter();
   const [showWelcomeModal, setShowWelcomeModal] = useState(true);
   const [modalStep, setModalStep] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const { items } = useCartStore();
 
   const modals = [
     {
@@ -76,44 +71,12 @@ export default function HomeScreen() {
       <StatusBar barStyle="light-content" />
 
       {/* Header */}
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.header}>
-          <View style={styles.headerLeft}>
-            <TouchableOpacity
-              style={styles.logoWrapper}
-              onPress={() => router.push('/profile')}
-              activeOpacity={0.7}
-            >
-              <Image
-                source={require('@/assets/images/logo-rings.png')}
-                style={styles.logoImage}
-                contentFit="contain"
-              />
-            </TouchableOpacity>
-          </View>
-          <View style={styles.headerRight}>
-            <TouchableOpacity style={styles.iconButton}>
-              <Bell size={20} color="white" />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.iconButton, { marginLeft: 12 }]}
-              onPress={() => setIsSidebarOpen(true)}
-            >
-              <Menu size={20} color="white" />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Search Bar */}
-        <View style={styles.searchContainer}>
-          <Search size={24} color="white" />
-          <TextInput
-            placeholder="Search the best Afro Music"
-            placeholderTextColor="#464646"
-            style={styles.searchInput}
-          />
-        </View>
-      </SafeAreaView>
+      <SharedHeader
+        onMenuPress={() => setIsSidebarOpen(true)}
+        showCart={true}
+        cartCount={items.length}
+        showMessages={true}
+      />
 
       {/* Main Content */}
       <ScrollView
@@ -172,11 +135,6 @@ export default function HomeScreen() {
           </View>
         </View>
       )}
-
-
-
-      {/* Home Indicator */}
-      <View style={styles.homeIndicator} />
     </View>
   );
 }
@@ -357,61 +315,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#140F10',
   },
-  safeArea: {
-    backgroundColor: '#140F10',
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    height: 60,
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  logoWrapper: {
-    paddingVertical: 10,
-  },
-  logoImage: {
-    width: 60,
-    height: 30,
-  },
-  iconButton: {
-    padding: 6,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderRadius: 20,
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  searchContainer: {
-    marginHorizontal: 20,
-    marginTop: 10,
-    marginBottom: 10,
-    height: 48,
-    backgroundColor: 'rgba(70,70,70,0.18)',
-    borderWidth: 1.5,
-    borderColor: '#464646',
-    borderRadius: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 11,
-  },
-  searchInput: {
-    flex: 1,
-    marginLeft: 10,
-    color: 'white',
-    fontSize: 15,
-    fontFamily: 'Poppins-Regular',
-  },
   content: {
     flex: 1,
   },
@@ -469,11 +372,6 @@ const styles = StyleSheet.create({
   artistName: {
     color: 'white',
     fontSize: 11,
-    fontFamily: 'Poppins-Regular',
-  },
-  songPrice: {
-    color: 'white',
-    fontSize: 7,
     fontFamily: 'Poppins-Regular',
   },
   playButton: {
@@ -607,17 +505,6 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
   },
-  modalLogoContainer: {
-    width: 190,
-    height: 190,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalLogoText: {
-    color: 'white',
-    fontSize: 40,
-    fontFamily: 'Poppins-Bold',
-  },
   modalIconContainer: {
     marginBottom: 25,
     height: 100,
@@ -662,15 +549,5 @@ const styles = StyleSheet.create({
   modalBtnText: {
     fontSize: 16,
     fontFamily: 'Inter-Regular',
-  },
-  homeIndicator: {
-    position: 'absolute',
-    bottom: 8,
-    alignSelf: 'center',
-    width: 134,
-    height: 5,
-    backgroundColor: 'white',
-    borderRadius: 3,
-    opacity: 0.5,
   },
 });
