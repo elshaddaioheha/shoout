@@ -1,6 +1,7 @@
+import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import { useRouter } from 'expo-router';
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { GoogleAuthProvider, signInWithCredential, signInWithEmailAndPassword } from 'firebase/auth';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { Eye, EyeOff } from 'lucide-react-native';
 import React, { useState } from 'react';
 import {
@@ -45,10 +46,10 @@ export default function LoginScreen() {
                 if (userData.role) {
                     setRole(userData.role);
                 } else {
-                    setRole('vault'); // fallback
+                    setRole('vault_free'); // fallback
                 }
             } else {
-                setRole('vault');
+                setRole('vault_free');
             }
 
             router.replace('/(tabs)');
@@ -61,7 +62,45 @@ export default function LoginScreen() {
     };
 
     const handleGoogleLogin = async () => {
-        alert("Google OAuth Triggered! (Requires active AuthSession configuring)");
+        try {
+            setLoading(true);
+            await GoogleSignin.hasPlayServices();
+            const userInfo = await GoogleSignin.signIn();
+            const idToken = userInfo?.data?.idToken;
+            if (!idToken) throw new Error("No ID Token found");
+
+            // Create a Google credential with the token
+            const googleCredential = GoogleAuthProvider.credential(idToken);
+
+            // Sign-in the user with the credential
+            const userCred = await signInWithCredential(auth, googleCredential);
+
+            // Fetch or create user document in Firestore
+            const userDoc = await getDoc(doc(db, "users", userCred.user.uid));
+
+            if (!userDoc.exists()) {
+                await setDoc(doc(db, "users", userCred.user.uid), {
+                    fullName: userCred.user.displayName || "Google User",
+                    email: userCred.user.email,
+                    role: 'vault_free', // default initial role for social login
+                    createdAt: new Date().toISOString()
+                });
+                setRole('vault_free');
+                router.replace('/(auth)/role-selection');
+            } else {
+                const userData = userDoc.data();
+                setRole(userData.role || 'vault_free');
+                router.replace('/(tabs)');
+            }
+
+        } catch (error: any) {
+            console.error('Google Sign-In error:', error.message);
+            if (error.code !== statusCodes.SIGN_IN_CANCELLED) {
+                alert(error.message);
+            }
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (

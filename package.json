@@ -8,16 +8,22 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
   },
   "dependencies": {
     "@expo-google-fonts/poppins": "^0.4.1",
     "@expo/vector-icons": "^15.0.3",
     "@react-native-async-storage/async-storage": "2.2.0",
+    "@react-native-google-signin/google-signin": "^16.1.2",
     "@react-navigation/bottom-tabs": "^7.4.0",
     "@react-navigation/elements": "^2.6.3",
     "@react-navigation/native": "^7.1.8",
+    "@stripe/stripe-react-native": "0.50.3",
     "expo": "~54.0.33",
+    "expo-apple-authentication": "~8.0.8",
     "expo-av": "~16.0.8",
     "expo-blur": "^15.0.8",
     "expo-constants": "~18.0.13",
@@ -27,7 +33,7 @@
     "expo-haptics": "~15.0.8",
     "expo-image": "~3.0.11",
     "expo-keep-awake": "~15.0.8",
-    "expo-linear-gradient": "^15.0.8",
+    "expo-linear-gradient": "~15.0.8",
     "expo-linking": "~8.0.11",
     "expo-router": "~6.0.23",
     "expo-splash-screen": "~31.0.13",
@@ -41,19 +47,61 @@
     "react-dom": "19.1.0",
     "react-native": "0.81.5",
     "react-native-gesture-handler": "~2.28.0",
+    "react-native-paystack-webview": "^5.0.3",
     "react-native-reanimated": "~4.1.1",
     "react-native-safe-area-context": "~5.6.0",
     "react-native-screens": "~4.16.0",
     "react-native-svg": "15.12.1",
     "react-native-web": "~0.21.0",
+    "react-native-webview": "13.15.0",
     "react-native-worklets": "0.5.1",
     "zustand": "^5.0.11"
   },
   "devDependencies": {
+    "@testing-library/jest-native": "^5.4.3",
+    "@testing-library/react-native": "^13.3.3",
+    "@types/jest": "^30.0.0",
     "@types/react": "~19.1.0",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~10.0.0",
+    "firebase-admin": "^13.7.0",
+    "jest": "^30.2.0",
+    "jest-expo": "^55.0.9",
+    "react-test-renderer": "^19.1.0",
     "typescript": "~5.9.2"
   },
-  "private": true
+  "private": true,
+  "jest": {
+    "preset": "jest-expo",
+    "testEnvironment": "node",
+    "setupFiles": [
+      "<rootDir>/jest.setup.js"
+    ],
+    "transformIgnorePatterns": [
+      "node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg|lucide-react-native|zustand)"
+    ],
+    "moduleNameMapper": {
+      "^@/(.*)$": "<rootDir>/$1",
+      "^firebase$": "<rootDir>/__mocks__/firebase.ts",
+      "^firebase/(.*)$": "<rootDir>/__mocks__/firebase.ts",
+      "^@/firebaseConfig$": "<rootDir>/__mocks__/firebaseConfig.ts",
+      "^../../firebaseConfig$": "<rootDir>/__mocks__/firebaseConfig.ts",
+      "^../firebaseConfig$": "<rootDir>/__mocks__/firebaseConfig.ts",
+      "expo-linear-gradient": "<rootDir>/__mocks__/expo-linear-gradient.js",
+      "react-native-paystack-webview": "<rootDir>/__mocks__/react-native-paystack-webview.js",
+      "expo/src/winter$": "<rootDir>/__mocks__/expoRuntime.js",
+      "expo/src/winter/index": "<rootDir>/__mocks__/expoRuntime.js",
+      "expo/src/winter/runtime$": "<rootDir>/__mocks__/expoRuntime.js",
+      "expo/src/winter/runtime.native": "<rootDir>/__mocks__/expoRuntime.js",
+      "expo/src/winter/ImportMetaRegistry": "<rootDir>/__mocks__/ImportMetaRegistry.ts",
+      "expo/src/winter/installGlobal": "<rootDir>/__mocks__/expoRuntime.js",
+      "expo/src/utils/getBundleUrl": "<rootDir>/__mocks__/expoRuntime.js"
+    },
+    "collectCoverageFrom": [
+      "store/**/*.ts",
+      "utils/**/*.ts",
+      "!**/__mocks__/**",
+      "!**/node_modules/**"
+    ]
+  }
 }

@@ -1,0 +1,89 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Helpers
+    // ─────────────────────────────────────────────────────────────────────────
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return request.auth.uid == uid;
+    }
+
+    function isAudio() {
+      return request.resource.contentType.matches('audio/.*');
+    }
+
+    function isImage() {
+      return request.resource.contentType.matches('image/.*');
+    }
+
+    function maxSize(mb) {
+      return request.resource.size <= mb * 1024 * 1024;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // User Audio Uploads (Vault / Studio)
+    // Path: users/{uid}/audio/{filename}
+    // ─────────────────────────────────────────────────────────────────────────
+    match /users/{uid}/audio/{filename} {
+      // Anyone authenticated can read (stream) audio files
+      allow read: if isAuthenticated();
+
+      // Only the owner can upload — max 200MB per file
+      allow create: if isOwner(uid)
+        && isAudio()
+        && maxSize(200);
+
+      // Owner can replace (re-upload) files
+      allow update: if isOwner(uid) && isAudio();
+
+      // Owner can delete their own files
+      allow delete: if isOwner(uid);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Cover Art / Thumbnails
+    // Path: users/{uid}/covers/{filename}
+    // ─────────────────────────────────────────────────────────────────────────
+    match /users/{uid}/covers/{filename} {
+      allow read: if isAuthenticated();
+      allow create: if isOwner(uid)
+        && isImage()
+        && maxSize(10);
+      allow update: if isOwner(uid) && isImage();
+      allow delete: if isOwner(uid);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // User Avatar / Profile Picture
+    // Path: avatars/{uid}
+    // ─────────────────────────────────────────────────────────────────────────
+    match /avatars/{uid} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(uid)
+        && isImage()
+        && maxSize(5);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Merch Product Images (admin-only writes)
+    // Path: merch/{itemId}/{filename}
+    // ─────────────────────────────────────────────────────────────────────────
+    match /merch/{itemId}/{filename} {
+      allow read: if isAuthenticated();
+      allow write: if false; // Admin SDK only
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Deny everything else
+    // ─────────────────────────────────────────────────────────────────────────
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
