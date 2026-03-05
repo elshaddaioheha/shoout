@@ -48,8 +48,8 @@ export default function MoreScreen() {
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>Settings</Text>
                         <View style={styles.menuContainer}>
-                            <MenuItem icon={Bell} label="Notifications" color="#EC5C39" />
-                            <MenuItem icon={Shield} label="Privacy & Security" color="#64748B" />
+                            <MenuItem icon={Bell} label="Notifications" color="#EC5C39" onPress={() => router.push('/settings/notifications' as any)} />
+                            <MenuItem icon={Shield} label="Privacy & Security" color="#64748B" onPress={() => router.push('/settings/privacy' as any)} />
                         </View>
                     </View>
 

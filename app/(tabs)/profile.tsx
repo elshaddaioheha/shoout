@@ -78,13 +78,13 @@ export default function ProfileScreen() {
                     <View style={[
                         styles.roleBadge,
                         isPremium && styles.rolePremium,
-                        (role === 'studio' || role === 'hybrid') && styles.roleArtist
+                        (role.startsWith('studio') || role.startsWith('hybrid')) && styles.roleArtist
                     ]}>
                         {isPremium && <Crown size={12} color="#FFD700" style={{ marginRight: 4 }} />}
                         <Text style={[
                             styles.roleText,
                             isPremium && { color: '#FFD700' },
-                            (role === 'studio' || role === 'hybrid') && { color: '#C084FC' }
+                            (role.startsWith('studio') || role.startsWith('hybrid')) && { color: '#C084FC' }
                         ]}>
                             {role.replace('_', ' ').charAt(0).toUpperCase() + role.replace('_', ' ').slice(1)} Member
                         </Text>
@@ -114,15 +114,15 @@ export default function ProfileScreen() {
                     <MenuItem
                         icon={Crown}
                         label="Subscription"
-                        value={isPremium ? 'Premium active' : 'Switch to Premium'}
+                        value={role.replace('_', ' ').toUpperCase()}
                         color="#FFD700"
-                        onPress={() => router.push('/settings/subscriptions')}
+                        onPress={() => router.push('/settings/subscriptions' as any)}
                     />
                     <MenuItem
                         icon={CreditCard}
                         label="Payment Methods"
                         color="#3B82F6"
-                        onPress={() => router.push('/settings/payment-methods')}
+                        onPress={() => router.push('/settings/payment-methods' as any)}
                     />
                     <MenuItem
                         icon={Music}
@@ -130,14 +130,14 @@ export default function ProfileScreen() {
                         color="#9333EA"
                         onPress={() => {
                             if (role.startsWith('studio') || role.startsWith('hybrid')) {
-                                router.push('/studio');
+                                router.push('/studio' as any);
                             } else {
                                 Alert.alert(
                                     "Upgrade Required",
                                     "You must be a Studio or Hybrid member to access the Artist Dashboard.",
                                     [
                                         { text: "Cancel", style: "cancel" },
-                                        { text: "Upgrade", onPress: () => router.push('/settings/subscriptions') }
+                                        { text: "Upgrade", onPress: () => router.push('/settings/subscriptions' as any) }
                                     ]
                                 );
                             }
@@ -148,9 +148,9 @@ export default function ProfileScreen() {
                 {/* Preferences Section */}
                 <Text style={styles.sectionTitle}>Preferences</Text>
                 <View style={styles.menuContainer}>
-                    <MenuItem icon={Bell} label="Notifications" color="#EC5C39" />
+                    <MenuItem icon={Bell} label="Notifications" color="#EC5C39" onPress={() => router.push('/settings/notifications' as any)} />
                     <MenuItem icon={Download} label="Downloads" color="#10B981" />
-                    <MenuItem icon={Shield} label="Privacy & Security" color="#64748B" />
+                    <MenuItem icon={Shield} label="Privacy & Security" color="#64748B" onPress={() => router.push('/settings/privacy' as any)} />
                 </View>
 
                 {/* Support Section */}

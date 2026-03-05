@@ -4,9 +4,9 @@ import { UserRole, useUserStore } from '@/store/useUserStore';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { doc, updateDoc } from 'firebase/firestore';
-import { Check, ChevronLeft, CreditCard, ShieldCheck, Sparkles, Star } from 'lucide-react-native';
+import { Check, ChevronLeft, CreditCard, PartyPopper, ShieldCheck, Sparkles, Star } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Animated, Dimensions, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { usePaystack } from 'react-native-paystack-webview';
 
 const { width } = Dimensions.get('window');
@@ -74,7 +74,10 @@ export default function SubscriptionsScreen() {
     const [selectedPlan, setSelectedPlan] = useState<typeof PLANS[0] | null>(null);
     const [showPaymentModal, setShowPaymentModal] = useState(false);
     const [isVerifying, setIsVerifying] = useState(false);
+    const [showSuccessSplash, setShowSuccessSplash] = useState(false);
+    const [splashPlanName, setSplashPlanName] = useState("");
     const { popup } = usePaystack();
+    const splashAnim = React.useRef(new Animated.Value(0)).current;
 
     const handleUpgradePress = (plan: typeof PLANS[0]) => {
         if (plan.numericPrice === 0) {
@@ -96,7 +99,15 @@ export default function SubscriptionsScreen() {
                     lastSubscribedAt: new Date().toISOString()
                 });
             }
-            Alert.alert("Welcome to Premium", `Your subscription has been successfully updated to the ${planId.replace('_', ' ').toUpperCase()} plan.`);
+            // Trigger splash screen
+            setSplashPlanName(planId.replace('_', ' ').toUpperCase());
+            setShowSuccessSplash(true);
+            Animated.sequence([
+                Animated.timing(splashAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
+                Animated.delay(2500),
+                Animated.timing(splashAnim, { toValue: 0, duration: 400, useNativeDriver: true })
+            ]).start(() => setShowSuccessSplash(false));
+
         } catch (error) {
             console.error("Upgrade error: ", error);
         }
@@ -271,6 +282,19 @@ export default function SubscriptionsScreen() {
                         <Text style={styles.loadingText}>Processing Secure Payment...</Text>
                     </View>
                 )}
+
+                {/* Success Splash Overlay */}
+                {showSuccessSplash && (
+                    <Animated.View style={[styles.splashOverlay, { opacity: splashAnim }]}>
+                        <LinearGradient
+                            colors={['#140F10', '#EC5C39', '#140F10']}
+                            style={StyleSheet.absoluteFillObject}
+                        />
+                        <PartyPopper size={80} color="#FFD700" style={{ marginBottom: 20 }} />
+                        <Text style={styles.splashTitle}>Welcome to Premium!</Text>
+                        <Text style={styles.splashSub}>You are now on the {splashPlanName} plan.</Text>
+                    </Animated.View>
+                )}
             </View>
         </SafeScreenWrapper>
     );
@@ -423,5 +447,14 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         zIndex: 999
     },
-    loadingText: { color: '#FFF', fontFamily: 'Poppins-Bold', marginTop: 16, fontSize: 16 }
+    loadingText: { color: '#FFF', fontFamily: 'Poppins-Bold', marginTop: 16, fontSize: 16 },
+    splashOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 1000,
+        backgroundColor: '#140F10'
+    },
+    splashTitle: { color: '#FFF', fontSize: 28, fontFamily: 'Poppins-Bold', textAlign: 'center', marginHorizontal: 20 },
+    splashSub: { color: '#FFD700', fontSize: 16, fontFamily: 'Poppins-Medium', textAlign: 'center', marginTop: 10, marginHorizontal: 20 }
 });
