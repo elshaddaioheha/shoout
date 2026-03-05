@@ -1,5 +1,6 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import { useUserStore } from '@/store/useUserStore';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import {
     Bell,
@@ -35,6 +36,13 @@ export default function ProfileScreen() {
 
     const fadeAnim = useRef(new Animated.Value(0)).current;
 
+    const getRoleGradient = () => {
+        if (role === 'vault_pro') return ['rgba(236, 92, 57, 0.15)', 'rgba(0,0,0,0)'];
+        if (role.startsWith('studio')) return ['rgba(76, 175, 80, 0.15)', 'rgba(0,0,0,0)'];
+        if (role.startsWith('hybrid')) return ['rgba(255, 215, 0, 0.15)', 'rgba(0,0,0,0)'];
+        return ['rgba(255,255,255,0.02)', 'rgba(0,0,0,0)'];
+    };
+
     useEffect(() => {
         Animated.timing(fadeAnim, {
             toValue: 1,
@@ -64,7 +72,13 @@ export default function ProfileScreen() {
                 </View>
 
                 {/* Profile Card */}
-                <Animated.View style={[styles.profileCard, { opacity: fadeAnim }]}>
+                <Animated.View style={[styles.profileCard, { opacity: fadeAnim, overflow: 'hidden' }]}>
+                    <LinearGradient
+                        colors={getRoleGradient() as readonly [string, string, ...string[]]}
+                        style={StyleSheet.absoluteFillObject}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 0, y: 1 }}
+                    />
                     <View style={styles.avatarContainer}>
                         <View style={styles.avatar}>
                             <User size={40} color="#FFF" />

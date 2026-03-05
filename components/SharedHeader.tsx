@@ -1,4 +1,6 @@
+import { useUserStore } from '@/store/useUserStore';
 import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { Bell, Menu, MessageSquare, ShoppingCart } from 'lucide-react-native';
 import React from 'react';
@@ -15,9 +17,21 @@ interface SharedHeaderProps {
 
 export default function SharedHeader({ onMenuPress, title, showCart, cartCount, showMessages }: SharedHeaderProps) {
     const router = useRouter();
+    const { role } = useUserStore();
+
+    const getRoleGradient = () => {
+        if (role === 'vault_pro') return ['rgba(236, 92, 57, 0.25)', 'rgba(20, 15, 16, 1)'];
+        if (role.startsWith('studio')) return ['rgba(76, 175, 80, 0.25)', 'rgba(20, 15, 16, 1)'];
+        if (role.startsWith('hybrid')) return ['rgba(255, 215, 0, 0.25)', 'rgba(20, 15, 16, 1)'];
+        return ['#140F10', '#140F10'];
+    };
 
     return (
         <SafeAreaView style={styles.safeArea}>
+            <LinearGradient
+                colors={getRoleGradient() as unknown as readonly [string, string, ...string[]]}
+                style={StyleSheet.absoluteFillObject}
+            />
             <View style={styles.header}>
                 <View style={styles.headerLeft}>
                     <TouchableOpacity
@@ -37,7 +51,7 @@ export default function SharedHeader({ onMenuPress, title, showCart, cartCount, 
                     {showMessages && (
                         <TouchableOpacity
                             style={[styles.iconButton, { marginRight: 12 }]}
-                            onPress={() => router.push('/chat')}
+                            onPress={() => router.push('/chat' as any)}
                         >
                             <MessageSquare size={20} color="white" />
                         </TouchableOpacity>
@@ -45,7 +59,7 @@ export default function SharedHeader({ onMenuPress, title, showCart, cartCount, 
                     {showCart && (
                         <TouchableOpacity
                             style={[styles.iconButton, { marginRight: 12 }]}
-                            onPress={() => router.push('/cart')}
+                            onPress={() => router.push('/cart' as any)}
                         >
                             <ShoppingCart size={20} color="white" />
                             {cartCount && cartCount > 0 ? (
