@@ -5,10 +5,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { doc, updateDoc } from 'firebase/firestore';
 import { Check, ChevronLeft, CreditCard, ShieldCheck, Sparkles, Star } from 'lucide-react-native';
-import React, { useRef, useState } from 'react';
+import React, { useState } from 'react';
 import { ActivityIndicator, Alert, Dimensions, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-// @ts-ignore
-import { Paystack } from 'react-native-paystack-webview';
+import { usePaystack } from 'react-native-paystack-webview';
 
 const { width } = Dimensions.get('window');
 
@@ -66,8 +65,7 @@ const PLANS = [
     }
 ];
 
-// Provide your actual keys later from .env 
-const PAYSTACK_KEY = "pk_test_d3a5ae74db93eb0418585e505504746f33da7e18";
+// Note: PAYSTACK_KEY moved to app/_layout.tsx for the PaystackProvider
 
 export default function SubscriptionsScreen() {
     const router = useRouter();
@@ -76,7 +74,7 @@ export default function SubscriptionsScreen() {
     const [selectedPlan, setSelectedPlan] = useState<typeof PLANS[0] | null>(null);
     const [showPaymentModal, setShowPaymentModal] = useState(false);
     const [isVerifying, setIsVerifying] = useState(false);
-    const paystackWebViewRef = useRef<any>(null);
+    const { popup } = usePaystack();
 
     const handleUpgradePress = (plan: typeof PLANS[0]) => {
         if (plan.numericPrice === 0) {
@@ -106,9 +104,14 @@ export default function SubscriptionsScreen() {
 
     const handlePaystackPayment = () => {
         setShowPaymentModal(false);
-        setTimeout(() => {
-            paystackWebViewRef.current?.startTransaction();
-        }, 300);
+        if (selectedPlan) {
+            popup.checkout({
+                amount: selectedPlan.numericPrice,
+                email: auth.currentUser?.email || "customer@shoouts.com",
+                onSuccess: (res: any) => completeUpgrade(selectedPlan.id),
+                onCancel: () => console.log('Paystack Cancelled')
+            });
+        }
     };
 
     const handleStripePayment = () => {
@@ -214,22 +217,7 @@ export default function SubscriptionsScreen() {
                     <View style={{ height: 40 }} />
                 </ScrollView>
 
-                {/* Paystack Integration */}
-                {selectedPlan && (
-                    <Paystack
-                        paystackKey={PAYSTACK_KEY}
-                        billingEmail={auth.currentUser?.email || "customer@shoouts.com"}
-                        amount={selectedPlan.numericPrice}
-                        onCancel={(e: any) => {
-                            // user aborted
-                        }}
-                        onSuccess={(res: any) => {
-                            completeUpgrade(selectedPlan.id);
-                        }}
-                        ref={paystackWebViewRef}
-                        currency="NGN"
-                    />
-                )}
+                {/* Paystack Integration using new Provider logic is handled by popup.checkout() */}
 
                 {/* Overaly Modal for Payment Selection */}
                 <Modal visible={showPaymentModal} transparent animationType="slide">
@@ -260,6 +248,15 @@ export default function SubscriptionsScreen() {
                                 <View style={styles.payOptionTexts}>
                                     <Text style={styles.payOptionTitle}>Pay with Stripe</Text>
                                     <Text style={styles.payOptionSub}>International Credit/Debit Card</Text>
+                                </View>
+                                <ChevronLeft size={20} color="rgba(255,255,255,0.2)" style={{ transform: [{ rotate: '180deg' }] }} />
+                            </TouchableOpacity>
+
+                            <TouchableOpacity style={[styles.paymentOption, { marginBottom: 10 }]} onPress={handleStripePayment}>
+                                <CreditCard color="#4285F4" size={24} />
+                                <View style={styles.payOptionTexts}>
+                                    <Text style={styles.payOptionTitle}>Pay with Google Pay</Text>
+                                    <Text style={styles.payOptionSub}>Fast and Secure Checkout</Text>
                                 </View>
                                 <ChevronLeft size={20} color="rgba(255,255,255,0.2)" style={{ transform: [{ rotate: '180deg' }] }} />
                             </TouchableOpacity>

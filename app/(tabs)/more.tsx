@@ -10,10 +10,10 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 
 export default function MoreScreen() {
     const router = useRouter();
-    const { role, viewMode, reset } = useUserStore();
+    const { role, reset } = useUserStore();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-    const isStudioOrHybrid = role === 'studio' || role === 'hybrid';
+    const isStudioOrHybrid = role.startsWith('studio') || role.startsWith('hybrid');
 
     const handleLogout = () => {
         reset();
@@ -40,8 +40,8 @@ export default function MoreScreen() {
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>Account</Text>
                         <View style={styles.menuContainer}>
-                            <MenuItem icon={Crown} label="Subscription" value={role.toUpperCase()} color="#FFD700" />
-                            <MenuItem icon={CreditCard} label="Payment Methods" color="#EC5C39" />
+                            <MenuItem icon={Crown} label="Subscription" value={role.replace('_', ' ').toUpperCase()} color="#FFD700" onPress={() => router.push('/settings/subscriptions' as any)} />
+                            <MenuItem icon={CreditCard} label="Payment Methods" color="#EC5C39" onPress={() => router.push('/settings/payment-methods' as any)} />
                         </View>
                     </View>
 
@@ -59,16 +59,16 @@ export default function MoreScreen() {
                         </View>
                     </View>
 
-                    {role === 'vault' && (
-                        <TouchableOpacity style={styles.upgradeCard}>
+                    {!isStudioOrHybrid && (
+                        <TouchableOpacity style={styles.upgradeCard} onPress={() => router.push('/settings/subscriptions' as any)}>
                             <LinearGradient
                                 colors={['#EC5C39', '#863420']}
                                 style={styles.upgradeGradient}
                             >
                                 <Sparkles size={24} color="#FFF" />
                                 <View style={styles.upgradeTextContainer}>
-                                    <Text style={styles.upgradeTitle}>Upgrade to Hybrid</Text>
-                                    <Text style={styles.upgradeSubtitle}>Unlimited uploads & marketplace access</Text>
+                                    <Text style={styles.upgradeTitle}>Upgrade Your Plan</Text>
+                                    <Text style={styles.upgradeSubtitle}>Unlock uploads & marketplace access</Text>
                                 </View>
                                 <ChevronRight size={20} color="#FFF" />
                             </LinearGradient>

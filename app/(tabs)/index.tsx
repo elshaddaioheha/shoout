@@ -209,14 +209,47 @@ function PlaylistSection() {
   );
 }
 
+import { collection, getDocs, limit, query } from 'firebase/firestore';
+import { useEffect } from 'react';
+import { db } from '../../firebaseConfig';
+
 function FreeMusicSection() {
   const setTrack = usePlaybackStore(state => state.setTrack);
-  const songs = [
-    { id: 'free1', title: "With You", artist: "Davido ft Omaley", url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3' },
-    { id: 'free2', title: "Essences", artist: "Wizkid ft Tems", url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3' },
-    { id: 'free3', title: "Promise Keeper", artist: "Sound of Salem", url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3' },
-    { id: 'free4', title: "Paradise Instrumental", artist: "Jungle G", url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3' }
-  ];
+  const [songs, setSongs] = useState<any[]>([]);
+
+  useEffect(() => {
+    async function fetchFreeMusic() {
+      try {
+        // Fetch known artists from our seed and grab their free tracks
+        const artistsQuery = query(collection(db, 'users'), limit(5));
+        const artistsSnap = await getDocs(artistsQuery);
+
+        const allFreeTracks: any[] = [];
+
+        for (const doc of artistsSnap.docs) {
+          const uploadsQuery = query(collection(db, `users/${doc.id}/uploads`));
+          const uploadsSnap = await getDocs(uploadsQuery);
+
+          for (const uploadDoc of uploadsSnap.docs) {
+            const data = uploadDoc.data();
+            if (data.price === 0) {
+              allFreeTracks.push({
+                id: data.id,
+                title: data.title,
+                artist: doc.data().fullName,
+                url: data.url
+              });
+            }
+          }
+        }
+
+        setSongs(allFreeTracks.length ? allFreeTracks : []);
+      } catch (error) {
+        console.log("Error fetching dynamic seed music", error);
+      }
+    }
+    fetchFreeMusic();
+  }, []);
 
   return (
     <View style={styles.section}>

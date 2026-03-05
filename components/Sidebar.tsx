@@ -119,7 +119,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                         <ChevronRight size={18} color="rgba(255,255,255,0.3)" />
                     </TouchableOpacity>
 
-                    <TouchableOpacity style={styles.profileLink} onPress={() => { router.push('/settings/subscriptions'); onClose(); }}>
+                    <TouchableOpacity style={styles.profileLink} onPress={() => { router.push('/settings/subscriptions' as any); onClose(); }}>
                         <View style={styles.profileIcon}>
                             <Zap size={20} color="#FFF" />
                         </View>

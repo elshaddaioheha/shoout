@@ -17,6 +17,7 @@ import {
 } from 'lucide-react-native';
 import React, { useEffect, useRef } from 'react';
 import {
+    Alert,
     Animated,
     Dimensions,
     ScrollView,
@@ -115,20 +116,33 @@ export default function ProfileScreen() {
                         label="Subscription"
                         value={isPremium ? 'Premium active' : 'Switch to Premium'}
                         color="#FFD700"
+                        onPress={() => router.push('/settings/subscriptions')}
                     />
                     <MenuItem
                         icon={CreditCard}
                         label="Payment Methods"
                         color="#3B82F6"
+                        onPress={() => router.push('/settings/payment-methods')}
                     />
-                    {(role === 'studio' || role === 'hybrid') && (
-                        <MenuItem
-                            icon={Music}
-                            label="Artist Dashboard"
-                            color="#9333EA"
-                            onPress={() => router.push('/studio')}
-                        />
-                    )}
+                    <MenuItem
+                        icon={Music}
+                        label="Artist Dashboard"
+                        color="#9333EA"
+                        onPress={() => {
+                            if (role.startsWith('studio') || role.startsWith('hybrid')) {
+                                router.push('/studio');
+                            } else {
+                                Alert.alert(
+                                    "Upgrade Required",
+                                    "You must be a Studio or Hybrid member to access the Artist Dashboard.",
+                                    [
+                                        { text: "Cancel", style: "cancel" },
+                                        { text: "Upgrade", onPress: () => router.push('/settings/subscriptions') }
+                                    ]
+                                );
+                            }
+                        }}
+                    />
                 </View>
 
                 {/* Preferences Section */}

@@ -3,7 +3,7 @@ import { useUserStore } from '@/store/useUserStore';
 import { Tabs } from 'expo-router';
 import { Home, Library, MoreHorizontal, Search, ShoppingCart } from 'lucide-react-native';
 import React from 'react';
-import { Platform, StyleSheet } from 'react-native';
+import { Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function TabLayout() {
@@ -84,5 +84,3 @@ export default function TabLayout() {
     </>
   );
 }
-
-const styles = StyleSheet.create({});

@@ -100,7 +100,7 @@ export default function MarketplaceScreen() {
                     {/* Merch Store Entry */}
                     <TouchableOpacity
                         style={styles.merchBanner}
-                        onPress={() => router.push('/merch')}
+                        onPress={() => router.push('/merch' as any)}
                     >
                         <LinearGradient
                             colors={['#EC5C39', '#863420']}
@@ -209,7 +209,7 @@ function MarketplaceSection({ title, items }: any) {
                     <TouchableOpacity
                         key={item.id || idx}
                         style={styles.marketCard}
-                        onPress={() => router.push({ pathname: '/listing/[id]', params: { id: item.id } })}
+                        onPress={() => router.push({ pathname: '/listing/[id]' as any, params: { id: item.id } })}
                     >
                         <View style={styles.cardImage}>
                             <Music size={32} color="rgba(255,255,255,0.1)" />
@@ -250,12 +250,6 @@ function MarketplaceSection({ title, items }: any) {
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#140F10' },
     scrollContent: { paddingBottom: 40 },
-    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 24 },
-    title: { fontSize: 24, fontFamily: 'Poppins-Bold', color: '#FFF' },
-    subtitle: { fontSize: 13, fontFamily: 'Poppins-Regular', color: 'rgba(255,255,255,0.5)' },
-    cartButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
-    cartBadge: { position: 'absolute', top: 0, right: 0, backgroundColor: '#EC5C39', width: 18, height: 18, borderRadius: 9, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#140F10' },
-    cartBadgeText: { color: '#FFF', fontSize: 10, fontFamily: 'Poppins-Bold' },
     searchRow: { flexDirection: 'row', gap: 12, paddingHorizontal: 24, marginBottom: 24 },
     searchBar: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 16, paddingHorizontal: 16, height: 50 },
     searchInput: { flex: 1, marginLeft: 12, color: '#FFF', fontFamily: 'Poppins-Regular' },
