@@ -53,6 +53,7 @@ export default function RootLayout() {
           <Stack.Screen name="settings/subscriptions" options={{ headerShown: false }} />
           <Stack.Screen name="settings/notifications" options={{ headerShown: false }} />
           <Stack.Screen name="settings/privacy" options={{ headerShown: false }} />
+          <Stack.Screen name="notifications" options={{ headerShown: false }} />
           <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
         </Stack>
       </PaystackProvider>

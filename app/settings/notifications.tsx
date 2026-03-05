@@ -1,14 +1,40 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
+import { auth, db } from '@/firebaseConfig';
 import { useRouter } from 'expo-router';
+import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { Bell, ChevronLeft } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 
 export default function NotificationsScreen() {
     const router = useRouter();
     const [emailAlerts, setEmailAlerts] = useState(true);
     const [pushNotifs, setPushNotifs] = useState(true);
     const [newReleases, setNewReleases] = useState(false);
+    const [sendingTest, setSendingTest] = useState(false);
+
+    const handleTestNotification = async () => {
+        if (!auth.currentUser) return;
+        setSendingTest(true);
+        try {
+            const types = ['message', 'artist_update', 'marketplace', 'subscription', 'system'];
+            const titles = ['New Chat Message', 'Wizkid dropped a new beat', 'Flash Sale on Market', 'Tier Upgraded', 'System Maintenance'];
+            const randIdx = Math.floor(Math.random() * types.length);
+
+            await addDoc(collection(db, 'notifications'), {
+                userId: auth.currentUser.uid,
+                type: types[randIdx],
+                title: titles[randIdx],
+                body: `This is a live test notification generated at ${new Date().toLocaleTimeString()}`,
+                read: false,
+                createdAt: serverTimestamp(),
+            });
+        } catch (e) {
+            console.error('Test notif err', e);
+        } finally {
+            setSendingTest(false);
+        }
+    };
 
     return (
         <SafeScreenWrapper>
@@ -69,6 +95,15 @@ export default function NotificationsScreen() {
                         </View>
                     </View>
                 </View>
+
+                {/* Developer/Test Action for Live Data validation */}
+                <TouchableOpacity
+                    style={styles.testBtn}
+                    onPress={handleTestNotification}
+                    disabled={sendingTest}
+                >
+                    {sendingTest ? <ActivityIndicator color="#FFF" /> : <Text style={styles.testBtnText}>Send Test Live Notification</Text>}
+                </TouchableOpacity>
             </View>
         </SafeScreenWrapper>
     );
@@ -107,4 +142,16 @@ const styles = StyleSheet.create({
     settingTitle: { fontSize: 16, fontFamily: 'Poppins-Medium', color: '#FFF' },
     settingSub: { fontSize: 13, fontFamily: 'Poppins-Regular', color: 'rgba(255,255,255,0.5)', marginTop: 2 },
     divider: { height: 1, backgroundColor: 'rgba(255,255,255,0.05)' },
+    testBtn: {
+        marginTop: 40,
+        backgroundColor: '#EC5C39',
+        borderRadius: 25,
+        paddingVertical: 15,
+        alignItems: 'center',
+    },
+    testBtnText: {
+        color: '#FFF',
+        fontFamily: 'Poppins-Bold',
+        fontSize: 14,
+    }
 });

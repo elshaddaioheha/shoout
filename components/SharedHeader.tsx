@@ -1,3 +1,4 @@
+import { useNotificationStore } from '@/store/useNotificationStore';
 import { useUserStore } from '@/store/useUserStore';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -18,6 +19,7 @@ interface SharedHeaderProps {
 export default function SharedHeader({ onMenuPress, title, showCart, cartCount, showMessages }: SharedHeaderProps) {
     const router = useRouter();
     const { role } = useUserStore();
+    const { unreadCount } = useNotificationStore();
 
     const getRoleGradient = () => {
         if (role === 'vault_pro') return ['rgba(236, 92, 57, 0.25)', 'rgba(20, 15, 16, 1)'];
@@ -69,8 +71,16 @@ export default function SharedHeader({ onMenuPress, title, showCart, cartCount, 
                             ) : null}
                         </TouchableOpacity>
                     )}
-                    <TouchableOpacity style={styles.iconButton}>
+                    <TouchableOpacity
+                        style={styles.iconButton}
+                        onPress={() => router.push('/notifications' as any)}
+                    >
                         <Bell size={20} color="white" />
+                        {unreadCount > 0 ? (
+                            <View style={styles.badge}>
+                                <Text style={styles.badgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
+                            </View>
+                        ) : null}
                     </TouchableOpacity>
                     <TouchableOpacity
                         style={[styles.iconButton, { marginLeft: 12 }]}

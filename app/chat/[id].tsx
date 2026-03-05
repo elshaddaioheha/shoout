@@ -1,5 +1,6 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import { auth, db } from '@/firebaseConfig';
+import { useUserStore } from '@/store/useUserStore';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
     addDoc,
@@ -46,6 +47,7 @@ interface Message {
 export default function ChatConversationScreen() {
     const { id: otherUserId } = useLocalSearchParams();
     const router = useRouter();
+    const { name } = useUserStore();
     const [messages, setMessages] = useState<Message[]>([]);
     const [inputText, setInputText] = useState('');
     const [loading, setLoading] = useState(true);
@@ -143,6 +145,20 @@ export default function ChatConversationScreen() {
                 senderId: auth.currentUser.uid,
                 text: messageText,
                 timestamp: serverTimestamp()
+            });
+
+            // Trigger a live Notification for the recipient
+            await addDoc(collection(db, 'notifications'), {
+                userId: otherUserId,
+                type: 'message',
+                title: 'New Message',
+                body: `${name || 'Someone'} sent you a message: "${messageText.length > 20 ? messageText.substring(0, 20) + '...' : messageText}"`,
+                read: false,
+                createdAt: serverTimestamp(),
+                meta: {
+                    chatId: currentChatId,
+                    otherUserId: auth.currentUser.uid
+                }
             });
 
         } catch (error) {

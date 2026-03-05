@@ -74,7 +74,7 @@ export default function ProfileScreen() {
                 {/* Profile Card */}
                 <Animated.View style={[styles.profileCard, { opacity: fadeAnim, overflow: 'hidden' }]}>
                     <LinearGradient
-                        colors={getRoleGradient() as readonly [string, string, ...string[]]}
+                        colors={getRoleGradient() as unknown as readonly [string, string, ...string[]]}
                         style={StyleSheet.absoluteFillObject}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 0, y: 1 }}
