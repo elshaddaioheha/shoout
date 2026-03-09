@@ -1,7 +1,8 @@
 {
     "cli": {
         "version": ">= 14.1.0",
-        "promptToConfigurePushNotifications": false
+        "promptToConfigurePushNotifications": false,
+        "appVersionSource": "local"
     },
     "build": {
         "development": {
@@ -12,6 +13,9 @@
             "distribution": "internal",
             "android": {
                 "buildType": "apk"
+            },
+            "env": {
+                "GOOGLE_SERVICES_JSON": "google-services.json"
             }
         },
         "production": {
