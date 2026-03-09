@@ -44,17 +44,12 @@ jest.mock('firebase/firestore', () => ({
     setDoc: jest.fn()
 }));
 
-// Mock Paystack
-jest.mock('react-native-paystack-webview', () => {
+// Mock Flutterwave
+jest.mock('flutterwave-react-native', () => {
     const React = require('react');
     const { View } = require('react-native');
-    const Paystack = React.forwardRef((props: any, ref: any) => {
-        React.useImperativeHandle(ref, () => ({
-            startTransaction: jest.fn(() => props.onSuccess({ reference: 'test' }))
-        }));
-        return <View testID="paystack-mock" />;
-    });
-    return { Paystack };
+    const PayWithFlutterwave = (props: any) => <View testID="flutterwave-mock" />;
+    return { PayWithFlutterwave };
 });
 
 describe('SubscriptionsScreen UI & Flow Tests', () => {
@@ -89,7 +84,7 @@ describe('SubscriptionsScreen UI & Flow Tests', () => {
         fireEvent.press(chooseButtons[0]); // Vault Pro is the first non-current paid plan
 
         expect(getByText('Select Payment Method')).toBeTruthy();
-        expect(getByText('Pay with Paystack')).toBeTruthy();
+        expect(getByText('Pay with Flutterwave')).toBeTruthy();
         expect(getByText('Pay with Stripe')).toBeTruthy();
     });
 

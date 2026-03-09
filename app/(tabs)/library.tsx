@@ -1,6 +1,6 @@
+import { useAppSwitcherContext } from '@/app/(tabs)/_layout';
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import SharedHeader from '@/components/SharedHeader';
-import Sidebar from '@/components/Sidebar';
 import { usePlaybackStore } from '@/store/usePlaybackStore';
 import { useUserStore } from '@/store/useUserStore';
 import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
@@ -10,8 +10,8 @@ import { ActivityIndicator, ScrollView, Share, StyleSheet, Text, TouchableOpacit
 import { auth, db } from '../../firebaseConfig';
 
 export default function LibraryScreen() {
-    const { viewMode } = useUserStore();
-    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const { viewMode: appViewMode } = useUserStore();
+    const { openSheet, isModeSheetOpen, viewMode } = useAppSwitcherContext();
     const [uploads, setUploads] = useState<any[]>([]);
     const [purchases, setPurchases] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -52,7 +52,7 @@ export default function LibraryScreen() {
     return (
         <SafeScreenWrapper>
             <View style={styles.container}>
-                <SharedHeader onMenuPress={() => setIsSidebarOpen(true)} title="Library" />
+                <SharedHeader viewMode={viewMode} isModeSheetOpen={isModeSheetOpen} onModePillPress={openSheet} />
 
                 <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
                     <Text style={styles.subtitle}>
@@ -117,7 +117,7 @@ export default function LibraryScreen() {
                     <View style={{ height: 100 }} />
                 </ScrollView>
 
-                <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+
             </View>
         </SafeScreenWrapper>
     );

@@ -51,7 +51,17 @@ service cloud.firestore {
         allow update: if false; // Purchases are immutable
         allow delete: if false;
       }
+
+      // ── Notifications ─────────────────────────────────────────────────────
+      // Only the owner can read and write their notifications.
+      match /notifications/{notifId} {
+        allow read: if isOwner(uid);
+        allow create: if isOwner(uid);
+        allow update: if isOwner(uid); // e.g. mark as read
+        allow delete: if isOwner(uid);
+      }
     }
+
 
     // ─────────────────────────────────────────────────────────────────────────
     // Transactions (Marketplace purchases)

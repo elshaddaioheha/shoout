@@ -4,10 +4,10 @@ import { UserRole, useUserStore } from '@/store/useUserStore';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { doc, updateDoc } from 'firebase/firestore';
+import { PayWithFlutterwave } from 'flutterwave-react-native';
 import { Check, ChevronLeft, CreditCard, PartyPopper, ShieldCheck, Sparkles, Star } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { ActivityIndicator, Animated, Dimensions, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { usePaystack } from 'react-native-paystack-webview';
 
 const { width } = Dimensions.get('window');
 
@@ -65,7 +65,7 @@ const PLANS = [
     }
 ];
 
-// Note: PAYSTACK_KEY moved to app/_layout.tsx for the PaystackProvider
+// Note: Flutterwave implementation is rendered as a component
 
 export default function SubscriptionsScreen() {
     const router = useRouter();
@@ -76,7 +76,6 @@ export default function SubscriptionsScreen() {
     const [isVerifying, setIsVerifying] = useState(false);
     const [showSuccessSplash, setShowSuccessSplash] = useState(false);
     const [splashPlanName, setSplashPlanName] = useState("");
-    const { popup } = usePaystack();
     const splashAnim = React.useRef(new Animated.Value(0)).current;
 
     const handleUpgradePress = (plan: typeof PLANS[0]) => {
@@ -113,17 +112,7 @@ export default function SubscriptionsScreen() {
         }
     };
 
-    const handlePaystackPayment = () => {
-        setShowPaymentModal(false);
-        if (selectedPlan) {
-            popup.checkout({
-                amount: selectedPlan.numericPrice,
-                email: auth.currentUser?.email || "customer@shoouts.com",
-                onSuccess: (res: any) => completeUpgrade(selectedPlan.id),
-                onCancel: () => console.log('Paystack Cancelled')
-            });
-        }
-    };
+
 
     const handleStripePayment = () => {
         setShowPaymentModal(false);
@@ -223,12 +212,12 @@ export default function SubscriptionsScreen() {
 
                     <View style={styles.footerInfo}>
                         <ShieldCheck size={20} color="rgba(255,255,255,0.4)" />
-                        <Text style={styles.footerText}>Secure payment processing via Stripe and Paystack.</Text>
+                        <Text style={styles.footerText}>Secure payment processing via Stripe and Flutterwave.</Text>
                     </View>
                     <View style={{ height: 40 }} />
                 </ScrollView>
 
-                {/* Paystack Integration using new Provider logic is handled by popup.checkout() */}
+                {/* Flutterwave Integration */}
 
                 {/* Overaly Modal for Payment Selection */}
                 <Modal visible={showPaymentModal} transparent animationType="slide">
@@ -245,14 +234,34 @@ export default function SubscriptionsScreen() {
                                 Total Due: {selectedPlan?.price}
                             </Text>
 
-                            <TouchableOpacity style={styles.paymentOption} onPress={handlePaystackPayment}>
-                                <CreditCard color="#EC5C39" size={24} />
-                                <View style={styles.payOptionTexts}>
-                                    <Text style={styles.payOptionTitle}>Pay with Paystack</Text>
-                                    <Text style={styles.payOptionSub}>Secured localized payment (NGN)</Text>
-                                </View>
-                                <ChevronLeft size={20} color="rgba(255,255,255,0.2)" style={{ transform: [{ rotate: '180deg' }] }} />
-                            </TouchableOpacity>
+                            <PayWithFlutterwave
+                                onRedirect={(data) => {
+                                    setShowPaymentModal(false);
+                                    if (data.status === 'successful' && selectedPlan) {
+                                        completeUpgrade(selectedPlan.id);
+                                    }
+                                }}
+                                options={{
+                                    tx_ref: `shoouts_sub_${Date.now()}`,
+                                    authorization: process.env.EXPO_PUBLIC_FLUTTERWAVE_PUBLIC_KEY || "FLWPUBK_TEST-dummy-X",
+                                    customer: {
+                                        email: auth.currentUser?.email || "customer@shoouts.com"
+                                    },
+                                    amount: selectedPlan?.numericPrice || 0,
+                                    currency: 'NGN',
+                                    payment_options: 'card'
+                                }}
+                                customButton={(props) => (
+                                    <TouchableOpacity style={styles.paymentOption} onPress={props.onPress} disabled={props.disabled}>
+                                        <CreditCard color="#EC5C39" size={24} />
+                                        <View style={styles.payOptionTexts}>
+                                            <Text style={styles.payOptionTitle}>Pay with Flutterwave</Text>
+                                            <Text style={styles.payOptionSub}>Secured localized payment (NGN)</Text>
+                                        </View>
+                                        <ChevronLeft size={20} color="rgba(255,255,255,0.2)" style={{ transform: [{ rotate: '180deg' }] }} />
+                                    </TouchableOpacity>
+                                )}
+                            />
 
                             <TouchableOpacity style={[styles.paymentOption, { marginBottom: 10 }]} onPress={handleStripePayment}>
                                 <CreditCard color="#635BFF" size={24} />

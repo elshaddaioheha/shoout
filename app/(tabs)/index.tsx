@@ -1,5 +1,5 @@
+import { useAppSwitcherContext } from '@/app/(tabs)/_layout';
 import SharedHeader from '@/components/SharedHeader';
-import Sidebar from '@/components/Sidebar';
 import { useCartStore } from '@/store/useCartStore';
 import { usePlaybackStore } from '@/store/usePlaybackStore';
 import { BlurView } from 'expo-blur';
@@ -32,7 +32,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const [showWelcomeModal, setShowWelcomeModal] = useState(true);
   const [modalStep, setModalStep] = useState(0);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const { openSheet, isModeSheetOpen, viewMode } = useAppSwitcherContext();
   const { items } = useCartStore();
 
   const modals = [
@@ -72,7 +72,9 @@ export default function HomeScreen() {
 
       {/* Header */}
       <SharedHeader
-        onMenuPress={() => setIsSidebarOpen(true)}
+        viewMode={viewMode}
+        isModeSheetOpen={isModeSheetOpen}
+        onModePillPress={openSheet}
         showCart={true}
         cartCount={items.length}
         showMessages={true}
@@ -91,8 +93,7 @@ export default function HomeScreen() {
         <PopularBeatsSection />
       </ScrollView>
 
-      {/* Right Sidebar */}
-      <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+
 
       {/* Welcome Modal Overlay */}
       {showWelcomeModal && (

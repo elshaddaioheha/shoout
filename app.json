@@ -8,10 +8,12 @@
     "scheme": "shouuts",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "googleServicesFile": "./GoogleService-Info.plist"
     },
     "android": {
       "package": "com.shouuts.app",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#140F10",
         "foregroundImage": "./assets/images/logo-rings.png",
@@ -38,12 +40,6 @@
         }
       ],
       "expo-font",
-      [
-        "@stripe/stripe-react-native",
-        {
-          "merchantIdentifier": "merchant.com.shouuts.app"
-        }
-      ],
       "@react-native-google-signin/google-signin"
     ],
     "experiments": {
@@ -55,6 +51,12 @@
       "eas": {
         "projectId": "536db878-94a0-4cff-9221-dd105ed01d48"
       }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/536db878-94a0-4cff-9221-dd105ed01d48"
     }
   }
 }

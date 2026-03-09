@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import { createUserWithEmailAndPassword, GoogleAuthProvider, signInWithCredential, updateProfile } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import React from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { auth, db } from '../../firebaseConfig';
 import { useUserStore } from '../../store/useUserStore';
@@ -90,78 +90,83 @@ export default function SignupScreen() {
 
     return (
         <SafeAreaView style={styles.container}>
-            <ScrollView contentContainerStyle={styles.content}>
-                <Text style={styles.title}>Join ShooutS</Text>
-                <Text style={styles.subtitle}>Create an account to start sharing your sound</Text>
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={{ flex: 1 }}
+            >
+                <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+                    <Text style={styles.title}>Join ShooutS</Text>
+                    <Text style={styles.subtitle}>Create an account to start sharing your sound</Text>
 
-                {/* Social Login Buttons */}
-                <View style={styles.socialContainer}>
-                    <SocialButton icon={<AppleIcon />} text="Signup with Apple" />
-                    <SocialButton icon={<GoogleIcon />} text="Signup with Google" onPress={handleGoogleLogin} />
-                </View>
+                    {/* Social Login Buttons */}
+                    <View style={styles.socialContainer}>
+                        <SocialButton icon={<AppleIcon />} text="Signup with Apple" />
+                        <SocialButton icon={<GoogleIcon />} text="Signup with Google" onPress={handleGoogleLogin} />
+                    </View>
 
-                {/* Divider */}
-                <View style={styles.dividerContainer}>
-                    <View style={styles.dividerLine} />
-                    <Text style={styles.dividerText}>Or register with email</Text>
-                    <View style={styles.dividerLine} />
-                </View>
+                    {/* Divider */}
+                    <View style={styles.dividerContainer}>
+                        <View style={styles.dividerLine} />
+                        <Text style={styles.dividerText}>Or register with email</Text>
+                        <View style={styles.dividerLine} />
+                    </View>
 
-                <View style={styles.form}>
-                    <TextInput
-                        style={styles.input}
-                        placeholder="Full Name"
-                        placeholderTextColor="#666"
-                        value={fullName}
-                        onChangeText={setFullName}
-                    />
-                    <TextInput
-                        style={styles.input}
-                        placeholder="Email"
-                        placeholderTextColor="#666"
-                        keyboardType="email-address"
-                        autoCapitalize="none"
-                        value={email}
-                        onChangeText={setEmail}
-                    />
-                    <TextInput
-                        style={styles.input}
-                        placeholder="Password"
-                        placeholderTextColor="#666"
-                        secureTextEntry
-                        value={password}
-                        onChangeText={setPassword}
-                    />
-                    <TextInput
-                        style={styles.input}
-                        placeholder="Confirm Password"
-                        placeholderTextColor="#666"
-                        secureTextEntry
-                        value={confirmPassword}
-                        onChangeText={setConfirmPassword}
-                    />
+                    <View style={styles.form}>
+                        <TextInput
+                            style={styles.input}
+                            placeholder="Full Name"
+                            placeholderTextColor="#666"
+                            value={fullName}
+                            onChangeText={setFullName}
+                        />
+                        <TextInput
+                            style={styles.input}
+                            placeholder="Email"
+                            placeholderTextColor="#666"
+                            keyboardType="email-address"
+                            autoCapitalize="none"
+                            value={email}
+                            onChangeText={setEmail}
+                        />
+                        <TextInput
+                            style={styles.input}
+                            placeholder="Password"
+                            placeholderTextColor="#666"
+                            secureTextEntry
+                            value={password}
+                            onChangeText={setPassword}
+                        />
+                        <TextInput
+                            style={styles.input}
+                            placeholder="Confirm Password"
+                            placeholderTextColor="#666"
+                            secureTextEntry
+                            value={confirmPassword}
+                            onChangeText={setConfirmPassword}
+                        />
 
-                    <TouchableOpacity
-                        onPress={handleSignup}
-                        activeOpacity={0.8}
-                        disabled={loading}
-                    >
-                        <LinearGradient
-                            colors={['#ED5639', '#C96F6F']}
-                            style={styles.button}
+                        <TouchableOpacity
+                            onPress={handleSignup}
+                            activeOpacity={0.8}
+                            disabled={loading}
                         >
-                            <Text style={styles.buttonText}>{loading ? 'Signing Up...' : 'Sign Up'}</Text>
-                        </LinearGradient>
-                    </TouchableOpacity>
-                </View>
+                            <LinearGradient
+                                colors={['#ED5639', '#C96F6F']}
+                                style={styles.button}
+                            >
+                                <Text style={styles.buttonText}>{loading ? 'Signing Up...' : 'Sign Up'}</Text>
+                            </LinearGradient>
+                        </TouchableOpacity>
+                    </View>
 
-                <View style={styles.footer}>
-                    <Text style={styles.footerText}>Already have an account? </Text>
-                    <TouchableOpacity onPress={() => router.push('/(auth)/login')}>
-                        <Text style={styles.linkText}>Log In</Text>
-                    </TouchableOpacity>
-                </View>
-            </ScrollView>
+                    <View style={styles.footer}>
+                        <Text style={styles.footerText}>Already have an account? </Text>
+                        <TouchableOpacity onPress={() => router.push('/(auth)/login')}>
+                            <Text style={styles.linkText}>Log In</Text>
+                        </TouchableOpacity>
+                    </View>
+                </ScrollView>
+            </KeyboardAvoidingView>
         </SafeAreaView>
     );
 }

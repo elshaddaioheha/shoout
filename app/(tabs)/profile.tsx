@@ -1,4 +1,5 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
+import { auth } from '@/firebaseConfig';
 import { useUserStore } from '@/store/useUserStore';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -51,9 +52,15 @@ export default function ProfileScreen() {
         }).start();
     }, []);
 
-    const handleLogout = () => {
-        reset();
-        router.replace('/(auth)/login');
+    const handleLogout = async () => {
+        try {
+            await auth.signOut();
+        } catch (e) {
+            console.warn('signOut error:', e);
+        } finally {
+            reset();
+            router.replace('/(auth)/login');
+        }
     };
 
     return (

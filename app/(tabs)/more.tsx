@@ -1,17 +1,17 @@
+import { useAppSwitcherContext } from '@/app/(tabs)/_layout';
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import SharedHeader from '@/components/SharedHeader';
-import Sidebar from '@/components/Sidebar';
 import { useUserStore } from '@/store/useUserStore';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { Bell, ChevronRight, CreditCard, Crown, DollarSign, LogOut, Shield, Sparkles, TrendingUp } from 'lucide-react-native';
-import React, { useState } from 'react';
+import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function MoreScreen() {
     const router = useRouter();
     const { role, reset } = useUserStore();
-    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const { openSheet, isModeSheetOpen, viewMode } = useAppSwitcherContext();
 
     const isStudioOrHybrid = role.startsWith('studio') || role.startsWith('hybrid');
 
@@ -23,7 +23,7 @@ export default function MoreScreen() {
     return (
         <SafeScreenWrapper>
             <View style={styles.container}>
-                <SharedHeader onMenuPress={() => setIsSidebarOpen(true)} title="More" />
+                <SharedHeader viewMode={viewMode} isModeSheetOpen={isModeSheetOpen} onModePillPress={openSheet} />
 
                 <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
                     {/* Role Specific Section */}
@@ -78,7 +78,7 @@ export default function MoreScreen() {
                     <View style={{ height: 100 }} />
                 </ScrollView>
 
-                <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+
             </View>
         </SafeScreenWrapper>
     );

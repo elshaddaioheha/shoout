@@ -1,6 +1,6 @@
+import { useAppSwitcherContext } from '@/app/(tabs)/_layout';
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import SharedHeader from '@/components/SharedHeader';
-import Sidebar from '@/components/Sidebar';
 import { useCartStore } from '@/store/useCartStore';
 import { usePlaybackStore } from '@/store/usePlaybackStore';
 import { useUserStore } from '@/store/useUserStore';
@@ -32,10 +32,10 @@ const { width } = Dimensions.get('window');
 
 export default function MarketplaceScreen() {
     const router = useRouter();
-    const { role, viewMode } = useUserStore();
+    const { role, viewMode: storeViewMode } = useUserStore();
     const cartItems = useCartStore(state => state.items);
+    const { openSheet, isModeSheetOpen, viewMode } = useAppSwitcherContext();
     const [searchQuery, setSearchQuery] = useState('');
-    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [loading, setLoading] = useState(true);
 
     const [trending, setTrending] = useState<any[]>([]);
@@ -70,7 +70,7 @@ export default function MarketplaceScreen() {
         return () => unsubscribe();
     }, []);
 
-    const isStudioMode = viewMode === 'studio';
+    const isStudioMode = storeViewMode === 'studio';
 
     const filterItems = (items: any[]) => {
         if (!searchQuery) return items;
@@ -89,8 +89,9 @@ export default function MarketplaceScreen() {
         <SafeScreenWrapper>
             <View style={styles.container}>
                 <SharedHeader
-                    onMenuPress={() => setIsSidebarOpen(true)}
-                    title="Marketplace"
+                    viewMode={viewMode}
+                    isModeSheetOpen={isModeSheetOpen}
+                    onModePillPress={openSheet}
                     showCart={true}
                     cartCount={cartItems.length}
                     showMessages={true}
@@ -186,7 +187,7 @@ export default function MarketplaceScreen() {
 
                     <View style={{ height: 100 }} />
                 </ScrollView>
-                <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+
             </View>
         </SafeScreenWrapper>
     );

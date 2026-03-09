@@ -1,8 +1,11 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
+import { auth, db } from '@/firebaseConfig';
 import { useCartStore } from '@/store/useCartStore';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { PayWithFlutterwave } from 'flutterwave-react-native';
+
 import {
     ArrowRight,
     ChevronLeft,
@@ -11,7 +14,7 @@ import {
     ShoppingBag,
     Trash2
 } from 'lucide-react-native';
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -22,7 +25,6 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
-import { auth, db } from '../firebaseConfig';
 
 const { width } = Dimensions.get('window');
 
@@ -30,21 +32,15 @@ export default function CartScreen() {
     const router = useRouter();
     const { items, removeItem, clearCart, total } = useCartStore();
     const [checkingOut, setCheckingOut] = useState(false);
+    const [showFWButton, setShowFWButton] = useState(false);
+    const fwRef = useRef<any>(null);
 
-    const handleCheckout = async () => {
-        if (!auth.currentUser) {
-            Alert.alert("Auth Required", "Please log in to complete your purchase.");
-            router.push('/(auth)/login');
-            return;
-        }
-
-        if (items.length === 0) return;
-
+    // Called after Flutterwave confirms payment
+    const handlePaymentSuccess = async () => {
+        if (!auth.currentUser) return;
         setCheckingOut(true);
         try {
-            // Process each item as a transaction AND add to user's library
             const batchPromises = items.flatMap(item => [
-                // 1. Record Transaction
                 addDoc(collection(db, 'transactions'), {
                     trackId: item.id,
                     buyerId: auth.currentUser!.uid,
@@ -52,9 +48,9 @@ export default function CartScreen() {
                     amount: item.price,
                     trackTitle: item.title,
                     timestamp: serverTimestamp(),
-                    status: 'completed'
+                    status: 'completed',
+                    paymentProvider: 'flutterwave',
                 }),
-                // 2. Add to User's Library (Purchases)
                 addDoc(collection(db, 'users', auth.currentUser!.uid, 'purchases'), {
                     trackId: item.id,
                     title: item.title,
@@ -62,30 +58,34 @@ export default function CartScreen() {
                     price: item.price,
                     uploaderId: item.uploaderId,
                     purchasedAt: serverTimestamp(),
-                    audioUrl: item.audioUrl || '', // Ensure we have the URL if it exists
-                    coverUrl: item.coverUrl || ''
+                    audioUrl: item.audioUrl || '',
+                    coverUrl: item.coverUrl || '',
                 })
             ]);
-
             await Promise.all(batchPromises);
-
+            clearCart();
             Alert.alert(
-                "Purchase Successful!",
-                `You have successfully purchased ${items.length} items. They are now available in your library.`,
-                [{
-                    text: "View Library",
-                    onPress: () => {
-                        clearCart();
-                        router.push('/(tabs)/library');
-                    }
-                }]
+                '🎉 Purchase Successful!',
+                `${items.length} track${items.length > 1 ? 's are' : ' is'} now in your library.`,
+                [{ text: 'View Library', onPress: () => router.push('/(tabs)/library') }]
             );
         } catch (error) {
-            console.error("Checkout error:", error);
-            Alert.alert("Error", "There was an issue processing your checkout. Please try again.");
+            console.error('Post-payment error:', error);
+            Alert.alert('Error', 'Payment succeeded but delivery failed. Contact support.');
         } finally {
             setCheckingOut(false);
         }
+    };
+
+    const handleCheckout = () => {
+        if (!auth.currentUser) {
+            Alert.alert('Auth Required', 'Please log in to complete your purchase.');
+            router.push('/(auth)/login');
+            return;
+        }
+        if (items.length === 0) return;
+        // Trigger the hidden Flutterwave button
+        setShowFWButton(true);
     };
 
     const renderItem = ({ item }: { item: any }) => (
@@ -181,6 +181,35 @@ export default function CartScreen() {
                                     )}
                                 </LinearGradient>
                             </TouchableOpacity>
+
+                            {/* Hidden Flutterwave trigger — auto-fires when showFWButton = true */}
+                            {showFWButton && auth.currentUser && (
+                                <PayWithFlutterwave
+                                    onRedirect={(data) => {
+                                        setShowFWButton(false);
+                                        if (data.status === 'successful') {
+                                            handlePaymentSuccess();
+                                        } else {
+                                            Alert.alert('Payment Cancelled', 'Your payment was not completed.');
+                                        }
+                                    }}
+                                    options={{
+                                        tx_ref: `shoouts_cart_${Date.now()}`,
+                                        authorization: process.env.EXPO_PUBLIC_FLUTTERWAVE_PUBLIC_KEY || '',
+                                        customer: {
+                                            email: auth.currentUser.email || 'customer@shoouts.com',
+                                        },
+                                        amount: Math.round(total * 1600), // USD → NGN approx
+                                        currency: 'NGN',
+                                        payment_options: 'card,banktransfer',
+                                    }}
+                                    customButton={(props) => {
+                                        // Auto-press as soon as it renders
+                                        setTimeout(() => { if (!props.disabled) props.onPress(); }, 100);
+                                        return <View />;
+                                    }}
+                                />
+                            )}
                         </View>
                     </>
                 )}
@@ -188,6 +217,7 @@ export default function CartScreen() {
         </SafeScreenWrapper>
     );
 }
+
 
 const styles = StyleSheet.create({
     container: {

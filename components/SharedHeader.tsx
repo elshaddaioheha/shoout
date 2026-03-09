@@ -1,27 +1,40 @@
+import ModePillButton from '@/components/ModePillButton';
 import { useNotificationStore } from '@/store/useNotificationStore';
-import { useUserStore } from '@/store/useUserStore';
+import { ViewMode } from '@/store/useUserStore';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { Bell, Menu, MessageSquare, ShoppingCart } from 'lucide-react-native';
+import { Bell, MessageSquare, ShoppingCart } from 'lucide-react-native';
 import React from 'react';
-import { Platform, SafeAreaView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Platform, SafeAreaView, StatusBar, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 interface SharedHeaderProps {
-    onMenuPress: () => void;
-    title?: string;
-    showSearch?: boolean;
+    /** Current active view mode — drives pill button display */
+    viewMode: ViewMode;
+    /** Whether the mode sheet is open (animates chevron) */
+    isModeSheetOpen: boolean;
+    /** Called when the mode pill is tapped */
+    onModePillPress: () => void;
     showCart?: boolean;
     cartCount?: number;
     showMessages?: boolean;
+    /** role for gradient tinting */
+    role?: string;
 }
 
-export default function SharedHeader({ onMenuPress, title, showCart, cartCount, showMessages }: SharedHeaderProps) {
+export default function SharedHeader({
+    viewMode,
+    isModeSheetOpen,
+    onModePillPress,
+    showCart,
+    cartCount,
+    showMessages,
+    role = 'vault_free',
+}: SharedHeaderProps) {
     const router = useRouter();
-    const { role } = useUserStore();
     const { unreadCount } = useNotificationStore();
 
-    const getRoleGradient = () => {
+    const getRoleGradient = (): readonly [string, string, ...string[]] => {
         if (role === 'vault_pro') return ['rgba(236, 92, 57, 0.25)', 'rgba(20, 15, 16, 1)'];
         if (role.startsWith('studio')) return ['rgba(76, 175, 80, 0.25)', 'rgba(20, 15, 16, 1)'];
         if (role.startsWith('hybrid')) return ['rgba(255, 215, 0, 0.25)', 'rgba(20, 15, 16, 1)'];
@@ -30,63 +43,57 @@ export default function SharedHeader({ onMenuPress, title, showCart, cartCount, 
 
     return (
         <SafeAreaView style={styles.safeArea}>
-            <LinearGradient
-                colors={getRoleGradient() as unknown as readonly [string, string, ...string[]]}
-                style={StyleSheet.absoluteFillObject}
-            />
+            <LinearGradient colors={getRoleGradient()} style={StyleSheet.absoluteFillObject} />
             <View style={styles.header}>
-                <View style={styles.headerLeft}>
-                    <TouchableOpacity
-                        style={styles.logoWrapper}
-                        onPress={() => router.push('/profile')}
-                        activeOpacity={0.7}
-                    >
-                        <Image
-                            source={require('@/assets/images/logo-rings.png')}
-                            style={styles.logoImage}
-                            contentFit="contain"
-                        />
-                    </TouchableOpacity>
-                    {title && <Text style={styles.headerTitle}>{title}</Text>}
-                </View>
+                {/* Left — Logo */}
+                <TouchableOpacity
+                    style={styles.logoWrapper}
+                    onPress={() => router.push('/profile')}
+                    activeOpacity={0.7}
+                >
+                    <Image
+                        source={require('@/assets/images/logo-rings.png')}
+                        style={styles.logoImage}
+                        contentFit="contain"
+                    />
+                </TouchableOpacity>
+
+                {/* Centre — Mode Pill */}
+                <ModePillButton
+                    viewMode={viewMode}
+                    isOpen={isModeSheetOpen}
+                    onPress={onModePillPress}
+                />
+
+                {/* Right — Actions */}
                 <View style={styles.headerRight}>
                     {showMessages && (
                         <TouchableOpacity
-                            style={[styles.iconButton, { marginRight: 12 }]}
+                            style={[styles.iconButton, { marginRight: 8 }]}
                             onPress={() => router.push('/chat' as any)}
                         >
-                            <MessageSquare size={20} color="white" />
+                            <MessageSquare size={18} color="white" />
                         </TouchableOpacity>
                     )}
                     {showCart && (
                         <TouchableOpacity
-                            style={[styles.iconButton, { marginRight: 12 }]}
+                            style={[styles.iconButton, { marginRight: 8 }]}
                             onPress={() => router.push('/cart' as any)}
                         >
-                            <ShoppingCart size={20} color="white" />
-                            {cartCount && cartCount > 0 ? (
-                                <View style={styles.badge}>
-                                    <Text style={styles.badgeText}>{cartCount}</Text>
-                                </View>
-                            ) : null}
+                            <ShoppingCart size={18} color="white" />
+                            {cartCount != null && cartCount > 0 && (
+                                <View style={styles.badge} />
+                            )}
                         </TouchableOpacity>
                     )}
                     <TouchableOpacity
                         style={styles.iconButton}
                         onPress={() => router.push('/notifications' as any)}
                     >
-                        <Bell size={20} color="white" />
-                        {unreadCount > 0 ? (
-                            <View style={styles.badge}>
-                                <Text style={styles.badgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
-                            </View>
-                        ) : null}
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={[styles.iconButton, { marginLeft: 12 }]}
-                        onPress={onMenuPress}
-                    >
-                        <Menu size={20} color="white" />
+                        <Bell size={18} color="white" />
+                        {unreadCount > 0 && (
+                            <View style={styles.badge} />
+                        )}
                     </TouchableOpacity>
                 </View>
             </View>
@@ -103,55 +110,38 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        paddingHorizontal: 20,
+        paddingHorizontal: 16,
         height: 60,
-    },
-    headerLeft: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    headerRight: {
-        flexDirection: 'row',
-        alignItems: 'center',
     },
     logoWrapper: {
         paddingVertical: 10,
     },
     logoImage: {
-        width: 60,
-        height: 30,
+        width: 55,
+        height: 28,
     },
-    headerTitle: {
-        color: 'white',
-        fontSize: 18,
-        fontFamily: 'Poppins-Bold',
-        marginLeft: 12,
+    headerRight: {
+        flexDirection: 'row',
+        alignItems: 'center',
     },
     iconButton: {
         padding: 6,
         backgroundColor: 'rgba(255,255,255,0.05)',
         borderRadius: 20,
-        width: 36,
-        height: 36,
+        width: 34,
+        height: 34,
         alignItems: 'center',
         justifyContent: 'center',
     },
     badge: {
         position: 'absolute',
-        top: -4,
-        right: -4,
+        top: 3,
+        right: 3,
+        width: 7,
+        height: 7,
+        borderRadius: 3.5,
         backgroundColor: '#EC5C39',
-        borderRadius: 8,
-        width: 16,
-        height: 16,
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 1.5,
+        borderWidth: 1,
         borderColor: '#140F10',
-    },
-    badgeText: {
-        color: 'white',
-        fontSize: 9,
-        fontFamily: 'Poppins-Bold',
     },
 });

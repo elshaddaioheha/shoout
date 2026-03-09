@@ -1,5 +1,5 @@
+import { useAppSwitcherContext } from '@/app/(tabs)/_layout';
 import SharedHeader from '@/components/SharedHeader';
-import Sidebar from '@/components/Sidebar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ChevronLeft, Heart, MoreVertical, Search, ShoppingCart } from 'lucide-react-native';
 import React, { useState } from 'react';
@@ -23,7 +23,7 @@ type ViewMode = 'browse' | 'allGenres' | 'results';
 export default function SearchScreen() {
     const [viewMode, setViewMode] = useState<ViewMode>('browse');
     const [searchQuery, setSearchQuery] = useState('');
-    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const { openSheet, isModeSheetOpen, viewMode: appViewMode } = useAppSwitcherContext();
 
     const featuredGenres = [
         { name: "Paradise", colors: ["#EC5C39", "#863420"] },
@@ -79,7 +79,7 @@ export default function SearchScreen() {
 
             {/* Header */}
             {viewMode === 'browse' ? (
-                <SharedHeader onMenuPress={() => setIsSidebarOpen(true)} title="Search" />
+                <SharedHeader viewMode={appViewMode} isModeSheetOpen={isModeSheetOpen} onModePillPress={openSheet} />
             ) : (
                 <SafeAreaView style={styles.safeArea}>
                     <View style={styles.header}>
@@ -130,8 +130,7 @@ export default function SearchScreen() {
                 )}
             </ScrollView>
 
-            {/* Sidebar */}
-            <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+
         </View>
     );
 }
