@@ -163,7 +163,7 @@ export default function ArtistProfileScreen() {
                         </TouchableOpacity>
                         <TouchableOpacity
                             style={styles.msgBtn}
-                            onPress={() => router.push({ pathname: '/chat/[id]', params: { id: artistId } })}
+                            onPress={() => router.push({ pathname: '/chat/[id]', params: { id: artistId as string } })}
                         >
                             <MessageCircle size={20} color="#FFF" />
                         </TouchableOpacity>
