@@ -1,6 +1,7 @@
 import ActionSheet from '@/components/ActionSheet';
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import { usePlaybackStore } from '@/store/usePlaybackStore';
+import { useToastStore } from '@/store/useToastStore';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { collection, deleteDoc, doc, onSnapshot, orderBy, query } from 'firebase/firestore';
@@ -87,9 +88,9 @@ export default function BeatsStoreManagement() {
                     onPress: async () => {
                         try {
                             await deleteDoc(doc(db, `users/${auth.currentUser?.uid}/uploads`, id));
-                            Alert.alert("Success", "Track deleted successfully.");
+                            useToastStore.getState().showToast("Track deleted successfully.", "success");
                         } catch (e) {
-                            Alert.alert("Error", "Failed to delete track.");
+                            useToastStore.getState().showToast("Failed to delete track.", "error");
                         }
                     }
                 }
@@ -230,7 +231,7 @@ function BeatCard({ beat, onDelete }: any) {
                     title={beat.title}
                     options={[
                         { label: 'Listen Preview', icon: <Play size={18} color="#FFF" />, onPress: () => setTrack({ id: beat.id, title: beat.title, artist: 'My Track', url: beat.audioUrl, uploaderId: beat.uploaderId }) },
-                        { label: 'Edit Details', icon: <Edit3 size={18} color="#FFF" />, onPress: () => Alert.alert('Edit', 'Beat editing coming soon.') },
+                        { label: 'Edit Details', icon: <Edit3 size={18} color="#FFF" />, onPress: () => useToastStore.getState().showToast('Beat editing coming soon.', 'info') },
                         { label: 'Delete', icon: <Trash2 size={18} color="#FF4D4D" />, onPress: onDelete, destructive: true },
                     ]}
                 />
@@ -274,7 +275,7 @@ function BeatCard({ beat, onDelete }: any) {
                     <Play size={18} color="#FFF" />
                     <Text style={styles.cardActionText}>Listen</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.cardActionButton} onPress={() => Alert.alert('Edit', 'Beat details editing coming soon. You can update title, price, genre, and BPM.')}>
+                <TouchableOpacity style={styles.cardActionButton} onPress={() => useToastStore.getState().showToast('Beat details editing coming soon. You can update title, price, genre, and BPM.', 'info')}>
                     <Edit3 size={18} color="#FFF" />
                     <Text style={styles.cardActionText}>Edit</Text>
                 </TouchableOpacity>

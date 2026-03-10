@@ -5,7 +5,6 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { Eye, EyeOff } from 'lucide-react-native';
 import React, { useState } from 'react';
 import {
-    Alert,
     Dimensions,
     KeyboardAvoidingView,
     Platform,
@@ -20,7 +19,9 @@ import {
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { auth, db } from '../../firebaseConfig';
+import { useToastStore } from '../../store/useToastStore';
 import { useUserStore } from '../../store/useUserStore';
+import { getFriendlyErrorMessage } from '../../utils/errorHandler';
 
 const { width, height } = Dimensions.get('window');
 
@@ -31,19 +32,20 @@ export default function LoginScreen() {
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const { setRole } = useUserStore();
+    const { showToast } = useToastStore();
     const [resetLoading, setResetLoading] = useState(false);
 
     const handleForgotPassword = async () => {
         if (!email.trim()) {
-            Alert.alert('Email Required', 'Please enter your email address above, then tap Forgot Password.');
+            showToast('Please enter your email address to reset password.', 'error');
             return;
         }
         setResetLoading(true);
         try {
             await sendPasswordResetEmail(auth, email.trim());
-            Alert.alert('Email Sent', `A password reset link has been sent to ${email.trim()}. Check your inbox.`);
+            showToast(`A password reset link has been sent to ${email.trim()}.`, 'success');
         } catch (e: any) {
-            Alert.alert('Error', e.message || 'Failed to send reset email.');
+            showToast(getFriendlyErrorMessage(e), 'error');
         } finally {
             setResetLoading(false);
         }
@@ -73,7 +75,7 @@ export default function LoginScreen() {
             router.replace('/(tabs)');
         } catch (error: any) {
             console.error('Login error:', error.message);
-            alert(error.message);
+            showToast(getFriendlyErrorMessage(error), "error");
         } finally {
             setLoading(false);
         }
@@ -114,7 +116,7 @@ export default function LoginScreen() {
         } catch (error: any) {
             console.error('Google Sign-In error:', error.message);
             if (error.code !== statusCodes.SIGN_IN_CANCELLED) {
-                alert(error.message);
+                showToast(getFriendlyErrorMessage(error), "error");
             }
         } finally {
             setLoading(false);

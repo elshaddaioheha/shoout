@@ -1,5 +1,6 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import { auth, db } from '@/firebaseConfig';
+import { useToastStore } from '@/store/useToastStore';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
@@ -23,7 +24,6 @@ import {
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
-    Alert,
     Dimensions,
     ScrollView,
     StyleSheet,
@@ -42,6 +42,7 @@ export default function ArtistProfileScreen() {
     const [loading, setLoading] = useState(true);
     const [isFollowing, setIsFollowing] = useState(false);
     const [followersCount, setFollowersCount] = useState(0);
+    const { showToast } = useToastStore();
 
     useEffect(() => {
         if (!artistId) return;
@@ -73,7 +74,7 @@ export default function ArtistProfileScreen() {
 
     const handleFollow = async () => {
         if (!auth.currentUser) {
-            Alert.alert("Auth Required", "Log in to follow artists.");
+            showToast("Log in to follow artists.", "error");
             return;
         }
 

@@ -1,4 +1,5 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
+import { useToastStore } from '@/store/useToastStore';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -15,7 +16,6 @@ import {
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
-    Alert,
     Dimensions,
     ScrollView,
     StyleSheet,
@@ -33,6 +33,7 @@ export default function WithdrawalScreen() {
     const [balance, setBalance] = useState(0);
     const [totalEarned, setTotalEarned] = useState(0);
     const [history, setHistory] = useState<any[]>([]);
+    const { showToast } = useToastStore();
 
     useEffect(() => {
         if (!auth.currentUser) return;
@@ -85,10 +86,10 @@ export default function WithdrawalScreen() {
 
     const handleRequestWithdrawal = () => {
         if (balance < 50) {
-            Alert.alert("Minimum Balance", "You need at least $50.00 to request a withdrawal.");
+            showToast("You need at least $50.00 to request a withdrawal.", "error");
             return;
         }
-        Alert.alert("Coming Soon", "Withdrawal processing is being integrated with local African payment gateways.");
+        showToast("Withdrawal processing is being integrated with local African payment gateways.", "info");
     };
 
     return (
@@ -100,7 +101,7 @@ export default function WithdrawalScreen() {
                         <ChevronLeft size={24} color="#FFF" />
                     </TouchableOpacity>
                     <Text style={styles.headerTitle}>Earnings</Text>
-                    <TouchableOpacity style={styles.historyButton} onPress={() => Alert.alert('Payout History', 'Scroll down to see your payout history below.')}>
+                    <TouchableOpacity style={styles.historyButton} onPress={() => showToast('Scroll down to see your payout history below.', 'info')}>
                         <History size={20} color="#FFF" />
                     </TouchableOpacity>
                 </View>
@@ -167,7 +168,7 @@ export default function WithdrawalScreen() {
                                 <Text style={styles.bankName}>Local Nigerian Bank</Text>
                                 <Text style={styles.accountNumber}>Direct Deposit Active</Text>
                             </View>
-                            <TouchableOpacity onPress={() => Alert.alert('Change Bank', 'Bank account management will be available in the next update. Contact support@shoouts.com to update your payout details.')}>
+                            <TouchableOpacity onPress={() => showToast('Bank account management will be available in the next update. Contact support@shoouts.com to update your payout details.', 'info')}>
                                 <Text style={styles.editLink}>Change</Text>
                             </TouchableOpacity>
                         </TouchableOpacity>
@@ -175,7 +176,7 @@ export default function WithdrawalScreen() {
                         {/* History Section */}
                         <View style={styles.historyHeader}>
                             <Text style={styles.sectionTitle}>Payout History</Text>
-                            <TouchableOpacity onPress={() => Alert.alert('Payout History', `You have ${history.length} payout record${history.length !== 1 ? 's' : ''}. Full history export coming soon.`)}>
+                            <TouchableOpacity onPress={() => showToast(`You have ${history.length} payout record${history.length !== 1 ? 's' : ''}. Full history export coming soon.`, 'info')}>
                                 <Text style={styles.seeAll}>See All</Text>
                             </TouchableOpacity>
                         </View>

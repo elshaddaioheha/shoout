@@ -2,6 +2,7 @@ import ActionSheet from '@/components/ActionSheet';
 import FilterSheet from '@/components/FilterSheet';
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import { auth, db } from '@/firebaseConfig';
+import { useToastStore } from '@/store/useToastStore';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { collection, deleteDoc, doc, onSnapshot, orderBy, query } from 'firebase/firestore';
@@ -224,8 +225,8 @@ function MerchCard({ item, onDelete }: any) {
                 onClose={() => setMenuOpen(false)}
                 title={item.title}
                 options={[
-                    { label: 'Edit Listing', icon: <Edit3 size={18} color="#FFF" />, onPress: () => Alert.alert('Edit', 'Merch editing coming soon.') },
-                    { label: 'Manage Variants', icon: <Layers size={18} color="#FFF" />, onPress: () => Alert.alert('Variants', 'Variant management coming soon.') },
+                    { label: 'Edit Listing', icon: <Edit3 size={18} color="#FFF" />, onPress: () => useToastStore.getState().showToast('Merch editing coming soon.', 'info') },
+                    { label: 'Manage Variants', icon: <Layers size={18} color="#FFF" />, onPress: () => useToastStore.getState().showToast('Variant management coming soon.', 'info') },
                     { label: 'Delete', icon: <Trash2 size={18} color="#FF4D4D" />, onPress: onDelete, destructive: true },
                 ]}
             />
@@ -246,11 +247,11 @@ function MerchCard({ item, onDelete }: any) {
             </View>
 
             <View style={styles.cardActions}>
-                <TouchableOpacity style={styles.actionBtn} onPress={() => Alert.alert('Edit', 'Merch editing coming soon.')}>
+                <TouchableOpacity style={styles.actionBtn} onPress={() => useToastStore.getState().showToast('Merch editing coming soon.', 'info')}>
                     <Edit3 size={16} color="#FFF" />
                     <Text style={styles.actionBtnText}>Edit</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.actionBtn} onPress={() => Alert.alert('Variants', 'Variant management coming soon.')}>
+                <TouchableOpacity style={styles.actionBtn} onPress={() => useToastStore.getState().showToast('Variant management coming soon.', 'info')}>
                     <Layers size={16} color="#FFF" />
                     <Text style={styles.actionBtnText}>Variants</Text>
                 </TouchableOpacity>

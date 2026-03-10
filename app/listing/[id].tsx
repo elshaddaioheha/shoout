@@ -1,6 +1,7 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import { useCartStore } from '@/store/useCartStore';
 import { usePlaybackStore } from '@/store/usePlaybackStore';
+import { useToastStore } from '@/store/useToastStore';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
@@ -29,7 +30,6 @@ import {
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
-    Alert,
     Dimensions,
     ScrollView,
     StyleSheet,
@@ -50,6 +50,7 @@ export default function ListingDetail() {
 
     const { currentTrack, setTrack, isPlaying } = usePlaybackStore();
     const { items: cartItems, addItem } = useCartStore();
+    const { showToast } = useToastStore();
     const isThisTrackPlaying = currentTrack?.id === id && isPlaying;
     const isInCart = cartItems.some(i => i.id === id);
 
@@ -78,7 +79,7 @@ export default function ListingDetail() {
                 if (foundDoc) {
                     setListing({ id: foundDoc.id, ...foundDoc.data() });
                 } else {
-                    Alert.alert("Error", "Listing not found");
+                    showToast('Listing not found', 'error');
                     router.back();
                 }
             } catch (err) {
@@ -113,12 +114,12 @@ export default function ListingDetail() {
             uploaderId: listing.userId,
             category: listing.category
         });
-        Alert.alert("Added to Cart", `${listing.title} has been added to your cart.`);
+        showToast(`${listing.title} has been added to your cart.`, 'success');
     };
 
     const handlePurchase = async () => {
         if (!auth.currentUser) {
-            Alert.alert("Auth Required", "Please log in to purchase tracks.");
+            showToast("Please log in to purchase tracks.", "error");
             return;
         }
 
@@ -147,14 +148,12 @@ export default function ListingDetail() {
                 coverUrl: listing.coverUrl || ''
             });
 
-            Alert.alert(
-                "Purchase Successful!",
-                "You now have access to this track in your library.",
-                [{ text: "View Library", onPress: () => router.push('/(tabs)/library') }]
-            );
+            showToast("Purchase Successful! Track added to your library.", "success");
+            // Optionally redirect after a short delay
+            setTimeout(() => router.push('/(tabs)/library'), 2000);
         } catch (e) {
             console.error("Purchase error:", e);
-            Alert.alert("Error", "Transaction failed. Please try again.");
+            showToast("Transaction failed. Please try again.", "error");
         } finally {
             setPurchasing(false);
         }
@@ -280,7 +279,7 @@ export default function ListingDetail() {
                         style={styles.chatBtn}
                         onPress={() => {
                             if (!auth.currentUser) {
-                                Alert.alert("Auth Required", "Please log in to contact creators.");
+                                showToast("Please log in to contact creators.", "error");
                                 return;
                             }
                             router.push({ pathname: '/chat/[id]', params: { id: listing.userId } });

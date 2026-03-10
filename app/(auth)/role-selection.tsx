@@ -1,4 +1,6 @@
+import { useToastStore } from '@/store/useToastStore';
 import { UserRole, useUserStore } from '@/store/useUserStore';
+import { getFriendlyErrorMessage } from '@/utils/errorHandler';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -194,6 +196,7 @@ export default function RoleSelectionScreen() {
     const handleContinue = async () => {
         if (!selectedRole) return;
         setLoading(true);
+        const { showToast } = useToastStore.getState();
         try {
             // Write Role selection to Firebase Database if logged in
 
@@ -211,7 +214,7 @@ export default function RoleSelectionScreen() {
             router.replace('/(tabs)');
         } catch (error: any) {
             console.error('Failed to sync role:', error);
-            alert('Failed to save role: ' + error.message);
+            showToast('Failed to save role: ' + getFriendlyErrorMessage(error), 'error');
         } finally {
             setLoading(false);
         }

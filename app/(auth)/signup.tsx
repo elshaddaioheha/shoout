@@ -7,7 +7,9 @@ import React from 'react';
 import { KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { auth, db } from '../../firebaseConfig';
+import { useToastStore } from '../../store/useToastStore';
 import { useUserStore } from '../../store/useUserStore';
+import { getFriendlyErrorMessage } from '../../utils/errorHandler';
 
 export default function SignupScreen() {
     const router = useRouter();
@@ -17,11 +19,12 @@ export default function SignupScreen() {
     const [confirmPassword, setConfirmPassword] = React.useState('');
     const [loading, setLoading] = React.useState(false);
     const { setRole } = useUserStore();
+    const { showToast } = useToastStore();
 
     const handleSignup = async () => {
         if (!email || !password || !fullName) return;
         if (password !== confirmPassword) {
-            alert("Passwords don't match");
+            showToast("Passwords don't match", "error");
             return;
         }
 
@@ -46,7 +49,7 @@ export default function SignupScreen() {
             }
         } catch (error: any) {
             console.error('Signup error:', error.message);
-            alert(error.message);
+            showToast(getFriendlyErrorMessage(error), "error");
         } finally {
             setLoading(false);
         }
@@ -81,7 +84,7 @@ export default function SignupScreen() {
         } catch (error: any) {
             console.error('Google Sign-In error:', error.message);
             if (error.code !== statusCodes.SIGN_IN_CANCELLED) {
-                alert(error.message);
+                showToast(getFriendlyErrorMessage(error), "error");
             }
         } finally {
             setLoading(false);

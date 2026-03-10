@@ -1,6 +1,7 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import { auth, db } from '@/firebaseConfig';
 import { useCartStore } from '@/store/useCartStore';
+import { useToastStore } from '@/store/useToastStore';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
@@ -34,6 +35,7 @@ export default function CartScreen() {
     const [checkingOut, setCheckingOut] = useState(false);
     const [showFWButton, setShowFWButton] = useState(false);
     const fwRef = useRef<any>(null);
+    const { showToast } = useToastStore();
 
     // Called after Flutterwave confirms payment
     const handlePaymentSuccess = async () => {
@@ -71,7 +73,7 @@ export default function CartScreen() {
             );
         } catch (error) {
             console.error('Post-payment error:', error);
-            Alert.alert('Error', 'Payment succeeded but delivery failed. Contact support.');
+            showToast('Payment succeeded but delivery failed. Contact support.', 'error');
         } finally {
             setCheckingOut(false);
         }
@@ -79,7 +81,7 @@ export default function CartScreen() {
 
     const handleCheckout = () => {
         if (!auth.currentUser) {
-            Alert.alert('Auth Required', 'Please log in to complete your purchase.');
+            showToast('Please log in to complete your purchase.', 'error');
             router.push('/(auth)/login');
             return;
         }
@@ -194,7 +196,7 @@ export default function CartScreen() {
                                         if (data.status === 'successful') {
                                             handlePaymentSuccess();
                                         } else {
-                                            Alert.alert('Payment Cancelled', 'Your payment was not completed.');
+                                            showToast('Your payment was not completed.', 'error');
                                         }
                                     }}
                                     options={{

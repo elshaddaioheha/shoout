@@ -1,4 +1,5 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
+import { useToastStore } from '@/store/useToastStore';
 import * as DocumentPicker from 'expo-document-picker';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -43,6 +44,7 @@ export default function UploadScreen() {
     const [showGenrePicker, setShowGenrePicker] = useState(false);
 
     const [audioFile, setAudioFile] = useState<any>(null);
+    const { showToast } = useToastStore();
 
     const handleBack = () => {
         router.back();
@@ -59,21 +61,21 @@ export default function UploadScreen() {
             }
         } catch (error) {
             console.error('Document picker error:', error);
-            alert('Failed to pick file.');
+            showToast('Failed to pick file.', 'error');
         }
     };
 
     const handleUpload = async () => {
         if (!title) {
-            alert("Please enter a title");
+            showToast("Please enter a title", "error");
             return;
         }
         if (!audioFile) {
-            alert("Please select an audio file to upload");
+            showToast("Please select an audio file to upload", "error");
             return;
         }
         if (!auth.currentUser) {
-            alert("Authentication error - Please log in again");
+            showToast("Authentication error - Please log in again", "error");
             return;
         }
 
@@ -110,11 +112,11 @@ export default function UploadScreen() {
                 category: genre === 'Drum Kit' || genre === 'Vocal Pack' ? 'Sample' : 'Beat' // Simple heuristic for now
             });
 
-            alert("Track uploaded to your Vault successfully!");
+            showToast("Track uploaded to your Vault successfully!", "success");
             router.back();
         } catch (error: any) {
             console.error("Upload error: ", error);
-            alert("Failed to upload: " + error.message);
+            showToast("Failed to upload: " + error.message, "error");
         } finally {
             setUploading(false);
         }
