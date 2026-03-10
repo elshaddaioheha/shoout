@@ -2,14 +2,16 @@
  * ModeSelectorSheet — bottom sheet with blurred backdrop listing all available modes.
  * Slides up with Animated.spring, backdrop tap-to-dismiss.
  */
-import { ViewMode } from '@/store/useUserStore';
+import { UserRole } from '@/store/useUserStore';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
 import {
     CheckCircle2,
+    Crown,
     Lock,
     Mic2,
     Music,
+    TrendingUp,
     Zap,
 } from 'lucide-react-native';
 import React, { useEffect, useRef } from 'react';
@@ -25,7 +27,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface Mode {
-    id: ViewMode;
+    id: UserRole;
     label: string;
     description: string;
     Icon: any;
@@ -35,28 +37,52 @@ interface Mode {
 
 const MODES: Mode[] = [
     {
-        id: 'vault',
-        label: 'Vault',
-        description: 'Discover music, manage your library & playlists',
+        id: 'vault_free',
+        label: 'Vault Free',
+        description: 'Basic storage, sharing and streaming',
         Icon: Music,
         color: '#EC5C39',
         requiresPremium: false,
     },
     {
-        id: 'studio',
-        label: 'Studio',
-        description: 'Upload beats, sell music & manage your artist profile',
+        id: 'vault_pro',
+        label: 'Vault Pro',
+        description: 'Advanced analytics, locking & permissions',
+        Icon: Zap,
+        color: '#EC5C39',
+        requiresPremium: true,
+    },
+    {
+        id: 'studio_free',
+        label: 'Studio Free',
+        description: 'Basic marketplace access & test listings',
         Icon: Mic2,
         color: '#4CAF50',
+        requiresPremium: false,
+    },
+    {
+        id: 'studio_pro',
+        label: 'Studio Pro',
+        description: 'Pricing control, analytics & unlimited listings',
+        Icon: TrendingUp,
+        color: '#4CAF50',
+        requiresPremium: true,
+    },
+    {
+        id: 'hybrid_executive',
+        label: 'Hybrid Executive',
+        description: 'All features active: Vault + Studio',
+        Icon: Crown,
+        color: '#FFD700',
         requiresPremium: true,
     },
 ];
 
 interface ModeSelectorSheetProps {
     visible: boolean;
-    currentMode: ViewMode;
-    isModeAccessible: (mode: ViewMode) => boolean;
-    onSelect: (mode: ViewMode) => void;
+    currentMode: UserRole; // Was ViewMode
+    isModeAccessible: (mode: UserRole) => boolean;
+    onSelect: (mode: UserRole) => void;
     onClose: () => void;
 }
 

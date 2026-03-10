@@ -1,98 +1,72 @@
-import React, { useState } from 'react';
-import {
-    View,
-    Text,
-    StyleSheet,
-    TouchableOpacity,
-    Dimensions,
-    TextInput,
-    FlatList,
-    Alert,
-    Image
-} from 'react-native';
+import ActionSheet from '@/components/ActionSheet';
+import FilterSheet from '@/components/FilterSheet';
+import SafeScreenWrapper from '@/components/SafeScreenWrapper';
+import { auth, db } from '@/firebaseConfig';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import { collection, deleteDoc, doc, onSnapshot, orderBy, query } from 'firebase/firestore';
 import {
     ChevronLeft,
+    DollarSign,
+    Edit3,
+    Filter,
+    Layers,
+    MoreVertical,
+    Package,
     Plus,
     Search,
-    Filter,
-    MoreVertical,
     ShoppingBag,
-    DollarSign,
-    Package,
-    Tag,
-    Share2,
-    Trash2,
-    Edit3,
-    CheckCircle2,
-    AlertTriangle,
-    Layers
+    Trash2
 } from 'lucide-react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import SafeScreenWrapper from '@/components/SafeScreenWrapper';
-import { useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import {
+    ActivityIndicator,
+    Alert,
+    Dimensions,
+    FlatList,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
+} from 'react-native';
 
 const { width } = Dimensions.get('window');
-
-// Mock Data
-const MOCK_MERCH = [
-    {
-        id: '1',
-        title: 'Limited Edition "Afro Heat" Tee',
-        category: 'Apparel',
-        price: '35.00',
-        stock: 42,
-        sales: 156,
-        status: 'In Stock',
-        image: null
-    },
-    {
-        id: '2',
-        title: 'Breezy Afro Vinyl - Gold Edition',
-        category: 'Physical Music',
-        price: '65.00',
-        stock: 5,
-        sales: 45,
-        status: 'Low Stock',
-        image: null
-    },
-    {
-        id: '3',
-        title: 'Signature Drum Kit Vol. 2',
-        category: 'Digital Tools',
-        price: '49.99',
-        stock: 'Unlimited',
-        sales: 89,
-        status: 'In Stock',
-        image: null
-    },
-    {
-        id: '4',
-        title: 'Shouuts Official Hoodie',
-        category: 'Apparel',
-        price: '55.00',
-        stock: 0,
-        sales: 230,
-        status: 'Out of Stock',
-        image: null
-    }
-];
 
 export default function MerchStoreManagement() {
     const router = useRouter();
     const [searchQuery, setSearchQuery] = useState('');
     const [activeTab, setActiveTab] = useState('All');
+    const [merch, setMerch] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
 
-    const filteredMerch = MOCK_MERCH.filter(item => {
-        const matchesSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase());
+    useEffect(() => {
+        const uid = auth.currentUser?.uid;
+        if (!uid) { setLoading(false); return; }
+        const q = query(collection(db, `users/${uid}/merch`), orderBy('createdAt', 'desc'));
+        const unsub = onSnapshot(q, (snap) => {
+            setMerch(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+            setLoading(false);
+        });
+        return unsub;
+    }, []);
+
+    const [filterOpen, setFilterOpen] = useState(false);
+    const [sortFilter, setSortFilter] = useState('Newest');
+    const [categoryFilter, setCategoryFilter] = useState('All');
+
+    const filteredMerch = merch.filter(item => {
+        const matchesSearch = (item.name || item.title || '').toLowerCase().includes(searchQuery.toLowerCase());
         const matchesTab = activeTab === 'All' ||
             (activeTab === 'Physical' && item.category !== 'Digital Tools') ||
             (activeTab === 'Digital' && item.category === 'Digital Tools');
         return matchesSearch && matchesTab;
     });
 
-    const handleBack = () => {
-        router.back();
-    };
+    const totalSales = merch.reduce((sum, i) => sum + (i.sales || 0), 0);
+    const totalRevenue = merch.reduce((sum, i) => sum + (parseFloat(i.price || '0') * (i.sales || 0)), 0);
+
+    const handleBack = () => router.back();
 
     const handleDelete = (id: string) => {
         Alert.alert(
@@ -100,10 +74,22 @@ export default function MerchStoreManagement() {
             "Remove this item from your store?",
             [
                 { text: "Cancel", style: "cancel" },
-                { text: "Delete", style: "destructive", onPress: () => console.log('Deleted', id) }
+                {
+                    text: "Delete", style: "destructive", onPress: async () => {
+                        const uid = auth.currentUser?.uid;
+                        if (!uid) return;
+                        await deleteDoc(doc(db, `users/${uid}/merch`, id));
+                        // Also remove from top-level merch collection
+                        await deleteDoc(doc(db, 'merch', id)).catch(() => { });
+                    }
+                }
             ]
         );
     };
+
+    if (loading) {
+        return <SafeScreenWrapper><View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}><ActivityIndicator color="#EC5C39" size="large" /></View></SafeScreenWrapper>;
+    }
 
     return (
         <SafeScreenWrapper>
@@ -114,7 +100,7 @@ export default function MerchStoreManagement() {
                         <ChevronLeft size={24} color="#FFF" />
                     </TouchableOpacity>
                     <Text style={styles.headerTitle}>Merch & Store</Text>
-                    <TouchableOpacity style={styles.addButton}>
+                    <TouchableOpacity style={styles.addButton} onPress={() => router.push('/studio/upload' as any)}>
                         <LinearGradient
                             colors={['#EC5C39', '#863420']}
                             style={styles.addGradient}
@@ -136,7 +122,7 @@ export default function MerchStoreManagement() {
                             onChangeText={setSearchQuery}
                         />
                     </View>
-                    <TouchableOpacity style={styles.filterButton}>
+                    <TouchableOpacity style={styles.filterButton} onPress={() => setFilterOpen(true)}>
                         <Filter size={20} color="#FFF" />
                     </TouchableOpacity>
                 </View>
@@ -160,17 +146,17 @@ export default function MerchStoreManagement() {
                 <View style={styles.summaryContainer}>
                     <View style={styles.summaryItem}>
                         <Text style={styles.summaryLabel}>Total Items</Text>
-                        <Text style={styles.summaryValue}>{MOCK_MERCH.length}</Text>
+                        <Text style={styles.summaryValue}>{merch.length}</Text>
                     </View>
                     <View style={styles.summaryDivider} />
                     <View style={styles.summaryItem}>
                         <Text style={styles.summaryLabel}>Total Sales</Text>
-                        <Text style={styles.summaryValue}>520</Text>
+                        <Text style={styles.summaryValue}>{totalSales.toLocaleString()}</Text>
                     </View>
                     <View style={styles.summaryDivider} />
                     <View style={styles.summaryItem}>
                         <Text style={styles.summaryLabel}>Revenue</Text>
-                        <Text style={[styles.summaryValue, { color: '#4CAF50' }]}>$18.4K</Text>
+                        <Text style={[styles.summaryValue, { color: '#4CAF50' }]}>₦{(totalRevenue / 1000).toFixed(1)}K</Text>
                     </View>
                 </View>
 
@@ -193,12 +179,25 @@ export default function MerchStoreManagement() {
                         </View>
                     }
                 />
+
+                <FilterSheet
+                    visible={filterOpen}
+                    onClose={() => setFilterOpen(false)}
+                    sortOptions={['Newest', 'Price: Low to High', 'Price: High to Low', 'Best Selling']}
+                    selectedSort={sortFilter}
+                    onSortChange={setSortFilter}
+                    categories={['All', 'Physical', 'Digital', 'Apparel', 'Vinyl']}
+                    selectedCategory={categoryFilter}
+                    onCategoryChange={setCategoryFilter}
+                    onReset={() => { setSortFilter('Newest'); setCategoryFilter('All'); }}
+                />
             </View>
         </SafeScreenWrapper>
     );
 }
 
 function MerchCard({ item, onDelete }: any) {
+    const [menuOpen, setMenuOpen] = useState(false);
     const getStatusColor = () => {
         if (item.status === 'In Stock') return '#4CAF50';
         if (item.status === 'Low Stock') return '#FFC107';
@@ -215,10 +214,21 @@ function MerchCard({ item, onDelete }: any) {
                     <Text style={styles.cardTitle}>{item.title}</Text>
                     <Text style={styles.category}>{item.category}</Text>
                 </View>
-                <TouchableOpacity style={styles.moreButton}>
+                <TouchableOpacity style={styles.moreButton} onPress={() => setMenuOpen(true)}>
                     <MoreVertical size={20} color="rgba(255,255,255,0.6)" />
                 </TouchableOpacity>
             </View>
+
+            <ActionSheet
+                visible={menuOpen}
+                onClose={() => setMenuOpen(false)}
+                title={item.title}
+                options={[
+                    { label: 'Edit Listing', icon: <Edit3 size={18} color="#FFF" />, onPress: () => Alert.alert('Edit', 'Merch editing coming soon.') },
+                    { label: 'Manage Variants', icon: <Layers size={18} color="#FFF" />, onPress: () => Alert.alert('Variants', 'Variant management coming soon.') },
+                    { label: 'Delete', icon: <Trash2 size={18} color="#FF4D4D" />, onPress: onDelete, destructive: true },
+                ]}
+            />
 
             <View style={styles.statsRow}>
                 <View style={styles.stat}>
@@ -236,11 +246,11 @@ function MerchCard({ item, onDelete }: any) {
             </View>
 
             <View style={styles.cardActions}>
-                <TouchableOpacity style={styles.actionBtn}>
+                <TouchableOpacity style={styles.actionBtn} onPress={() => Alert.alert('Edit', 'Merch editing coming soon.')}>
                     <Edit3 size={16} color="#FFF" />
                     <Text style={styles.actionBtnText}>Edit</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.actionBtn}>
+                <TouchableOpacity style={styles.actionBtn} onPress={() => Alert.alert('Variants', 'Variant management coming soon.')}>
                     <Layers size={16} color="#FFF" />
                     <Text style={styles.actionBtnText}>Variants</Text>
                 </TouchableOpacity>

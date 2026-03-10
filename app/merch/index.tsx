@@ -1,5 +1,4 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
-import SharedHeader from '@/components/SharedHeader';
 import Sidebar from '@/components/Sidebar';
 import { db } from '@/firebaseConfig';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
@@ -42,11 +41,9 @@ export default function MerchStoreScreen() {
     return (
         <SafeScreenWrapper>
             <View style={styles.container}>
-                <SharedHeader
-                    onMenuPress={() => setIsSidebarOpen(true)}
-                    title="Merch Store"
-                    showCart={true}
-                />
+                <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16 }}>
+                    <Text style={{ color: '#FFF', fontSize: 22, fontFamily: 'Poppins-Bold', flex: 1 }}>Merch Store</Text>
+                </View>
 
                 <View style={styles.searchBar}>
                     <ShoppingBag size={20} color="rgba(255,255,255,0.4)" />
@@ -65,7 +62,7 @@ export default function MerchStoreScreen() {
                     </View>
                 ) : (
                     <FlatList
-                        data={filteredMerch.length > 0 ? filteredMerch : MOCK_MERCH}
+                        data={filteredMerch}
                         keyExtractor={(item) => item.id}
                         numColumns={2}
                         renderItem={({ item }) => <MerchCard item={item} />}
@@ -108,7 +105,7 @@ function MerchCard({ item }: any) {
                     <Text style={styles.itemPrice}>NGN {item.price}</Text>
                     <View style={styles.rating}>
                         <Star size={12} color="#FFD700" fill="#FFD700" />
-                        <Text style={styles.ratingText}>4.8</Text>
+                        <Text style={styles.ratingText}>{item.rating ?? '—'}</Text>
                     </View>
                 </View>
             </View>
@@ -116,12 +113,7 @@ function MerchCard({ item }: any) {
     );
 }
 
-const MOCK_MERCH = [
-    { id: 'm1', name: 'Vintage Afro Beats Tee', artistName: 'Davido', price: '12,000', category: 'Apparel' },
-    { id: 'm2', name: 'Signature Vinyl - Lagos City', artistName: 'Wizkid', price: '25,000', category: 'Vinyl' },
-    { id: 'm3', name: 'Shoouts Studio Hoodie', artistName: 'Shoouts Official', price: '18,500', category: 'Merch' },
-    { id: 'm4', name: 'Afro-Gospel Cap', artistName: 'Lawrence Oyor', price: '8,000', category: 'Accessory' },
-];
+
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#140F10' },

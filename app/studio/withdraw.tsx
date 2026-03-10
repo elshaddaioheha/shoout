@@ -4,7 +4,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { collection, onSnapshot, orderBy, query, where } from 'firebase/firestore';
 import {
-    ActivityIndicator,
     ArrowDownRight,
     ArrowUpRight,
     Building2,
@@ -15,6 +14,7 @@ import {
 } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import {
+    ActivityIndicator,
     Alert,
     Dimensions,
     ScrollView,
@@ -100,7 +100,7 @@ export default function WithdrawalScreen() {
                         <ChevronLeft size={24} color="#FFF" />
                     </TouchableOpacity>
                     <Text style={styles.headerTitle}>Earnings</Text>
-                    <TouchableOpacity style={styles.historyButton}>
+                    <TouchableOpacity style={styles.historyButton} onPress={() => Alert.alert('Payout History', 'Scroll down to see your payout history below.')}>
                         <History size={20} color="#FFF" />
                     </TouchableOpacity>
                 </View>
@@ -167,7 +167,7 @@ export default function WithdrawalScreen() {
                                 <Text style={styles.bankName}>Local Nigerian Bank</Text>
                                 <Text style={styles.accountNumber}>Direct Deposit Active</Text>
                             </View>
-                            <TouchableOpacity>
+                            <TouchableOpacity onPress={() => Alert.alert('Change Bank', 'Bank account management will be available in the next update. Contact support@shoouts.com to update your payout details.')}>
                                 <Text style={styles.editLink}>Change</Text>
                             </TouchableOpacity>
                         </TouchableOpacity>
@@ -175,7 +175,7 @@ export default function WithdrawalScreen() {
                         {/* History Section */}
                         <View style={styles.historyHeader}>
                             <Text style={styles.sectionTitle}>Payout History</Text>
-                            <TouchableOpacity>
+                            <TouchableOpacity onPress={() => Alert.alert('Payout History', `You have ${history.length} payout record${history.length !== 1 ? 's' : ''}. Full history export coming soon.`)}>
                                 <Text style={styles.seeAll}>See All</Text>
                             </TouchableOpacity>
                         </View>

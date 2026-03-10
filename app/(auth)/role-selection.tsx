@@ -37,46 +37,46 @@ const SUBSCRIPTION_TIERS = [
     {
         id: 'vault_free' as UserRole,
         title: 'Vault Free',
-        subtitle: 'Basic Storage & Streaming',
+        subtitle: 'Free',
         description: 'Perfect for casual listeners and creators trying out Shoouts with 50MB of storage.',
         icon: Headphones,
         gradient: [theme.colors.surface, '#2A2520'] as [string, string],
         accentColor: theme.colors.textSecondary,
-        features: ['50MB Storage', 'Streaming access', 'Basic support'],
-        featureIcons: [Download, Music, Star],
+        features: ['50MB Storage'],
+        featureIcons: [Download],
     },
     {
         id: 'vault_creator' as UserRole,
         title: 'Vault Creator',
-        subtitle: 'For Active Creators ($5/mo)',
+        subtitle: 'For Active Creators (₦6,981/mo)',
         description: 'Boost your storage and organize your demos with Private Folder sharing.',
         icon: Star,
         gradient: [theme.colors.surface, '#3D2A1F'] as [string, string],
         accentColor: theme.colors.primary,
-        features: ['500MB Storage', 'Private Folder Sharing', 'Shareable Secure Links'],
-        featureIcons: [Download, Mic2, Zap],
+        features: ['500MB Storage', 'Private Folder Sharing', 'Shareable Secure Links', 'Basic Tracking'],
+        featureIcons: [Download, Mic2, Zap, TrendingUp],
     },
     {
         id: 'vault_pro' as UserRole,
         title: 'Vault Pro',
-        subtitle: 'Professional Storage ($10/mo)',
+        subtitle: 'Professional Storage (₦13,962/mo)',
         description: 'Advanced features for producers sharing beats and protecting files.',
         icon: Crown,
         gradient: ['#863420', '#4A1D13'] as [string, string],
         accentColor: '#FFD700',
-        features: ['1GB Storage', 'Advanced Analytics', 'File Locking & Permissions'],
+        features: ['1GB Storage', 'Advanced Tracking', 'File Locking & Permissions'],
         featureIcons: [Zap, TrendingUp, Crown],
     },
     {
         id: 'vault_executive' as UserRole,
         title: 'Vault Executive',
-        subtitle: 'For Labels & Teams ($18/mo)',
+        subtitle: 'For Labels & Teams (₦25,132/mo)',
         description: 'Maximum security and team collaboration for label executives.',
-        icon: ShoppingCart, // Placeholder for team/executive
+        icon: ShoppingCart,
         gradient: ['#1A1A1A', '#000000'] as [string, string],
         accentColor: '#FFFFFF',
         features: ['5GB Storage', 'Team Access', 'Priority Support'],
-        featureIcons: [Download, Sparkles, Crown],
+        featureIcons: [Download, Sparkles, Star],
     },
 
     // --- STUDIO PLANS ---
@@ -84,23 +84,23 @@ const SUBSCRIPTION_TIERS = [
         id: 'studio_free' as UserRole,
         title: 'Studio Free',
         subtitle: 'Start Selling Music',
-        description: 'Set up your catalog and start testing the marketplace for free.',
+        description: 'Setup catalog for free. Limited listings, no payout access, analytics, or chat.',
         icon: Mic2,
         gradient: [theme.colors.surface, '#2A1A3A'] as [string, string],
         accentColor: '#A78BFA',
-        features: ['Limited Listings', 'Sell beats & songs', '10% Transaction Fee'],
+        features: ['Limited Listings', 'Low Search Visibility', '10% Transaction Fee'],
         featureIcons: [Music, ShoppingCart, TrendingUp],
     },
     {
         id: 'studio_pro' as UserRole,
         title: 'Studio Pro',
-        subtitle: 'Active Sellers ($18.99/mo)',
-        description: 'Control your pricing, unlock analytics, and chat with buyers directly.',
+        subtitle: 'Active Sellers ($18.99/mo | ₦27,000)',
+        description: 'Take control of your music with analytics, custom pricing, and chat.',
         icon: TrendingUp,
         gradient: ['#7C3AED', '#4C1D95'] as [string, string],
         accentColor: '#C4B5FD',
-        features: ['Unlimited Listings', 'Buyer-Seller Chat', 'Pricing Control'],
-        featureIcons: [Zap, Mic2, Star],
+        features: ['Unlimited Listings', 'Buyer-Seller Chat', 'Pricing & License Control', 'Payout Access', 'Standard Visibility'],
+        featureIcons: [Zap, Mic2, Star, Download, TrendingUp],
     },
     {
         id: 'studio_plus' as UserRole,
@@ -118,30 +118,30 @@ const SUBSCRIPTION_TIERS = [
     {
         id: 'hybrid_creator' as UserRole,
         title: 'Hybrid Creator',
-        subtitle: 'Best of Both Worlds ($15/mo)',
+        subtitle: 'Best of Both Worlds (₦20,944/mo)',
         description: 'Professional independent creators who need both Vault storage and Studio sales.',
         icon: Crown,
         gradient: [theme.colors.primary, '#9333EA'] as [string, string],
         accentColor: '#FFD700',
-        features: ['5GB Vault Storage', 'Sell Directly from Vault', 'Priority Marketplace Visibility'],
-        featureIcons: [Download, ShoppingCart, Sparkles],
+        features: ['5GB Vault Storage', 'Sell Directly from Vault', 'Unified Analytics', 'Priority Visibility', 'Reduced Workflow Friction'],
+        featureIcons: [Download, ShoppingCart, TrendingUp, Sparkles, Zap],
     },
     {
         id: 'hybrid_executive' as UserRole,
         title: 'Hybrid Executive',
-        subtitle: 'The Ultimate Plan ($25/mo)',
+        subtitle: 'The Ultimate Plan (₦34,906/mo)',
         description: '10GB storage, unified analytics, team access, and dedicated support for major labels.',
         icon: Zap,
         gradient: ['#221133', '#4A0E17'] as [string, string],
         accentColor: '#FFD700',
-        features: ['10GB Storage', 'Team Collaboration', 'Dedicated Support'],
-        featureIcons: [Crown, TrendingUp, Star],
+        features: ['10GB Storage', 'Team Collaboration', 'Dedicated Support', '10% Transaction Fee'],
+        featureIcons: [Download, Crown, Star, TrendingUp],
     },
 ];
 
 export default function RoleSelectionScreen() {
     const router = useRouter();
-    const { setRole } = useUserStore();
+    const { setRole, setActualRole } = useUserStore();
     const [selectedRole, setSelectedRole] = useState<UserRole | null>(null);
     const [loading, setLoading] = useState(false);
 
@@ -200,12 +200,14 @@ export default function RoleSelectionScreen() {
             if (auth.currentUser) {
                 await updateDoc(doc(db, "users", auth.currentUser.uid), {
                     role: selectedRole,
+                    actualRole: selectedRole,
                     updatedAt: new Date().toISOString()
                 });
             }
 
             // Fallback for local state
             setRole(selectedRole);
+            setActualRole(selectedRole);
             router.replace('/(tabs)');
         } catch (error: any) {
             console.error('Failed to sync role:', error);
@@ -368,7 +370,7 @@ const styles = StyleSheet.create({
     },
     title: {
         color: theme.colors.textPrimary,
-        fontFamily: theme.typography.h1.fontFamily || 'Poppins-Bold',
+        fontFamily: 'Poppins-Bold',
         fontSize: theme.typography.h1.fontSize,
         lineHeight: theme.typography.h1.lineHeight,
         letterSpacing: -0.5,
@@ -384,7 +386,7 @@ const styles = StyleSheet.create({
         gap: theme.spacing.md,
     },
     roleCard: {
-        borderRadius: theme.radius['2xl'] || theme.radius.xl,
+        borderRadius: theme.radius.xl,
         padding: theme.spacing.md,
         borderWidth: 1.5,
         borderColor: 'rgba(255,255,255,0.06)',

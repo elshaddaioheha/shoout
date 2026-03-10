@@ -1,4 +1,5 @@
 import { useAppSwitcherContext } from '@/app/(tabs)/_layout';
+import FilterSheet from '@/components/FilterSheet';
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import SharedHeader from '@/components/SharedHeader';
 import { useCartStore } from '@/store/useCartStore';
@@ -70,6 +71,10 @@ export default function MarketplaceScreen() {
         return () => unsubscribe();
     }, []);
 
+    const [filterOpen, setFilterOpen] = useState(false);
+    const [sortBy, setSortBy] = useState('Newest');
+    const [filterCategory, setFilterCategory] = useState('All');
+
     const isStudioMode = storeViewMode === 'studio';
 
     const filterItems = (items: any[]) => {
@@ -131,7 +136,7 @@ export default function MarketplaceScreen() {
                                 onChangeText={setSearchQuery}
                             />
                         </View>
-                        <TouchableOpacity style={styles.filterButton}>
+                        <TouchableOpacity style={styles.filterButton} onPress={() => setFilterOpen(true)}>
                             <Filter size={20} color="#FFF" />
                         </TouchableOpacity>
                     </View>
@@ -188,6 +193,17 @@ export default function MarketplaceScreen() {
                     <View style={{ height: 100 }} />
                 </ScrollView>
 
+                <FilterSheet
+                    visible={filterOpen}
+                    onClose={() => setFilterOpen(false)}
+                    sortOptions={['Newest', 'Most Popular', 'Price: Low to High', 'Price: High to Low']}
+                    selectedSort={sortBy}
+                    onSortChange={setSortBy}
+                    categories={['All', 'Beats', 'Samples', 'Loops', 'Vocals']}
+                    selectedCategory={filterCategory}
+                    onCategoryChange={setFilterCategory}
+                    onReset={() => { setSortBy('Newest'); setFilterCategory('All'); }}
+                />
             </View>
         </SafeScreenWrapper>
     );
@@ -203,14 +219,14 @@ function MarketplaceSection({ title, items }: any) {
         <View style={styles.section}>
             <View style={styles.sectionHeader}>
                 <Text style={styles.sectionTitle}>{title}</Text>
-                <TouchableOpacity><Text style={styles.seeAll}>See All</Text></TouchableOpacity>
+                <TouchableOpacity onPress={() => router.push('/(tabs)/marketplace')}><Text style={styles.seeAll}>See All</Text></TouchableOpacity>
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
                 {items.map((item: any, idx: number) => (
                     <TouchableOpacity
                         key={item.id || idx}
                         style={styles.marketCard}
-                        onPress={() => router.push({ pathname: '/listing/[id]' as any, params: { id: item.id } })}
+                        onPress={() => router.push({ pathname: '/listing/[id]' as any, params: { id: item.id, uploaderId: item.userId } })}
                     >
                         <View style={styles.cardImage}>
                             <Music size={32} color="rgba(255,255,255,0.1)" />

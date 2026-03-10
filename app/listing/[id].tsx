@@ -7,10 +7,11 @@ import {
     addDoc,
     collection,
     collectionGroup,
+    doc,
+    getDoc,
     getDocs,
     query,
-    serverTimestamp,
-    where
+    serverTimestamp
 } from 'firebase/firestore';
 import {
     ChevronLeft,
@@ -41,7 +42,7 @@ import { auth, db } from '../../firebaseConfig';
 const { width } = Dimensions.get('window');
 
 export default function ListingDetail() {
-    const { id } = useLocalSearchParams();
+    const { id, uploaderId } = useLocalSearchParams();
     const router = useRouter();
     const [listing, setListing] = useState<any>(null);
     const [loading, setLoading] = useState(true);
@@ -55,12 +56,27 @@ export default function ListingDetail() {
     useEffect(() => {
         const fetchListing = async () => {
             try {
-                // Since listings are subcollections, we search across all of them for this ID
-                const q = query(collectionGroup(db, 'uploads'), where('__name__', '==', id));
+                if (uploaderId && typeof uploaderId === 'string') {
+                    // Fast path if we have the uploader ID
+                    const docRef = doc(db, 'users', uploaderId, 'uploads', id as string);
+                    const docSnap = await getDoc(docRef);
+
+                    if (docSnap.exists()) {
+                        setListing({ id: docSnap.id, ...docSnap.data() });
+                        return;
+                    }
+                }
+
+                // Since listings are subcollections, fallback to searching across all if missing uploaderId
+                // Note: __name__ querying in collectionGroup expects full path by default in some SDKs,
+                // but we fetch latest 100 just in case and filter on client to ensure it works.
+                const q = query(collectionGroup(db, 'uploads'));
                 const snapshot = await getDocs(q);
 
-                if (!snapshot.empty) {
-                    setListing({ id: snapshot.docs[0].id, ...snapshot.docs[0].data() });
+                const foundDoc = snapshot.docs.find(d => d.id === id);
+
+                if (foundDoc) {
+                    setListing({ id: foundDoc.id, ...foundDoc.data() });
                 } else {
                     Alert.alert("Error", "Listing not found");
                     router.back();

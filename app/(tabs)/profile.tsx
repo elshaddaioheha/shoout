@@ -23,6 +23,7 @@ import {
     Animated,
     Dimensions,
     ScrollView,
+    Share,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -52,6 +53,19 @@ export default function ProfileScreen() {
         }).start();
     }, []);
 
+    const handleShare = async () => {
+        try {
+            await Share.share({
+                message: `Check out ${name}'s profile on Shoouts! 🎵`,
+                title: `${name} on Shoouts`,
+            });
+        } catch (e) { }
+    };
+
+    const handleEditProfile = () => {
+        Alert.alert('Edit Profile', "Profile editing coming soon. You'll be able to update your photo, bio, and display name.");
+    };
+
     const handleLogout = async () => {
         try {
             await auth.signOut();
@@ -73,7 +87,7 @@ export default function ProfileScreen() {
                 {/* Header */}
                 <View style={styles.header}>
                     <Text style={styles.headerTitle}>Profile</Text>
-                    <TouchableOpacity style={styles.iconButton}>
+                    <TouchableOpacity style={styles.iconButton} onPress={handleShare}>
                         <Share2 size={22} color="#FFF" />
                     </TouchableOpacity>
                 </View>
@@ -90,7 +104,7 @@ export default function ProfileScreen() {
                         <View style={styles.avatar}>
                             <User size={40} color="#FFF" />
                         </View>
-                        <TouchableOpacity style={styles.editBadge}>
+                        <TouchableOpacity style={styles.editBadge} onPress={handleEditProfile}>
                             <Settings size={14} color="#FFF" />
                         </TouchableOpacity>
                     </View>

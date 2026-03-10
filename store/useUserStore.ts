@@ -9,7 +9,8 @@ export type UserRole =
 export type ViewMode = 'vault' | 'studio';
 
 interface UserState {
-    role: UserRole;
+    role: UserRole;        // Active/simulated role
+    actualRole: UserRole;  // Paid role
     name: string;
     isPremium: boolean;
     viewMode: ViewMode;
@@ -22,6 +23,7 @@ interface UserState {
     transactionFeePercent: number;
 
     setRole: (role: UserRole) => void;
+    setActualRole: (role: UserRole) => void;
     setName: (name: string) => void;
     setPremium: (isPremium: boolean) => void;
     setViewMode: (mode: ViewMode) => void;
@@ -32,6 +34,7 @@ const STORAGE_KEY = 'shoouts-user-preferences-v3';
 
 const defaultState: UserState = {
     role: 'vault_free',
+    actualRole: 'vault_free',
     name: 'User',
     isPremium: false,
     viewMode: 'vault',
@@ -41,6 +44,7 @@ const defaultState: UserState = {
     hasAdvancedAnalytics: false,
     transactionFeePercent: 10,
     setRole: () => { },
+    setActualRole: () => { },
     setName: () => { },
     setPremium: () => { },
     setViewMode: () => { },
@@ -108,7 +112,8 @@ export function useUserStore<T = UserState>(
                         setState((prev) => ({
                             ...prev,
                             ...parsed,
-                            ...caps, // Enforce current DB caps over cached caps
+                            actualRole: parsed.actualRole || parsed.role!,
+                            ...caps,
                         }));
                     }
                 }
@@ -126,6 +131,7 @@ export function useUserStore<T = UserState>(
     useEffect(() => {
         const toPersist = {
             role: state.role,
+            actualRole: state.actualRole,
             name: state.name,
             viewMode: state.viewMode,
         };
@@ -143,6 +149,13 @@ export function useUserStore<T = UserState>(
                 ...caps,
             };
         });
+    }, []);
+
+    const setActualRole = useCallback((actualRole: UserRole) => {
+        setState((prev) => ({
+            ...prev,
+            actualRole,
+        }));
     }, []);
 
     const setViewMode = useCallback((viewMode: ViewMode) => {
@@ -173,6 +186,7 @@ export function useUserStore<T = UserState>(
     const store: UserState = {
         ...state,
         setRole,
+        setActualRole,
         setName,
         setPremium,
         setViewMode,

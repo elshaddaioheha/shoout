@@ -7,7 +7,7 @@ import { doc, updateDoc } from 'firebase/firestore';
 import { PayWithFlutterwave } from 'flutterwave-react-native';
 import { Check, ChevronLeft, CreditCard, PartyPopper, ShieldCheck, Sparkles, Star } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { ActivityIndicator, Animated, Dimensions, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Animated, Dimensions, Modal, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 
 const { width } = Dimensions.get('window');
 
@@ -17,47 +17,87 @@ const PLANS = [
     {
         id: 'vault_free',
         name: 'Vault Free',
-        price: 'NGN 0',
-        numericPrice: 0,
-        period: '/month',
-        features: ['50MB Cloud Storage', 'Private Links', 'Basic Stats', 'Safe Transfer'],
+        monthlyPriceNGN: 0,
+        annualPriceNGN: 0,
+        features: ['50MB Cloud Storage', 'Streaming access', 'Basic support'],
         color: '#767676',
         category: 'Vault',
         gradient: ['rgba(118,118,118,0.1)', 'rgba(0,0,0,0)'] as unknown as GradientColors,
         borderColor: 'rgba(255,255,255,0.05)'
     },
     {
-        id: 'vault_pro',
-        name: 'Vault Pro',
-        price: 'NGN 5,000',
-        numericPrice: 5000,
-        period: '/month',
-        features: ['1GB Cloud Storage', 'Advanced Analytics', 'Custom Branding', 'Priority Support'],
+        id: 'vault_creator',
+        name: 'Vault Creator',
+        monthlyPriceNGN: 6981,
+        annualPriceNGN: 5934,
+        features: ['500MB Cloud Storage', 'Private Folder Sharing', 'Shareable Secure Links', 'Basic Tracking'],
         color: '#EC5C39',
         category: 'Vault',
-        recommended: true,
         gradient: ['rgba(236, 92, 57, 0.15)', 'rgba(236, 92, 57, 0.05)', 'rgba(0,0,0,0)'] as unknown as GradientColors,
         borderColor: '#EC5C39'
     },
     {
+        id: 'vault_pro',
+        name: 'Vault Pro',
+        monthlyPriceNGN: 13962,
+        annualPriceNGN: 11868,
+        features: ['1GB Cloud Storage', 'Advanced Tracking', 'File Locking & Permissions'],
+        color: '#EC5C39',
+        category: 'Vault',
+        gradient: ['rgba(236, 92, 57, 0.15)', 'rgba(236, 92, 57, 0.05)', 'rgba(0,0,0,0)'] as unknown as GradientColors,
+        borderColor: '#EC5C39'
+    },
+    {
+        id: 'vault_executive',
+        name: 'Vault Executive',
+        monthlyPriceNGN: 25132,
+        annualPriceNGN: 21362,
+        features: ['5GB Cloud Storage', 'Team Access', 'Priority Support'],
+        color: '#EC5C39',
+        category: 'Vault',
+        gradient: ['rgba(236, 92, 57, 0.15)', 'rgba(236, 92, 57, 0.05)', 'rgba(0,0,0,0)'] as unknown as GradientColors,
+        borderColor: '#EC5C39'
+    },
+    {
+        id: 'studio_free',
+        name: 'Studio Free',
+        monthlyPriceNGN: 0,
+        annualPriceNGN: 0,
+        features: ['Limited Listings', 'Low Search Visibility', '10% Transaction Fee'],
+        color: '#767676',
+        category: 'Studio',
+        gradient: ['rgba(118,118,118,0.1)', 'rgba(0,0,0,0)'] as unknown as GradientColors,
+        borderColor: 'rgba(255,255,255,0.05)'
+    },
+    {
         id: 'studio_pro',
         name: 'Studio Pro',
-        price: 'NGN 10,000',
-        numericPrice: 10000,
-        period: '/month',
-        features: ['Sell Unlimited Tracks', 'Lower Transaction Fees', 'Studio Dashboard', 'Artist Verification'],
+        monthlyPriceNGN: 27000,
+        annualPriceNGN: 22950,
+        features: ['Unlimited Listings', 'Buyer-Seller Chat', 'Pricing & License Control', 'Payout Access', 'Standard Visibility'],
         color: '#4CAF50',
         category: 'Studio',
+        recommended: true,
         gradient: ['rgba(76, 175, 80, 0.15)', 'rgba(76, 175, 80, 0.05)', 'rgba(0,0,0,0)'] as unknown as GradientColors,
         borderColor: '#4CAF50'
     },
     {
+        id: 'hybrid_creator',
+        name: 'Hybrid Creator',
+        monthlyPriceNGN: 20944,
+        annualPriceNGN: 16755,
+        features: ['5GB Vault Storage', 'Sell Directly', 'Unified Analytics', 'Priority Visibility'],
+        color: '#FFD700',
+        category: 'Hybrid',
+        gradient: ['rgba(255, 215, 0, 0.15)', 'rgba(255, 215, 0, 0.05)', 'rgba(0,0,0,0)'] as unknown as GradientColors,
+        borderColor: '#FFD700'
+    },
+    {
         id: 'hybrid_executive',
-        name: 'Executive Hybrid',
-        price: 'NGN 25,000',
-        numericPrice: 25000,
-        period: '/month',
-        features: ['10GB Cloud Storage', 'Team Collaboration', '0% Transaction Fees', 'VIP Promotion'],
+        name: 'Hybrid Executive',
+        monthlyPriceNGN: 34906,
+        annualPriceNGN: 27925,
+        features: ['10GB Storage', 'Team Collaboration', 'Dedicated Support', '10% Transaction Fee'],
         color: '#FFD700',
         category: 'Hybrid',
         gradient: ['rgba(255, 215, 0, 0.15)', 'rgba(255, 215, 0, 0.05)', 'rgba(0,0,0,0)'] as unknown as GradientColors,
@@ -72,14 +112,15 @@ export default function SubscriptionsScreen() {
     const { role, setRole } = useUserStore();
 
     const [selectedPlan, setSelectedPlan] = useState<typeof PLANS[0] | null>(null);
+    const [isAnnual, setIsAnnual] = useState(false);
     const [showPaymentModal, setShowPaymentModal] = useState(false);
     const [isVerifying, setIsVerifying] = useState(false);
     const [showSuccessSplash, setShowSuccessSplash] = useState(false);
     const [splashPlanName, setSplashPlanName] = useState("");
     const splashAnim = React.useRef(new Animated.Value(0)).current;
 
-    const handleUpgradePress = (plan: typeof PLANS[0]) => {
-        if (plan.numericPrice === 0) {
+    const handleUpgradePress = (plan: typeof PLANS[0], numericPrice: number) => {
+        if (numericPrice === 0) {
             completeUpgrade(plan.id);
             return;
         }
@@ -143,10 +184,31 @@ export default function SubscriptionsScreen() {
                         <Sparkles size={40} color="#EC5C39" />
                         <Text style={styles.introTitle}>Elevate your Music Journey</Text>
                         <Text style={styles.introSubtitle}>Choose the plan that fits your growth on Shoouts.</Text>
+
+                        {/* Annual Billing Toggle */}
+                        <View style={styles.billingToggleRow}>
+                            <Text style={[styles.billingToggleText, !isAnnual && styles.activeBillingText]}>Monthly</Text>
+                            <Switch
+                                value={isAnnual}
+                                onValueChange={setIsAnnual}
+                                trackColor={{ false: 'rgba(255,255,255,0.1)', true: '#EC5C39' }}
+                                thumbColor="#FFF"
+                                style={styles.billingToggleSwitch}
+                            />
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                <Text style={[styles.billingToggleText, isAnnual && styles.activeBillingText]}>Annually </Text>
+                                <View style={styles.discountBadge}>
+                                    <Text style={styles.discountBadgeText}>Save 20%</Text>
+                                </View>
+                            </View>
+                        </View>
                     </View>
 
                     {PLANS.map((plan) => {
                         const isCurrentPlan = role === plan.id;
+                        const numericPrice = isAnnual ? plan.annualPriceNGN : plan.monthlyPriceNGN;
+                        const priceDisplay = numericPrice === 0 ? 'Free' : `NGN ${numericPrice.toLocaleString()}`;
+                        const isDiscounted = isAnnual && numericPrice > 0;
 
                         return (
                             <View key={plan.id} style={[styles.cardWrapper, { borderColor: plan.borderColor }]}>
@@ -157,7 +219,7 @@ export default function SubscriptionsScreen() {
                                     end={{ x: 1, y: 1 }}
                                 />
 
-                                {plan.recommended && (
+                                {(plan as any).recommended && (
                                     <View style={[styles.recommendedBadge, { backgroundColor: plan.color }]}>
                                         <Star size={12} color="#140F10" fill="#140F10" />
                                         <Text style={styles.recommendedText}>MOST POPULAR</Text>
@@ -178,9 +240,12 @@ export default function SubscriptionsScreen() {
                                         )}
                                     </View>
                                     <View style={styles.priceRow}>
-                                        <Text style={styles.planPrice}>{plan.price}</Text>
-                                        <Text style={styles.planPeriod}>{plan.period}</Text>
+                                        <Text style={styles.planPrice}>{priceDisplay}</Text>
+                                        {numericPrice > 0 && <Text style={styles.planPeriod}>/month</Text>}
                                     </View>
+                                    {isDiscounted ? (
+                                        <Text style={styles.annualTotalText}>Billed as NGN {(numericPrice * 12).toLocaleString()} per year</Text>
+                                    ) : null}
                                 </View>
 
                                 <View style={styles.featuresList}>
@@ -199,7 +264,7 @@ export default function SubscriptionsScreen() {
                                         styles.actionButton,
                                         isCurrentPlan ? styles.disabledButton : { backgroundColor: plan.color }
                                     ]}
-                                    onPress={() => handleUpgradePress(plan)}
+                                    onPress={() => handleUpgradePress(plan, numericPrice)}
                                     disabled={isCurrentPlan}
                                 >
                                     <Text style={[styles.actionButtonText, isCurrentPlan && { color: 'rgba(255,255,255,0.4)' }]}>
@@ -231,7 +296,7 @@ export default function SubscriptionsScreen() {
                             </View>
 
                             <Text style={styles.paymentAmountInfo}>
-                                Total Due: {selectedPlan?.price}
+                                Total Due: NGN {isAnnual ? ((selectedPlan?.annualPriceNGN ?? 0) * 12).toLocaleString() : (selectedPlan?.monthlyPriceNGN ?? 0).toLocaleString()}
                             </Text>
 
                             <PayWithFlutterwave
@@ -247,7 +312,7 @@ export default function SubscriptionsScreen() {
                                     customer: {
                                         email: auth.currentUser?.email || "customer@shoouts.com"
                                     },
-                                    amount: selectedPlan?.numericPrice || 0,
+                                    amount: isAnnual ? ((selectedPlan?.annualPriceNGN ?? 0) * 12) : (selectedPlan?.monthlyPriceNGN ?? 0),
                                     currency: 'NGN',
                                     payment_options: 'card'
                                 }}
@@ -331,6 +396,24 @@ const styles = StyleSheet.create({
     introSection: { alignItems: 'center', marginBottom: 35, textAlign: 'center' },
     introTitle: { fontSize: 24, fontFamily: 'Poppins-Bold', color: '#FFF', marginTop: 15, textAlign: 'center' },
     introSubtitle: { fontSize: 15, fontFamily: 'Poppins-Regular', color: 'rgba(255,255,255,0.5)', marginTop: 8, textAlign: 'center' },
+
+    billingToggleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginTop: 20,
+        backgroundColor: 'rgba(255,255,255,0.03)',
+        paddingHorizontal: 20,
+        paddingVertical: 12,
+        borderRadius: 20,
+        gap: 12,
+    },
+    billingToggleText: { fontSize: 14, fontFamily: 'Poppins-Medium', color: 'rgba(255,255,255,0.5)' },
+    activeBillingText: { color: '#FFF', fontFamily: 'Poppins-Bold' },
+    billingToggleSwitch: { transform: [{ scaleX: 0.9 }, { scaleY: 0.9 }] },
+    discountBadge: { backgroundColor: 'rgba(236, 92, 57, 0.2)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, marginLeft: 4 },
+    discountBadgeText: { color: '#EC5C39', fontSize: 10, fontFamily: 'Poppins-Bold' },
+
     cardWrapper: {
         backgroundColor: 'rgba(255,255,255,0.02)',
         borderRadius: 24,
@@ -375,7 +458,8 @@ const styles = StyleSheet.create({
     planName: { fontSize: 26, fontFamily: 'Poppins-Bold', color: '#FFF' },
     priceRow: { flexDirection: 'row', alignItems: 'baseline', marginTop: 8 },
     planPrice: { fontSize: 32, fontFamily: 'Poppins-Bold', color: '#FFF', letterSpacing: -0.5 },
-    planPeriod: { fontSize: 15, fontFamily: 'Poppins-Regular', color: 'rgba(255,255,255,0.5)', marginLeft: 6 },
+    planPeriod: { fontSize: 13, fontFamily: 'Poppins-Regular', color: 'rgba(255,255,255,0.5)', marginLeft: 6 },
+    annualTotalText: { fontSize: 12, fontFamily: 'Poppins-Medium', color: 'rgba(236, 92, 57, 0.9)', marginTop: 4 },
     featuresList: { gap: 14, marginBottom: 26 },
     featureItem: { flexDirection: 'row', alignItems: 'center', gap: 12 },
     checkCircle: {

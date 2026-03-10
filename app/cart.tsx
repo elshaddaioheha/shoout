@@ -89,7 +89,11 @@ export default function CartScreen() {
     };
 
     const renderItem = ({ item }: { item: any }) => (
-        <View style={styles.cartItem}>
+        <TouchableOpacity
+            style={styles.cartItem}
+            onPress={() => router.push({ pathname: '/listing/[id]' as any, params: { id: item.id, uploaderId: item.uploaderId } })}
+            activeOpacity={0.8}
+        >
             <View style={styles.itemArtwork}>
                 <Music size={24} color="rgba(255,255,255,0.2)" />
             </View>
@@ -104,7 +108,7 @@ export default function CartScreen() {
             >
                 <Trash2 size={20} color="#EF4444" />
             </TouchableOpacity>
-        </View>
+        </TouchableOpacity>
     );
 
     return (

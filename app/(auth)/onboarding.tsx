@@ -18,18 +18,18 @@ const { width, height } = Dimensions.get('window');
 const screens = [
     {
         title: "Welcome to the heartbeat of Afro music",
-        description: "Discover. Create. Share. The Afro sound starts with you",
+        description: "Discover, create, and share. The Afro sound starts with you.",
         illustration: "african",
         titleColor: "#FFFFFF"
     },
     {
-        title: "Discover, Create, and Share",
-        description: "the sounds that move the world.",
+        title: "Discover, create, and share",
+        description: "The sounds that move the world.",
         illustration: "discover",
         titleColor: "#F15A3B"
     },
     {
-        title: "your Journey Starts Here.",
+        title: "Your journey starts here.",
         subtitle: "Whether you're an artist or a fan,",
         illustration: "journey",
         titleColor: "#FFFFFF"

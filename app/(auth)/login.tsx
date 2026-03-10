@@ -1,10 +1,11 @@
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import { useRouter } from 'expo-router';
-import { GoogleAuthProvider, signInWithCredential, signInWithEmailAndPassword } from 'firebase/auth';
+import { GoogleAuthProvider, sendPasswordResetEmail, signInWithCredential, signInWithEmailAndPassword } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { Eye, EyeOff } from 'lucide-react-native';
 import React, { useState } from 'react';
 import {
+    Alert,
     Dimensions,
     KeyboardAvoidingView,
     Platform,
@@ -30,6 +31,23 @@ export default function LoginScreen() {
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const { setRole } = useUserStore();
+    const [resetLoading, setResetLoading] = useState(false);
+
+    const handleForgotPassword = async () => {
+        if (!email.trim()) {
+            Alert.alert('Email Required', 'Please enter your email address above, then tap Forgot Password.');
+            return;
+        }
+        setResetLoading(true);
+        try {
+            await sendPasswordResetEmail(auth, email.trim());
+            Alert.alert('Email Sent', `A password reset link has been sent to ${email.trim()}. Check your inbox.`);
+        } catch (e: any) {
+            Alert.alert('Error', e.message || 'Failed to send reset email.');
+        } finally {
+            setResetLoading(false);
+        }
+    };
 
     const handleLogin = async () => {
         if (!email || !password) return;
@@ -165,7 +183,7 @@ export default function LoginScreen() {
 
                     {/* Forgot Password & Login */}
                     <View style={styles.actionContainer}>
-                        <TouchableOpacity>
+                        <TouchableOpacity onPress={handleForgotPassword} disabled={resetLoading}>
                             <Text style={styles.forgotPasswordText}>Forgot Password ?</Text>
                         </TouchableOpacity>
 

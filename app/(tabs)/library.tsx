@@ -14,6 +14,7 @@ export default function LibraryScreen() {
     const { openSheet, isModeSheetOpen, viewMode } = useAppSwitcherContext();
     const [uploads, setUploads] = useState<any[]>([]);
     const [purchases, setPurchases] = useState<any[]>([]);
+    const [favourites, setFavourites] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -29,23 +30,32 @@ export default function LibraryScreen() {
             orderBy('purchasedAt', 'desc')
         );
 
-        // Listener for personal uploads
+        const favouritesQuery = query(
+            collection(db, `users/${auth.currentUser.uid}/favourites`),
+            orderBy('addedAt', 'desc')
+        );
+
         const unsubUploads = onSnapshot(uploadsQuery, (snapshot) => {
             const tracks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             setUploads(tracks);
             if (loading) setLoading(false);
         });
 
-        // Listener for purchased tracks
         const unsubPurchases = onSnapshot(purchasesQuery, (snapshot) => {
             const tracks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             setPurchases(tracks);
             setLoading(false);
         });
 
+        const unsubFavourites = onSnapshot(favouritesQuery, (snapshot) => {
+            const tracks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setFavourites(tracks);
+        });
+
         return () => {
             unsubUploads();
             unsubPurchases();
+            unsubFavourites();
         };
     }, []);
 
@@ -61,10 +71,31 @@ export default function LibraryScreen() {
 
                     {/* Categories */}
                     <View style={styles.categories}>
-                        <CategoryItem icon={Heart} label="Favorites" count="24" />
-                        <CategoryItem icon={Music} label={viewMode === 'studio' ? 'Beats' : 'Playlists'} count="12" />
-                        <CategoryItem icon={Download} label="Downloads" count="8" />
+                        <CategoryItem icon={Heart} label="Favourites" count={String(favourites.length)} />
+                        <CategoryItem icon={Music} label={viewMode === 'studio' ? 'Beats' : 'Playlists'} count={String(uploads.length)} />
+                        <CategoryItem icon={Download} label="Downloads" count={String(purchases.length)} />
                     </View>
+
+                    {/* Favourites */}
+                    {favourites.length > 0 && (
+                        <>
+                            <Text style={styles.sectionTitle}>❤️ Favourites</Text>
+                            <View style={styles.list}>
+                                {favourites.map((track) => (
+                                    <LibraryItem
+                                        key={track.id}
+                                        id={track.id}
+                                        uploaderId={track.uploaderId}
+                                        title={track.title}
+                                        artist={track.artist}
+                                        type="Favourite"
+                                        url={track.url}
+                                    />
+                                ))}
+                            </View>
+                            <View style={{ height: 24 }} />
+                        </>
+                    )}
 
                     {/* Purchased Items */}
                     {purchases.length > 0 && (

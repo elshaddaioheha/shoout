@@ -1,10 +1,12 @@
 import { useAppSwitcherContext } from '@/app/(tabs)/_layout';
 import SharedHeader from '@/components/SharedHeader';
+import { auth, db } from '@/firebaseConfig';
 import { useCartStore } from '@/store/useCartStore';
 import { usePlaybackStore } from '@/store/usePlaybackStore';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import { collection, collectionGroup, deleteDoc, doc, getDocs, limit, onSnapshot, orderBy, query, setDoc, where } from 'firebase/firestore';
 import {
   Heart,
   Mic2,
@@ -15,7 +17,7 @@ import {
   Sparkles,
   Users
 } from 'lucide-react-native';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Dimensions,
   ScrollView,
@@ -27,6 +29,32 @@ import {
 } from 'react-native';
 
 const { width } = Dimensions.get('window');
+
+// ─── useFavourite hook ─────────────────────────────────────────────────────────
+function useFavourite(trackId: string) {
+  const [isFav, setIsFav] = useState(false);
+
+  useEffect(() => {
+    const uid = auth.currentUser?.uid;
+    if (!uid || !trackId) return;
+    const ref = doc(db, `users/${uid}/favourites`, trackId);
+    const unsub = onSnapshot(ref, (snap) => setIsFav(snap.exists()));
+    return unsub;
+  }, [trackId]);
+
+  const toggle = async (track: { id: string; title: string; artist: string; url: string; uploaderId: string }) => {
+    const uid = auth.currentUser?.uid;
+    if (!uid) return;
+    const ref = doc(db, `users/${uid}/favourites`, track.id);
+    if (isFav) {
+      await deleteDoc(ref);
+    } else {
+      await setDoc(ref, { ...track, addedAt: new Date().toISOString() });
+    }
+  };
+
+  return { isFav, toggle };
+}
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -143,41 +171,72 @@ export default function HomeScreen() {
 // Sub-sections
 function TrendingSection() {
   const setTrack = usePlaybackStore(state => state.setTrack);
-  const songs = [
-    { id: '1', title: "With You", artist: "Davido ft Omolye", url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3', bgColor: "#D9D9D9" },
-    { id: '2', title: "Paradise", artist: "Jungle G", url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3', bgColor: "#C9A959" },
-    { id: '3', title: "Lost in Love", artist: "Jungle G", url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3', bgColor: "#8B7355" }
-  ];
+  const [songs, setSongs] = useState<any[]>([]);
+
+  useEffect(() => {
+    // Fetch top 3 tracks by listenCount from Firestore
+    const q = query(
+      collectionGroup(db, 'uploads'),
+      orderBy('listenCount', 'desc'),
+      limit(3)
+    );
+    getDocs(q).then((snap) => {
+      const tracks = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      setSongs(tracks.length ? tracks : [
+        { id: '1', title: 'With You', artist: 'Burna Boy', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3', bgColor: '#D9D9D9' },
+        { id: '2', title: 'Paradise', artist: 'Jungle G', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3', bgColor: '#C9A959' },
+        { id: '3', title: 'Lost in Love', artist: 'Jungle G', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3', bgColor: '#8B7355' },
+      ]);
+    }).catch(() => { });
+  }, []);
+
+  const COLORS = ['#D9D9D9', '#C9A959', '#8B7355'];
 
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>Trending Song</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
         {songs.map((song, idx) => (
-          <View key={idx} style={[styles.trendingCard, { backgroundColor: song.bgColor }]}>
-            <View style={styles.songInfoOverlay}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.songTitle}>{song.title}</Text>
-                <View style={styles.artistRow}>
-                  <Users size={14} color="white" />
-                  <Text style={styles.artistName}>{song.artist}</Text>
-                </View>
-              </View>
-              <TouchableOpacity
-                style={styles.playButton}
-                onPress={() => setTrack({ id: song.id, title: song.title, artist: song.artist, url: song.url })}
-              >
-                <Play size={20} color="white" fill="white" />
-              </TouchableOpacity>
-            </View>
-          </View>
+          <TrendingCard
+            key={song.id}
+            song={song}
+            bgColor={COLORS[idx % COLORS.length]}
+            onPlay={() => setTrack({ id: song.id, title: song.title, artist: song.artist || song.uploaderName, url: song.audioUrl || song.url, uploaderId: song.uploaderId })}
+          />
         ))}
       </ScrollView>
     </View>
   );
 }
 
+function TrendingCard({ song, bgColor, onPlay }: { song: any; bgColor: string; onPlay: () => void }) {
+  const { isFav, toggle } = useFavourite(song.id);
+  return (
+    <View style={[styles.trendingCard, { backgroundColor: bgColor }]}>
+      <View style={styles.songInfoOverlay}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.songTitle}>{song.title}</Text>
+          <View style={styles.artistRow}>
+            <Users size={14} color="white" />
+            <Text style={styles.artistName}>{song.artist || song.uploaderName}</Text>
+          </View>
+        </View>
+        <TouchableOpacity
+          style={{ paddingHorizontal: 8 }}
+          onPress={() => toggle({ id: song.id, title: song.title, artist: song.artist || song.uploaderName, url: song.audioUrl || song.url, uploaderId: song.uploaderId })}
+        >
+          <Heart size={18} color={isFav ? '#EC5C39' : 'white'} fill={isFav ? '#EC5C39' : 'transparent'} />
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.playButton} onPress={onPlay}>
+          <Play size={20} color="white" fill="white" />
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
 function PlaylistSection() {
+  const router = useRouter();
   const playlists = [
     { title: "Wizkid Playlist Specal", subtitle: "Personal Selection", price: "NGN 3000.00" },
     { title: "Shoouts Top 100", subtitle: "Afro Gospel" },
@@ -188,7 +247,7 @@ function PlaylistSection() {
     <View style={styles.section}>
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Top Playlist</Text>
-        <TouchableOpacity><Text style={styles.seeAllText}>See All</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => router.push('/(tabs)/search')}><Text style={styles.seeAllText}>See All</Text></TouchableOpacity>
       </View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
         {playlists.map((playlist, idx) => (
@@ -210,11 +269,9 @@ function PlaylistSection() {
   );
 }
 
-import { collection, getDocs, limit, query } from 'firebase/firestore';
-import { useEffect } from 'react';
-import { db } from '../../firebaseConfig';
 
 function FreeMusicSection() {
+  const router = useRouter();
   const setTrack = usePlaybackStore(state => state.setTrack);
   const [songs, setSongs] = useState<any[]>([]);
 
@@ -256,37 +313,53 @@ function FreeMusicSection() {
     <View style={styles.section}>
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Free Music</Text>
-        <TouchableOpacity><Text style={styles.seeAllText}>See All</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => router.push('/(tabs)/marketplace')}><Text style={styles.seeAllText}>See All</Text></TouchableOpacity>
       </View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
         {songs.map((song, idx) => (
-          <TouchableOpacity
-            key={idx}
-            style={styles.freeMusicItem}
-            onPress={() => setTrack({ id: song.id, title: song.title, artist: song.artist, url: song.url })}
-          >
-            <View style={styles.squarePlaceholder} />
-            <Text style={styles.itemTitle}>{song.title}</Text>
-            <Text style={styles.itemSubtitle}>{song.artist}</Text>
-            <View style={styles.itemActions}>
-              <TouchableOpacity><ShoppingCart size={14} color="#EC5C39" /></TouchableOpacity>
-              <TouchableOpacity><Heart size={12} color="#EC5C39" /></TouchableOpacity>
-            </View>
-          </TouchableOpacity>
+          <FreeMusicCard
+            key={song.id || idx}
+            song={song}
+            onPlay={() => setTrack({ id: song.id, title: song.title, artist: song.artist, url: song.audioUrl || song.url, uploaderId: song.uploaderId })}
+          />
         ))}
       </ScrollView>
     </View>
   );
 }
 
+function FreeMusicCard({ song, onPlay }: { song: any; onPlay: () => void }) {
+  const { isFav, toggle } = useFavourite(song.id);
+  const { addItem, items } = useCartStore();
+  const inCart = items.some((i: any) => i.id === song.id);
+  return (
+    <TouchableOpacity style={styles.freeMusicItem} onPress={onPlay}>
+      <View style={styles.squarePlaceholder} />
+      <Text style={styles.itemTitle}>{song.title}</Text>
+      <Text style={styles.itemSubtitle}>{song.artist}</Text>
+      <View style={styles.itemActions}>
+        <TouchableOpacity onPress={(e) => { e.stopPropagation?.(); addItem({ id: song.id, title: song.title, artist: song.artist, price: song.price || 0, uploaderId: song.uploaderId || '' }); }}>
+          <ShoppingCart size={14} color={inCart ? '#4CAF50' : '#EC5C39'} />
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={(e) => { e.stopPropagation?.(); toggle({ id: song.id, title: song.title, artist: song.artist, url: song.audioUrl || song.url, uploaderId: song.uploaderId }); }}
+        >
+          <Heart size={12} color="#EC5C39" fill={isFav ? '#EC5C39' : 'transparent'} />
+        </TouchableOpacity>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
 function ArtistsSection() {
+  const router = useRouter();
   const artists = ["Davido", "Wizkid", "Lawrence Oyor", "Rema", "Dusin Oyekun"];
 
   return (
     <View style={styles.section}>
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Favorite Artists</Text>
-        <TouchableOpacity><Text style={styles.seeAllText}>See All</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => router.push('/(tabs)/search')}><Text style={styles.seeAllText}>See All</Text></TouchableOpacity>
       </View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
         {artists.map((artist, idx) => (
@@ -301,45 +374,75 @@ function ArtistsSection() {
 }
 
 function PopularBeatsSection() {
+  const router = useRouter();
   const setTrack = usePlaybackStore(state => state.setTrack);
-  const beats = [
-    { id: 'beat1', title: "Afro Beats", artist: "Sound of Salem", price: "NGN 3000.00", url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3' },
-    { id: 'beat2', title: "Sonic Beats", artist: "Sound of Salem", price: "NGN 3000.00", url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-9.mp3' },
-    { id: 'beat3', title: "DA Beats", artist: "Sound of Salem", price: "NGN 3000.00", url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-10.mp3' },
-    { id: 'beat4', title: "Project B", artist: "Sound of Salem", price: "NGN 3000.00", url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-11.mp3' }
-  ];
+  const [beats, setBeats] = useState<any[]>([]);
+
+  useEffect(() => {
+    const q = query(
+      collectionGroup(db, 'uploads'),
+      where('isbeat', '==', true),
+      orderBy('listenCount', 'desc'),
+      limit(6)
+    );
+    getDocs(q).then((snap) => {
+      if (!snap.empty) setBeats(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      else setBeats([
+        { id: 'beat1', title: 'Afro Beats', artist: 'Sound of Salem', price: 'NGN 3,000', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3' },
+        { id: 'beat2', title: 'Sonic Beats', artist: 'Sound of Salem', price: 'NGN 3,000', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-9.mp3' },
+        { id: 'beat3', title: 'DA Beats', artist: 'Sound of Salem', price: 'NGN 3,000', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-10.mp3' },
+        { id: 'beat4', title: 'Project B', artist: 'Sound of Salem', price: 'NGN 3,000', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-11.mp3' },
+      ]);
+    }).catch(() => { });
+  }, []);
 
   return (
     <View style={styles.section}>
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Popular Beats</Text>
-        <TouchableOpacity><Text style={styles.seeAllText}>See All</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => router.push('/(tabs)/marketplace')}><Text style={styles.seeAllText}>See All</Text></TouchableOpacity>
       </View>
       <View style={styles.beatsList}>
         {beats.map((beat, idx) => (
-          <View key={idx} style={styles.beatItem}>
-            <TouchableOpacity
-              style={styles.beatRow}
-              onPress={() => setTrack({ id: beat.id, title: beat.title, artist: beat.artist, url: beat.url })}
-            >
-              <View style={styles.beatImagePlaceholder} />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.itemTitle}>{beat.title}</Text>
-                <Text style={styles.itemSubtitle}>{beat.artist}</Text>
-                <Text style={styles.itemSubtitle}>{beat.price}</Text>
-              </View>
-              <View style={styles.beatActions}>
-                <TouchableOpacity><ShoppingCart size={14} color="#EC5C39" /></TouchableOpacity>
-                <TouchableOpacity><Heart size={12} color="#EC5C39" /></TouchableOpacity>
-              </View>
-              <TouchableOpacity>
-                <MoreVertical size={24} color="white" />
-              </TouchableOpacity>
-            </TouchableOpacity>
-            {idx < beats.length - 1 && <View style={styles.beatDivider} />}
-          </View>
+          <BeatRow
+            key={beat.id || idx}
+            beat={beat}
+            isLast={idx === beats.length - 1}
+            onPlay={() => setTrack({ id: beat.id, title: beat.title, artist: beat.artist || beat.uploaderName, url: beat.audioUrl || beat.url, uploaderId: beat.uploaderId })}
+          />
         ))}
       </View>
+    </View>
+  );
+}
+
+function BeatRow({ beat, isLast, onPlay }: { beat: any; isLast: boolean; onPlay: () => void }) {
+  const { isFav, toggle } = useFavourite(beat.id);
+  const { addItem, items } = useCartStore();
+  const inCart = items.some((i: any) => i.id === beat.id);
+  const priceDisplay = beat.price && typeof beat.price === 'number' ? `NGN ${beat.price.toLocaleString()}` : (beat.price || '');
+  return (
+    <View style={styles.beatItem}>
+      <TouchableOpacity style={styles.beatRow} onPress={onPlay}>
+        <View style={styles.beatImagePlaceholder} />
+        <View style={{ flex: 1 }}>
+          <Text style={styles.itemTitle}>{beat.title}</Text>
+          <Text style={styles.itemSubtitle}>{beat.artist || beat.uploaderName}</Text>
+          <Text style={styles.itemSubtitle}>{priceDisplay}</Text>
+        </View>
+        <View style={styles.beatActions}>
+          <TouchableOpacity onPress={(e) => { e.stopPropagation?.(); addItem({ id: beat.id, title: beat.title, artist: beat.artist || beat.uploaderName, price: beat.price || 0, uploaderId: beat.uploaderId || '' }); }}>
+            <ShoppingCart size={14} color={inCart ? '#4CAF50' : '#EC5C39'} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={(e) => { e.stopPropagation?.(); toggle({ id: beat.id, title: beat.title, artist: beat.artist || beat.uploaderName, url: beat.audioUrl || beat.url, uploaderId: beat.uploaderId }); }}
+          >
+            <Heart size={12} color="#EC5C39" fill={isFav ? '#EC5C39' : 'transparent'} />
+          </TouchableOpacity>
+        </View>
+        <TouchableOpacity onPress={(e) => e.stopPropagation?.()}><MoreVertical size={24} color="white" /></TouchableOpacity>
+      </TouchableOpacity>
+      {!isLast && <View style={styles.beatDivider} />}
     </View>
   );
 }

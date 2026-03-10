@@ -1,3 +1,4 @@
+import ActionSheet from '@/components/ActionSheet';
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import { usePlaybackStore } from '@/store/usePlaybackStore';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -203,6 +204,7 @@ export default function BeatsStoreManagement() {
 function BeatCard({ beat, onDelete }: any) {
     const setTrack = usePlaybackStore(state => state.setTrack);
     const status = beat.price > 0 ? 'Active' : 'Draft';
+    const [menuOpen, setMenuOpen] = useState(false);
 
     return (
         <View style={styles.beatCard}>
@@ -218,9 +220,20 @@ function BeatCard({ beat, onDelete }: any) {
                         <Text style={styles.beatMetaText}>{beat.bpm || '--'} BPM</Text>
                     </View>
                 </View>
-                <TouchableOpacity style={styles.moreButton}>
+                <TouchableOpacity style={styles.moreButton} onPress={() => setMenuOpen(true)}>
                     <MoreVertical size={20} color="rgba(255,255,255,0.6)" />
                 </TouchableOpacity>
+
+                <ActionSheet
+                    visible={menuOpen}
+                    onClose={() => setMenuOpen(false)}
+                    title={beat.title}
+                    options={[
+                        { label: 'Listen Preview', icon: <Play size={18} color="#FFF" />, onPress: () => setTrack({ id: beat.id, title: beat.title, artist: 'My Track', url: beat.audioUrl, uploaderId: beat.uploaderId }) },
+                        { label: 'Edit Details', icon: <Edit3 size={18} color="#FFF" />, onPress: () => Alert.alert('Edit', 'Beat editing coming soon.') },
+                        { label: 'Delete', icon: <Trash2 size={18} color="#FF4D4D" />, onPress: onDelete, destructive: true },
+                    ]}
+                />
             </View>
 
             <View style={styles.beatStatsRow}>
@@ -261,7 +274,7 @@ function BeatCard({ beat, onDelete }: any) {
                     <Play size={18} color="#FFF" />
                     <Text style={styles.cardActionText}>Listen</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.cardActionButton}>
+                <TouchableOpacity style={styles.cardActionButton} onPress={() => Alert.alert('Edit', 'Beat details editing coming soon. You can update title, price, genre, and BPM.')}>
                     <Edit3 size={18} color="#FFF" />
                     <Text style={styles.cardActionText}>Edit</Text>
                 </TouchableOpacity>

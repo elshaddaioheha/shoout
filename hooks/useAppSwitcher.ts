@@ -1,10 +1,10 @@
-import { useUserStore, ViewMode } from '@/store/useUserStore';
+import { UserRole, useUserStore } from '@/store/useUserStore';
 import { useRouter } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
 import { Animated } from 'react-native';
 
 export function useAppSwitcher() {
-    const { role, viewMode, setViewMode } = useUserStore();
+    const { role, actualRole, viewMode, setRole } = useUserStore();
     const router = useRouter();
 
     const [sheetVisible, setSheetVisible] = useState(false);
@@ -19,25 +19,30 @@ export function useAppSwitcher() {
     const openSheet = useCallback(() => setSheetVisible(true), []);
     const closeSheet = useCallback(() => setSheetVisible(false), []);
 
-    // Checks if a mode is accessible given the user's current role
-    const isModeAccessible = useCallback((mode: ViewMode): boolean => {
-        if (mode === 'vault') {
-            // Vault is available to everyone
-            return true;
+    // Checks if a subscription tier mode is accessible given the user's ACTUAL role
+    const isModeAccessible = useCallback((targetRole: UserRole): boolean => {
+        if (actualRole === 'hybrid_executive' || actualRole === 'hybrid_creator') {
+            return true; // Hybrids can switch to anything
         }
-        if (mode === 'studio') {
-            // Studio requires a studio or hybrid role
-            return role.startsWith('studio') || role.startsWith('hybrid');
-        }
-        return false;
-    }, [role]);
 
-    const switchMode = useCallback(async (newMode: ViewMode) => {
-        if (newMode === viewMode) {
+        // Let's implement basic hierarchy:
+        if (actualRole === 'vault_free') return targetRole === 'vault_free';
+        if (actualRole === 'studio_free') return targetRole === 'vault_free' || targetRole === 'studio_free';
+        if (actualRole === 'vault_creator') return ['vault_free', 'vault_creator'].includes(targetRole);
+        if (actualRole === 'vault_pro') return ['vault_free', 'vault_creator', 'vault_pro'].includes(targetRole);
+        if (actualRole === 'vault_executive') return ['vault_free', 'vault_creator', 'vault_pro', 'vault_executive'].includes(targetRole);
+        if (actualRole === 'studio_pro') return targetRole.startsWith('vault') || ['studio_free', 'studio_pro'].includes(targetRole);
+        if (actualRole === 'studio_plus') return targetRole.startsWith('vault') || targetRole.startsWith('studio');
+
+        return false;
+    }, [actualRole]);
+
+    const switchMode = useCallback(async (newRole: UserRole) => {
+        if (newRole === role) {
             setSheetVisible(false);
             return;
         }
-        if (!isModeAccessible(newMode)) {
+        if (!isModeAccessible(newRole)) {
             // Redirect to upgrade instead
             setSheetVisible(false);
             router.push('/settings/subscriptions' as any);
@@ -70,7 +75,7 @@ export function useAppSwitcher() {
         await new Promise<void>((r) => setTimeout(r, 1200));
 
         // Step 4 — Apply the mode change (React re-render)
-        setViewMode(newMode);
+        setRole(newRole);
 
         // Step 5 — Fade out overlay, fade in new content
         await new Promise<void>((resolve) => {
@@ -82,7 +87,7 @@ export function useAppSwitcher() {
         });
 
         setTransitioning(false);
-    }, [viewMode, isModeAccessible, setViewMode, overlayAnim, welcomeSlideAnim, welcomeOpacityAnim, contentFadeAnim, router]);
+    }, [role, isModeAccessible, setRole, overlayAnim, welcomeSlideAnim, welcomeOpacityAnim, contentFadeAnim, router]);
 
     return {
         sheetVisible,

@@ -136,7 +136,7 @@ export default function TabLayout() {
       {/* Mode selection bottom sheet */}
       <ModeSelectorSheet
         visible={sheetVisible}
-        currentMode={viewMode}
+        currentMode={role}
         isModeAccessible={isModeAccessible}
         onSelect={switchMode}
         onClose={closeSheet}
