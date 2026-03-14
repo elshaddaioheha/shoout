@@ -8,7 +8,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
-// Prevent the splash screen from auto-hiding before asset loading is complete.
+
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
@@ -49,6 +49,14 @@ export default function RootLayout() {
         <Stack.Screen name="settings/notifications" options={{ headerShown: false }} />
         <Stack.Screen name="settings/privacy" options={{ headerShown: false }} />
         <Stack.Screen name="notifications" options={{ headerShown: false }} />
+        <Stack.Screen name="studio/analytics" options={{ headerShown: false }} />
+        <Stack.Screen name="studio/ads-intro" options={{ headerShown: false }} />
+        <Stack.Screen name="studio/ads-creation" options={{ headerShown: false }} />
+        <Stack.Screen name="studio/ads-success" options={{ headerShown: false }} />
+        <Stack.Screen name="studio/ads-example" options={{ headerShown: false }} />
+        <Stack.Screen name="studio/earnings" options={{ headerShown: false }} />
+        <Stack.Screen name="studio/messages" options={{ headerShown: false }} />
+        <Stack.Screen name="studio/message-thread" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
       </Stack>
       <GlobalToast />

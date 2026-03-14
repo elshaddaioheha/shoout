@@ -1,35 +1,32 @@
-import React, { useRef, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Animated, Easing } from 'react-native';
+import React from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Home, Search, Mic2, User } from 'lucide-react-native';
+import { Home, Library, MoreHorizontal, Search, ShoppingCart } from 'lucide-react-native';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { useUserStore } from '@/store/useUserStore';
+import { colors } from '@/constants/colors';
 
 interface TabConfig {
     name: string;
-    icon: any;
+    icon: React.ComponentType<any>;
     label: string;
 }
 
 export default function ResponsiveBottomTabBar(props: BottomTabBarProps) {
     const { state, navigation } = props;
     const insets = useSafeAreaInsets();
-    const bottomPadding = insets.bottom > 0 ? insets.bottom : 16;
-    const role = useUserStore((s) => s.role);
+    const { width } = useWindowDimensions();
+    const bottomPadding = insets.bottom > 0 ? insets.bottom : 10;
 
-    // Build tabs based on role
     const tabs: TabConfig[] = [
         { name: 'index', icon: Home, label: 'Home' },
-        { name: 'search', icon: Search, label: 'Search' },
+        { name: 'search', icon: Search, label: 'Explore' },
+        { name: 'marketplace', icon: ShoppingCart, label: 'Market Place' },
+        { name: 'library', icon: Library, label: 'Creator' },
+        { name: 'more', icon: MoreHorizontal, label: 'More' },
     ];
 
-    if (role === 'artist') {
-        tabs.push({ name: 'studio', icon: Mic2, label: 'Studio' });
-    }
+    const barWidth = Math.min(335, width - 28);
 
-    tabs.push({ name: 'profile', icon: User, label: 'Profile' });
-
-    // Robust route lookup
     const getRouteIndex = (tabName: string) => {
         if (!state || !state.routes) return -1;
         return state.routes.findIndex(r =>
@@ -41,7 +38,7 @@ export default function ResponsiveBottomTabBar(props: BottomTabBarProps) {
 
     return (
         <View style={[styles.container, { paddingBottom: bottomPadding }]}>
-            <View style={styles.tabBar}>
+            <View style={[styles.tabBar, { width: barWidth }]}>
                 {tabs.map((tab) => {
                     if (!tab || !tab.name) return null;
 
@@ -68,7 +65,7 @@ export default function ResponsiveBottomTabBar(props: BottomTabBarProps) {
                     };
 
                     return (
-                        <AnimatedTab
+                        <TabButton
                             key={tab.name}
                             Icon={Icon}
                             label={tab.label}
@@ -83,65 +80,22 @@ export default function ResponsiveBottomTabBar(props: BottomTabBarProps) {
     );
 }
 
-function AnimatedTab({ Icon, label, isFocused, tabName, onPress }: any) {
-    const scaleAnim = useRef(new Animated.Value(isFocused ? 1.15 : 1)).current;
-    const dotWidth = useRef(new Animated.Value(isFocused ? 24 : 0)).current;
-    const opacityAnim = useRef(new Animated.Value(isFocused ? 1 : 0.5)).current;
-
-    useEffect(() => {
-        Animated.parallel([
-            Animated.spring(scaleAnim, {
-                toValue: isFocused ? 1.15 : 1,
-                friction: 8,
-                useNativeDriver: true,
-            }),
-            Animated.spring(dotWidth, {
-                toValue: isFocused ? 24 : 0,
-                friction: 8,
-                useNativeDriver: false,
-            }),
-            Animated.timing(opacityAnim, {
-                toValue: isFocused ? 1 : 0.5,
-                duration: 200,
-                useNativeDriver: true,
-            })
-        ]).start();
-    }, [isFocused]);
-
-    const activeColor = '#EC5C39';
-    const inactiveColor = 'rgba(255,255,255,0.45)';
+function TabButton({ Icon, label, isFocused, tabName, onPress }: any) {
+    const activeColor = colors.primary;
+    const inactiveColor = 'rgba(255, 255, 255, 0.65)';
 
     return (
         <TouchableOpacity
-            style={styles.tab}
+            style={[styles.tab, isFocused ? styles.activeTab : styles.inactiveTab]}
             onPress={onPress}
             activeOpacity={0.7}
         >
-            {/* Active indicator dot */}
-            <Animated.View style={[styles.activeDot, {
-                width: dotWidth,
-                opacity: isFocused ? 1 : 0
-            }]} />
-
-            <Animated.View style={{
-                transform: [{ scale: scaleAnim }],
-                opacity: opacityAnim
-            }}>
-                {Icon && (
-                    <Icon
-                        size={24}
-                        color={isFocused ? activeColor : inactiveColor}
-                        fill={
-                            isFocused && (tabName === 'index' || tabName === 'profile')
-                                ? activeColor
-                                : 'none'
-                        }
-                    />
-                )}
-            </Animated.View>
-            <Text style={[styles.label, isFocused && styles.labelActive]}>
-                {label}
-            </Text>
+            <Icon
+                size={21}
+                color={isFocused ? '#FFFFFF' : inactiveColor}
+                fill={isFocused && tabName === 'index' ? '#FFFFFF' : 'none'}
+            />
+            {isFocused ? <Text style={styles.labelActive}>{label}</Text> : null}
         </TouchableOpacity>
     );
 }
@@ -152,39 +106,44 @@ const styles = StyleSheet.create({
         bottom: 0,
         left: 0,
         right: 0,
-        backgroundColor: '#1A1518',
-        borderTopWidth: 1,
-        borderTopColor: 'rgba(255,255,255,0.07)',
+        alignItems: 'center',
+        paddingTop: 8,
     },
     tabBar: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-around',
-        paddingTop: 10,
-        height: 56,
+        justifyContent: 'space-between',
+        paddingHorizontal: 10,
+        height: 60,
+        borderRadius: 40,
+        backgroundColor: colors.background,
+        shadowColor: '#FFFFFF',
+        shadowOffset: { width: 2, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+        elevation: 2,
     },
     tab: {
-        flex: 1,
+        height: 36,
+        borderRadius: 20,
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 3,
-        position: 'relative',
-        paddingTop: 4,
+        flexDirection: 'row',
+        gap: 2,
+        paddingHorizontal: 6,
+        paddingVertical: 2,
     },
-    activeDot: {
-        position: 'absolute',
-        top: -10,
-        height: 3,
-        borderRadius: 2,
-        backgroundColor: '#EC5C39',
+    activeTab: {
+        minWidth: 83,
+        backgroundColor: colors.primary,
     },
-    label: {
-        fontSize: 10,
-        fontFamily: 'Poppins-Regular',
-        color: 'rgba(255,255,255,0.4)',
+    inactiveTab: {
+        width: 36,
     },
     labelActive: {
-        color: '#EC5C39',
-        fontFamily: 'Poppins-SemiBold',
+        color: '#FFFFFF',
+        fontFamily: 'Poppins-Medium',
+        fontSize: 12,
+        lineHeight: 12,
     },
 });

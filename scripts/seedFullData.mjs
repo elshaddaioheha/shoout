@@ -88,6 +88,10 @@ const ARTISTS = [
             { id: 'bb_m1', name: 'Odogwu Signature Tee', price: '12500', category: 'Apparel', stock: 40, sales: 156, status: 'In Stock', active: true, rating: 4.8 },
             { id: 'bb_m2', name: 'African Giant Vinyl — Gold', price: '35000', category: 'Physical Music', stock: 5, sales: 42, status: 'Low Stock', active: true, rating: 4.9 },
         ],
+        campaigns: [
+            { id: 'bb_c1', goal: 'streams', adType: 'audio', genre: 'Afrobeats', location: 'Nigeria', budget: 'NGN 5,000', dailyBudget: 5000, duration: '10 days', totalBudget: 50000, headline: 'Last Last — Out Now on Shoouts!', paymentMethod: 'wallet', status: 'active' },
+            { id: 'bb_c2', goal: 'followers', adType: 'display', genre: 'Afrobeats', location: 'UK', budget: 'NGN 3,150', dailyBudget: 3150, duration: '7 days', totalBudget: 22050, headline: 'Follow Burna Boy on Shoouts', paymentMethod: 'card', status: 'completed' },
+        ],
     },
     {
         email: 'tems@seed.shoouts.com', password: 'Seed1234!',
@@ -100,6 +104,9 @@ const ARTISTS = [
         beats: [],
         merch: [
             { id: 'tems_m1', name: 'Tems Signature Hoodie', price: '18500', category: 'Apparel', stock: 25, sales: 88, status: 'In Stock', active: true, rating: 4.7 },
+        ],
+        campaigns: [
+            { id: 'tems_c1', goal: 'sales', adType: 'featured', genre: 'Afro Soul', location: 'US', budget: 'NGN 10,000', dailyBudget: 10000, duration: '14 days', totalBudget: 140000, headline: 'Free Mind — Purchase now on Shoouts', paymentMethod: 'wallet', status: 'active' },
         ],
     },
     {
@@ -118,6 +125,10 @@ const ARTISTS = [
             { id: 'sos_m1', name: 'Shoouts Studio Drum Kit Vol.2', price: '49900', category: 'Digital Tools', stock: 999, sales: 89, status: 'In Stock', active: true, rating: 4.6 },
             { id: 'sos_m2', name: 'Shoouts Official Hoodie', price: '27000', category: 'Apparel', stock: 0, sales: 230, status: 'Out of Stock', active: true, rating: 4.5 },
         ],
+        campaigns: [
+            { id: 'sos_c1', goal: 'streams', adType: 'audio', genre: 'Gospel', location: 'Nigeria', budget: 'NGN 3,150', dailyBudget: 3150, duration: '7 days', totalBudget: 22050, headline: 'Gospel Fire — Streaming now on Shoouts', paymentMethod: 'wallet', status: 'active' },
+            { id: 'sos_c2', goal: 'sales', adType: 'display', genre: 'Afrobeats', location: 'Ghana', budget: 'NGN 5,000', dailyBudget: 5000, duration: '10 days', totalBudget: 50000, headline: 'Buy Afro Beats Kit Vol.1 on Shoouts', paymentMethod: 'card', status: 'paused' },
+        ],
     },
     {
         email: 'lawrenceoyor@seed.shoouts.com', password: 'Seed1234!',
@@ -130,6 +141,7 @@ const ARTISTS = [
         merch: [
             { id: 'lo_m1', name: 'Afro-Gospel Cap', price: '8000', category: 'Accessory', stock: 60, sales: 44, status: 'In Stock', active: true, rating: 4.4 },
         ],
+        campaigns: [],
     },
 ];
 
@@ -163,6 +175,12 @@ async function seedArtist(artist) {
         await upsert(`merch/${item.id}`, data, token);
         console.log(`    👕  ${item.name}`);
     }
+
+    for (const campaign of (artist.campaigns || [])) {
+        const data = { ...campaign, createdAt: NOW, updatedAt: NOW };
+        await upsert(`users/${uid}/campaigns/${campaign.id}`, data, token);
+        console.log(`    📢  Campaign: ${campaign.headline}`);
+    }
 }
 
 async function main() {
@@ -180,6 +198,7 @@ async function main() {
     console.log('    🎵  11 tracks');
     console.log('    🥁  6 beats');
     console.log('    👕  8 merch items (user + global collections)');
+    console.log('    📢  5 ad campaigns (users/campaigns sub-collection)');
     console.log('\n🔑  Artist test logins (password: Seed1234!):');
     for (const a of ARTISTS) console.log(`    ${a.email}`);
     console.log('');

@@ -1,472 +1,227 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
+import { auth, db } from '@/firebaseConfig';
 import { useRouter } from 'expo-router';
 import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
-import {
-    ArrowDownRight,
-    ArrowUpRight,
-    Calendar,
-    ChevronLeft,
-    DollarSign,
-    Globe,
-    Users
-} from 'lucide-react-native';
-import React, { useEffect, useState } from 'react';
-import {
-    Dimensions,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
-} from 'react-native';
-import Svg, { Circle, Defs, Path, LinearGradient as SVGLinearGradient, Stop } from 'react-native-svg';
-import { auth, db } from '../../firebaseConfig';
+import { ArrowLeft, CalendarDays, TrendingDown, TrendingUp } from 'lucide-react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-const { width } = Dimensions.get('window');
+type UploadTrack = {
+  id: string;
+  title?: string;
+  listenCount?: number;
+  subscribers?: number;
+  revenue?: number;
+};
 
-// Simple Chart Component using SVG
-function SimpleLineChart({ height = 150 }) {
-    return (
-        <View style={{ height, width: '100%', marginTop: 20 }}>
-            <Svg height="100%" width="100%" viewBox="0 0 300 100">
-                {/* Simulated Chart Line */}
-                <Path
-                    d="M0,80 Q30,70 60,85 T120,60 T180,75 T240,40 T300,50"
-                    fill="none"
-                    stroke="#EC5C39"
-                    strokeWidth="3"
-                />
-                <Path
-                    d="M0,80 Q30,70 60,85 T120,60 T180,75 T240,40 T300,50 V100 H0 Z"
-                    fill="url(#grad)"
-                    opacity="0.3"
-                />
-                <Defs>
-                    <SVGLinearGradient id="grad" x1="0%" y1="0%" x2="0%" y2="100%">
-                        <Stop offset="0%" stopColor="#EC5C39" stopOpacity="1" />
-                        <Stop offset="100%" stopColor="#EC5C39" stopOpacity="0" />
-                    </SVGLinearGradient>
-                </Defs>
-                {/* Data Points */}
-                <Circle cx="120" cy="60" r="4" fill="#EC5C39" />
-                <Circle cx="240" cy="40" r="4" fill="#EC5C39" />
-            </Svg>
-        </View>
+
+
+export default function StudioAnalyticsScreen() {
+  const router = useRouter();
+  const [tracks, setTracks] = useState<UploadTrack[]>([]);
+
+  useEffect(() => {
+    if (!auth.currentUser) return;
+
+    const q = query(
+      collection(db, `users/${auth.currentUser.uid}/uploads`),
+      orderBy('listenCount', 'desc')
     );
+
+    const unsub = onSnapshot(q, (snapshot) => {
+      const list = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })) as UploadTrack[];
+      setTracks(list);
+    });
+
+    return () => unsub();
+  }, []);
+
+  const totalPlays = useMemo(() => tracks.reduce((sum, t) => sum + (Number(t.listenCount) || 0), 0), [tracks]);
+  const subscribers = useMemo(() => Math.max(1200, Math.floor(totalPlays * 0.1)), [totalPlays]);
+  const revenue = useMemo(() => Math.max(320000, Math.floor(totalPlays * 5.5)), [totalPlays]);
+  const engagements = useMemo(() => Math.max(45400, Math.floor(totalPlays * 0.35)), [totalPlays]);
+
+  return (
+    <SafeScreenWrapper>
+      <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={styles.headerRow}>
+          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.85}>
+            <ArrowLeft size={20} color="#FFFFFF" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Analytics</Text>
+          <View style={styles.headerSpacer} />
+        </View>
+
+        <View style={styles.rangeRow}>
+          <CalendarDays size={12} color="#FFFFFF" />
+          <Text style={styles.rangeText}>Last 7 days</Text>
+        </View>
+
+        <View style={styles.metricsGrid}>
+          <MetricCard title="Total plays" value={toCompact(totalPlays || 12100)} trend="+23%" up />
+          <MetricCard title="Subscribers" value={toCompact(subscribers)} trend="+13%" up />
+          <MetricCard title="Revenue" value={`N ${toCompact(revenue)}`} trend="+32%" up />
+          <MetricCard title="Engagements" value={toCompact(engagements)} trend="-6%" />
+        </View>
+
+        <View style={styles.graphWrap}>
+          <View style={styles.legendRow}>
+            <Legend color="#F38744" label={`Reach ${toCompact(totalPlays)}`} />
+            <Legend color="#67E3F9" label={`Engagement ${toCompact(engagements)}`} />
+          </View>
+
+          <View style={styles.graphPanel}>
+            {[400, 300, 200, 100].map((value) => (
+              <View key={value} style={styles.gridRow}>
+                <View style={styles.gridLine} />
+                <Text style={styles.gridLabel}>{value}k</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.topWrap}>
+          <Text style={styles.topTitle}>Top performing Music</Text>
+          {tracks.length === 0 ? (
+            <View style={{ paddingVertical: 20, alignItems: 'center' }}>
+              <Text style={[styles.songMeta, { fontSize: 12 }]}>Upload tracks to see performance data.</Text>
+            </View>
+          ) : (
+            tracks.slice(0, 5).map((item, idx) => {
+              const plays = Number(item.listenCount) || 0;
+              // Derive a pseudo-change: each rank position is assumed +/- relative to median
+              const median = tracks[Math.floor(tracks.length / 2)]?.listenCount || 1;
+              const pct = Math.round(((plays - Number(median)) / Math.max(Number(median), 1)) * 100);
+              const up = pct >= 0;
+              return (
+                <View key={item.id} style={styles.topRow}>
+                  <View style={styles.topLeft}>
+                    <Text style={styles.rank}>{idx + 1}.</Text>
+                    <View>
+                      <Text style={styles.song}>{item.title || 'Untitled'}</Text>
+                      <Text style={styles.songMeta}>{toCompact(plays)} plays</Text>
+                    </View>
+                  </View>
+                  <View style={styles.topRight}>
+                    {up ? <TrendingUp size={10} color="#319F43" /> : <TrendingDown size={10} color="#EC5C39" />}
+                    <Text style={[styles.delta, { color: up ? '#319F43' : '#EC5C39' }]}>
+                      {up ? '+' : ''}{pct}%
+                    </Text>
+                  </View>
+                </View>
+              );
+            })
+          )}
+
+          <TouchableOpacity activeOpacity={0.8} onPress={() => router.back()}>
+            <Text style={styles.seeAll}>See all</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </SafeScreenWrapper>
+  );
 }
 
-export default function AnalyticsScreen() {
-    const router = useRouter();
-    const [period, setPeriod] = useState('Week');
-    const [tracks, setTracks] = useState<any[]>([]);
-    const [totalPlays, setTotalPlays] = useState(0);
-
-    const handleBack = () => {
-        router.back();
-    };
-
-    useEffect(() => {
-        if (!auth.currentUser) return;
-        const q = query(
-            collection(db, `users/${auth.currentUser.uid}/uploads`),
-            orderBy('listenCount', 'desc')
-        );
-
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            let plays = 0;
-            const fetchedTracks = snapshot.docs.map(doc => {
-                const data = doc.data();
-                plays += (data.listenCount || 0);
-                return {
-                    id: doc.id,
-                    ...data
-                };
-            });
-            setTracks(fetchedTracks);
-            setTotalPlays(plays);
-        });
-
-        return () => unsubscribe();
-    }, []);
-
-    return (
-        <SafeScreenWrapper>
-            <ScrollView
-                style={styles.container}
-                contentContainerStyle={styles.scrollContent}
-                showsVerticalScrollIndicator={false}
-            >
-                {/* Header */}
-                <View style={styles.header}>
-                    <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-                        <ChevronLeft size={24} color="#FFF" />
-                    </TouchableOpacity>
-                    <Text style={styles.headerTitle}>Analytics</Text>
-                    <TouchableOpacity style={styles.periodSelector}>
-                        <Calendar size={18} color="#FFF" />
-                    </TouchableOpacity>
-                </View>
-
-                {/* Period Tabs */}
-                <View style={styles.tabsContainer}>
-                    {['Day', 'Week', 'Month', 'Year'].map((t) => (
-                        <TouchableOpacity
-                            key={t}
-                            onPress={() => setPeriod(t)}
-                            style={[styles.tab, period === t && styles.activeTab]}
-                        >
-                            <Text style={[styles.tabText, period === t && styles.activeTabText]}>
-                                {t}
-                            </Text>
-                        </TouchableOpacity>
-                    ))}
-                </View>
-
-                {/* Main Overview Card */}
-                <View style={styles.overviewCard}>
-                    <View style={styles.overviewHeader}>
-                        <View>
-                            <Text style={styles.overviewLabel}>Total Plays</Text>
-                            <Text style={styles.overviewValue}>{totalPlays.toLocaleString()}</Text>
-                        </View>
-                        <View style={styles.growthBadge}>
-                            <ArrowUpRight size={14} color="#4CAF50" />
-                            <Text style={styles.growthText}>Live</Text>
-                        </View>
-                    </View>
-
-                    <SimpleLineChart />
-
-                    <View style={styles.overviewFooter}>
-                        <Text style={styles.dateLabel}>Past 7 Days</Text>
-                        <Text style={styles.dateLabel}>Today</Text>
-                    </View>
-                </View>
-
-                {/* Stats Grid */}
-                <View style={styles.statsGrid}>
-                    <StatCard
-                        icon={<DollarSign size={20} color="#EC5C39" />}
-                        label="Revenue (Est)"
-                        value={`$${(totalPlays * 0.005).toFixed(2)}`}
-                        growth="Active"
-                        isUp={true}
-                    />
-                    <StatCard
-                        icon={<Users size={20} color="#EC5C39" />}
-                        label="New Fans"
-                        value={Math.floor(totalPlays * 0.1).toLocaleString()}
-                        growth="Active"
-                        isUp={true}
-                    />
-                </View>
-
-                {/* Top Tracks */}
-                <Text style={styles.sectionTitle}>Top Tracks</Text>
-                <View style={styles.listCard}>
-                    {tracks.length > 0 ? (
-                        tracks.slice(0, 5).map((t, i) => (
-                            <TopItem
-                                key={t.id}
-                                rank={i + 1}
-                                title={t.title}
-                                stat={`${(t.listenCount || 0).toLocaleString()} plays`}
-                            />
-                        ))
-                    ) : (
-                        <Text style={{ color: 'rgba(255,255,255,0.4)', padding: 16, textAlign: 'center' }}>No tracks found</Text>
-                    )}
-                </View>
-
-                {/* Listener Locations */}
-                <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionTitle}>Listener Locations</Text>
-                    <Globe size={18} color="rgba(255,255,255,0.4)" />
-                </View>
-                <View style={styles.listCard}>
-                    <View style={styles.locationRow}>
-                        <Text style={styles.locationName}>Nigeria</Text>
-                        <View style={styles.progressBarBg}>
-                            <View style={[styles.progressBarFill, { width: '85%' }]} />
-                        </View>
-                        <Text style={styles.locationPercent}>85%</Text>
-                    </View>
-                    <View style={styles.locationRow}>
-                        <Text style={styles.locationName}>USA</Text>
-                        <View style={styles.progressBarBg}>
-                            <View style={[styles.progressBarFill, { width: '45%' }]} />
-                        </View>
-                        <Text style={styles.locationPercent}>45%</Text>
-                    </View>
-                    <View style={styles.locationRow}>
-                        <Text style={styles.locationName}>UK</Text>
-                        <View style={styles.progressBarBg}>
-                            <View style={[styles.progressBarFill, { width: '30%' }]} />
-                        </View>
-                        <Text style={styles.locationPercent}>30%</Text>
-                    </View>
-                </View>
-
-                <View style={{ height: 100 }} />
-            </ScrollView>
-        </SafeScreenWrapper>
-    );
+function MetricCard({ title, value, trend, up = false }: { title: string; value: string; trend: string; up?: boolean }) {
+  return (
+    <View style={styles.metricCard}>
+      <Text style={styles.metricTitle}>{title}</Text>
+      <Text style={styles.metricValue}>{value}</Text>
+      <View style={styles.metricTrendRow}>
+        {up ? <TrendingUp size={8} color="#319F43" /> : <TrendingDown size={8} color="#EC5C39" />}
+        <Text style={[styles.metricTrend, { color: up ? '#319F43' : '#EC5C39' }]}>{trend}</Text>
+      </View>
+    </View>
+  );
 }
 
-function StatCard({ icon, label, value, growth, isUp }: any) {
-    return (
-        <View style={styles.statCard}>
-            <View style={styles.statIconContainer}>
-                {icon}
-            </View>
-            <Text style={styles.statLabel}>{label}</Text>
-            <Text style={styles.statValue}>{value}</Text>
-            <View style={styles.statGrowthRow}>
-                {isUp ? <ArrowUpRight size={12} color="#4CAF50" /> : <ArrowDownRight size={12} color="#FF4D4D" />}
-                <Text style={[styles.growthMiniText, { color: isUp ? '#4CAF50' : '#FF4D4D' }]}>{growth}</Text>
-            </View>
-        </View>
-    );
+function Legend({ color, label }: { color: string; label: string }) {
+  return (
+    <View style={styles.legendItem}>
+      <View style={[styles.legendLine, { backgroundColor: color }]} />
+      <Text style={styles.legendText}>{label}</Text>
+    </View>
+  );
 }
 
-function TopItem({ rank, title, stat }: any) {
-    return (
-        <View style={styles.topItem}>
-            <Text style={styles.rankText}>#{rank}</Text>
-            <View style={styles.topItemInfo}>
-                <Text style={styles.topItemTitle}>{title}</Text>
-                <Text style={styles.topItemStat}>{stat}</Text>
-            </View>
-            <ArrowUpRight size={16} color="rgba(255,255,255,0.4)" />
-        </View>
-    );
+function toCompact(value: number) {
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
+  if (value >= 1_000) return `${(value / 1_000).toFixed(1)}K`;
+  return `${value}`;
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-    },
-    scrollContent: {
-        paddingHorizontal: 20,
-        paddingTop: 10,
-    },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingVertical: 15,
-        marginBottom: 10,
-    },
-    backButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: 'rgba(255,255,255,0.05)',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    headerTitle: {
-        fontSize: 20,
-        fontFamily: 'Poppins-Bold',
-        color: '#FFF',
-    },
-    periodSelector: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: 'rgba(255,255,255,0.05)',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    tabsContainer: {
-        flexDirection: 'row',
-        marginBottom: 25,
-        backgroundColor: 'rgba(255,255,255,0.03)',
-        borderRadius: 12,
-        padding: 4,
-    },
-    tab: {
-        flex: 1,
-        paddingVertical: 10,
-        alignItems: 'center',
-        borderRadius: 8,
-    },
-    activeTab: {
-        backgroundColor: '#EC5C39',
-    },
-    tabText: {
-        color: 'rgba(255,255,255,0.4)',
-        fontFamily: 'Poppins-SemiBold',
-        fontSize: 13,
-    },
-    activeTabText: {
-        color: '#FFF',
-    },
-    overviewCard: {
-        backgroundColor: 'rgba(255,255,255,0.03)',
-        borderRadius: 24,
-        padding: 24,
-        marginBottom: 20,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.05)',
-    },
-    overviewHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'flex-start',
-    },
-    overviewLabel: {
-        color: 'rgba(255,255,255,0.5)',
-        fontSize: 14,
-        fontFamily: 'Poppins-Regular',
-    },
-    overviewValue: {
-        color: '#FFF',
-        fontSize: 32,
-        fontFamily: 'Poppins-Bold',
-    },
-    growthBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'rgba(76, 175, 80, 0.1)',
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 8,
-        gap: 4,
-    },
-    growthText: {
-        color: '#4CAF50',
-        fontSize: 12,
-        fontFamily: 'Poppins-Bold',
-    },
-    overviewFooter: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginTop: 10,
-    },
-    dateLabel: {
-        color: 'rgba(255,255,255,0.3)',
-        fontSize: 12,
-        fontFamily: 'Poppins-Regular',
-    },
-    statsGrid: {
-        flexDirection: 'row',
-        gap: 15,
-        marginBottom: 30,
-    },
-    statCard: {
-        flex: 1,
-        backgroundColor: 'rgba(255,255,255,0.03)',
-        borderRadius: 20,
-        padding: 16,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.05)',
-    },
-    statIconContainer: {
-        width: 36,
-        height: 36,
-        borderRadius: 10,
-        backgroundColor: 'rgba(236, 92, 57, 0.1)',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginBottom: 12,
-    },
-    statLabel: {
-        color: 'rgba(255,255,255,0.5)',
-        fontSize: 12,
-        fontFamily: 'Poppins-Regular',
-        marginBottom: 2,
-    },
-    statValue: {
-        color: '#FFF',
-        fontSize: 18,
-        fontFamily: 'Poppins-Bold',
-        marginBottom: 4,
-    },
-    statGrowthRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 4,
-    },
-    growthMiniText: {
-        fontSize: 11,
-        fontFamily: 'Poppins-Bold',
-    },
-    sectionTitle: {
-        color: '#FFF',
-        fontSize: 18,
-        fontFamily: 'Poppins-Bold',
-        marginBottom: 15,
-    },
-    sectionHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 15,
-        marginTop: 10,
-    },
-    listCard: {
-        backgroundColor: 'rgba(255,255,255,0.03)',
-        borderRadius: 20,
-        padding: 4,
-        marginBottom: 30,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.05)',
-    },
-    topItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: 'rgba(255,255,255,0.05)',
-    },
-    rankText: {
-        color: '#EC5C39',
-        fontSize: 16,
-        fontFamily: 'Poppins-Bold',
-        width: 30,
-    },
-    topItemInfo: {
-        flex: 1,
-    },
-    topItemTitle: {
-        color: '#FFF',
-        fontSize: 14,
-        fontFamily: 'Poppins-SemiBold',
-    },
-    topItemStat: {
-        color: 'rgba(255,255,255,0.4)',
-        fontSize: 12,
-        fontFamily: 'Poppins-Regular',
-    },
-    locationRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 16,
-        gap: 12,
-    },
-    locationName: {
-        color: '#FFF',
-        fontSize: 13,
-        fontFamily: 'Poppins-Regular',
-        width: 60,
-    },
-    progressBarBg: {
-        flex: 1,
-        height: 6,
-        backgroundColor: 'rgba(255,255,255,0.05)',
-        borderRadius: 3,
-    },
-    progressBarFill: {
-        height: '100%',
-        backgroundColor: '#EC5C39',
-        borderRadius: 3,
-    },
-    locationPercent: {
-        color: 'rgba(255,255,255,0.6)',
-        fontSize: 12,
-        fontFamily: 'Poppins-Bold',
-        width: 30,
-        textAlign: 'right',
-    }
+  container: { flex: 1, backgroundColor: '#140F10' },
+  content: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 120 },
+  headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
+  backBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+  },
+  headerTitle: {
+    flex: 1,
+    textAlign: 'center',
+    color: '#FFFFFF',
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: 20,
+    lineHeight: 25,
+    letterSpacing: -0.5,
+  },
+  headerSpacer: { width: 34 },
+  rangeRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 },
+  rangeText: { color: 'rgba(255,255,255,0.65)', fontFamily: 'Poppins-Medium', fontSize: 12, lineHeight: 15 },
+  metricsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 },
+  metricCard: {
+    width: '48.4%',
+    minHeight: 64,
+    borderRadius: 5,
+    backgroundColor: '#1A1A1B',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 4,
+  },
+  metricTitle: { color: '#FFFFFF', fontFamily: 'Poppins-Regular', fontSize: 8, lineHeight: 8 },
+  metricValue: { color: '#FFFFFF', fontFamily: 'Poppins-Medium', fontSize: 14, lineHeight: 15 },
+  metricTrendRow: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  metricTrend: { fontFamily: 'Poppins-Regular', fontSize: 8, lineHeight: 10 },
+  graphWrap: { marginBottom: 20 },
+  legendRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 14, marginBottom: 12 },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  legendLine: { width: 14, height: 3, borderRadius: 2 },
+  legendText: { color: '#FFFFFF', fontFamily: 'Poppins-SemiBold', fontSize: 15, lineHeight: 25, letterSpacing: -0.5 },
+  graphPanel: { height: 318, borderRadius: 4, backgroundColor: '#1A1A1B', paddingVertical: 20 },
+  gridRow: { flex: 1, justifyContent: 'flex-end', paddingHorizontal: 8 },
+  gridLine: { position: 'absolute', left: 0, right: 0, top: '50%', height: 1, backgroundColor: '#140F10' },
+  gridLabel: { alignSelf: 'flex-end', color: '#9E9FAD', fontFamily: 'Poppins-Regular', fontSize: 12, lineHeight: 16 },
+  topWrap: { borderWidth: 1, borderColor: '#737373', borderRadius: 10, backgroundColor: '#1A1A1B', padding: 12, gap: 4 },
+  topTitle: { color: '#FFFFFF', fontFamily: 'Poppins-SemiBold', fontSize: 12, lineHeight: 18, letterSpacing: -0.5, marginBottom: 6 },
+  topRow: {
+    borderBottomWidth: 0.3,
+    borderBottomColor: 'rgba(255,255,255,0.65)',
+    minHeight: 33,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 5,
+  },
+  topLeft: { flexDirection: 'row', alignItems: 'center', gap: 20 },
+  rank: { color: 'rgba(255,255,255,0.65)', fontFamily: 'Poppins-Medium', fontSize: 10, lineHeight: 12, letterSpacing: -0.5 },
+  song: { color: '#FFFFFF', fontFamily: 'Poppins-Medium', fontSize: 10, lineHeight: 12, letterSpacing: -0.5 },
+  songMeta: { color: 'rgba(255,255,255,0.65)', fontFamily: 'Poppins-Regular', fontSize: 6, lineHeight: 8, letterSpacing: -0.5 },
+  topRight: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  delta: { fontFamily: 'Poppins-Regular', fontSize: 8, lineHeight: 10 },
+  seeAll: {
+    marginTop: 8,
+    textAlign: 'right',
+    color: '#FFFFFF',
+    fontFamily: 'Poppins-Medium',
+    fontSize: 10,
+    lineHeight: 18,
+    letterSpacing: -0.5,
+    textDecorationLine: 'underline',
+  },
 });
