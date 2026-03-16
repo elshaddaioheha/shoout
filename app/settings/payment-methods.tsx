@@ -1,6 +1,7 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
+import SettingsHeader from '@/components/settings/SettingsHeader';
 import { useRouter } from 'expo-router';
-import { ChevronLeft, CreditCard, Plus } from 'lucide-react-native';
+import { CreditCard, Plus } from 'lucide-react-native';
 import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
@@ -10,13 +11,7 @@ export default function PaymentMethodsScreen() {
     return (
         <SafeScreenWrapper>
             <View style={styles.container}>
-                <View style={styles.header}>
-                    <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                        <ChevronLeft size={24} color="#FFF" />
-                    </TouchableOpacity>
-                    <Text style={styles.headerTitle}>Payment Methods</Text>
-                    <View style={{ width: 40 }} />
-                </View>
+                <SettingsHeader title="Payment Methods" onBack={() => router.back()} />
 
                 <ScrollView contentContainerStyle={styles.scrollContent}>
                     <View style={styles.emptyState}>
@@ -39,22 +34,6 @@ export default function PaymentMethodsScreen() {
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#140F10' },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 20,
-        paddingVertical: 15,
-    },
-    backButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: 'rgba(255,255,255,0.05)',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    headerTitle: { fontSize: 18, fontFamily: 'Poppins-Bold', color: '#FFF' },
     scrollContent: { paddingHorizontal: 20, paddingTop: 40, alignItems: 'center' },
     emptyState: {
         alignItems: 'center',

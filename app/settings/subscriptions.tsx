@@ -1,11 +1,12 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
+import SettingsHeader from '@/components/settings/SettingsHeader';
 import { auth, db } from '@/firebaseConfig';
 import { UserRole, useUserStore } from '@/store/useUserStore';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { doc, updateDoc } from 'firebase/firestore';
 import { PayWithFlutterwave } from 'flutterwave-react-native';
-import { Check, ChevronLeft, CreditCard, PartyPopper, ShieldCheck, Sparkles, Star } from 'lucide-react-native';
+import { Check, CreditCard, PartyPopper, ShieldCheck, Sparkles, Star } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { ActivityIndicator, Animated, Dimensions, Modal, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 
@@ -171,13 +172,7 @@ export default function SubscriptionsScreen() {
         <SafeScreenWrapper>
             <View style={styles.container}>
                 {/* Header */}
-                <View style={styles.header}>
-                    <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                        <ChevronLeft size={24} color="#FFF" />
-                    </TouchableOpacity>
-                    <Text style={styles.headerTitle}>Premium Plans</Text>
-                    <View style={{ width: 40 }} />
-                </View>
+                <SettingsHeader title="Premium Plans" onBack={() => router.back()} />
 
                 <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
                     <View style={styles.introSection}>
@@ -376,22 +371,6 @@ export default function SubscriptionsScreen() {
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#140F10' },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 20,
-        paddingVertical: 15,
-    },
-    backButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: 'rgba(255,255,255,0.05)',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    headerTitle: { fontSize: 18, fontFamily: 'Poppins-Bold', color: '#FFF' },
     scrollContent: { paddingHorizontal: 20, paddingTop: 10 },
     introSection: { alignItems: 'center', marginBottom: 35, textAlign: 'center' },
     introTitle: { fontSize: 24, fontFamily: 'Poppins-Bold', color: '#FFF', marginTop: 15, textAlign: 'center' },

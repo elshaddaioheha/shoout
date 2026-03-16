@@ -11,7 +11,6 @@ import {
     Switch
 } from 'react-native';
 import {
-    ChevronLeft,
     Camera,
     Image as ImageIcon,
     Globe,
@@ -29,6 +28,7 @@ import {
 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
+import SettingsHeader from '@/components/settings/SettingsHeader';
 import { useRouter } from 'expo-router';
 
 const { width } = Dimensions.get('window');
@@ -41,23 +41,18 @@ export default function ArtistSettingsScreen() {
     const [isPrivate, setIsPrivate] = useState(false);
     const [notifications, setNotifications] = useState(true);
 
-    const handleBack = () => {
-        router.back();
-    };
-
     return (
         <SafeScreenWrapper>
             <View style={styles.container}>
-                {/* Header */}
-                <View style={styles.header}>
-                    <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-                        <ChevronLeft size={24} color="#FFF" />
-                    </TouchableOpacity>
-                    <Text style={styles.headerTitle}>Studio Settings</Text>
-                    <TouchableOpacity style={styles.saveButton}>
-                        <Save size={20} color="#EC5C39" />
-                    </TouchableOpacity>
-                </View>
+                <SettingsHeader
+                    title="Studio Settings"
+                    onBack={() => router.back()}
+                    rightElement={(
+                        <TouchableOpacity style={styles.saveButton}>
+                            <Save size={20} color="#EC5C39" />
+                        </TouchableOpacity>
+                    )}
+                />
 
                 <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
                     {/* Banner and Profile Section */}
@@ -188,26 +183,6 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         paddingHorizontal: 20,
-    },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingVertical: 15,
-        marginBottom: 10,
-    },
-    backButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: 'rgba(255,255,255,0.05)',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    headerTitle: {
-        fontSize: 20,
-        fontFamily: 'Poppins-Bold',
-        color: '#FFF',
     },
     saveButton: {
         width: 40,

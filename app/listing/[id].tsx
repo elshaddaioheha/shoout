@@ -1,8 +1,6 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import { useCartStore } from '@/store/useCartStore';
-import { usePlaybackStore } from '@/store/usePlaybackStore';
 import { useToastStore } from '@/store/useToastStore';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
     addDoc,
@@ -12,311 +10,259 @@ import {
     getDoc,
     getDocs,
     query,
-    serverTimestamp
+    serverTimestamp,
 } from 'firebase/firestore';
-import {
-    ChevronLeft,
-    Clock,
-    DollarSign,
-    MessageCircle,
-    Music,
-    Pause,
-    Play,
-    Share2,
-    ShoppingBag,
-    ShoppingCart,
-    Tag
-} from 'lucide-react-native';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
     ActivityIndicator,
-    Dimensions,
-    ScrollView,
+    Pressable,
     StyleSheet,
     Text,
     TouchableOpacity,
-    View
+    View,
 } from 'react-native';
 import { auth, db } from '../../firebaseConfig';
 
-const { width } = Dimensions.get('window');
+type LicenseOption = {
+    id: string;
+    title: string;
+    formats: string;
+    price: number | null;
+    perks?: string[];
+};
 
-export default function ListingDetail() {
+const LICENSE_OPTIONS: LicenseOption[] = [
+    {
+        id: 'mp3_tagged',
+        title: 'MP3',
+        formats: 'MP3_TAGGED',
+        price: 4.95,
+        perks: [
+            'Used for Music Recording',
+            'Distribute up to 2,000 copies',
+            '500,000 Online Audio Streams',
+            '1 Music Video',
+        ],
+    },
+    {
+        id: 'wav_2_free',
+        title: 'WAV (+2 FREE)',
+        formats: 'MP3, WAV',
+        price: 24.99,
+    },
+    {
+        id: 'unlimited_wav_4_free',
+        title: 'UNLIMITED WAV (+4 FREE)',
+        formats: 'MP3, WAV',
+        price: 32.99,
+    },
+    {
+        id: 'unlimited_stems_9_free',
+        title: 'UNLIMITED STEMS (+9 FREE)',
+        formats: 'STEMS, MP3, WAV',
+        price: 51.99,
+    },
+    {
+        id: 'exclusive_license',
+        title: 'Exclusive License',
+        formats: 'STEMS, MP3, WAV',
+        price: null,
+    },
+];
+
+export default function ListingLicenseModal() {
     const { id, uploaderId } = useLocalSearchParams();
     const router = useRouter();
+    const { addItem } = useCartStore();
+    const { showToast } = useToastStore();
+
     const [listing, setListing] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+    const [selectedLicenseId, setSelectedLicenseId] = useState(LICENSE_OPTIONS[0].id);
     const [purchasing, setPurchasing] = useState(false);
 
-    const { currentTrack, setTrack, isPlaying } = usePlaybackStore();
-    const { items: cartItems, addItem } = useCartStore();
-    const { showToast } = useToastStore();
-    const isThisTrackPlaying = currentTrack?.id === id && isPlaying;
-    const isInCart = cartItems.some(i => i.id === id);
+    const selectedLicense = useMemo(
+        () => LICENSE_OPTIONS.find((option) => option.id === selectedLicenseId) ?? LICENSE_OPTIONS[0],
+        [selectedLicenseId]
+    );
 
     useEffect(() => {
         const fetchListing = async () => {
+            if (!id || typeof id !== 'string') {
+                setLoading(false);
+                return;
+            }
+
             try {
                 if (uploaderId && typeof uploaderId === 'string') {
-                    // Fast path if we have the uploader ID
-                    const docRef = doc(db, 'users', uploaderId, 'uploads', id as string);
+                    const docRef = doc(db, 'users', uploaderId, 'uploads', id);
                     const docSnap = await getDoc(docRef);
-
                     if (docSnap.exists()) {
                         setListing({ id: docSnap.id, ...docSnap.data() });
                         return;
                     }
                 }
 
-                // Since listings are subcollections, fallback to searching across all if missing uploaderId
-                // Note: __name__ querying in collectionGroup expects full path by default in some SDKs,
-                // but we fetch latest 100 just in case and filter on client to ensure it works.
                 const q = query(collectionGroup(db, 'uploads'));
                 const snapshot = await getDocs(q);
-
-                const foundDoc = snapshot.docs.find(d => d.id === id);
+                const foundDoc = snapshot.docs.find((d) => d.id === id);
 
                 if (foundDoc) {
                     setListing({ id: foundDoc.id, ...foundDoc.data() });
-                } else {
-                    showToast('Listing not found', 'error');
-                    router.back();
                 }
             } catch (err) {
-                console.error("Error fetching listing:", err);
+                console.error('Error fetching listing for modal:', err);
             } finally {
                 setLoading(false);
             }
         };
 
         fetchListing();
-    }, [id]);
-
-    const handlePlayPreview = () => {
-        if (!listing) return;
-        setTrack({
-            id: listing.id,
-            title: listing.title,
-            artist: listing.uploaderName || "Creator",
-            url: listing.audioUrl,
-            uploaderId: listing.userId
-        });
-    };
+    }, [id, uploaderId]);
 
     const handleAddToCart = () => {
-        if (!listing) return;
+        if (!id || typeof id !== 'string') {
+            showToast('Unable to add this listing to cart.', 'error');
+            return;
+        }
+
+        if (selectedLicense.price == null) {
+            showToast('Exclusive license requires a direct offer.', 'error');
+            return;
+        }
+
         addItem({
-            id: listing.id,
-            title: listing.title,
-            artist: listing.uploaderName || "Creator",
-            price: listing.price,
-            audioUrl: listing.audioUrl,
-            uploaderId: listing.userId,
-            category: listing.category
+            id: `${id}_${selectedLicense.id}`,
+            title: listing?.title || 'Listing',
+            artist: listing?.uploaderName || 'Creator',
+            price: selectedLicense.price,
+            audioUrl: listing?.audioUrl || '',
+            uploaderId: listing?.userId || (uploaderId as string) || '',
+            category: listing?.category || 'License',
         });
-        showToast(`${listing.title} has been added to your cart.`, 'success');
+
+        showToast(`${selectedLicense.title} added to cart.`, 'success');
+        router.back();
     };
 
-    const handlePurchase = async () => {
+    const handleBuyNow = async () => {
         if (!auth.currentUser) {
-            showToast("Please log in to purchase tracks.", "error");
+            showToast('Please log in to purchase tracks.', 'error');
+            return;
+        }
+
+        if (!id || typeof id !== 'string') {
+            showToast('Invalid listing.', 'error');
+            return;
+        }
+
+        if (selectedLicense.price == null) {
+            showToast('Exclusive license is offer-only. Please contact the creator.', 'error');
             return;
         }
 
         setPurchasing(true);
+        const sellerId = listing?.userId || (typeof uploaderId === 'string' ? uploaderId : null);
         try {
-            // 1. Record Transaction
             await addDoc(collection(db, 'transactions'), {
                 trackId: id,
                 buyerId: auth.currentUser.uid,
-                sellerId: listing.userId,
-                amount: listing.price,
-                trackTitle: listing.title,
+                sellerId,
+                amount: selectedLicense.price,
+                trackTitle: listing?.title || 'Listing',
+                licenseType: selectedLicense.title,
                 timestamp: serverTimestamp(),
-                status: 'completed'
+                status: 'completed',
             });
 
-            // 2. Add to User's Library (Purchases)
             await addDoc(collection(db, 'users', auth.currentUser.uid, 'purchases'), {
                 trackId: id,
-                title: listing.title,
-                artist: listing.uploaderName || "Creator",
-                price: listing.price,
-                uploaderId: listing.userId,
+                title: listing?.title || 'Listing',
+                artist: listing?.uploaderName || 'Creator',
+                price: selectedLicense.price,
+                licenseType: selectedLicense.title,
+                uploaderId: sellerId,
                 purchasedAt: serverTimestamp(),
-                audioUrl: listing.audioUrl || '',
-                coverUrl: listing.coverUrl || ''
+                audioUrl: listing?.audioUrl || '',
+                coverUrl: listing?.coverUrl || '',
             });
 
-            showToast("Purchase Successful! Track added to your library.", "success");
-            // Optionally redirect after a short delay
-            setTimeout(() => router.push('/(tabs)/library'), 2000);
-        } catch (e) {
-            console.error("Purchase error:", e);
-            showToast("Transaction failed. Please try again.", "error");
+            showToast('Purchase successful.', 'success');
+            router.back();
+        } catch (error) {
+            console.error('License purchase failed:', error);
+            showToast('Transaction failed. Please try again.', 'error');
         } finally {
             setPurchasing(false);
         }
     };
 
-    if (loading) {
-        return (
-            <SafeScreenWrapper>
-                <View style={styles.loadingContainer}>
-                    <ActivityIndicator color="#EC5C39" size="large" />
-                </View>
-            </SafeScreenWrapper>
-        );
-    }
-
-    if (!listing) return null;
-
     return (
         <SafeScreenWrapper>
-            <View style={styles.container}>
-                {/* Header Actions */}
-                <View style={styles.header}>
-                    <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                        <ChevronLeft size={24} color="#FFF" />
-                    </TouchableOpacity>
-                    <View style={styles.headerRight}>
-                        <TouchableOpacity
-                            style={styles.iconAction}
-                            onPress={() => router.push('/cart')}
-                        >
-                            <ShoppingCart size={20} color="#FFF" />
-                            {cartItems.length > 0 && (
-                                <View style={styles.badge}>
-                                    <Text style={styles.badgeText}>{cartItems.length}</Text>
-                                </View>
-                            )}
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.iconAction}>
-                            <Share2 size={20} color="#FFF" />
+            <View style={styles.screen}>
+                <Pressable style={styles.backdrop} onPress={() => router.back()} />
+
+                <View style={styles.sheet}>
+                    <View style={styles.sheetHeader}>
+                        <Text style={styles.sheetTitle}>Choose license</Text>
+                        <TouchableOpacity onPress={() => router.back()}>
+                            <Text style={styles.cancelText}>Cancel</Text>
                         </TouchableOpacity>
                     </View>
-                </View>
 
-                <ScrollView showsVerticalScrollIndicator={false}>
-                    {/* Artwork Container */}
-                    <View style={styles.artworkContainer}>
-                        <LinearGradient
-                            colors={['rgba(236, 92, 57, 0.2)', '#140F10']}
-                            style={styles.artworkPlaceholder}
-                        >
-                            <Music size={80} color="rgba(255,255,255,0.1)" />
+                    {loading ? (
+                        <View style={styles.loadingContainer}>
+                            <ActivityIndicator size="small" color="#EC5C39" />
+                        </View>
+                    ) : null}
 
-                            {/* Floating Play Button */}
-                            <TouchableOpacity
-                                style={styles.mainPlayBtn}
-                                onPress={handlePlayPreview}
-                            >
-                                <LinearGradient
-                                    colors={['#EC5C39', '#863420']}
-                                    style={styles.playGradient}
+                    <View style={styles.optionsWrap}>
+                        {LICENSE_OPTIONS.map((option) => {
+                            const selected = selectedLicenseId === option.id;
+                            const priceText = option.price == null ? 'Offer only' : `$${option.price.toFixed(2)}`;
+                            return (
+                                <TouchableOpacity
+                                    key={option.id}
+                                    style={[styles.optionCard, selected && styles.optionCardSelected]}
+                                    onPress={() => setSelectedLicenseId(option.id)}
                                 >
-                                    {isThisTrackPlaying ? (
-                                        <Pause size={32} color="#FFF" />
-                                    ) : (
-                                        <Play size={32} color="#FFF" fill="#FFF" />
-                                    )}
-                                </LinearGradient>
-                            </TouchableOpacity>
-                        </LinearGradient>
+                                    <View style={styles.optionTopRow}>
+                                        <View>
+                                            <Text style={styles.optionTitle}>{option.title}</Text>
+                                            <Text style={styles.optionFormats}>{option.formats}</Text>
+                                        </View>
+                                        <Text style={styles.optionPrice}>{priceText}</Text>
+                                    </View>
+
+                                    {selected && option.perks?.length ? (
+                                        <View style={styles.perksWrap}>
+                                            {option.perks.map((perk) => (
+                                                <Text key={perk} style={styles.perkText}> {perk}</Text>
+                                            ))}
+                                        </View>
+                                    ) : null}
+                                </TouchableOpacity>
+                            );
+                        })}
                     </View>
 
-                    {/* Metadata Section */}
-                    <View style={styles.content}>
-                        <Text style={styles.title}>{listing.title}</Text>
+                    <View style={styles.actionsWrap}>
                         <TouchableOpacity
-                            style={styles.artistRow}
-                            onPress={() => router.push({ pathname: '/profile/[id]', params: { id: listing.userId } })}
-                        >
-                            <View style={styles.avatarPlaceholder} />
-                            <Text style={styles.artistName}>by {listing.uploaderName || 'Creator'}</Text>
-                        </TouchableOpacity>
-
-                        {/* Price & Stats Row */}
-                        <View style={styles.statsRow}>
-                            <View style={styles.priceContainer}>
-                                <Text style={styles.priceLabel}>Price</Text>
-                                <Text style={styles.priceValue}>${listing.price?.toFixed(2) || '0.00'}</Text>
-                            </View>
-                            <View style={styles.statDivider} />
-                            <View style={styles.metaBadge}>
-                                <Clock size={14} color="#EC5C39" />
-                                <Text style={styles.metaText}>{listing.bpm || '--'} BPM</Text>
-                            </View>
-                            <View style={styles.metaBadge}>
-                                <Tag size={14} color="#EC5C39" />
-                                <Text style={styles.metaText}>{listing.genre}</Text>
-                            </View>
-                        </View>
-
-                        {/* Description */}
-                        <View style={styles.descriptionSection}>
-                            <Text style={styles.sectionTitle}>Description</Text>
-                            <Text style={styles.description}>
-                                {listing.description || "No description provided for this track."}
-                            </Text>
-                        </View>
-
-                        {/* Licensing Section (Mock for UI premium feel) */}
-                        <View style={styles.licenseCard}>
-                            <ShoppingBag size={20} color="#EC5C39" />
-                            <View style={styles.licenseInfo}>
-                                <Text style={styles.licenseTitle}>Basic Lease</Text>
-                                <Text style={styles.licenseSub}>MP3 + WAV, 5,000 Streams</Text>
-                            </View>
-                            <ChevronLeft size={20} color="rgba(255,255,255,0.3)" style={{ transform: [{ rotate: '180deg' }] }} />
-                        </View>
-                    </View>
-                </ScrollView>
-
-                {/* Bottom Purchase Bar */}
-                <View style={styles.footer}>
-                    <TouchableOpacity
-                        style={styles.chatBtn}
-                        onPress={() => {
-                            if (!auth.currentUser) {
-                                showToast("Please log in to contact creators.", "error");
-                                return;
-                            }
-                            router.push({ pathname: '/chat/[id]', params: { id: listing.userId } });
-                        }}
-                    >
-                        <MessageCircle size={24} color="#FFF" />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={[styles.chatBtn, isInCart && { backgroundColor: 'rgba(236, 92, 57, 0.1)' }]}
-                        onPress={handleAddToCart}
-                        disabled={isInCart}
-                    >
-                        {isInCart ? (
-                            <ShoppingCart size={24} color="#EC5C39" />
-                        ) : (
-                            <ShoppingCart size={24} color="#FFF" />
-                        )}
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={styles.buyBtn}
-                        onPress={handlePurchase}
-                        disabled={purchasing}
-                    >
-                        <LinearGradient
-                            colors={['#EC5C39', '#863420']}
-                            style={styles.buyGradient}
+                            style={[styles.primaryAction, purchasing && styles.disabledAction]}
+                            onPress={handleBuyNow}
+                            disabled={purchasing}
                         >
                             {purchasing ? (
                                 <ActivityIndicator color="#FFF" />
                             ) : (
-                                <>
-                                    <DollarSign size={20} color="#FFF" />
-                                    <Text style={styles.buyText}>Buy Now</Text>
-                                </>
+                                <Text style={styles.primaryActionText}>Buy now</Text>
                             )}
-                        </LinearGradient>
-                    </TouchableOpacity>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity style={styles.secondaryAction} onPress={handleAddToCart}>
+                            <Text style={styles.secondaryActionText}>Add to cart</Text>
+                        </TouchableOpacity>
+                    </View>
                 </View>
             </View>
         </SafeScreenWrapper>
@@ -324,209 +270,118 @@ export default function ListingDetail() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#140F10' },
-    loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    header: {
+    screen: {
+        flex: 1,
+        justifyContent: 'flex-end',
+        backgroundColor: 'rgba(0,0,0,0.45)',
+    },
+    backdrop: {
+        ...StyleSheet.absoluteFillObject,
+    },
+    sheet: {
+        backgroundColor: '#0A0A0A',
+        borderTopLeftRadius: 22,
+        borderTopRightRadius: 22,
+        paddingHorizontal: 16,
+        paddingTop: 18,
+        paddingBottom: 20,
+        maxHeight: '92%',
+    },
+    sheetHeader: {
         flexDirection: 'row',
+        alignItems: 'center',
         justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingHorizontal: 20,
-        paddingVertical: 15,
-        zIndex: 10,
+        marginBottom: 14,
     },
-    backButton: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
-        backgroundColor: 'rgba(255,255,255,0.05)',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    headerRight: { flexDirection: 'row', gap: 10 },
-    iconAction: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
-        backgroundColor: 'rgba(255,255,255,0.05)',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    artworkContainer: {
-        width: width,
-        height: width,
-        marginTop: -80, // Offset to bleed behind header
-    },
-    artworkPlaceholder: {
-        flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#1E1A1B',
-    },
-    mainPlayBtn: {
-        position: 'absolute',
-        bottom: -35,
-        right: 30,
-        width: 70,
-        height: 70,
-        borderRadius: 35,
-        elevation: 10,
-        shadowColor: '#EC5C39',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.4,
-        shadowRadius: 8,
-    },
-    playGradient: {
-        flex: 1,
-        borderRadius: 35,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    content: {
-        paddingHorizontal: 24,
-        paddingTop: 50,
-        paddingBottom: 120,
-    },
-    title: {
-        fontSize: 28,
+    sheetTitle: {
+        color: '#FFF',
+        fontSize: 34,
         fontFamily: 'Poppins-Bold',
+    },
+    cancelText: {
         color: '#FFF',
-    },
-    artistRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginTop: 10,
-        gap: 10,
-    },
-    avatarPlaceholder: {
-        width: 24,
-        height: 24,
-        borderRadius: 12,
-        backgroundColor: 'rgba(255,255,255,0.1)',
-    },
-    artistName: {
-        fontSize: 16,
-        fontFamily: 'Poppins-Medium',
-        color: '#EC5C39',
-    },
-    statsRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'rgba(255,255,255,0.03)',
-        borderRadius: 20,
-        padding: 20,
-        marginTop: 25,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.05)',
-    },
-    priceContainer: { flex: 1 },
-    priceLabel: {
-        fontSize: 12,
-        fontFamily: 'Poppins-Regular',
-        color: 'rgba(255,255,255,0.4)',
-    },
-    priceValue: {
-        fontSize: 20,
-        fontFamily: 'Poppins-Bold',
-        color: '#FFF',
-    },
-    statDivider: {
-        width: 1,
-        height: 30,
-        backgroundColor: 'rgba(255,255,255,0.05)',
-        marginHorizontal: 15,
-    },
-    metaBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'rgba(236, 92, 57, 0.1)',
-        paddingHorizontal: 12,
-        paddingVertical: 8,
-        borderRadius: 12,
-        gap: 6,
-        marginLeft: 10,
-    },
-    metaText: {
-        color: '#FFF',
-        fontSize: 12,
+        fontSize: 22,
         fontFamily: 'Poppins-SemiBold',
     },
-    descriptionSection: { marginTop: 30 },
-    sectionTitle: {
+    loadingContainer: {
+        paddingVertical: 8,
+    },
+    optionsWrap: {
+        gap: 10,
+    },
+    optionCard: {
+        backgroundColor: '#17181B',
+        borderRadius: 14,
+        borderWidth: 1,
+        borderColor: 'transparent',
+        padding: 14,
+    },
+    optionCardSelected: {
+        backgroundColor: '#0F2A5A',
+        borderColor: '#0A84FF',
+    },
+    optionTopRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    optionTitle: {
+        color: '#FFF',
         fontSize: 18,
         fontFamily: 'Poppins-Bold',
-        color: '#FFF',
-        marginBottom: 10,
     },
-    description: {
-        fontSize: 14,
-        fontFamily: 'Poppins-Regular',
+    optionFormats: {
         color: 'rgba(255,255,255,0.6)',
-        lineHeight: 22,
+        fontSize: 12,
+        fontFamily: 'Poppins-Regular',
+        marginTop: 2,
     },
-    licenseCard: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'rgba(255,255,255,0.03)',
-        borderRadius: 20,
-        padding: 16,
-        marginTop: 30,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.05)',
-        gap: 15,
-    },
-    licenseInfo: { flex: 1 },
-    licenseTitle: { fontSize: 15, fontFamily: 'Poppins-Bold', color: '#FFF' },
-    licenseSub: { fontSize: 12, fontFamily: 'Poppins-Regular', color: 'rgba(255,255,255,0.4)' },
-    footer: {
-        position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        backgroundColor: '#1A1516',
-        paddingHorizontal: 24,
-        paddingVertical: 20,
-        flexDirection: 'row',
-        gap: 15,
-        borderTopWidth: 1,
-        borderTopColor: 'rgba(255,255,255,0.05)',
-    },
-    chatBtn: {
-        width: 56,
-        height: 56,
-        borderRadius: 16,
-        backgroundColor: 'rgba(255,255,255,0.05)',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    buyBtn: { flex: 1, height: 56, borderRadius: 16, overflow: 'hidden' },
-    buyGradient: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 12,
-    },
-    buyText: {
+    optionPrice: {
         color: '#FFF',
-        fontSize: 16,
-        fontFamily: 'Poppins-Bold',
+        fontSize: 18,
+        fontFamily: 'Poppins-SemiBold',
     },
-    badge: {
-        position: 'absolute',
-        top: -4,
-        right: -4,
-        backgroundColor: '#EC5C39',
-        borderRadius: 8,
-        width: 16,
-        height: 16,
-        justifyContent: 'center',
+    perksWrap: {
+        borderTopWidth: 1,
+        borderTopColor: 'rgba(255,255,255,0.08)',
+        marginTop: 12,
+        paddingTop: 12,
+        gap: 8,
+    },
+    perkText: {
+        color: '#E8E8E8',
+        fontSize: 13,
+        fontFamily: 'Poppins-Regular',
+    },
+    actionsWrap: {
+        marginTop: 14,
+        gap: 10,
+    },
+    primaryAction: {
+        height: 56,
+        borderRadius: 10,
+        backgroundColor: '#0A84FF',
         alignItems: 'center',
-        borderWidth: 1.5,
-        borderColor: '#140F10',
+        justifyContent: 'center',
     },
-    badgeText: {
-        color: 'white',
-        fontSize: 9,
+    disabledAction: {
+        opacity: 0.7,
+    },
+    primaryActionText: {
+        color: '#FFF',
+        fontSize: 18,
         fontFamily: 'Poppins-Bold',
+    },
+    secondaryAction: {
+        height: 56,
+        borderRadius: 10,
+        backgroundColor: '#25272C',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    secondaryActionText: {
+        color: '#FFF',
+        fontSize: 18,
+        fontFamily: 'Poppins-SemiBold',
     },
 });
