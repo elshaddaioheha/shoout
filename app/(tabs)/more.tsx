@@ -4,7 +4,7 @@ import SharedHeader from '@/components/SharedHeader';
 import { useUserStore } from '@/store/useUserStore';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { Bell, ChevronRight, CreditCard, Crown, DollarSign, LogOut, Shield, Sparkles, TrendingUp } from 'lucide-react-native';
+import { Bell, ChevronRight, CreditCard, Crown, DollarSign, Library, LogOut, Shield, ShoppingCart, Sparkles, TrendingUp } from 'lucide-react-native';
 import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
@@ -36,6 +36,14 @@ export default function MoreScreen() {
                             </View>
                         </View>
                     )}
+
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>Library</Text>
+                        <View style={styles.menuContainer}>
+                            <MenuItem icon={ShoppingCart} label="Cart" color="#EC5C39" onPress={() => router.push('/cart' as any)} />
+                            <MenuItem icon={Library} label="My Storage" color="#3B82F6" onPress={() => router.push('/(tabs)/library' as any)} />
+                        </View>
+                    </View>
 
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>Account</Text>

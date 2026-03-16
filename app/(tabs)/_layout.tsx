@@ -3,7 +3,6 @@ import ModeSelectorSheet from '@/components/ModeSelectorSheet';
 import ModeTransitionOverlay from '@/components/ModeTransitionOverlay';
 import ResponsiveBottomTabBar from '@/components/ResponsiveBottomTabBar';
 import { useAppSwitcher } from '@/hooks/useAppSwitcher';
-import { useUserStore } from '@/store/useUserStore';
 import { Tabs } from 'expo-router';
 import React from 'react';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
@@ -36,8 +35,6 @@ export function useAppSwitcherContext() {
 }
 
 export default function TabLayout() {
-  const { role } = useUserStore();
-
   const {
     sheetVisible,
     transitioning,
@@ -111,7 +108,7 @@ export default function TabLayout() {
       {/* Mode selection bottom sheet */}
       <ModeSelectorSheet
         visible={sheetVisible}
-        currentMode={role}
+        currentMode={viewMode}
         isModeAccessible={isModeAccessible}
         onSelect={switchMode}
         onClose={closeSheet}

@@ -1,25 +1,39 @@
 /**
- * ModePillButton — tappable pill in the header showing current mode + animated chevron.
+ * ModePillButton — tappable pill in the header showing current subscription tier + animated chevron.
  */
-import { ViewMode } from '@/store/useUserStore';
+import { UserRole, ViewMode } from '@/store/useUserStore';
 import { ChevronDown, Mic2, Music } from 'lucide-react-native';
 import React, { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, Text, TouchableOpacity } from 'react-native';
 
 interface ModePillButtonProps {
     viewMode: ViewMode;
+    role: string;
     isOpen: boolean;
     onPress: () => void;
 }
 
-const MODE_CONFIG: Record<ViewMode, { label: string; Icon: any; color: string }> = {
-    vault: { label: 'Vault', Icon: Music, color: '#EC5C39' },
-    studio: { label: 'Studio', Icon: Mic2, color: '#4CAF50' },
+const MODE_CONFIG: Record<ViewMode, { Icon: any; color: string }> = {
+    vault: { Icon: Music, color: '#EC5C39' },
+    studio: { Icon: Mic2, color: '#4CAF50' },
 };
 
-export default function ModePillButton({ viewMode, isOpen, onPress }: ModePillButtonProps) {
+const TIER_LABELS: Record<UserRole, string> = {
+    vault_free: 'Vault Free',
+    vault_creator: 'Vault Creator',
+    vault_pro: 'Vault Pro',
+    vault_executive: 'Vault Executive',
+    studio_free: 'Studio Free',
+    studio_pro: 'Studio Pro',
+    studio_plus: 'Studio Plus',
+    hybrid_creator: 'Hybrid Creator',
+    hybrid_executive: 'Hybrid Executive',
+};
+
+export default function ModePillButton({ viewMode, role, isOpen, onPress }: ModePillButtonProps) {
     const chevronAnim = useRef(new Animated.Value(0)).current;
     const config = MODE_CONFIG[viewMode];
+    const tierLabel = TIER_LABELS[role as UserRole] ?? (viewMode === 'vault' ? 'Vault' : 'Studio');
 
     useEffect(() => {
         Animated.spring(chevronAnim, {
@@ -42,7 +56,7 @@ export default function ModePillButton({ viewMode, isOpen, onPress }: ModePillBu
             activeOpacity={0.75}
         >
             <config.Icon size={13} color={config.color} />
-            <Text style={[styles.label, { color: config.color }]}>{config.label}</Text>
+            <Text style={[styles.label, { color: config.color }]}>{tierLabel}</Text>
             <Animated.View style={{ transform: [{ rotate: chevronRotate }] }}>
                 <ChevronDown size={13} color={config.color} strokeWidth={2.5} />
             </Animated.View>

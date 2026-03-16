@@ -3,22 +3,37 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Poppins_400Regular, Poppins_600SemiBold, Poppins_700Bold, useFonts } from '@expo-google-fonts/poppins';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { onAuthStateChanged } from 'firebase/auth';
+import { useEffect, useState } from 'react';
 import 'react-native-reanimated';
+import { auth } from '../firebaseConfig';
 
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+  const router = useRouter();
+  const [authResolved, setAuthResolved] = useState(false);
 
   const [loaded, error] = useFonts({
     'Poppins-Regular': Poppins_400Regular,
     'Poppins-SemiBold': Poppins_600SemiBold,
     'Poppins-Bold': Poppins_700Bold,
   });
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        router.replace('/(tabs)');
+      }
+      setAuthResolved(true);
+    });
+
+    return unsub;
+  }, [router]);
 
   useEffect(() => {
     if (loaded || error) {
@@ -31,7 +46,7 @@ export default function RootLayout() {
     });
   }, [loaded, error]);
 
-  if (!loaded && !error) {
+  if ((!loaded && !error) || !authResolved) {
     return null;
   }
 
@@ -55,8 +70,15 @@ export default function RootLayout() {
         <Stack.Screen name="studio/ads-success" options={{ headerShown: false }} />
         <Stack.Screen name="studio/ads-example" options={{ headerShown: false }} />
         <Stack.Screen name="studio/earnings" options={{ headerShown: false }} />
+        <Stack.Screen name="studio/upload" options={{ headerShown: false }} />
+        <Stack.Screen name="studio/withdraw" options={{ headerShown: false }} />
         <Stack.Screen name="studio/messages" options={{ headerShown: false }} />
         <Stack.Screen name="studio/message-thread" options={{ headerShown: false }} />
+        <Stack.Screen name="cart" options={{ headerShown: false }} />
+        <Stack.Screen name="chat/index" options={{ headerShown: false }} />
+        <Stack.Screen name="chat/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="merch/index" options={{ headerShown: false }} />
+        <Stack.Screen name="profile/[id]" options={{ headerShown: false }} />
         <Stack.Screen
           name="listing/[id]"
           options={{

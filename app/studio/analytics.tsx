@@ -1,7 +1,7 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import { auth, db } from '@/firebaseConfig';
 import { useRouter } from 'expo-router';
-import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
+import { collection, doc, onSnapshot, orderBy, query, where } from 'firebase/firestore';
 import { ArrowLeft, CalendarDays, TrendingDown, TrendingUp } from 'lucide-react-native';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -10,36 +10,94 @@ type UploadTrack = {
   id: string;
   title?: string;
   listenCount?: number;
-  subscribers?: number;
-  revenue?: number;
+  likeCount?: number;
+  commentCount?: number;
+  shareCount?: number;
 };
 
+type TransactionRow = {
+  id: string;
+  amount?: number;
+};
 
 
 export default function StudioAnalyticsScreen() {
   const router = useRouter();
   const [tracks, setTracks] = useState<UploadTrack[]>([]);
+  const [followersCount, setFollowersCount] = useState(0);
+  const [transactions, setTransactions] = useState<TransactionRow[]>([]);
 
   useEffect(() => {
     if (!auth.currentUser) return;
 
+    const uid = auth.currentUser.uid;
+
     const q = query(
-      collection(db, `users/${auth.currentUser.uid}/uploads`),
+      collection(db, `users/${uid}/uploads`),
       orderBy('listenCount', 'desc')
     );
 
-    const unsub = onSnapshot(q, (snapshot) => {
+    const uploadsUnsub = onSnapshot(q, (snapshot) => {
       const list = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })) as UploadTrack[];
       setTracks(list);
     });
 
-    return () => unsub();
+    const userUnsub = onSnapshot(doc(db, 'users', uid), (snapshot) => {
+      const userData: any = snapshot.data() || {};
+      const followers = Array.isArray(userData.followers)
+        ? userData.followers.length
+        : Number(userData.followers) || 0;
+      setFollowersCount(followers);
+    });
+
+    const txQuery = query(collection(db, 'transactions'), where('sellerId', '==', uid));
+    const txUnsub = onSnapshot(txQuery, (snapshot) => {
+      setTransactions(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as TransactionRow[]);
+    });
+
+    return () => {
+      uploadsUnsub();
+      userUnsub();
+      txUnsub();
+    };
   }, []);
 
   const totalPlays = useMemo(() => tracks.reduce((sum, t) => sum + (Number(t.listenCount) || 0), 0), [tracks]);
-  const subscribers = useMemo(() => Math.max(1200, Math.floor(totalPlays * 0.1)), [totalPlays]);
-  const revenue = useMemo(() => Math.max(320000, Math.floor(totalPlays * 5.5)), [totalPlays]);
-  const engagements = useMemo(() => Math.max(45400, Math.floor(totalPlays * 0.35)), [totalPlays]);
+  const subscribers = useMemo(() => followersCount, [followersCount]);
+  const revenue = useMemo(
+    () => transactions.reduce((sum, tx) => sum + (Number(tx.amount) || 0), 0),
+    [transactions]
+  );
+  const engagements = useMemo(
+    () =>
+      tracks.reduce(
+        (sum, t) => sum + (Number(t.likeCount) || 0) + (Number(t.commentCount) || 0) + (Number(t.shareCount) || 0),
+        0
+      ),
+    [tracks]
+  );
+
+  const chartData = useMemo(() => {
+    const topTracks = [...tracks]
+      .sort((a, b) => (Number(b.listenCount) || 0) - (Number(a.listenCount) || 0))
+      .slice(0, 4);
+
+    if (topTracks.length === 0) {
+      return [] as Array<{ id: string; label: string; value: number; heightPercent: number }>;
+    }
+
+    const maxValue = Math.max(...topTracks.map((track) => Number(track.listenCount) || 0), 1);
+
+    return topTracks.map((track) => {
+      const value = Number(track.listenCount) || 0;
+      return {
+        id: track.id,
+        label: (track.title || 'Untitled').slice(0, 8),
+        value,
+        heightPercent: Math.max(8, Math.round((value / maxValue) * 100)),
+      };
+    });
+  }, [tracks]);
 
   return (
     <SafeScreenWrapper>
@@ -58,10 +116,10 @@ export default function StudioAnalyticsScreen() {
         </View>
 
         <View style={styles.metricsGrid}>
-          <MetricCard title="Total plays" value={toCompact(totalPlays || 12100)} trend="+23%" up />
-          <MetricCard title="Subscribers" value={toCompact(subscribers)} trend="+13%" up />
-          <MetricCard title="Revenue" value={`N ${toCompact(revenue)}`} trend="+32%" up />
-          <MetricCard title="Engagements" value={toCompact(engagements)} trend="-6%" />
+          <MetricCard title="Total plays" value={toCompact(totalPlays)} />
+          <MetricCard title="Followers" value={toCompact(subscribers)} />
+          <MetricCard title="Revenue" value={`N ${toCompact(revenue)}`} />
+          <MetricCard title="Engagements" value={toCompact(engagements)} />
         </View>
 
         <View style={styles.graphWrap}>
@@ -71,12 +129,26 @@ export default function StudioAnalyticsScreen() {
           </View>
 
           <View style={styles.graphPanel}>
-            {[400, 300, 200, 100].map((value) => (
+            {[4, 3, 2, 1].map((value) => (
               <View key={value} style={styles.gridRow}>
                 <View style={styles.gridLine} />
-                <Text style={styles.gridLabel}>{value}k</Text>
+                <Text style={styles.gridLabel}>{value * 25}%</Text>
               </View>
             ))}
+
+            <View style={styles.barsRow}>
+              {chartData.length === 0 ? (
+                <Text style={styles.noChartText}>No track play data yet.</Text>
+              ) : (
+                chartData.map((bar) => (
+                  <View key={bar.id} style={styles.barItem}>
+                    <View style={[styles.barFill, { height: `${bar.heightPercent}%` }]} />
+                    <Text style={styles.barLabel}>{bar.label}</Text>
+                    <Text style={styles.barValue}>{toCompact(bar.value)}</Text>
+                  </View>
+                ))
+              )}
+            </View>
           </View>
         </View>
 
@@ -122,15 +194,11 @@ export default function StudioAnalyticsScreen() {
   );
 }
 
-function MetricCard({ title, value, trend, up = false }: { title: string; value: string; trend: string; up?: boolean }) {
+function MetricCard({ title, value }: { title: string; value: string }) {
   return (
     <View style={styles.metricCard}>
       <Text style={styles.metricTitle}>{title}</Text>
       <Text style={styles.metricValue}>{value}</Text>
-      <View style={styles.metricTrendRow}>
-        {up ? <TrendingUp size={8} color="#319F43" /> : <TrendingDown size={8} color="#EC5C39" />}
-        <Text style={[styles.metricTrend, { color: up ? '#319F43' : '#EC5C39' }]}>{trend}</Text>
-      </View>
     </View>
   );
 }
@@ -197,6 +265,45 @@ const styles = StyleSheet.create({
   gridRow: { flex: 1, justifyContent: 'flex-end', paddingHorizontal: 8 },
   gridLine: { position: 'absolute', left: 0, right: 0, top: '50%', height: 1, backgroundColor: '#140F10' },
   gridLabel: { alignSelf: 'flex-end', color: '#9E9FAD', fontFamily: 'Poppins-Regular', fontSize: 12, lineHeight: 16 },
+  barsRow: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    bottom: 20,
+    top: 20,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-around',
+  },
+  barItem: {
+    width: 50,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 4,
+  },
+  barFill: {
+    width: 20,
+    borderRadius: 6,
+    backgroundColor: '#F38744',
+    minHeight: 8,
+  },
+  barLabel: {
+    color: '#FFFFFF',
+    fontFamily: 'Poppins-Regular',
+    fontSize: 9,
+    lineHeight: 12,
+  },
+  barValue: {
+    color: 'rgba(255,255,255,0.65)',
+    fontFamily: 'Poppins-Regular',
+    fontSize: 8,
+    lineHeight: 10,
+  },
+  noChartText: {
+    color: 'rgba(255,255,255,0.6)',
+    fontFamily: 'Poppins-Regular',
+    fontSize: 11,
+  },
   topWrap: { borderWidth: 1, borderColor: '#737373', borderRadius: 10, backgroundColor: '#1A1A1B', padding: 12, gap: 4 },
   topTitle: { color: '#FFFFFF', fontFamily: 'Poppins-SemiBold', fontSize: 12, lineHeight: 18, letterSpacing: -0.5, marginBottom: 6 },
   topRow: {

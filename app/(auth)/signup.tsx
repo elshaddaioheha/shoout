@@ -1,7 +1,8 @@
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { createUserWithEmailAndPassword, GoogleAuthProvider, signInWithCredential, updateProfile } from 'firebase/auth';
+import { createUserWithEmailAndPassword, GoogleAuthProvider, OAuthProvider, signInWithCredential, updateProfile } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import React from 'react';
 import { KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -91,6 +92,60 @@ export default function SignupScreen() {
         }
     };
 
+    const handleAppleLogin = async () => {
+        if (Platform.OS !== 'ios') return;
+
+        try {
+            setLoading(true);
+            const appleResult = await AppleAuthentication.signInAsync({
+                requestedScopes: [
+                    AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+                    AppleAuthentication.AppleAuthenticationScope.EMAIL,
+                ],
+            });
+
+            if (!appleResult.identityToken) {
+                throw new Error('Apple Sign-In failed: no identity token returned.');
+            }
+
+            const provider = new OAuthProvider('apple.com');
+            const credential = provider.credential({
+                idToken: appleResult.identityToken,
+            });
+
+            const userCred = await signInWithCredential(auth, credential);
+            const userDoc = await getDoc(doc(db, 'users', userCred.user.uid));
+
+            if (!userDoc.exists()) {
+                const fullNameFromApple = [appleResult.fullName?.givenName, appleResult.fullName?.familyName]
+                    .filter(Boolean)
+                    .join(' ')
+                    .trim();
+
+                await setDoc(doc(db, 'users', userCred.user.uid), {
+                    fullName: fullNameFromApple || userCred.user.displayName || 'Apple User',
+                    email: userCred.user.email || '',
+                    role: 'vault_free',
+                    createdAt: new Date().toISOString(),
+                });
+                setRole('vault_free');
+                router.replace('/(auth)/role-selection');
+            } else {
+                const userData = userDoc.data();
+                setRole(userData.role || 'vault_free');
+                router.replace('/(tabs)');
+            }
+        } catch (error: any) {
+            if (error?.code === 'ERR_REQUEST_CANCELED') {
+                return;
+            }
+            console.error('Apple Sign-In error:', error?.message || error);
+            showToast(getFriendlyErrorMessage(error), 'error');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return (
         <SafeAreaView style={styles.container}>
             <KeyboardAvoidingView
@@ -103,7 +158,9 @@ export default function SignupScreen() {
 
                     {/* Social Login Buttons */}
                     <View style={styles.socialContainer}>
-                        <SocialButton icon={<AppleIcon />} text="Signup with Apple" />
+                        {Platform.OS === 'ios' ? (
+                            <SocialButton icon={<AppleIcon />} text="Signup with Apple" onPress={handleAppleLogin} />
+                        ) : null}
                         <SocialButton icon={<GoogleIcon />} text="Signup with Google" onPress={handleGoogleLogin} />
                     </View>
 

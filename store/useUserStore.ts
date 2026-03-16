@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useCallback, useEffect, useState } from 'react';
+import { create } from 'zustand';
+import { createJSONStorage, persist } from 'zustand/middleware';
 
 export type UserRole =
     | 'vault_free' | 'vault_creator' | 'vault_pro' | 'vault_executive'
@@ -30,9 +31,16 @@ interface UserState {
     reset: () => void;
 }
 
+interface PersistedUserState {
+    role: UserRole;
+    actualRole: UserRole;
+    name: string;
+    viewMode: ViewMode;
+}
+
 const STORAGE_KEY = 'shoouts-user-preferences-v3';
 
-const defaultState: UserState = {
+const defaultState = {
     role: 'vault_free',
     actualRole: 'vault_free',
     name: 'User',
@@ -43,12 +51,6 @@ const defaultState: UserState = {
     hasTeamAccess: false,
     hasAdvancedAnalytics: false,
     transactionFeePercent: 10,
-    setRole: () => { },
-    setActualRole: () => { },
-    setName: () => { },
-    setPremium: () => { },
-    setViewMode: () => { },
-    reset: () => { },
 };
 
 const getRoleCapabilities = (role: UserRole) => {
@@ -93,105 +95,51 @@ const getRoleCapabilities = (role: UserRole) => {
     }
 };
 
-export function useUserStore<T = UserState>(
-    selector?: (state: UserState) => T
-): T {
-    const [state, setState] = useState<UserState>(defaultState);
+const createBaseState = (): Omit<UserState, 'setRole' | 'setActualRole' | 'setName' | 'setPremium' | 'setViewMode' | 'reset'> => ({
+    ...defaultState,
+});
 
-    // Load from AsyncStorage once
-    useEffect(() => {
-        let cancelled = false;
+export const useUserStore = create<UserState>()(
+    persist(
+        (set) => ({
+            ...createBaseState(),
+            setRole: (role) => {
+                const caps = getRoleCapabilities(role);
+                set({ role, ...caps });
+            },
+            setActualRole: (actualRole) => set({ actualRole }),
+            setName: (name) => set({ name }),
+            setPremium: (isPremium) => set({ isPremium }),
+            setViewMode: (viewMode) => set({ viewMode }),
+            reset: () => set({ ...createBaseState() }),
+        }),
+        {
+            name: STORAGE_KEY,
+            storage: createJSONStorage(() => AsyncStorage),
+            skipHydration: process.env.NODE_ENV === 'test',
+            partialize: (state): PersistedUserState => ({
+                role: state.role,
+                actualRole: state.actualRole,
+                name: state.name,
+                viewMode: state.viewMode,
+            }),
+            merge: (persistedState, currentState) => {
+                const parsed = persistedState as { state?: Partial<PersistedUserState> } | undefined;
+                const persisted = parsed?.state;
 
-        (async () => {
-            try {
-                const raw = await AsyncStorage.getItem(STORAGE_KEY);
-                if (raw && !cancelled) {
-                    const parsed = JSON.parse(raw) as Partial<UserState>;
-                    if (parsed.role) {
-                        const caps = getRoleCapabilities(parsed.role);
-                        setState((prev) => ({
-                            ...prev,
-                            ...parsed,
-                            actualRole: parsed.actualRole || parsed.role!,
-                            ...caps,
-                        }));
-                    }
+                if (!persisted?.role) {
+                    return currentState;
                 }
-            } catch {
-                // Ignore storage errors
-            }
-        })();
 
-        return () => {
-            cancelled = true;
-        };
-    }, []);
+                const caps = getRoleCapabilities(persisted.role);
 
-    // Persist whenever core fields change
-    useEffect(() => {
-        const toPersist = {
-            role: state.role,
-            actualRole: state.actualRole,
-            name: state.name,
-            viewMode: state.viewMode,
-        };
-        AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(toPersist)).catch(() => {
-            // Ignore storage errors
-        });
-    }, [state.role, state.name, state.viewMode]);
-
-    const setRole = useCallback((role: UserRole) => {
-        setState((prev) => {
-            const caps = getRoleCapabilities(role);
-            return {
-                ...prev,
-                role,
-                ...caps,
-            };
-        });
-    }, []);
-
-    const setActualRole = useCallback((actualRole: UserRole) => {
-        setState((prev) => ({
-            ...prev,
-            actualRole,
-        }));
-    }, []);
-
-    const setViewMode = useCallback((viewMode: ViewMode) => {
-        setState((prev) => ({
-            ...prev,
-            viewMode,
-        }));
-    }, []);
-
-    const setName = useCallback((name: string) => {
-        setState((prev) => ({
-            ...prev,
-            name,
-        }));
-    }, []);
-
-    const setPremium = useCallback((isPremium: boolean) => {
-        setState((prev) => ({
-            ...prev,
-            isPremium,
-        }));
-    }, []);
-
-    const reset = useCallback(() => {
-        setState(defaultState);
-    }, []);
-
-    const store: UserState = {
-        ...state,
-        setRole,
-        setActualRole,
-        setName,
-        setPremium,
-        setViewMode,
-        reset,
-    };
-
-    return selector ? selector(store) : (store as unknown as T);
-}
+                return {
+                    ...currentState,
+                    ...persisted,
+                    actualRole: persisted.actualRole || persisted.role,
+                    ...caps,
+                };
+            },
+        }
+    )
+);

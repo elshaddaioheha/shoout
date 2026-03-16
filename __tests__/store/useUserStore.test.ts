@@ -1,11 +1,8 @@
 /**
  * User Role Capabilities Tests
  *
- * The useUserStore is a hook (not a Zustand store), so we test the pure
- * `getRoleCapabilities` logic by re-exporting it for test purposes, or
- * by observing state changes through the hook's setRole action.
- *
- * Strategy: render the hook inside a test, call setRole, and assert capabilities.
+ * useUserStore is a Zustand store hook.
+ * Strategy: render/select store state, call actions, and assert capabilities.
  */
 
 jest.mock('@react-native-async-storage/async-storage', () =>
@@ -15,6 +12,12 @@ jest.mock('@react-native-async-storage/async-storage', () =>
 import { act, renderHook } from '@testing-library/react-native';
 import type { UserRole } from '../../store/useUserStore';
 import { useUserStore } from '../../store/useUserStore';
+
+beforeEach(() => {
+    act(() => {
+        useUserStore.getState().reset();
+    });
+});
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Default state
@@ -148,28 +151,31 @@ describe('useUserStore › Sidebar hybrid detection', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 describe('useUserStore › actions', () => {
     it('setName updates the user name', () => {
-        const { result } = renderHook(() => useUserStore());
-        act(() => result.current.setName('Ade Osei'));
-        expect(result.current.name).toBe('Ade Osei');
+        act(() => {
+            useUserStore.getState().setName('Ade Osei');
+        });
+        expect(useUserStore.getState().name).toBe('Ade Osei');
     });
 
     it('setViewMode toggles between vault and studio', () => {
-        const { result } = renderHook(() => useUserStore());
-        act(() => result.current.setViewMode('studio'));
-        expect(result.current.viewMode).toBe('studio');
-        act(() => result.current.setViewMode('vault'));
-        expect(result.current.viewMode).toBe('vault');
+        act(() => {
+            useUserStore.getState().setViewMode('studio');
+        });
+        expect(useUserStore.getState().viewMode).toBe('studio');
+        act(() => {
+            useUserStore.getState().setViewMode('vault');
+        });
+        expect(useUserStore.getState().viewMode).toBe('vault');
     });
 
     it('reset returns to default vault_free state', () => {
-        const { result } = renderHook(() => useUserStore());
         act(() => {
-            result.current.setRole('hybrid_executive');
-            result.current.setName('Big Boss');
-            result.current.reset();
+            useUserStore.getState().setRole('hybrid_executive');
+            useUserStore.getState().setName('Big Boss');
+            useUserStore.getState().reset();
         });
-        expect(result.current.role).toBe('vault_free');
-        expect(result.current.name).toBe('User');
-        expect(result.current.isPremium).toBe(false);
+        expect(useUserStore.getState().role).toBe('vault_free');
+        expect(useUserStore.getState().name).toBe('User');
+        expect(useUserStore.getState().isPremium).toBe(false);
     });
 });

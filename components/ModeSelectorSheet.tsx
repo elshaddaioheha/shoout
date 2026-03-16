@@ -2,17 +2,14 @@
  * ModeSelectorSheet — bottom sheet with blurred backdrop listing all available modes.
  * Slides up with Animated.spring, backdrop tap-to-dismiss.
  */
-import { UserRole } from '@/store/useUserStore';
+import { ViewMode } from '@/store/useUserStore';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
 import {
     CheckCircle2,
-    Crown,
     Lock,
     Mic2,
     Music,
-    TrendingUp,
-    Zap,
 } from 'lucide-react-native';
 import React, { useEffect, useRef } from 'react';
 import {
@@ -26,63 +23,36 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-interface Mode {
-    id: UserRole;
+interface ViewModeEntry {
+    id: ViewMode;
     label: string;
     description: string;
     Icon: any;
     color: string;
-    requiresPremium: boolean;
 }
 
-const MODES: Mode[] = [
+const VIEW_MODES: ViewModeEntry[] = [
     {
-        id: 'vault_free',
-        label: 'Vault Free',
-        description: 'Basic storage, sharing and streaming',
+        id: 'vault',
+        label: 'Vault',
+        description: 'Upload, store and share your music',
         Icon: Music,
         color: '#EC5C39',
-        requiresPremium: false,
     },
     {
-        id: 'vault_pro',
-        label: 'Vault Pro',
-        description: 'Advanced analytics, locking & permissions',
-        Icon: Zap,
-        color: '#EC5C39',
-        requiresPremium: true,
-    },
-    {
-        id: 'studio_free',
-        label: 'Studio Free',
-        description: 'Basic marketplace access & test listings',
+        id: 'studio',
+        label: 'Studio',
+        description: 'Sell beats, manage listings and earnings',
         Icon: Mic2,
         color: '#4CAF50',
-        requiresPremium: false,
-    },
-    {
-        id: 'studio_pro',
-        label: 'Studio Pro',
-        description: 'Pricing control, analytics & unlimited listings',
-        Icon: TrendingUp,
-        color: '#4CAF50',
-        requiresPremium: true,
-    },
-    {
-        id: 'hybrid_executive',
-        label: 'Hybrid Executive',
-        description: 'All features active: Vault + Studio',
-        Icon: Crown,
-        color: '#FFD700',
-        requiresPremium: true,
     },
 ];
 
 interface ModeSelectorSheetProps {
     visible: boolean;
-    currentMode: UserRole; // Was ViewMode
-    isModeAccessible: (mode: UserRole) => boolean;
-    onSelect: (mode: UserRole) => void;
+    currentMode: ViewMode;
+    isModeAccessible: (mode: ViewMode) => boolean;
+    onSelect: (mode: ViewMode) => void;
     onClose: () => void;
 }
 
@@ -158,7 +128,7 @@ export default function ModeSelectorSheet({
                 <Text style={styles.sheetSubtitle}>Select how you want to experience Shoouts</Text>
 
                 <View style={styles.modeList}>
-                    {MODES.map((mode) => {
+                    {VIEW_MODES.map((mode) => {
                         const accessible = isModeAccessible(mode.id);
                         const isActive = mode.id === currentMode;
 
@@ -168,6 +138,7 @@ export default function ModeSelectorSheet({
                                 style={[
                                     styles.modeRow,
                                     isActive && { borderColor: mode.color + '55', backgroundColor: mode.color + '10' },
+                                    !accessible && { opacity: 0.6 },
                                 ]}
                                 onPress={() => accessible ? onSelect(mode.id) : undefined}
                                 activeOpacity={accessible ? 0.7 : 1}
@@ -179,15 +150,7 @@ export default function ModeSelectorSheet({
 
                                 {/* Info */}
                                 <View style={styles.modeInfo}>
-                                    <View style={styles.modeLabelRow}>
-                                        <Text style={styles.modeLabel}>{mode.label}</Text>
-                                        {mode.requiresPremium && (
-                                            <View style={[styles.premiumBadge, { backgroundColor: mode.color + '22', borderColor: mode.color + '44' }]}>
-                                                <Zap size={10} color={mode.color} />
-                                                <Text style={[styles.premiumText, { color: mode.color }]}>PRO</Text>
-                                            </View>
-                                        )}
-                                    </View>
+                                    <Text style={styles.modeLabel}>{mode.label}</Text>
                                     <Text style={styles.modeDesc}>{mode.description}</Text>
                                 </View>
 
@@ -282,16 +245,11 @@ const styles = StyleSheet.create({
     modeInfo: {
         flex: 1,
     },
-    modeLabelRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-        marginBottom: 3,
-    },
     modeLabel: {
         color: '#FFF',
         fontSize: 16,
         fontFamily: 'Poppins-SemiBold',
+        marginBottom: 3,
     },
     modeDesc: {
         color: 'rgba(255,255,255,0.45)',
@@ -302,20 +260,6 @@ const styles = StyleSheet.create({
     modeRight: {
         alignItems: 'center',
         justifyContent: 'center',
-    },
-    premiumBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 3,
-        paddingHorizontal: 7,
-        paddingVertical: 3,
-        borderRadius: 8,
-        borderWidth: 1,
-    },
-    premiumText: {
-        fontSize: 10,
-        fontFamily: 'Poppins-Bold',
-        letterSpacing: 0.5,
     },
     unlockBtn: {
         flexDirection: 'row',

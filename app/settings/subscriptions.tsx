@@ -6,13 +6,20 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { doc, updateDoc } from 'firebase/firestore';
 import { PayWithFlutterwave } from 'flutterwave-react-native';
-import { Check, CreditCard, PartyPopper, ShieldCheck, Sparkles, Star } from 'lucide-react-native';
+import { Check, CreditCard, PartyPopper, ShieldCheck, Sparkles, Star, ChevronLeft } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { ActivityIndicator, Animated, Dimensions, Modal, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 
 const { width } = Dimensions.get('window');
 
 type GradientColors = readonly [string, string, ...string[]];
+type PlanCategory = 'Vault' | 'Studio' | 'Hybrid';
+
+const CATEGORY_TABS: { id: PlanCategory; label: string; color: string }[] = [
+    { id: 'Vault', label: 'Vault', color: '#EC5C39' },
+    { id: 'Studio', label: 'Studio', color: '#4CAF50' },
+    { id: 'Hybrid', label: 'Hybrid', color: '#FFD700' },
+];
 
 const PLANS = [
     {
@@ -112,6 +119,7 @@ export default function SubscriptionsScreen() {
     const router = useRouter();
     const { role, setRole } = useUserStore();
 
+    const [activeCategory, setActiveCategory] = useState<PlanCategory>('Vault');
     const [selectedPlan, setSelectedPlan] = useState<typeof PLANS[0] | null>(null);
     const [isAnnual, setIsAnnual] = useState(false);
     const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -180,6 +188,37 @@ export default function SubscriptionsScreen() {
                         <Text style={styles.introTitle}>Elevate your Music Journey</Text>
                         <Text style={styles.introSubtitle}>Choose the plan that fits your growth on Shoouts.</Text>
 
+                        {/* Category Tabs */}
+                        <View style={styles.categoryTabsRow}>
+                            {CATEGORY_TABS.map((tab) => {
+                                const isActive = activeCategory === tab.id;
+                                return (
+                                    <TouchableOpacity
+                                        key={tab.id}
+                                        style={[
+                                            styles.categoryTab,
+                                            isActive && { backgroundColor: tab.color + '22', borderColor: tab.color },
+                                        ]}
+                                        onPress={() => setActiveCategory(tab.id)}
+                                        activeOpacity={0.75}
+                                    >
+                                        <Text style={[
+                                            styles.categoryTabText,
+                                            isActive && { color: tab.color, fontFamily: 'Poppins-Bold' },
+                                        ]}>
+                                            {tab.label}
+                                        </Text>
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </View>
+
+                        {activeCategory === 'Hybrid' && (
+                            <Text style={styles.hybridNote}>
+                                Hybrid plans unlock both Vault &amp; Studio. Switch freely between modes at any time.
+                            </Text>
+                        )}
+
                         {/* Annual Billing Toggle */}
                         <View style={styles.billingToggleRow}>
                             <Text style={[styles.billingToggleText, !isAnnual && styles.activeBillingText]}>Monthly</Text>
@@ -199,7 +238,7 @@ export default function SubscriptionsScreen() {
                         </View>
                     </View>
 
-                    {PLANS.map((plan) => {
+                    {PLANS.filter(p => p.category === activeCategory).map((plan) => {
                         const isCurrentPlan = role === plan.id;
                         const numericPrice = isAnnual ? plan.annualPriceNGN : plan.monthlyPriceNGN;
                         const priceDisplay = numericPrice === 0 ? 'Free' : `NGN ${numericPrice.toLocaleString()}`;
@@ -376,6 +415,33 @@ const styles = StyleSheet.create({
     introTitle: { fontSize: 24, fontFamily: 'Poppins-Bold', color: '#FFF', marginTop: 15, textAlign: 'center' },
     introSubtitle: { fontSize: 15, fontFamily: 'Poppins-Regular', color: 'rgba(255,255,255,0.5)', marginTop: 8, textAlign: 'center' },
 
+    categoryTabsRow: {
+        flexDirection: 'row',
+        marginTop: 20,
+        gap: 8,
+    },
+    categoryTab: {
+        flex: 1,
+        paddingVertical: 9,
+        borderRadius: 14,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.12)',
+        backgroundColor: 'rgba(255,255,255,0.03)',
+        alignItems: 'center',
+    },
+    categoryTabText: {
+        fontSize: 13,
+        fontFamily: 'Poppins-SemiBold',
+        color: 'rgba(255,255,255,0.45)',
+    },
+    hybridNote: {
+        marginTop: 12,
+        fontSize: 12,
+        fontFamily: 'Poppins-Regular',
+        color: 'rgba(255,215,0,0.7)',
+        textAlign: 'center',
+        paddingHorizontal: 8,
+    },
     billingToggleRow: {
         flexDirection: 'row',
         alignItems: 'center',

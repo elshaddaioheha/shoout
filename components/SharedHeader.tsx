@@ -61,6 +61,7 @@ export default function SharedHeader({
                 {/* Centre — Mode Pill */}
                 <ModePillButton
                     viewMode={viewMode}
+                    role={role}
                     isOpen={isModeSheetOpen}
                     onPress={onModePillPress}
                 />

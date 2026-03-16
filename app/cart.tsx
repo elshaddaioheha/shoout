@@ -4,23 +4,36 @@ import { useCartStore } from '@/store/useCartStore';
 import { useToastStore } from '@/store/useToastStore';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import {
+    addDoc,
+    collection,
+    collectionGroup,
+    limit,
+    onSnapshot,
+    orderBy,
+    query,
+    serverTimestamp,
+    where
+} from 'firebase/firestore';
 import { PayWithFlutterwave } from 'flutterwave-react-native';
 
 import {
     ArrowRight,
     ChevronLeft,
     CreditCard,
+    Library,
     Music,
-    ShoppingBag,
+    ShoppingCart,
     Trash2
 } from 'lucide-react-native';
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
     Dimensions,
     FlatList,
+    Image,
+    ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -29,13 +42,67 @@ import {
 
 const { width } = Dimensions.get('window');
 
+type MarketplaceItem = {
+    id: string;
+    title?: string;
+    uploaderName?: string;
+    price?: number;
+    coverUrl?: string;
+    userId?: string;
+};
+
+const formatNaira = (value: number) => `NGN ${value.toFixed(2)}`;
+
 export default function CartScreen() {
     const router = useRouter();
     const { items, removeItem, clearCart, total } = useCartStore();
     const [checkingOut, setCheckingOut] = useState(false);
     const [showFWButton, setShowFWButton] = useState(false);
-    const fwRef = useRef<any>(null);
+    const [bestSellers, setBestSellers] = useState<MarketplaceItem[]>([]);
+    const [bestSellerLoading, setBestSellerLoading] = useState(true);
+    const [purchasedCount, setPurchasedCount] = useState(0);
     const { showToast } = useToastStore();
+
+    useEffect(() => {
+        const marketQuery = query(
+            collectionGroup(db, 'uploads'),
+            where('isPublic', '==', true),
+            orderBy('listenCount', 'desc'),
+            limit(12)
+        );
+
+        const unsubMarket = onSnapshot(
+            marketQuery,
+            (snapshot) => {
+                const liveItems = snapshot.docs.map((docSnap) => ({
+                    id: docSnap.id,
+                    ...(docSnap.data() as Omit<MarketplaceItem, 'id'>),
+                }));
+                setBestSellers(liveItems);
+                setBestSellerLoading(false);
+            },
+            () => {
+                setBestSellers([]);
+                setBestSellerLoading(false);
+            }
+        );
+
+        const uid = auth.currentUser?.uid;
+        if (!uid) {
+            setPurchasedCount(0);
+            return () => unsubMarket();
+        }
+
+        const purchaseQuery = query(collection(db, 'users', uid, 'purchases'));
+        const unsubPurchases = onSnapshot(purchaseQuery, (snapshot) => {
+            setPurchasedCount(snapshot.size);
+        });
+
+        return () => {
+            unsubMarket();
+            unsubPurchases();
+        };
+    }, []);
 
     // Called after Flutterwave confirms payment
     const handlePaymentSuccess = async () => {
@@ -102,7 +169,7 @@ export default function CartScreen() {
             <View style={styles.itemInfo}>
                 <Text style={styles.itemTitle} numberOfLines={1}>{item.title}</Text>
                 <Text style={styles.itemArtist}>{item.artist}</Text>
-                <Text style={styles.itemPrice}>${item.price.toFixed(2)}</Text>
+                <Text style={styles.itemPrice}>{formatNaira(item.price)}</Text>
             </View>
             <TouchableOpacity
                 style={styles.removeBtn}
@@ -116,12 +183,11 @@ export default function CartScreen() {
     return (
         <SafeScreenWrapper>
             <View style={styles.container}>
-                {/* Header */}
                 <View style={styles.header}>
                     <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
                         <ChevronLeft size={24} color="#FFF" />
                     </TouchableOpacity>
-                    <Text style={styles.headerTitle}>Your Cart</Text>
+                    <Text style={styles.headerTitle}>Cart</Text>
                     <TouchableOpacity
                         onPress={() => items.length > 0 && Alert.alert("Clear Cart", "Are you sure?", [
                             { text: "Cancel" },
@@ -136,16 +202,70 @@ export default function CartScreen() {
                 {items.length === 0 ? (
                     <View style={styles.emptyContainer}>
                         <View style={styles.emptyIconContainer}>
-                            <ShoppingBag size={60} color="rgba(255,255,255,0.05)" />
+                            <ShoppingCart size={72} color="rgba(255,255,255,0.7)" />
                         </View>
-                        <Text style={styles.emptyTitle}>Your cart is empty</Text>
-                        <Text style={styles.emptySub}>Explore the marketplace to find your next hit!</Text>
+                        <Text style={styles.emptyTitle}>No Item in Cart</Text>
+                        {purchasedCount > 0 ? (
+                            <Text style={styles.purchasedCountText}>+{purchasedCount} Purchased Items</Text>
+                        ) : null}
+
                         <TouchableOpacity
                             style={styles.browseBtn}
                             onPress={() => router.push('/(tabs)/marketplace')}
                         >
                             <Text style={styles.browseText}>Browse Marketplace</Text>
                         </TouchableOpacity>
+
+                        {purchasedCount > 0 ? (
+                            <TouchableOpacity style={styles.viewListBtn} onPress={() => router.push('/(tabs)/library')}>
+                                <Library size={16} color="#EC5C39" />
+                                <Text style={styles.viewListText}>View List</Text>
+                            </TouchableOpacity>
+                        ) : null}
+
+                        <View style={styles.bestSellerHeader}>
+                            <Text style={styles.bestSellerTitle}>Best Sellers</Text>
+                            <TouchableOpacity onPress={() => router.push('/(tabs)/marketplace')}>
+                                <Text style={styles.bestSellerLink}>See All</Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        {bestSellerLoading ? (
+                            <View style={styles.bestSellerLoadingWrap}>
+                                <ActivityIndicator color="#EC5C39" />
+                                <Text style={styles.bestSellerPlaceholderText}>Loading live listings...</Text>
+                            </View>
+                        ) : bestSellers.length > 0 ? (
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.bestSellerScroll}>
+                                {bestSellers.map((item) => (
+                                    <TouchableOpacity
+                                        key={item.id}
+                                        style={styles.bestSellerCard}
+                                        onPress={() =>
+                                            router.push({
+                                                pathname: '/listing/[id]' as any,
+                                                params: { id: item.id, uploaderId: item.userId || '' },
+                                            })
+                                        }
+                                    >
+                                        <View style={styles.bestSellerArtwork}>
+                                            {item.coverUrl ? (
+                                                <Image source={{ uri: item.coverUrl }} style={styles.bestSellerArtworkImage} />
+                                            ) : (
+                                                <Music size={22} color="rgba(255,255,255,0.25)" />
+                                            )}
+                                        </View>
+                                        <Text style={styles.bestSellerItemTitle} numberOfLines={1}>{item.title || 'Untitled Track'}</Text>
+                                        <Text style={styles.bestSellerItemArtist} numberOfLines={1}>{item.uploaderName || 'Creator'}</Text>
+                                        <Text style={styles.bestSellerItemPrice}>{formatNaira(item.price || 0)}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </ScrollView>
+                        ) : (
+                            <Text style={styles.bestSellerPlaceholderText}>
+                                Best sellers will appear here when live marketplace tracks are available.
+                            </Text>
+                        )}
                     </View>
                 ) : (
                     <>
@@ -164,7 +284,7 @@ export default function CartScreen() {
                             </View>
                             <View style={styles.totalRow}>
                                 <Text style={styles.totalLabel}>Total Price</Text>
-                                <Text style={styles.totalValue}>${total.toFixed(2)}</Text>
+                                <Text style={styles.totalValue}>{formatNaira(total)}</Text>
                             </View>
 
                             <TouchableOpacity
@@ -247,7 +367,7 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         fontSize: 20,
-        fontFamily: 'Poppins-Bold',
+        fontFamily: 'Poppins-SemiBold',
         color: '#FFF',
     },
     clearText: {
@@ -304,45 +424,124 @@ const styles = StyleSheet.create({
     },
     emptyContainer: {
         flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingHorizontal: 40,
+        paddingHorizontal: 20,
+        paddingTop: 30,
     },
     emptyIconContainer: {
-        width: 120,
-        height: 120,
-        borderRadius: 60,
-        backgroundColor: 'rgba(255,255,255,0.02)',
+        width: 170,
+        height: 170,
+        borderRadius: 85,
+        backgroundColor: 'rgba(255,255,255,0.04)',
         alignItems: 'center',
         justifyContent: 'center',
-        marginBottom: 25,
+        alignSelf: 'center',
+        marginBottom: 20,
     },
     emptyTitle: {
-        fontSize: 22,
-        fontFamily: 'Poppins-Bold',
+        fontSize: 15,
+        fontFamily: 'Poppins-Medium',
         color: '#FFF',
         textAlign: 'center',
     },
-    emptySub: {
-        fontSize: 14,
-        fontFamily: 'Poppins-Regular',
-        color: 'rgba(255,255,255,0.4)',
+    purchasedCountText: {
+        fontSize: 16,
+        fontFamily: 'Poppins-SemiBold',
+        color: '#FFF',
         textAlign: 'center',
         marginTop: 10,
     },
     browseBtn: {
-        marginTop: 30,
-        backgroundColor: 'rgba(236, 92, 57, 0.1)',
-        paddingHorizontal: 25,
-        paddingVertical: 12,
-        borderRadius: 25,
-        borderWidth: 1,
-        borderColor: 'rgba(236, 92, 57, 0.2)',
+        marginTop: 14,
+        backgroundColor: '#EC5C39',
+        alignSelf: 'center',
+        paddingHorizontal: 22,
+        paddingVertical: 10,
+        borderRadius: 999,
     },
     browseText: {
+        color: '#FFFFFF',
+        fontSize: 14,
+        fontFamily: 'Poppins-Medium',
+    },
+    viewListBtn: {
+        marginTop: 10,
+        alignSelf: 'center',
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+    },
+    viewListText: {
         color: '#EC5C39',
-        fontSize: 16,
-        fontFamily: 'Poppins-Bold',
+        fontSize: 14,
+        fontFamily: 'Poppins-Regular',
+    },
+    bestSellerHeader: {
+        marginTop: 32,
+        marginBottom: 10,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    bestSellerTitle: {
+        color: '#FFF',
+        fontSize: 14,
+        fontFamily: 'Poppins-SemiBold',
+    },
+    bestSellerLink: {
+        color: '#EC5C39',
+        fontSize: 14,
+        fontFamily: 'Poppins-Regular',
+    },
+    bestSellerLoadingWrap: {
+        height: 120,
+        borderRadius: 14,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.08)',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    bestSellerPlaceholderText: {
+        color: 'rgba(255,255,255,0.55)',
+        fontSize: 12,
+        fontFamily: 'Poppins-Regular',
+        marginTop: 10,
+        textAlign: 'center',
+    },
+    bestSellerScroll: {
+        paddingRight: 8,
+    },
+    bestSellerCard: {
+        width: Math.min(width * 0.33, 126),
+        marginRight: 14,
+    },
+    bestSellerArtwork: {
+        width: '100%',
+        aspectRatio: 1,
+        borderRadius: 16,
+        overflow: 'hidden',
+        backgroundColor: 'rgba(255,255,255,0.05)',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    bestSellerArtworkImage: {
+        width: '100%',
+        height: '100%',
+    },
+    bestSellerItemTitle: {
+        color: '#FFF',
+        fontSize: 12,
+        fontFamily: 'Poppins-Regular',
+        marginTop: 8,
+    },
+    bestSellerItemArtist: {
+        color: 'rgba(255,255,255,0.7)',
+        fontSize: 10,
+        fontFamily: 'Poppins-Light',
+    },
+    bestSellerItemPrice: {
+        color: '#FFF',
+        fontSize: 9,
+        fontFamily: 'Poppins-Light',
     },
     footer: {
         position: 'absolute',

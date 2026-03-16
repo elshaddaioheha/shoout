@@ -1,8 +1,9 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
-import { auth } from '@/firebaseConfig';
+import { auth, db } from '@/firebaseConfig';
 import { useUserStore } from '@/store/useUserStore';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import { collection, doc, getDoc, getDocs } from 'firebase/firestore';
 import {
     Bell,
     ChevronRight,
@@ -35,6 +36,9 @@ const { width } = Dimensions.get('window');
 export default function ProfileScreen() {
     const router = useRouter();
     const { name, role, isPremium, reset } = useUserStore();
+        const [followingCount, setFollowingCount] = React.useState(0);
+        const [followersCount, setFollowersCount] = React.useState(0);
+        const [playlistCount, setPlaylistCount] = React.useState(0);
 
     const fadeAnim = useRef(new Animated.Value(0)).current;
 
@@ -51,6 +55,47 @@ export default function ProfileScreen() {
             duration: 600,
             useNativeDriver: true,
         }).start();
+    }, []);
+
+    useEffect(() => {
+        const loadProfileStats = async () => {
+            if (!auth.currentUser) return;
+
+            const uid = auth.currentUser.uid;
+
+            try {
+                const userSnap = await getDoc(doc(db, 'users', uid));
+                const userData = userSnap.data() || {};
+
+                const nextFollowers = Array.isArray(userData.followers)
+                    ? userData.followers.length
+                    : Number(userData.followers) || 0;
+                const nextFollowing = Array.isArray(userData.following)
+                    ? userData.following.length
+                    : Number(userData.following) || 0;
+
+                setFollowersCount(nextFollowers);
+                setFollowingCount(nextFollowing);
+
+                const playlistsSnap = await getDocs(collection(db, 'users', uid, 'playlists'));
+                if (!playlistsSnap.empty) {
+                    setPlaylistCount(playlistsSnap.size);
+                    return;
+                }
+
+                const uploadsSnap = await getDocs(collection(db, 'users', uid, 'uploads'));
+                if (!uploadsSnap.empty) {
+                    setPlaylistCount(uploadsSnap.size);
+                    return;
+                }
+
+                setPlaylistCount(Number(userData.playlists) || 0);
+            } catch (error) {
+                console.error('Failed to load profile stats', error);
+            }
+        };
+
+        loadProfileStats();
     }, []);
 
     const handleShare = async () => {
@@ -127,17 +172,17 @@ export default function ProfileScreen() {
 
                     <View style={styles.statsRow}>
                         <View style={styles.statItem}>
-                            <Text style={styles.statValue}>1.2k</Text>
+                            <Text style={styles.statValue}>{followingCount}</Text>
                             <Text style={styles.statLabel}>Following</Text>
                         </View>
                         <View style={styles.statDivider} />
                         <View style={styles.statItem}>
-                            <Text style={styles.statValue}>842</Text>
+                            <Text style={styles.statValue}>{followersCount}</Text>
                             <Text style={styles.statLabel}>Followers</Text>
                         </View>
                         <View style={styles.statDivider} />
                         <View style={styles.statItem}>
-                            <Text style={styles.statValue}>12</Text>
+                            <Text style={styles.statValue}>{playlistCount}</Text>
                             <Text style={styles.statLabel}>Playlists</Text>
                         </View>
                     </View>

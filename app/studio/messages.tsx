@@ -3,7 +3,7 @@ import { auth, db } from '@/firebaseConfig';
 import { useRouter } from 'expo-router';
 import { collection, onSnapshot, orderBy, query, where } from 'firebase/firestore';
 import { ArrowLeft, MessageSquarePlus, UserRound } from 'lucide-react-native';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 type MessageRow = {
@@ -15,12 +15,6 @@ type MessageRow = {
   time: string;
   unread: number;
 };
-
-const SAMPLE_USERS: MessageRow[] = [
-  { id: 'tunde_flinn', otherUserId: 'tunde_flinn', name: 'Tunde Flinn', preview: 'Hey Nicargua! Love your beats. Can we....', time: '05:55 PM', unread: 2 },
-  { id: 'ade_beats', otherUserId: 'ade_beats', name: 'Ade Beats', preview: 'Hey Nicargua! I would love to collabora....', time: '03:38 PM', unread: 1 },
-  { id: 'jungle_g', otherUserId: 'jungle_g', name: 'Jungle G', preview: 'Please send your latest pack.', time: '11:15 AM', unread: 0 },
-];
 
 export default function StudioMessagesScreen() {
   const router = useRouter();
@@ -60,7 +54,7 @@ export default function StudioMessagesScreen() {
     return () => unsub();
   }, []);
 
-  const rows = useMemo(() => (liveRows.length > 0 ? liveRows : SAMPLE_USERS), [liveRows]);
+  const rows = liveRows;
 
   return (
     <SafeScreenWrapper>
