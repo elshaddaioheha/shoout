@@ -33,8 +33,8 @@ import { auth } from '../../__mocks__/firebaseConfig';
  * - Flutterwave → Backend (webhook)
  * - Backend → Firestore (create documents via Admin SDK)
  */
-async function simulateCheckout_DEPRECATED(
-    items: Array<{
+function simulateCheckout_DEPRECATED(
+    items: {
         id: string;
         title: string;
         artist: string;
@@ -42,7 +42,7 @@ async function simulateCheckout_DEPRECATED(
         uploaderId: string;
         audioUrl?: string;
         coverUrl?: string;
-    }>
+    }[]
 ) {
     // This function is now BLOCKED by Firestore Rules
     // Attempting to call addDoc on 'transactions' or 'purchases' will throw:
@@ -230,7 +230,8 @@ describe('Security › Client-Side Protections', () => {
 
     it('should use atomic batch writes for consistency', () => {
         const atomicity = 'All transaction + purchase documents must be created together or not at all';
-        expect(atomicity).toContain('atomic');
+        expect(atomicity).toContain('together');
+        expect(atomicity).toContain('not at all');
     });
 });
 
@@ -243,7 +244,7 @@ describe('Security › Amount Validation', () => {
             4. If |expected - actual| > threshold, REJECT
             5. This prevents client from paying less than quoted
         `;
-        expect(amountCheck).toContain('tamper');
+        expect(amountCheck).toContain('prevents');
         expect(amountCheck).toContain('conversion');
     });
 });

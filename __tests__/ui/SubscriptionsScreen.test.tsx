@@ -65,26 +65,26 @@ describe('SubscriptionsScreen UI & Flow Tests', () => {
     });
 
     it('renders all 4 subscription plans correctly', () => {
-        const { getByText, getAllByText } = render(<SubscriptionsScreen />);
+        const { getByText } = render(<SubscriptionsScreen />);
 
         expect(getByText('Vault Free')).toBeTruthy();
+        expect(getByText('Vault Creator')).toBeTruthy();
         expect(getByText('Vault Pro')).toBeTruthy();
-        expect(getByText('Studio Pro')).toBeTruthy();
-        expect(getByText('Executive Hybrid')).toBeTruthy();
+        expect(getByText('Vault Executive')).toBeTruthy();
 
         // Active plan should show "Current Plan"
         expect(getByText('Current Plan')).toBeTruthy();
     });
 
     it('shows the payment selection modal when a paid plan is selected', () => {
-        const { getByText, queryByText, getAllByText } = render(<SubscriptionsScreen />);
+        const { getByText, getByTestId, getAllByText } = render(<SubscriptionsScreen />);
 
         // Choose Vault Pro plan
         const chooseButtons = getAllByText('Select Plan');
-        fireEvent.press(chooseButtons[0]); // Vault Pro is the first non-current paid plan
+        fireEvent.press(chooseButtons[0]); // Vault Creator is the first non-current paid plan
 
         expect(getByText('Select Payment Method')).toBeTruthy();
-        expect(getByText('Pay with Flutterwave')).toBeTruthy();
+        expect(getByTestId('flutterwave-mock')).toBeTruthy();
         expect(getByText('Pay with Stripe')).toBeTruthy();
     });
 
@@ -102,7 +102,7 @@ describe('SubscriptionsScreen UI & Flow Tests', () => {
 
         // After simulation
         await waitFor(() => {
-            expect(mockSetRole).toHaveBeenCalledWith('vault_pro');
+            expect(mockSetRole).toHaveBeenCalledWith('vault_creator');
         }, { timeout: 2500 });
     });
 });

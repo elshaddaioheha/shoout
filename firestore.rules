@@ -34,6 +34,25 @@ service cloud.firestore {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    // Admin / Moderator Role Helpers
+    // ─────────────────────────────────────────────────────────────────────────
+    function getUserRole() {
+      return request.auth.token.role;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && getUserRole() == 'admin';
+    }
+
+    function isModerator() {
+      return isAuthenticated() && getUserRole() in ['admin', 'moderator'];
+    }
+
+    function isAuditor() {
+      return isAuthenticated() && getUserRole() in ['admin', 'moderator', 'auditor'];
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // Users
     // Public profile is readable by anyone authenticated.
     // Only the owner can write their own document.
@@ -222,5 +241,36 @@ service cloud.firestore {
       allow delete: if backendOnly(); // 🔒 CRITICAL: Cleanup via backend job
     }
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // Moderation & Compliance
+    // ─────────────────────────────────────────────────────────────────────────
+    match /contentReports/{reportId} {
+      allow create: if isAuthenticated();
+      allow read: if isModerator();
+      allow update: if isModerator();
+      allow delete: if false;
+    }
+
+    match /moderationLog/{logId} {
+      allow read: if isAuditor();
+      allow create: if backendOnly();
+      allow update: if backendOnly();
+      allow delete: if backendOnly();
+    }
+
+    // Optional audit ledger for payout-related actions
+    match /payoutLedger/{entryId} {
+      allow read: if isAuditor();
+      allow create: if backendOnly();
+      allow update: if backendOnly();
+      allow delete: if backendOnly();
+    }
+
+    match /users/{uid}/payouts/{payoutId} {
+      allow read: if isOwner(uid) || isAuditor();
+      allow create: if backendOnly();
+      allow update: if backendOnly();
+      allow delete: if backendOnly();
+    }
   }
 }

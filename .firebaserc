@@ -1,0 +1,7 @@
+{
+  "projects": {
+    "default": "shoouts-6178f",
+    "prod": "shoouts-6178f",
+    "dev": "shoouts-6178f"
+  }
+}

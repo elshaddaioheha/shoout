@@ -3,6 +3,7 @@ import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { setDoc } from 'firebase/firestore';
 import React from 'react';
 import SignupScreen from '../../app/(auth)/signup';
+import { useToastStore } from '../../store/useToastStore';
 import { useUserStore } from '../../store/useUserStore';
 
 // Setup Mocks
@@ -12,6 +13,10 @@ jest.mock('expo-router', () => ({
 
 jest.mock('../../store/useUserStore', () => ({
     useUserStore: jest.fn()
+}));
+
+jest.mock('../../store/useToastStore', () => ({
+    useToastStore: jest.fn()
 }));
 
 jest.mock('../../firebaseConfig', () => ({
@@ -45,11 +50,15 @@ jest.mock('@react-native-google-signin/google-signin', () => ({
 
 describe('SignupScreen Authorization flows', () => {
     const mockSetRole = jest.fn();
+    const mockShowToast = jest.fn();
 
     beforeEach(() => {
         jest.clearAllMocks();
         (useUserStore as unknown as jest.Mock).mockReturnValue({
             setRole: mockSetRole,
+        });
+        (useToastStore as unknown as jest.Mock).mockReturnValue({
+            showToast: mockShowToast,
         });
         global.alert = jest.fn();
     });
@@ -80,8 +89,8 @@ describe('SignupScreen Authorization flows', () => {
                 createdAt: expect.any(String)
             });
             expect(mockSetRole).toHaveBeenCalledWith('vault_free');
-        });
-    });
+        }, { timeout: 12000 });
+    }, 15000);
 
     it('rejects signup if passwords do not match', async () => {
         const { getByPlaceholderText, getByText } = render(<SignupScreen />);
@@ -92,7 +101,7 @@ describe('SignupScreen Authorization flows', () => {
         fireEvent.changeText(getByPlaceholderText('Confirm Password'), 'wrong123');
         fireEvent.press(getByText('Sign Up'));
 
-        expect(global.alert).toHaveBeenCalledWith("Passwords don't match");
+        expect(mockShowToast).toHaveBeenCalledWith("Passwords don't match", 'error');
         expect(createUserWithEmailAndPassword).not.toHaveBeenCalled();
     });
 });

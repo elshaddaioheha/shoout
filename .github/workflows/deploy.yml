@@ -10,6 +10,10 @@ env:
   NODE_VERSION: '20'
   FIREBASE_CLI_VERSION: '13.0.0'
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   lint-and-type-check:
     name: Lint & Type Check
@@ -35,7 +39,7 @@ jobs:
         run: npx tsc --noEmit
 
       - name: Run ESLint
-        run: npx eslint . --ext .ts,.tsx,.js,.jsx
+        run: npx eslint app components constants hooks store utils scripts functions/src __tests__ --ext .ts,.tsx,.js,.jsx
         continue-on-error: true
 
   test:
@@ -54,7 +58,7 @@ jobs:
         run: npm ci
 
       - name: Run Jest tests
-        run: npm test -- --coverage --passWithNoTests
+        run: npx jest --coverage --passWithNoTests
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
@@ -78,7 +82,9 @@ jobs:
         run: npm ci
 
       - name: Run npm audit
-        run: npm audit --audit-level=moderate
+        run: |
+          npm config set registry https://registry.npmjs.org/
+          npm audit --audit-level=moderate
         continue-on-error: true
 
       - name: Scan for secrets with gitleaks
@@ -116,10 +122,24 @@ jobs:
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN_DEV }}
           FLUTTERWAVE_SECRET_HASH: ${{ secrets.FLUTTERWAVE_SECRET_HASH_DEV }}
+          UPLOAD_BUCKET_NAME: ${{ secrets.UPLOAD_BUCKET_NAME_DEV }}
         run: |
+          if [ ! -f .firebaserc ]; then
+            echo "Missing .firebaserc"
+            exit 1
+          fi
+          if ! grep -q '"dev"' .firebaserc; then
+            echo "Missing dev alias in .firebaserc"
+            exit 1
+          fi
           firebase use dev
-          firebase deploy --only functions,firestore,storage --force
-          firebase deploy --only firestore:rules
+          if [ -n "$UPLOAD_BUCKET_NAME" ]; then
+            echo "Deploying functions + Firestore resources"
+            firebase deploy --only functions,firestore:rules,firestore:indexes --force
+          else
+            echo "UPLOAD_BUCKET_NAME_DEV is not set; skipping functions deploy and deploying Firestore resources only"
+            firebase deploy --only firestore:rules,firestore:indexes --force
+          fi
 
       - name: Notify deployment (dev)
         if: always() && env.SLACK_WEBHOOK_URL != ''
@@ -142,8 +162,12 @@ jobs:
 
       - name: Verify production project
         run: |
-          if ! grep -q "prod" .firebaserc; then
-            echo "❌ ERROR: .firebaserc does not contain 'prod' - aborting deploy"
+          if [ ! -f .firebaserc ]; then
+            echo "❌ ERROR: .firebaserc is missing - aborting deploy"
+            exit 1
+          fi
+          if ! grep -q '"prod"' .firebaserc; then
+            echo "❌ ERROR: .firebaserc does not contain a prod alias - aborting deploy"
             exit 1
           fi
           echo "✓ Production project verified"
@@ -169,10 +193,16 @@ jobs:
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN_PROD }}
           FLUTTERWAVE_SECRET_HASH: ${{ secrets.FLUTTERWAVE_SECRET_HASH_PROD }}
+          UPLOAD_BUCKET_NAME: ${{ secrets.UPLOAD_BUCKET_NAME_PROD }}
         run: |
           firebase use prod
-          firebase deploy --only functions,firestore,storage --force
-          firebase deploy --only firestore:rules
+          if [ -n "$UPLOAD_BUCKET_NAME" ]; then
+            echo "Deploying functions + Firestore resources"
+            firebase deploy --only functions,firestore:rules,firestore:indexes --force
+          else
+            echo "UPLOAD_BUCKET_NAME_PROD is not set; skipping functions deploy and deploying Firestore resources only"
+            firebase deploy --only firestore:rules,firestore:indexes --force
+          fi
 
       - name: Health check (PROD)
         run: |
