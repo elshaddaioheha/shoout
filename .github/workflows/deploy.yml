@@ -164,11 +164,17 @@ jobs:
 
       - name: Verify production project
         env:
-          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN_PROD }}
+          FIREBASE_TOKEN_PROD: ${{ secrets.FIREBASE_TOKEN_PROD }}
+          FIREBASE_TOKEN_FALLBACK: ${{ secrets.FIREBASE_TOKEN }}
           FIREBASE_PROJECT_ID_PROD: ${{ secrets.FIREBASE_PROJECT_ID_PROD }}
         run: |
+          FIREBASE_TOKEN="$FIREBASE_TOKEN_PROD"
           if [ -z "$FIREBASE_TOKEN" ]; then
-            echo "❌ ERROR: FIREBASE_TOKEN_PROD is not set"
+            FIREBASE_TOKEN="$FIREBASE_TOKEN_FALLBACK"
+          fi
+
+          if [ -z "$FIREBASE_TOKEN" ]; then
+            echo "❌ ERROR: Neither FIREBASE_TOKEN_PROD nor FIREBASE_TOKEN is set"
             exit 1
           fi
 
@@ -208,10 +214,17 @@ jobs:
 
       - name: Deploy to Firebase (PROD)
         env:
-          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN_PROD }}
+          FIREBASE_TOKEN_PROD: ${{ secrets.FIREBASE_TOKEN_PROD }}
+          FIREBASE_TOKEN_FALLBACK: ${{ secrets.FIREBASE_TOKEN }}
           FLUTTERWAVE_SECRET_HASH: ${{ secrets.FLUTTERWAVE_SECRET_HASH_PROD }}
           UPLOAD_BUCKET_NAME: ${{ secrets.UPLOAD_BUCKET_NAME_PROD }}
         run: |
+          FIREBASE_TOKEN="$FIREBASE_TOKEN_PROD"
+          if [ -z "$FIREBASE_TOKEN" ]; then
+            FIREBASE_TOKEN="$FIREBASE_TOKEN_FALLBACK"
+          fi
+          export FIREBASE_TOKEN
+
           if [ -n "$UPLOAD_BUCKET_NAME" ]; then
             echo "Deploying functions + Firestore resources"
             firebase deploy --project "$FIREBASE_PROJECT_ID_PROD" --only functions,firestore:rules,firestore:indexes --force
