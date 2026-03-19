@@ -116,8 +116,6 @@ jobs:
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN_DEV }}
           FLUTTERWAVE_SECRET_HASH: ${{ secrets.FLUTTERWAVE_SECRET_HASH_DEV }}
-          MUX_TOKEN_ID: ${{ secrets.MUX_TOKEN_ID_DEV }}
-          MUX_TOKEN_SECRET: ${{ secrets.MUX_TOKEN_SECRET_DEV }}
         run: |
           firebase use dev
           firebase deploy --only functions,firestore,storage --force
@@ -171,8 +169,6 @@ jobs:
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN_PROD }}
           FLUTTERWAVE_SECRET_HASH: ${{ secrets.FLUTTERWAVE_SECRET_HASH_PROD }}
-          MUX_TOKEN_ID: ${{ secrets.MUX_TOKEN_ID_PROD }}
-          MUX_TOKEN_SECRET: ${{ secrets.MUX_TOKEN_SECRET_PROD }}
         run: |
           firebase use prod
           firebase deploy --only functions,firestore,storage --force

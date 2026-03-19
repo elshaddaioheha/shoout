@@ -406,47 +406,31 @@ export const aggregateBestSellers = functions.https.onRequest(
       if (purchaseSnap.empty) {
         throw new functions.https.HttpsError('permission-denied', 'No purchase found for this track');
       }
-
-      // User owns this purchase → issue 15-minute signed URL to original file
-      const originalPath = `originals/${uploaderId}/${trackId}.wav`;
-      const [url] = await bucket.file(originalPath).getSignedUrl({
-        version: 'v4',
-        action: 'read',
-        expires: Date.now() + 15 * 60 * 1000, // 15 minutes
-      });
-
-      return {
-        url,
-        type: 'original',
-        expiresIn: 15 * 60,
-        mimeType: 'audio/wav',
-      };
     }
 
-    // 🎵 MARKETPLACE: Return watermarked HLS stream (1 hour expiry)
-    const hlsManifestPath = `hls-previews/${uploaderId}/${trackId}/manifest.m3u8`;
-    const [hlsUrl] = await bucket.file(hlsManifestPath).getSignedUrl({
+    // Return signed URL to the original file for both marketplace preview + library download
+    const originalPath = `originals/${uploaderId}/${trackId}.wav`;
+    const [url] = await bucket.file(originalPath).getSignedUrl({
       version: 'v4',
       action: 'read',
       expires: Date.now() + 60 * 60 * 1000, // 1 hour
     });
 
     return {
-      url: hlsUrl,
-      type: 'watermarked-hls',
+      url,
+      type: 'signed-url',
       expiresIn: 60 * 60,
-      mimeType: 'application/vnd.apple.mpegurl',
+      mimeType: 'audio/wav',
     };
   });
 
   /**
    * processAudioUpload - Triggered when new file uploaded to Cloud Storage
-   * 
+   *
    * WORKFLOW:
-   * 1. Move original file to secure originals/ folder
-   * 2. Create watermarked HLS preview (async, via Mux or FFmpeg)
-   * 3. Update Firestore document with streaming URLs
-   * 
+   * 1. Move the original upload into the protected originals/ folder
+   * 2. Record metadata to Firestore so streaming URLs can be generated on demand
+   *
    * This function is called as a Cloud Storage trigger (see firebase.json)
    */
   export const processAudioUpload = onObjectFinalized(
@@ -476,213 +460,21 @@ export const aggregateBestSellers = functions.https.onRequest(
         await bucket.file(filePath).copy(bucket.file(originalPath));
         functions.logger.info('Original file secured:', originalPath);
 
-        // 2. TRANSCODE: Create watermarked HLS preview
-        // Option A: Use Mux (recommended for production)
-        // Option B: Use FFmpeg (if available in environment)
-      
-        // For now, store metadata for async processing
         const uploadRef = db.collection('uploads').doc(trackId);
         await uploadRef.set(
           {
             userId,
             fileName,
             originalStoragePath: originalPath,
-            hlsManifestPath: `hls-previews/${userId}/${trackId}/manifest.m3u8`,
-            transcodingStatus: 'pending', // 'pending' | 'processing' | 'complete' | 'failed'
+            transcodingStatus: 'complete',
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
           },
           { merge: true }
         );
 
-        // Trigger async transcoding (can be via Pub/Sub or external API call)
-        await initiateHlsTranscoding(userId, trackId, originalPath, bucketName);
-
-        functions.logger.info('Audio upload processing initiated:', trackId);
+        functions.logger.info('Audio upload processing complete:', trackId);
       } catch (error) {
         functions.logger.error('Error processing audio upload:', error);
       }
     });
 
-  /**
-   * initiateHlsTranscoding - Queue HLS transcoding job
-   * 
-   * RECOMMENDED: Use Mux API (handles FFmpeg + storage automatically)
-   * - Send original file URL to Mux
-   * - Mux transcodes to HLS + adds watermark
-   * - HLS segments stored in Cloud Storage
-   * 
-   * ALTERNATIVE: Use FFmpeg in separate Cloud Function with higher memory
-   */
-  async function initiateHlsTranscoding(
-    userId: string,
-    trackId: string,
-    originalPath: string,
-    bucketName: string
-  ): Promise<void> {
-    const bucket = admin.storage().bucket(bucketName);
-
-    try {
-      // Get signed URL for original file (for Mux or external API)
-      const [originalUrl] = await bucket.file(originalPath).getSignedUrl({
-        version: 'v4',
-        action: 'read',
-        expires: Date.now() + 2 * 60 * 60 * 1000, // 2 hours (enough for transcoding)
-      });
-
-      // Option 1: Call Mux Video API (RECOMMENDED)
-      if (process.env.MUX_TOKEN_ID && process.env.MUX_TOKEN_SECRET) {
-        await callMuxTranscoding(userId, trackId, originalUrl);
-      } else {
-        // Option 2: Publish to Pub/Sub for separate FFmpeg worker
-        const topicName = 'projects/[PROJECT_ID]/topics/audio-transcoding';
-        const data = JSON.stringify({
-          userId,
-          trackId,
-          originalUrl,
-          bucketName,
-          outputPath: `hls-previews/${userId}/${trackId}`,
-        });
-
-        functions.logger.info('Pub/Sub transcoding job queued:', trackId);
-        // Implementation: Use @google-cloud/pubsub to publish
-      }
-    } catch (error) {
-      functions.logger.error('Failed to initiate HLS transcoding:', error);
-    }
-  }
-
-  /**
-   * callMuxTranscoding - Send audio to Mux for watermarking + HLS transcoding
-   * 
-   * Mux handles:
-   * - Watermark overlay ("Shoouts!" text/audio)
-   * - Multi-bitrate HLS encoding
-   * - Secure storage in Mux CDN
-   * 
-   * Then download HLS segments and store in Cloud Storage
-   */
-  async function callMuxTranscoding(
-    userId: string,
-    trackId: string,
-    originalUrl: string
-  ): Promise<void> {
-    const muxTokenId = process.env.MUX_TOKEN_ID || '';
-    const muxTokenSecret = process.env.MUX_TOKEN_SECRET || '';
-
-    if (!muxTokenId || !muxTokenSecret) {
-      functions.logger.warn('Mux credentials not configured, skipping transcoding');
-      return;
-    }
-
-    try {
-      // Example: Create Mux asset with watermark
-      const auth = Buffer.from(`${muxTokenId}:${muxTokenSecret}`).toString('base64');
-
-      const muxResponse = await fetch('https://api.mux.com/video/v1/assets', {
-        method: 'POST',
-        headers: {
-          Authorization: `Basic ${auth}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          input: [
-            {
-              url: originalUrl,
-            },
-          ],
-          playback_policy: 'token', // Require auth tokens for playback
-          mp4_support: 'none', // Only HLS, no progressive download
-          // Watermark can be added via Mux watermark feature
-          watermark: {
-            id: 'shoouts-watermark-id', // Pre-configured in Mux
-          },
-        }),
-      });
-
-      const asset = (await muxResponse.json()) as any;
-      functions.logger.info('Mux asset created:', asset.data?.id);
-
-      // Store Mux asset ID for future reference
-      await admin
-        .firestore()
-        .collection('uploads')
-        .doc(trackId)
-        .set(
-          {
-            muxAssetId: asset.data?.id,
-            transcodingStatus: 'processing',
-          },
-          { merge: true }
-        );
-    } catch (error) {
-      functions.logger.error('Mux transcoding error:', error);
-    }
-  }
-
-  /**
-   * onHlsTranscodingComplete - Webhook from Mux when transcoding finishes
-   * 
-   * This endpoint receives Mux webhooks notifying when:
-   * - Transcoding completed
-   * - HLS segments ready for download
-   * - Playback URLs available
-   */
-  export const onHlsTranscodingComplete = functions.https.onRequest(
-    async (req, res) => {
-      if (req.method !== 'POST') {
-        res.status(405).send('Method not allowed');
-        return;
-      }
-
-      try {
-        const event = req.body as any;
-        const eventType = event.type;
-        const assetId = event.data?.object?.id;
-
-        if (eventType !== 'video.asset.ready') {
-          res.status(200).send('Event ignored');
-          return;
-        }
-
-        if (!assetId) {
-          res.status(400).send('Missing asset ID');
-          return;
-        }
-
-        // Find the upload document with this Mux asset
-        const uploadsSnap = await admin
-          .firestore()
-          .collection('uploads')
-          .where('muxAssetId', '==', assetId)
-          .limit(1)
-          .get();
-
-        if (uploadsSnap.empty) {
-          functions.logger.warn('No upload found for Mux asset:', assetId);
-          res.status(404).send('Upload not found');
-          return;
-        }
-
-        const uploadDoc = uploadsSnap.docs[0];
-        const uploadData = uploadDoc.data() as any;
-
-        // Update Firestore with streaming URLs
-        const playbackId = event.data?.playback_ids?.[0]?.id;
-        await uploadDoc.ref.set(
-          {
-            transcodingStatus: 'complete',
-            playbackId,
-            hlsUrl: `https://image.mux.com/${playbackId}/manifest.m3u8`,
-            completedAt: admin.firestore.FieldValue.serverTimestamp(),
-          },
-          { merge: true }
-        );
-
-        functions.logger.info('HLS transcoding complete:', uploadDoc.id);
-        res.status(200).json({ success: true });
-      } catch (error) {
-        functions.logger.error('Error processing HLS completion:', error);
-        res.status(500).send('Internal error');
-      }
-    }
-  );

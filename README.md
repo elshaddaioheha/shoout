@@ -180,8 +180,8 @@ EXPO_PUBLIC_FIREBASE_APP_ID=1:123456789:web:abcdef123456
 
 **Functions environment** (set via GitHub Secrets):
 - `FLUTTERWAVE_SECRET_HASH` - Webhook signing key
-- `MUX_TOKEN_ID` - Audio transcoding
-- `MUX_TOKEN_SECRET` - Audio transcoding
+
+(Optional) If you want to add transcoding later, you can add a transcoder service and corresponding secrets.
 
 ---
 
@@ -207,10 +207,6 @@ Add these secrets:
 | `FIREBASE_TOKEN_PROD` | `firebase login:ci` output (same) |
 | `FLUTTERWAVE_SECRET_HASH_DEV` | Flutterwave Dashboard → Settings → Webhooks (TEST) |
 | `FLUTTERWAVE_SECRET_HASH_PROD` | Flutterwave Dashboard → Settings → Webhooks (LIVE) |
-| `MUX_TOKEN_ID_DEV` | Mux Dashboard → Access Control → API Tokens |
-| `MUX_TOKEN_SECRET_DEV` | Mux Dashboard → Access Control → API Tokens |
-| `MUX_TOKEN_ID_PROD` | Mux Dashboard (Production) |
-| `MUX_TOKEN_SECRET_PROD` | Mux Dashboard (Production) |
 | `SLACK_WEBHOOK_URL` | Slack Workspace → Apps → Incoming Webhooks (optional) |
 
 ### Deployment Flows
