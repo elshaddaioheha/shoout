@@ -15,7 +15,8 @@
     "dev:seed": "node ./scripts/seed.mjs",
     "dev:seed:test": "node ./scripts/seed-test-data.mjs",
     "dev:seed:full": "node ./scripts/seedFullData.mjs",
-    "dev:seed:rest": "node ./scripts/seed-rest.mjs"
+    "dev:seed:rest": "node ./scripts/seed-rest.mjs",
+    "dev:seed:storage-sample": "node ./scripts/seed-storage-sample.mjs"
   },
   "dependencies": {
     "@expo-google-fonts/poppins": "^0.4.1",
