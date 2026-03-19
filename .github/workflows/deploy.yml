@@ -163,16 +163,31 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Verify production project
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN_PROD }}
+          FIREBASE_PROJECT_ID_PROD: ${{ secrets.FIREBASE_PROJECT_ID_PROD }}
         run: |
-          if [ ! -f .firebaserc ]; then
-            echo "❌ ERROR: .firebaserc is missing - aborting deploy"
+          if [ -z "$FIREBASE_TOKEN" ]; then
+            echo "❌ ERROR: FIREBASE_TOKEN_PROD is not set"
             exit 1
           fi
-          if ! grep -q '"prod"' .firebaserc; then
-            echo "❌ ERROR: .firebaserc does not contain a prod alias - aborting deploy"
+
+          PROJECT_ID="$FIREBASE_PROJECT_ID_PROD"
+          if [ -z "$PROJECT_ID" ] && [ -f .firebaserc ]; then
+            PROJECT_ID=$(node -e "const fs=require('fs');const cfg=JSON.parse(fs.readFileSync('.firebaserc','utf8'));process.stdout.write((cfg.projects&&cfg.projects.prod)||'')")
+          fi
+
+          if [ -z "$PROJECT_ID" ]; then
+            echo "❌ ERROR: Production project ID not found. Set FIREBASE_PROJECT_ID_PROD or add prod alias in .firebaserc"
             exit 1
           fi
-          echo "✓ Production project verified"
+
+          echo "FIREBASE_PROJECT_ID_PROD=$PROJECT_ID" >> $GITHUB_ENV
+          echo "✓ Production project verified: $PROJECT_ID"
+
+          firebase --version
+          firebase projects:list --token "$FIREBASE_TOKEN" >/dev/null
+          echo "✓ Firebase token validated"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -197,13 +212,12 @@ jobs:
           FLUTTERWAVE_SECRET_HASH: ${{ secrets.FLUTTERWAVE_SECRET_HASH_PROD }}
           UPLOAD_BUCKET_NAME: ${{ secrets.UPLOAD_BUCKET_NAME_PROD }}
         run: |
-          firebase use prod
           if [ -n "$UPLOAD_BUCKET_NAME" ]; then
             echo "Deploying functions + Firestore resources"
-            firebase deploy --only functions,firestore:rules,firestore:indexes --force
+            firebase deploy --project "$FIREBASE_PROJECT_ID_PROD" --only functions,firestore:rules,firestore:indexes --force
           else
             echo "UPLOAD_BUCKET_NAME_PROD is not set; skipping functions deploy and deploying Firestore resources only"
-            firebase deploy --only firestore:rules,firestore:indexes --force
+            firebase deploy --project "$FIREBASE_PROJECT_ID_PROD" --only firestore:rules,firestore:indexes --force
           fi
 
       - name: Health check (PROD)
