@@ -2,19 +2,19 @@ import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import { auth, db } from '@/firebaseConfig';
 import { useCartStore } from '@/store/useCartStore';
 import { useToastStore } from '@/store/useToastStore';
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import {
-    addDoc,
     collection,
-    collectionGroup,
+    doc,
     limit,
     onSnapshot,
     orderBy,
     query,
-    serverTimestamp,
     where
 } from 'firebase/firestore';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { PayWithFlutterwave } from 'flutterwave-react-native';
 
 import {
@@ -32,7 +32,6 @@ import {
     Alert,
     Dimensions,
     FlatList,
-    Image,
     ScrollView,
     StyleSheet,
     Text,
@@ -58,27 +57,26 @@ export default function CartScreen() {
     const { items, removeItem, clearCart, total } = useCartStore();
     const [checkingOut, setCheckingOut] = useState(false);
     const [showFWButton, setShowFWButton] = useState(false);
+    const [checkoutTxRef, setCheckoutTxRef] = useState<string | null>(null);
+    const [checkoutAmountNgn, setCheckoutAmountNgn] = useState<number>(0);
     const [bestSellers, setBestSellers] = useState<MarketplaceItem[]>([]);
     const [bestSellerLoading, setBestSellerLoading] = useState(true);
     const [purchasedCount, setPurchasedCount] = useState(0);
     const { showToast } = useToastStore();
 
     useEffect(() => {
-        const marketQuery = query(
-            collectionGroup(db, 'uploads'),
-            where('isPublic', '==', true),
-            orderBy('listenCount', 'desc'),
-            limit(12)
-        );
-
+        // 🚀 PERFORMANCE: Read pre-aggregated best sellers document instead of inefficient collectionGroup query
+        // The /system/bestSellers document is updated hourly by aggregateBestSellers() Cloud Function
+        const bestSellersRef = doc(db, 'system', 'bestSellers');
         const unsubMarket = onSnapshot(
-            marketQuery,
+            bestSellersRef,
             (snapshot) => {
-                const liveItems = snapshot.docs.map((docSnap) => ({
-                    id: docSnap.id,
-                    ...(docSnap.data() as Omit<MarketplaceItem, 'id'>),
-                }));
-                setBestSellers(liveItems);
+                if (snapshot.exists()) {
+                    const data = snapshot.data();
+                    setBestSellers(data.items || []);
+                } else {
+                    setBestSellers([]);
+                }
                 setBestSellerLoading(false);
             },
             () => {
@@ -105,56 +103,91 @@ export default function CartScreen() {
     }, []);
 
     // Called after Flutterwave confirms payment
-    const handlePaymentSuccess = async () => {
+    // Purchase documents are created only by webhook-driven backend functions.
+    const handlePaymentSuccess = async (flutterwaveData: any) => {
         if (!auth.currentUser) return;
         setCheckingOut(true);
         try {
-            const batchPromises = items.flatMap(item => [
-                addDoc(collection(db, 'transactions'), {
-                    trackId: item.id,
-                    buyerId: auth.currentUser!.uid,
-                    sellerId: item.uploaderId,
-                    amount: item.price,
-                    trackTitle: item.title,
-                    timestamp: serverTimestamp(),
-                    status: 'completed',
-                    paymentProvider: 'flutterwave',
-                }),
-                addDoc(collection(db, 'users', auth.currentUser!.uid, 'purchases'), {
-                    trackId: item.id,
-                    title: item.title,
-                    artist: item.artist,
-                    price: item.price,
-                    uploaderId: item.uploaderId,
-                    purchasedAt: serverTimestamp(),
-                    audioUrl: item.audioUrl || '',
-                    coverUrl: item.coverUrl || '',
-                })
-            ]);
-            await Promise.all(batchPromises);
+            const txRef = flutterwaveData?.tx_ref || checkoutTxRef;
+            if (!txRef) {
+                throw new Error('Missing transaction reference from payment callback.');
+            }
+
+            const functions = getFunctions();
+            const getCheckoutStatus = httpsCallable(functions, 'getCheckoutStatus');
+
+            // Poll backend for webhook-processed completion state.
+            let completed = false;
+            for (let i = 0; i < 15; i += 1) {
+                const statusResult = await getCheckoutStatus({ txRef });
+                const status = (statusResult.data as { status?: string }).status;
+                if (status === 'completed') {
+                    completed = true;
+                    break;
+                }
+                if (status === 'failed' || status === 'amount_mismatch') {
+                    throw new Error(`Payment processing failed with status: ${status}`);
+                }
+                await new Promise((resolve) => setTimeout(resolve, 2000));
+            }
+
+            if (!completed) {
+                showToast('Payment received. We are still confirming your delivery. Please check Library shortly.', 'info');
+                return;
+            }
+
             clearCart();
+            setCheckoutTxRef(null);
+            setCheckoutAmountNgn(0);
             Alert.alert(
-                '🎉 Purchase Successful!',
+                'Purchase Confirmed',
                 `${items.length} track${items.length > 1 ? 's are' : ' is'} now in your library.`,
                 [{ text: 'View Library', onPress: () => router.push('/(tabs)/library') }]
             );
         } catch (error) {
-            console.error('Post-payment error:', error);
-            showToast('Payment succeeded but delivery failed. Contact support.', 'error');
+            console.error('Payment verification error:', error);
+            showToast('Payment succeeded but delivery is pending verification. Contact support if this persists.', 'error');
         } finally {
             setCheckingOut(false);
         }
     };
 
-    const handleCheckout = () => {
+    const handleCheckout = async () => {
         if (!auth.currentUser) {
             showToast('Please log in to complete your purchase.', 'error');
             router.push('/(auth)/login');
             return;
         }
+        if (!auth.currentUser.email) {
+            showToast('Email is required to complete payment. Please verify your email in settings.', 'error');
+            router.push('/settings/notifications');
+            return;
+        }
         if (items.length === 0) return;
-        // Trigger the hidden Flutterwave button
-        setShowFWButton(true);
+
+        setCheckingOut(true);
+        try {
+            const functions = getFunctions();
+            const createCheckoutSession = httpsCallable(functions, 'createCheckoutSession');
+            const result = await createCheckoutSession({
+                items,
+                totalAmountUsd: total,
+            });
+
+            const data = result.data as { txRef: string; amountNgn: number };
+            if (!data?.txRef || !data?.amountNgn) {
+                throw new Error('Invalid checkout session response from backend');
+            }
+
+            setCheckoutTxRef(data.txRef);
+            setCheckoutAmountNgn(data.amountNgn);
+            setShowFWButton(true);
+        } catch (error) {
+            console.error('Checkout session init failed:', error);
+            showToast('Unable to initialize secure checkout. Please try again.', 'error');
+        } finally {
+            setCheckingOut(false);
+        }
     };
 
     const renderItem = ({ item }: { item: any }) => (
@@ -309,23 +342,23 @@ export default function CartScreen() {
                             </TouchableOpacity>
 
                             {/* Hidden Flutterwave trigger — auto-fires when showFWButton = true */}
-                            {showFWButton && auth.currentUser && (
+                            {showFWButton && auth.currentUser && checkoutTxRef && checkoutAmountNgn > 0 && (
                                 <PayWithFlutterwave
                                     onRedirect={(data) => {
                                         setShowFWButton(false);
                                         if (data.status === 'successful') {
-                                            handlePaymentSuccess();
+                                            handlePaymentSuccess(data);
                                         } else {
                                             showToast('Your payment was not completed.', 'error');
                                         }
                                     }}
                                     options={{
-                                        tx_ref: `shoouts_cart_${Date.now()}`,
+                                        tx_ref: checkoutTxRef,
                                         authorization: process.env.EXPO_PUBLIC_FLUTTERWAVE_PUBLIC_KEY || '',
                                         customer: {
-                                            email: auth.currentUser.email || 'customer@shoouts.com',
+                                            email: auth.currentUser.email!,
                                         },
-                                        amount: Math.round(total * 1600), // USD → NGN approx
+                                        amount: checkoutAmountNgn,
                                         currency: 'NGN',
                                         payment_options: 'card,banktransfer',
                                     }}

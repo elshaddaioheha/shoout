@@ -3,14 +3,12 @@ import { useCartStore } from '@/store/useCartStore';
 import { useToastStore } from '@/store/useToastStore';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
-    addDoc,
     collection,
     collectionGroup,
     doc,
     getDoc,
     getDocs,
     query,
-    serverTimestamp,
 } from 'firebase/firestore';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
@@ -79,7 +77,6 @@ export default function ListingLicenseModal() {
     const [listing, setListing] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [selectedLicenseId, setSelectedLicenseId] = useState(LICENSE_OPTIONS[0].id);
-    const [purchasing, setPurchasing] = useState(false);
 
     const selectedLicense = useMemo(
         () => LICENSE_OPTIONS.find((option) => option.id === selectedLicenseId) ?? LICENSE_OPTIONS[0],
@@ -161,40 +158,26 @@ export default function ListingLicenseModal() {
             return;
         }
 
-        setPurchasing(true);
-        const sellerId = listing?.userId || (typeof uploaderId === 'string' ? uploaderId : null);
-        try {
-            await addDoc(collection(db, 'transactions'), {
-                trackId: id,
-                buyerId: auth.currentUser.uid,
-                sellerId,
-                amount: selectedLicense.price,
-                trackTitle: listing?.title || 'Listing',
-                licenseType: selectedLicense.title,
-                timestamp: serverTimestamp(),
-                status: 'completed',
-            });
+        // TODO: Integrate Flutterwave payment for direct "Buy Now" flow
+        // This should:
+        // 1. Trigger Flutterwave payment modal
+        // 2. On success, call backend Cloud Function with payment reference
+        // 3. Backend verifies payment and creates transaction + purchase documents
+        // For now, redirect to cart which has the secure payment flow
+        
+        addItem({
+            id: `${id}_${selectedLicense.id}`,
+            title: listing?.title || 'Listing',
+            artist: listing?.uploaderName || 'Creator',
+            price: selectedLicense.price,
+            audioUrl: listing?.audioUrl || '',
+            uploaderId: listing?.userId || (typeof uploaderId === 'string' ? uploaderId : ''),
+            category: listing?.category || 'License',
+        });
 
-            await addDoc(collection(db, 'users', auth.currentUser.uid, 'purchases'), {
-                trackId: id,
-                title: listing?.title || 'Listing',
-                artist: listing?.uploaderName || 'Creator',
-                price: selectedLicense.price,
-                licenseType: selectedLicense.title,
-                uploaderId: sellerId,
-                purchasedAt: serverTimestamp(),
-                audioUrl: listing?.audioUrl || '',
-                coverUrl: listing?.coverUrl || '',
-            });
-
-            showToast('Purchase successful.', 'success');
-            router.back();
-        } catch (error) {
-            console.error('License purchase failed:', error);
-            showToast('Transaction failed. Please try again.', 'error');
-        } finally {
-            setPurchasing(false);
-        }
+        showToast(`${selectedLicense.title} added to cart. Complete your purchase in the cart.`, 'info');
+        router.back();
+        router.push('/cart');
     };
 
     return (
@@ -248,15 +231,10 @@ export default function ListingLicenseModal() {
 
                     <View style={styles.actionsWrap}>
                         <TouchableOpacity
-                            style={[styles.primaryAction, purchasing && styles.disabledAction]}
+                            style={styles.primaryAction}
                             onPress={handleBuyNow}
-                            disabled={purchasing}
                         >
-                            {purchasing ? (
-                                <ActivityIndicator color="#FFF" />
-                            ) : (
-                                <Text style={styles.primaryActionText}>Buy now</Text>
-                            )}
+                            <Text style={styles.primaryActionText}>Buy now</Text>
                         </TouchableOpacity>
 
                         <TouchableOpacity style={styles.secondaryAction} onPress={handleAddToCart}>

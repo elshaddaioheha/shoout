@@ -6,6 +6,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { getDownloadURL, ref, uploadBytesResumable } from 'firebase/storage';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import {
     ChevronDown,
     ChevronLeft,
@@ -32,16 +33,21 @@ import { auth, db, storage } from '../../firebaseConfig';
 const { width } = Dimensions.get('window');
 
 const GENRES = ['Afrobeat', 'Amapiano', 'Trap', 'Drill', 'R&B', 'Dancehall'];
+const ASSET_TYPES = ['Beat', 'Sample', 'Loop', 'Drum Kit', 'Vocal Pack', 'Preset', 'Other'];
+
+type AssetType = typeof ASSET_TYPES[number];
 
 export default function UploadScreen() {
     const router = useRouter();
     const [title, setTitle] = useState('');
     const [genre, setGenre] = useState('');
+    const [assetType, setAssetType] = useState<AssetType | ''>('');
     const [bpm, setBpm] = useState('');
     const [price, setPrice] = useState('');
     const [description, setDescription] = useState('');
     const [uploading, setUploading] = useState(false);
     const [showGenrePicker, setShowGenrePicker] = useState(false);
+    const [showAssetTypePicker, setShowAssetTypePicker] = useState(false);
 
     const [audioFile, setAudioFile] = useState<any>(null);
     const { showToast } = useToastStore();
@@ -70,6 +76,14 @@ export default function UploadScreen() {
             showToast("Please enter a title", "error");
             return;
         }
+        if (!genre) {
+            showToast("Please select a genre", "error");
+            return;
+        }
+        if (!assetType) {
+            showToast("Please select an asset type", "error");
+            return;
+        }
         if (!audioFile) {
             showToast("Please select an audio file to upload", "error");
             return;
@@ -81,6 +95,19 @@ export default function UploadScreen() {
 
         setUploading(true);
         try {
+            // 🔒 SECURITY: Validate storage limit before uploading
+            const validateStorageLimit = httpsCallable(getFunctions(), 'validateStorageLimit');
+            const storageValidation = await validateStorageLimit({
+                fileSizeBytes: audioFile.size,
+            });
+
+            const validationData = storageValidation.data as { allowed: boolean };
+            if (!validationData.allowed) {
+                showToast("Storage limit exceeded. Please upgrade your plan.", "error");
+                setUploading(false);
+                return;
+            }
+
             // 1. Convert local URI into a blob that Firebase Cloud Storage can digest
             const response = await fetch(audioFile.uri);
             const blob = await response.blob();
@@ -96,27 +123,33 @@ export default function UploadScreen() {
             const downloadUrl = await getDownloadURL(uploadTask.ref);
 
             // 5. Save the metadata pointer natively into Firestore Collections
+            // 🔒 SECURITY: Firestore rules will block pricing if user lacks canSell permission
             await addDoc(collection(db, `users/${auth.currentUser.uid}/uploads`), {
                 title,
                 genre: genre || "Unknown",
+                assetType,
                 bpm: parseInt(bpm) || 0,
                 price: parseFloat(price) || 0,
                 description,
                 audioUrl: downloadUrl,
                 fileName: audioFile.name,
+                fileSizeBytes: audioFile.size,
                 listenCount: 0,
                 createdAt: serverTimestamp(),
                 isPublic: true,
                 userId: auth.currentUser.uid,
                 uploaderName: auth.currentUser.displayName || "Shoouter",
-                category: genre === 'Drum Kit' || genre === 'Vocal Pack' ? 'Sample' : 'Beat' // Simple heuristic for now
             });
 
             showToast("Track uploaded to your Vault successfully!", "success");
             router.back();
         } catch (error: any) {
             console.error("Upload error: ", error);
-            showToast("Failed to upload: " + error.message, "error");
+            if (error.code === 'resource-exhausted') {
+                showToast("Storage limit exceeded. Please upgrade your subscription plan.", "error");
+            } else {
+                showToast("Failed to upload: " + error.message, "error");
+            }
         } finally {
             setUploading(false);
         }
@@ -206,6 +239,19 @@ export default function UploadScreen() {
                             </View>
 
                             <View style={styles.inputGroup}>
+                                <Text style={styles.label}>Asset Type</Text>
+                                <TouchableOpacity
+                                    style={styles.pickerTrigger}
+                                    onPress={() => setShowAssetTypePicker(true)}
+                                >
+                                    <Text style={[styles.pickerText, !assetType && { color: 'rgba(255,255,255,0.3)' }]}>
+                                        {assetType || 'Select Asset Type'}
+                                    </Text>
+                                    <ChevronDown size={18} color="rgba(255,255,255,0.6)" />
+                                </TouchableOpacity>
+                            </View>
+
+                            <View style={styles.inputGroup}>
                                 <Text style={styles.label}>Price (optional)</Text>
                                 <View style={styles.priceInputWrapper}>
                                     <Text style={styles.currencyPrefix}>$</Text>
@@ -263,7 +309,7 @@ export default function UploadScreen() {
                     </ScrollView>
                 </View>
 
-                {/* Genre Picker Modal Placeholder */}
+                {/* Genre Picker Modal */}
                 {showGenrePicker && (
                     <TouchableOpacity
                         style={styles.modalOverlay}
@@ -290,6 +336,45 @@ export default function UploadScreen() {
                                         {g}
                                     </Text>
                                     {genre === g && (
+                                        <Image
+                                            source={require('@/assets/images/check-circle.png')}
+                                            style={{ width: 18, height: 18 }}
+                                            contentFit="contain"
+                                        />
+                                    )}
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                    </TouchableOpacity>
+                )}
+
+                {/* Asset Type Picker Modal */}
+                {showAssetTypePicker && (
+                    <TouchableOpacity
+                        style={styles.modalOverlay}
+                        activeOpacity={1}
+                        onPress={() => setShowAssetTypePicker(false)}
+                    >
+                        <View style={styles.pickerContent}>
+                            <View style={styles.pickerHeader}>
+                                <Text style={styles.pickerTitle}>Select Asset Type</Text>
+                                <TouchableOpacity onPress={() => setShowAssetTypePicker(false)}>
+                                    <X size={24} color="#FFF" />
+                                </TouchableOpacity>
+                            </View>
+                            {ASSET_TYPES.map((type) => (
+                                <TouchableOpacity
+                                    key={type}
+                                    style={styles.genreItem}
+                                    onPress={() => {
+                                        setAssetType(type as AssetType);
+                                        setShowAssetTypePicker(false);
+                                    }}
+                                >
+                                    <Text style={[styles.genreItemText, assetType === type && { color: '#EC5C39' }]}>
+                                        {type}
+                                    </Text>
+                                    {assetType === type && (
                                         <Image
                                             source={require('@/assets/images/check-circle.png')}
                                             style={{ width: 18, height: 18 }}

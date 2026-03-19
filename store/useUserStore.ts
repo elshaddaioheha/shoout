@@ -31,21 +31,25 @@ interface UserState {
     reset: () => void;
 }
 
+/**
+ * PersistedUserState
+ * 
+ * SECURITY NOTE: Only UI preferences are persisted to AsyncStorage.
+ * actualRole and all permission-based data are NEVER persisted locally.
+ * They are set only from server-verified sources in useAuthStore.
+ */
 interface PersistedUserState {
-    role: UserRole;
-    actualRole: UserRole;
-    name: string;
     viewMode: ViewMode;
 }
 
 const STORAGE_KEY = 'shoouts-user-preferences-v3';
 
 const defaultState = {
-    role: 'vault_free',
-    actualRole: 'vault_free',
+    role: 'vault_free' as UserRole,
+    actualRole: 'vault_free' as UserRole,
     name: 'User',
     isPremium: false,
-    viewMode: 'vault',
+    viewMode: 'vault' as ViewMode,
     storageLimitGB: 0.05, // 50MB
     canSell: false,
     hasTeamAccess: false,
@@ -117,27 +121,20 @@ export const useUserStore = create<UserState>()(
             name: STORAGE_KEY,
             storage: createJSONStorage(() => AsyncStorage),
             skipHydration: process.env.NODE_ENV === 'test',
+            // SECURITY: Only persist viewMode (UI preference).
+            // actualRole and other permission data are fetched from server only.
             partialize: (state): PersistedUserState => ({
-                role: state.role,
-                actualRole: state.actualRole,
-                name: state.name,
                 viewMode: state.viewMode,
             }),
             merge: (persistedState, currentState) => {
                 const parsed = persistedState as { state?: Partial<PersistedUserState> } | undefined;
                 const persisted = parsed?.state;
 
-                if (!persisted?.role) {
-                    return currentState;
-                }
-
-                const caps = getRoleCapabilities(persisted.role);
-
+                // Restore only viewMode from storage
+                // All other data (role, actualRole, permissions) come from server
                 return {
                     ...currentState,
-                    ...persisted,
-                    actualRole: persisted.actualRole || persisted.role,
-                    ...caps,
+                    viewMode: persisted?.viewMode || 'vault',
                 };
             },
         }

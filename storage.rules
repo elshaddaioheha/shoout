@@ -27,6 +27,35 @@ service firebase.storage {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    // ANTI-PIRACY: Secure Audio Storage Paths
+    // ─────────────────────────────────────────────────────────────────────────
+    // originals/{userId}/{trackId}.wav - Backend-only, purchase-verified access
+    // hls-previews/{userId}/{trackId}/* - Watermarked chunks, signed URL access
+    // vaults/{userId}/{filename} - Temporary upload staging
+    // ─────────────────────────────────────────────────────────────────────────
+
+    // SECURE ORIGINALS: Backend-only write via Cloud Functions
+    match /originals/{userId}/{trackId}.wav {
+      allow read: if false; // NO CLIENT READ
+      allow create, write: if false; // Admin SDK only
+      allow delete: if false;
+    }
+
+    // HLS PREVIEWS: Watermarked chunks for marketplace
+    match /hls-previews/{userId}/{trackId}/{segment=**} {
+      allow read: if false; // Signed URLs only
+      allow write: if false; // Backend only
+      allow delete: if false;
+    }
+
+    // VAULTS: Temporary upload staging area
+    match /vaults/{userId}/{filename} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && isAudio() && maxSize(200);
+      allow delete: if false; // Admin SDK handles cleanup
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // User Audio Uploads (Vault / Studio)
     // Path: users/{uid}/audio/{filename}
     // ─────────────────────────────────────────────────────────────────────────
@@ -77,6 +106,14 @@ service firebase.storage {
     match /merch/{itemId}/{filename} {
       allow read: if isAuthenticated();
       allow write: if false; // Admin SDK only
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // System Metadata (read-only for clients)
+    // ─────────────────────────────────────────────────────────────────────────
+    match /system/{document=**} {
+      allow read: if isAuthenticated();
+      allow write: if false;
     }
 
     // ─────────────────────────────────────────────────────────────────────────

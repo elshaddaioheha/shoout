@@ -10,6 +10,8 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { useEffect, useState } from 'react';
 import 'react-native-reanimated';
 import { auth } from '../firebaseConfig';
+import { fetchVerifiedSubscriptionTier } from '@/utils/subscriptionVerification';
+import { useAuthStore } from '@/store/useAuthStore';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -17,6 +19,7 @@ export default function RootLayout() {
   const colorScheme = useColorScheme();
   const router = useRouter();
   const [authResolved, setAuthResolved] = useState(false);
+  const { setVerifying } = useAuthStore();
 
   const [loaded, error] = useFonts({
     'Poppins-Regular': Poppins_400Regular,
@@ -25,15 +28,27 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (user) => {
+    const unsub = onAuthStateChanged(auth, async (user) => {
       if (user) {
+        // User is authenticated — fetch and verify their subscription tier from server
+        try {
+          setVerifying(true);
+          await fetchVerifiedSubscriptionTier();
+        } catch (error) {
+          console.error('Failed to verify subscription tier:', error);
+          // Even if verification fails, allow user to proceed with free tier
+          // They'll be restricted from paid features client-side
+        } finally {
+          setVerifying(false);
+        }
+        
         router.replace('/(tabs)');
       }
       setAuthResolved(true);
     });
 
     return unsub;
-  }, [router]);
+  }, [router, setVerifying]);
 
   useEffect(() => {
     if (loaded || error) {

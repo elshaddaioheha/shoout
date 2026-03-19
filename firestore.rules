@@ -18,6 +18,21 @@ service cloud.firestore {
       return field is string && field.size() > 0;
     }
 
+    // 🔒 CRITICAL: Backend-only writes via Admin SDK
+    // This function explicitly blocks ALL client writes, making it impossible to
+    // accidentally allow sensitive operations (payouts, transactions, etc.)
+    // that should only be created by verified backend processes.
+    function backendOnly() {
+      return false; // Always blocks client writes; Admin SDK bypasses this rule
+    }
+
+    // 🔒 CRITICAL: Verify user has selling rights via subscription tier
+    // Checks the user's subscription document to ensure they have canSell capability
+    function canUserSell(uid) {
+      let userSub = get(/databases/$(database)/documents/users/$(uid)/subscription/current);
+      return userSub.data.tier in ['studio_free', 'studio_pro', 'studio_plus', 'hybrid_creator', 'hybrid_executive'];
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     // Users
     // Public profile is readable by anyone authenticated.
@@ -32,24 +47,31 @@ service cloud.firestore {
       // ── Uploads (Vault / Studio) ──────────────────────────────────────────
       // Any authenticated user can READ uploads (for marketplace discovery).
       // Only the owner can write (upload, edit, delete).
+      // 🔒 CRITICAL: Only users with canSell:true can set price > 0
       match /uploads/{uploadId} {
         allow read: if isAuthenticated();
         allow create: if isOwner(uid)
           && isValidString(request.resource.data.title)
-          && request.resource.data.price >= 0;
+          && request.resource.data.price >= 0
+          && (request.resource.data.price == 0 || canUserSell(uid));
         allow update: if isOwner(uid);
         allow delete: if isOwner(uid);
       }
 
       // ── Purchases (Library) ───────────────────────────────────────────────
-      // Only the owner can read their own purchases.
-      // Purchases are written by the owner (checkout flow) or internally.
+      // Only the owner can READ their own purchases.
+      // WRITE ONLY by secure backend (Cloud Functions) after webhook verification.
+      // Client cannot create, update, or delete.
+      //
+      // 🔒 CRITICAL SECURITY:
+      // - Prevents users from granting themselves content access
+      // - Prevents bypassing payment verification
+      // - Backend must verify payment with Flutterwave/Stripe before creating
       match /purchases/{purchaseId} {
         allow read: if isOwner(uid);
-        allow create: if isOwner(uid)
-          && isValidString(request.resource.data.title);
-        allow update: if false; // Purchases are immutable
-        allow delete: if false;
+        allow create: if backendOnly(); // 🔒 CRITICAL: Backend-only after payment verification
+        allow update: if backendOnly(); // 🔒 CRITICAL: Immutable purchase record
+        allow delete: if backendOnly(); // 🔒 CRITICAL: Immutable purchase record
       }
 
       // ── Notifications ─────────────────────────────────────────────────────
@@ -100,33 +122,41 @@ service cloud.firestore {
 
     // ─────────────────────────────────────────────────────────────────────────
     // Transactions (Marketplace purchases)
-    // Any authenticated user can CREATE (buy).
-    // Only the buyer or seller can READ their own transactions.
-    // Nobody can UPDATE or DELETE (audit trail).
+    // Any authenticated user can READ their own transactions (buyer or seller).
+    // WRITE ONLY by secure backend (Cloud Functions) after webhook verification.
+    // Client cannot create, update, or delete (audit trail enforcement).
+    //
+    // 🔒 CRITICAL SECURITY:
+    // - Prevents users from creating fake transactions
+    // - Prevents bypassing payment verification
+    // - Backend must verify payment with Flutterwave/Stripe before creating
     // ─────────────────────────────────────────────────────────────────────────
     match /transactions/{txnId} {
       allow read: if isAuthenticated()
         && (resource.data.buyerId == request.auth.uid
             || resource.data.sellerId == request.auth.uid);
-      allow create: if isAuthenticated()
-        && request.resource.data.buyerId == request.auth.uid
-        && request.resource.data.amount >= 0
-        && isValidString(request.resource.data.trackTitle);
-      allow update: if false;
-      allow delete: if false;
+      allow create: if backendOnly(); // 🔒 CRITICAL: Backend-only after payment verification
+      allow update: if backendOnly(); // 🔒 CRITICAL: Immutable audit trail
+      allow delete: if backendOnly(); // 🔒 CRITICAL: Immutable audit trail
     }
 
     // ─────────────────────────────────────────────────────────────────────────
     // Payouts
-    // Only the earner can read. System writes (admin SDK) for now.
+    // Only the earner can read their own payouts.
+    // WRITE ONLY by secure backend (Admin SDK or Cloud Functions).
+    // Client cannot create, update, or delete.
+    //
+    // 🔒 CRITICAL SECURITY:
+    // - Prevents users from forging payout requests
+    // - Prevents draining the platform via spam payouts
+    // - Backend must verify earnings before creating payout documents
     // ─────────────────────────────────────────────────────────────────────────
     match /payouts/{payoutId} {
       allow read: if isAuthenticated()
         && resource.data.userId == request.auth.uid;
-      allow create: if isAuthenticated()
-        && request.resource.data.userId == request.auth.uid;
-      allow update: if false;
-      allow delete: if false;
+      allow create: if backendOnly(); // 🔒 CRITICAL: Backend-only via Admin SDK
+      allow update: if backendOnly(); // 🔒 CRITICAL: Backend-only via Admin SDK
+      allow delete: if backendOnly(); // 🔒 CRITICAL: Backend-only via Admin SDK
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -168,6 +198,28 @@ service cloud.firestore {
         && request.resource.data.uploaderId == request.auth.uid;
       allow update, delete: if isAuthenticated()
         && resource.data.uploaderId == request.auth.uid;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Uploads (Transcoding Metadata for HLS + Watermarking)
+    // Tracks progress of audio file transcoding to watermarked HLS format.
+    // Readable by authenticated users to check transcoding status.
+    // Written ONLY by backend (Cloud Functions via Admin SDK).
+    //
+    // 🎵 ANTI-PIRACY STREAMING MODEL:
+    // - Raw file: originals/{userId}/{trackId}.wav (backend-only storage path)
+    // - HLS preview: hls-previews/{userId}/{trackId}/*.m3u8 (watermarked chunks)
+    // - Status tracking: uploads/{trackId} (this collection)
+    //
+    // ─────────────────────────────────────────────────────────────────────────
+    match /uploads/{uploadId} {
+      // Users can read upload metadata (to check transcoding progress)
+      allow read: if isAuthenticated();
+      
+      // Backend-only writes via Cloud Functions
+      allow create: if backendOnly(); // 🔒 CRITICAL: Triggered by processAudioUpload()
+      allow update: if backendOnly(); // 🔒 CRITICAL: Updated by onHlsTranscodingComplete()
+      allow delete: if backendOnly(); // 🔒 CRITICAL: Cleanup via backend job
     }
 
   }

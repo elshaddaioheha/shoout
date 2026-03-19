@@ -1,0 +1,325 @@
+name: CI/CD Deployment Pipeline
+
+on:
+  push:
+    branches:
+      - dev
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:  # Allow manual trigger
+
+env:
+  NODE_VERSION: '20'
+  FIREBASE_CLI_VERSION: latest
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────────
+  # LINT & TYPE CHECK
+  # ─────────────────────────────────────────────────────────────────────
+  lint:
+    name: Lint & Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Lint app code
+        run: npm run lint
+        continue-on-error: true  # Warning, not blocking
+
+      - name: Type check app
+        run: npx tsc --noEmit
+
+      - name: Lint Cloud Functions
+        run: |
+          cd functions
+          npm run lint
+        continue-on-error: true
+
+      - name: Type check Cloud Functions
+        run: |
+          cd functions
+          npx tsc --noEmit
+
+  # ─────────────────────────────────────────────────────────────────────
+  # UNIT TESTS
+  # ─────────────────────────────────────────────────────────────────────
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    needs: lint  # Run after lint
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Run Jest tests
+        run: npm run test:coverage
+        env:
+          NODE_ENV: test
+          REACT_APP_ENV: dev
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./coverage/lcov.info
+          fail_ci_if_error: false
+
+  # ─────────────────────────────────────────────────────────────────────
+  # SECURITY SCANNING
+  # ─────────────────────────────────────────────────────────────────────
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Run npm audit
+        run: npm audit --audit-level=moderate
+        continue-on-error: true  # Warning only
+
+      - name: Check for secrets
+        uses: gitleaks/gitleaks-action@v2
+        continue-on-error: true
+
+  # ─────────────────────────────────────────────────────────────────────
+  # DEPLOY TO STAGING (DEV BRANCH)
+  # ─────────────────────────────────────────────────────────────────────
+  deploy-dev:
+    name: Deploy to Development
+    runs-on: ubuntu-latest
+    needs: [lint, test, security]
+    if: github.ref == 'refs/heads/dev' && github.event_name == 'push'
+    environment:
+      name: development
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Setup Firebase CLI
+        run: npm install -g firebase-tools@latest
+
+      - name: Authenticate to Firebase (DEV)
+        run: |
+          echo "${{ secrets.FIREBASE_CONFIG_DEV }}" > firebase-config-dev.json
+          firebase use dev
+
+      - name: Deploy Firestore Rules (DEV)
+        run: firebase deploy --only firestore:rules --project dev
+
+      - name: Deploy Storage Rules (DEV)
+        run: firebase deploy --only storage --project dev
+
+      - name: Deploy Cloud Functions (DEV)
+        run: |
+          cd functions
+          npm install
+          firebase deploy --only functions --project dev
+        env:
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY_DEV }}
+          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET_DEV }}
+          FLUTTERWAVE_SECRET_HASH: ${{ secrets.FLUTTERWAVE_SECRET_HASH_DEV }}
+          MUX_TOKEN_ID: ${{ secrets.MUX_TOKEN_ID_DEV }}
+          MUX_TOKEN_SECRET: ${{ secrets.MUX_TOKEN_SECRET_DEV }}
+
+      - name: Build EAS Preview (DEV)
+        run: |
+          npm install -g eas-cli
+          eas build --platform all --profile development
+        env:
+          EAS_TOKEN: ${{ secrets.EAS_TOKEN }}
+
+      - name: Notify deployment (Slack)
+        if: always()
+        uses: slackapi/slack-github-action@v1
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_DEV }}
+          payload: |
+            {
+              "text": "🚀 Dev deployment ${{ job.status }}",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Development Deployment*\n${{ job.status }}\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                  }
+                }
+              ]
+            }
+
+  # ─────────────────────────────────────────────────────────────────────
+  # DEPLOY TO PRODUCTION (MAIN BRANCH)
+  # ─────────────────────────────────────────────────────────────────────
+  deploy-prod:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [lint, test, security]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment:
+      name: production
+      deployment_branch_policy_type: require_deployment_envs
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Setup Firebase CLI
+        run: npm install -g firebase-tools@latest
+
+      - name: Authenticate to Firebase (PROD)
+        run: |
+          echo "${{ secrets.FIREBASE_CONFIG_PROD }}" > firebase-config-prod.json
+          firebase use prod
+
+      - name: ⚠️ Safety Check - Verify Production Project
+        run: |
+          PROJECT=$(firebase use)
+          if [[ "$PROJECT" != *"prod"* ]]; then
+            echo "❌ SAFETY CHECK FAILED: Not targeting production project!"
+            exit 1
+          fi
+          echo "✅ Production project verified: $PROJECT"
+
+      - name: Deploy Firestore Rules (PROD)
+        run: firebase deploy --only firestore:rules --project prod
+
+      - name: Deploy Storage Rules (PROD)
+        run: firebase deploy --only storage --project prod
+
+      - name: Deploy Cloud Functions (PROD)
+        run: |
+          cd functions
+          npm install
+          npm run build
+          firebase deploy --only functions --project prod
+        env:
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY_PROD }}
+          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET_PROD }}
+          FLUTTERWAVE_SECRET_HASH: ${{ secrets.FLUTTERWAVE_SECRET_HASH_PROD }}
+          MUX_TOKEN_ID: ${{ secrets.MUX_TOKEN_ID_PROD }}
+          MUX_TOKEN_SECRET: ${{ secrets.MUX_TOKEN_SECRET_PROD }}
+
+      - name: Build & Submit iOS (PROD)
+        run: |
+          npm install -g eas-cli
+          eas build --platform ios --profile production --auto-submit
+        env:
+          EAS_TOKEN: ${{ secrets.EAS_TOKEN }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+
+      - name: Build & Submit Android (PROD)
+        run: |
+          npm install -g eas-cli
+          eas build --platform android --profile production --auto-submit
+        env:
+          EAS_TOKEN: ${{ secrets.EAS_TOKEN }}
+
+      - name: Create Release Notes
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const tag = `v${new Date().toISOString().split('T')[0]}`;
+            const commits = await github.rest.repos.listCommitsCompareTwoShas({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              base: 'HEAD~20',  // Last 20 commits
+              head: 'HEAD'
+            });
+            console.log(`📝 Release: ${tag}`);
+            commits.data.commits.forEach(c => console.log(`  - ${c.commit.message}`));
+
+      - name: Notify deployment (Slack)
+        if: always()
+        uses: slackapi/slack-github-action@v1
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_PROD }}
+          payload: |
+            {
+              "text": "🚀 Production deployment ${{ job.status }}",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Production Deployment*\n${{ job.status }}\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                  }
+                }
+              ]
+            }
+
+  # ─────────────────────────────────────────────────────────────────────
+  # HEALTH CHECK (Optional - runs 15 min after prod deploy)
+  # ─────────────────────────────────────────────────────────────────────
+  health-check:
+    name: Post-Deployment Health Check
+    runs-on: ubuntu-latest
+    needs: deploy-prod
+    if: always() && needs.deploy-prod.result == 'success'
+    steps:
+      - name: Wait for services to stabilize
+        run: sleep 300  # 5 minutes
+
+      - name: Test Firebase Cloud Functions
+        run: |
+          curl -X GET \
+            https://us-central1-shoouts-prod-67890.cloudfunctions.net/aggregateBestSellers \
+            -H "Authorization: Bearer ${{ secrets.FIREBASE_ADMIN_TOKEN }}"
+
+      - name: Test Firestore connectivity
+        run: |
+          curl -X POST \
+            https://firestore.googleapis.com/v1/projects/shoouts-prod-67890/databases/default \
+            -H "Authorization: Bearer ${{ secrets.FIREBASE_ADMIN_TOKEN }}"
+
+      - name: Notify team if health check fails
+        if: failure()
+        uses: slackapi/slack-github-action@v1
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_PROD }}
+          payload: |
+            {
+              "text": "⚠️ Post-deployment health check FAILED",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Production Health Check Failed*\nPlease investigate immediately: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                  }
+                }
+              ]
+            }

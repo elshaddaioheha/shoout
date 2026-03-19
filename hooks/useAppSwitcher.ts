@@ -1,10 +1,13 @@
 import { ViewMode, useUserStore } from '@/store/useUserStore';
+import { useAuthStore } from '@/store/useAuthStore';
 import { useRouter } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
 import { Animated } from 'react-native';
 
 export function useAppSwitcher() {
-    const { actualRole, viewMode, setViewMode } = useUserStore();
+    // SECURITY: Use server-verified role from useAuthStore, never the local role
+    const { actualRole: serverVerifiedRole, isVerifyingRole } = useAuthStore();
+    const { viewMode, setViewMode } = useUserStore();
     const router = useRouter();
 
     const [sheetVisible, setSheetVisible] = useState(false);
@@ -20,14 +23,15 @@ export function useAppSwitcher() {
     const closeSheet = useCallback(() => setSheetVisible(false), []);
 
     // Vault is accessible to everyone — studio users already have all vault benefits.
-    // Studio requires a studio or hybrid subscription.
+    // Studio requires a studio or hybrid subscription (VERIFIED ON SERVER).
     const isModeAccessible = useCallback((targetViewMode: ViewMode): boolean => {
         if (targetViewMode === 'vault') return true;
         if (targetViewMode === 'studio') {
-            return actualRole.startsWith('studio') || actualRole.startsWith('hybrid');
+            // CRITICAL: Check server-verified role, not local storage
+            return (serverVerifiedRole?.startsWith('studio') || serverVerifiedRole?.startsWith('hybrid')) ?? false;
         }
         return false;
-    }, [actualRole]);
+    }, [serverVerifiedRole]);
 
     const switchMode = useCallback(async (targetViewMode: ViewMode) => {
         if (targetViewMode === viewMode) {
@@ -86,6 +90,7 @@ export function useAppSwitcher() {
         transitioning,
         viewMode,
         isModeAccessible,
+        isVerifyingRole, // Expose verification state in case UI needs to show loading
         openSheet,
         closeSheet,
         switchMode,
