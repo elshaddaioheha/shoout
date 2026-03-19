@@ -124,12 +124,13 @@ jobs:
           firebase deploy --only firestore:rules
 
       - name: Notify deployment (dev)
-        if: always() && secrets.SLACK_WEBHOOK_URL != ''
+        if: always() && env.SLACK_WEBHOOK_URL != ''
         uses: 8398a7/action-slack@v3
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         with:
           status: ${{ job.status }}
           text: 'DEV Deployment ${{ job.status }}'
-          webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
           fields: repo,action,ref,commit
         continue-on-error: true
 
@@ -185,11 +186,12 @@ jobs:
           echo "✓ Health check passed"
 
       - name: Notify deployment (prod)
-        if: always() && secrets.SLACK_WEBHOOK_URL != ''
+        if: always() && env.SLACK_WEBHOOK_URL != ''
         uses: 8398a7/action-slack@v3
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         with:
           status: ${{ job.status }}
           text: 'PROD Deployment ${{ job.status }} - ${{ github.actor }}'
-          webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
           fields: repo,action,ref,commit
         continue-on-error: true
