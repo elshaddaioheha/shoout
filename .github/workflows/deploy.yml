@@ -4,7 +4,9 @@ on:
   push:
     branches:
       - dev
+      - master
       - main
+  workflow_dispatch:
 
 env:
   NODE_VERSION: '20'
@@ -154,7 +156,7 @@ jobs:
 
   deploy-prod:
     name: Deploy to Production
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
     needs: [lint-and-type-check, test, security]
     runs-on: ubuntu-latest
     steps:
