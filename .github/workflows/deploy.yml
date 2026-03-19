@@ -92,7 +92,6 @@ jobs:
     if: github.ref == 'refs/heads/dev'
     needs: [lint-and-type-check, test, security]
     runs-on: ubuntu-latest
-    environment: development
     steps:
       - uses: actions/checkout@v4
 
@@ -125,13 +124,13 @@ jobs:
           firebase deploy --only firestore:rules
 
       - name: Notify deployment (dev)
-        if: always()
+        if: always() && secrets.SLACK_WEBHOOK_URL != ''
         uses: 8398a7/action-slack@v3
         with:
           status: ${{ job.status }}
           text: 'DEV Deployment ${{ job.status }}'
           webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
-          fields: repo,action,ref,commit,author
+          fields: repo,action,ref,commit
         continue-on-error: true
 
   deploy-prod:
@@ -139,7 +138,6 @@ jobs:
     if: github.ref == 'refs/heads/main'
     needs: [lint-and-type-check, test, security]
     runs-on: ubuntu-latest
-    environment: production
     steps:
       - uses: actions/checkout@v4
 
@@ -187,11 +185,11 @@ jobs:
           echo "✓ Health check passed"
 
       - name: Notify deployment (prod)
-        if: always()
+        if: always() && secrets.SLACK_WEBHOOK_URL != ''
         uses: 8398a7/action-slack@v3
         with:
           status: ${{ job.status }}
           text: 'PROD Deployment ${{ job.status }} - ${{ github.actor }}'
           webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
-          fields: repo,action,ref,commit,author
+          fields: repo,action,ref,commit
         continue-on-error: true
