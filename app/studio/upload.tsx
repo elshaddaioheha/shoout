@@ -50,6 +50,8 @@ export default function UploadScreen() {
     const [showAssetTypePicker, setShowAssetTypePicker] = useState(false);
 
     const [audioFile, setAudioFile] = useState<any>(null);
+    const [artworkFile, setArtworkFile] = useState<any>(null);
+    const [artworkPreviewUri, setArtworkPreviewUri] = useState<string | null>(null);
     const { showToast } = useToastStore();
 
     const handleBack = () => {
@@ -68,6 +70,23 @@ export default function UploadScreen() {
         } catch (error) {
             console.error('Document picker error:', error);
             showToast('Failed to pick file.', 'error');
+        }
+    };
+
+    const handleSelectArtwork = async () => {
+        try {
+            const result = await DocumentPicker.getDocumentAsync({
+                type: 'image/*',
+                copyToCacheDirectory: true,
+            });
+
+            if (!result.canceled) {
+                setArtworkFile(result.assets[0]);
+                setArtworkPreviewUri(result.assets[0].uri);
+            }
+        } catch (error) {
+            console.error('Artwork picker error:', error);
+            showToast('Failed to pick artwork.', 'error');
         }
     };
 
@@ -122,6 +141,15 @@ export default function UploadScreen() {
             // 4. Get the permanent streamable URL
             const downloadUrl = await getDownloadURL(uploadTask.ref);
 
+            let coverUrl = '';
+            if (artworkFile) {
+                const artResponse = await fetch(artworkFile.uri);
+                const artBlob = await artResponse.blob();
+                const artRef = ref(storage, `users/${auth.currentUser.uid}/covers/${safeFileName}`);
+                const artTask = await uploadBytesResumable(artRef, artBlob);
+                coverUrl = await getDownloadURL(artTask.ref);
+            }
+
             // 5. Save the metadata pointer natively into Firestore Collections
             // 🔒 SECURITY: Firestore rules will block pricing if user lacks canSell permission
             await addDoc(collection(db, `users/${auth.currentUser.uid}/uploads`), {
@@ -132,6 +160,7 @@ export default function UploadScreen() {
                 price: parseFloat(price) || 0,
                 description,
                 audioUrl: downloadUrl,
+                coverUrl,
                 fileName: audioFile.name,
                 fileSizeBytes: audioFile.size,
                 listenCount: 0,
@@ -176,15 +205,19 @@ export default function UploadScreen() {
                         contentContainerStyle={styles.scrollContent}
                     >
                         {/* Artwork Upload */}
-                        <TouchableOpacity style={styles.artworkUpload}>
-                            <LinearGradient
-                                colors={['rgba(255,255,255,0.05)', 'rgba(255,255,255,0.02)']}
-                                style={styles.artworkGradient}
-                            >
-                                <ImageIcon size={32} color="rgba(255,255,255,0.4)" />
-                                <Text style={styles.uploadArtText}>Tap to add Cover Art</Text>
-                                <Text style={styles.uploadArtSub}>1:1 Ratio recommended</Text>
-                            </LinearGradient>
+                        <TouchableOpacity style={styles.artworkUpload} onPress={handleSelectArtwork}>
+                            {artworkPreviewUri ? (
+                                <Image source={{ uri: artworkPreviewUri }} style={StyleSheet.absoluteFillObject} contentFit="cover" />
+                            ) : (
+                                <LinearGradient
+                                    colors={['rgba(255,255,255,0.05)', 'rgba(255,255,255,0.02)']}
+                                    style={styles.artworkGradient}
+                                >
+                                    <ImageIcon size={32} color="rgba(255,255,255,0.4)" />
+                                    <Text style={styles.uploadArtText}>Tap to add Cover Art</Text>
+                                    <Text style={styles.uploadArtSub}>1:1 Ratio recommended</Text>
+                                </LinearGradient>
+                            )}
                         </TouchableOpacity>
 
                         {/* File Upload Section */}

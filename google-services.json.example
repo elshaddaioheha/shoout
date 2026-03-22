@@ -1,41 +1,41 @@
 {
   "project_info": {
-    "project_number": "36988459437",
-    "project_id": "shoouts-6178f",
-    "storage_bucket": "shoouts-6178f.firebasestorage.app"
+    "project_number": "REPLACE_WITH_PROJECT_NUMBER",
+    "project_id": "REPLACE_WITH_PROJECT_ID",
+    "storage_bucket": "REPLACE_WITH_STORAGE_BUCKET"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:36988459437:android:9dc53c79d3c21bb886e924",
+        "mobilesdk_app_id": "REPLACE_WITH_MOBILE_SDK_APP_ID",
         "android_client_info": {
           "package_name": "com.shoouts"
         }
       },
       "oauth_client": [
         {
-          "client_id": "36988459437-2b5244vcae2vbe524meu5lv5llmc8c53.apps.googleusercontent.com",
+          "client_id": "REPLACE_WITH_ANDROID_OAUTH_CLIENT_ID",
           "client_type": 1,
           "android_info": {
             "package_name": "com.shoouts",
-            "certificate_hash": "ea65db60aab87c3a34cd38d9d771763dbdccfc8b"
+            "certificate_hash": "REPLACE_WITH_CERTIFICATE_HASH"
           }
         },
         {
-          "client_id": "36988459437-cj5ljq01db0nho2q2tsb35pr9ll2c7mu.apps.googleusercontent.com",
+          "client_id": "REPLACE_WITH_WEB_OAUTH_CLIENT_ID",
           "client_type": 3
         }
       ],
       "api_key": [
         {
-          "current_key": "AIzaSyBsPE3vKOUpz4AkqPArGJLi3wUX1QhcTKU"
+          "current_key": "REPLACE_WITH_FIREBASE_API_KEY"
         }
       ],
       "services": {
         "appinvite_service": {
           "other_platform_oauth_client": [
             {
-              "client_id": "36988459437-cj5ljq01db0nho2q2tsb35pr9ll2c7mu.apps.googleusercontent.com",
+              "client_id": "REPLACE_WITH_WEB_OAUTH_CLIENT_ID",
               "client_type": 3
             }
           ]

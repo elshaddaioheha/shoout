@@ -32,6 +32,13 @@ const PROJECT_ID = env.EXPO_PUBLIC_FIREBASE_PROJECT_ID;
 const API_KEY = env.EXPO_PUBLIC_FIREBASE_API_KEY;
 const BASE_URL = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents`;
 
+if (!PROJECT_ID) {
+    throw new Error('EXPO_PUBLIC_FIREBASE_PROJECT_ID is required');
+}
+if (PROJECT_ID === 'shoouts-6178f' || PROJECT_ID.includes('prod')) {
+    throw new Error(`Refusing to seed production-like project: ${PROJECT_ID}`);
+}
+
 // ─── Step 1: Sign in anonymously to get an ID token ──────────────────────────
 async function signInAnonymously() {
     const res = await fetch(

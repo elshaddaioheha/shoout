@@ -1,9 +1,19 @@
 import * as admin from 'firebase-admin';
 
+const projectId = process.env.SEED_FIREBASE_PROJECT_ID || process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID;
+
+if (!projectId) {
+    throw new Error('Missing SEED_FIREBASE_PROJECT_ID (or EXPO_PUBLIC_FIREBASE_PROJECT_ID) for seeding.');
+}
+
+if (projectId === 'shoouts-6178f' || projectId.includes('prod')) {
+    throw new Error(`Refusing to seed production-like project: ${projectId}`);
+}
+
 // Check if already initialized to avoid duplication
 if (!admin.apps.length) {
     admin.initializeApp({
-        projectId: "shoouts-6178f" // Safe for local emulation
+        projectId
     });
 }
 

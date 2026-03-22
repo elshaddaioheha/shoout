@@ -21,6 +21,13 @@ const PROJECT = env.EXPO_PUBLIC_FIREBASE_PROJECT_ID;
 const API_KEY = env.EXPO_PUBLIC_FIREBASE_API_KEY;
 const FS_BASE = `https://firestore.googleapis.com/v1/projects/${PROJECT}/databases/(default)/documents`;
 
+if (!PROJECT) {
+    throw new Error('EXPO_PUBLIC_FIREBASE_PROJECT_ID is required');
+}
+if (PROJECT === 'shoouts-6178f' || PROJECT.includes('prod')) {
+    throw new Error(`Refusing to seed production-like project: ${PROJECT}`);
+}
+
 // ─── REST helpers ──────────────────────────────────────────────────────────────
 function val(v) {
     if (v === null || v === undefined) return { nullValue: null };

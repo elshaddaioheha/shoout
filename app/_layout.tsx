@@ -56,8 +56,13 @@ export default function RootLayout() {
     }
 
     // Configure Google Sign-In
+    const googleWebClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID?.trim();
+    if (!googleWebClientId) {
+      console.warn('Google Sign-In not configured: EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID is missing.');
+    }
+
     GoogleSignin.configure({
-      webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '', // Requires Web Client ID from Firebase Console -> Authentication -> Sign-in method -> Google -> Web SDK configuration
+      webClientId: googleWebClientId || '', // Requires Web Client ID from Firebase Console -> Authentication -> Sign-in method -> Google -> Web SDK configuration
     });
   }, [loaded, error]);
 
@@ -67,7 +72,7 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack initialRouteName="(auth)/role-selection">
+      <Stack initialRouteName="index">
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="(auth)/role-selection" options={{ headerShown: false }} />
         <Stack.Screen name="(auth)/onboarding" options={{ headerShown: false }} />

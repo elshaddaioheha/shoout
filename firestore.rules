@@ -18,6 +18,26 @@ service cloud.firestore {
       return field is string && field.size() > 0;
     }
 
+    function hasRestrictedUserFieldChange() {
+      let changed = request.resource.data.diff(resource.data).changedKeys();
+      return 'role' in changed
+        || 'actualRole' in changed
+        || 'isPremium' in changed
+        || 'subscriptionTier' in changed
+        || 'subscriptionStatus' in changed
+        || 'lastSubscribedAt' in changed
+        || 'canSell' in changed
+        || 'hasTeamAccess' in changed
+        || 'hasAdvancedAnalytics' in changed
+        || 'transactionFeePercent' in changed
+        || 'storageLimitGB' in changed;
+    }
+
+    function hasSafeInitialUserRole() {
+      return !('role' in request.resource.data)
+        || request.resource.data.role in ['vault', 'vault_free', 'studio_free'];
+    }
+
     // 🔒 CRITICAL: Backend-only writes via Admin SDK
     // This function explicitly blocks ALL client writes, making it impossible to
     // accidentally allow sensitive operations (payouts, transactions, etc.)
@@ -59,8 +79,8 @@ service cloud.firestore {
     // ─────────────────────────────────────────────────────────────────────────
     match /users/{uid} {
       allow read: if isAuthenticated();
-      allow create: if isOwner(uid);
-      allow update: if isOwner(uid);
+      allow create: if isOwner(uid) && hasSafeInitialUserRole();
+      allow update: if isOwner(uid) && !hasRestrictedUserFieldChange();
       allow delete: if false; // Soft-delete only — never hard delete users
 
       // ── Uploads (Vault / Studio) ──────────────────────────────────────────

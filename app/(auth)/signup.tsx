@@ -1,19 +1,22 @@
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { createUserWithEmailAndPassword, GoogleAuthProvider, OAuthProvider, signInWithCredential, updateProfile } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import React from 'react';
-import { KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Animated, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { auth, db } from '../../firebaseConfig';
 import { useToastStore } from '../../store/useToastStore';
 import { useUserStore } from '../../store/useUserStore';
 import { getFriendlyErrorMessage } from '../../utils/errorHandler';
 
+type SignupSubscriptionTier = 'vault' | 'vault_pro' | 'vault_executive' | 'studio_pro' | 'studio_plus' | 'hybrid' | 'vault_free' | 'vault_creator' | 'studio_free' | 'hybrid_creator' | 'hybrid_executive';
+
 export default function SignupScreen() {
     const router = useRouter();
+    const { redirectTo } = useLocalSearchParams<{ redirectTo?: string }>();
     const [fullName, setFullName] = React.useState('');
     const [email, setEmail] = React.useState('');
     const [password, setPassword] = React.useState('');
@@ -21,6 +24,40 @@ export default function SignupScreen() {
     const [loading, setLoading] = React.useState(false);
     const { setRole } = useUserStore();
     const { showToast } = useToastStore();
+    const slideAnim = React.useRef(new Animated.Value(-40)).current;
+    const opacityAnim = React.useRef(new Animated.Value(0)).current;
+
+    React.useEffect(() => {
+        Animated.parallel([
+            Animated.timing(slideAnim, {
+                toValue: 0,
+                duration: 500,
+                useNativeDriver: true,
+            }),
+            Animated.timing(opacityAnim, {
+                toValue: 1,
+                duration: 450,
+                useNativeDriver: true,
+            }),
+        ]).start();
+    }, [opacityAnim, slideAnim]);
+
+    const writeSubscriptionDoc = async (uid: string, tier: SignupSubscriptionTier) => {
+        await setDoc(
+            doc(db, 'users', uid, 'subscription', 'current'),
+            {
+                tier,
+                isSubscribed: true,
+                expiresAt: null,
+                updatedAt: new Date().toISOString(),
+            },
+            { merge: true }
+        );
+    };
+
+    const goGuestHome = () => {
+        router.replace('/(tabs)');
+    };
 
     const handleSignup = async () => {
         if (!email || !password || !fullName) return;
@@ -40,11 +77,13 @@ export default function SignupScreen() {
                 await setDoc(doc(db, "users", userCred.user.uid), {
                     fullName,
                     email,
-                    role: 'vault_free', // Default initial role
+                    role: 'vault', // Default initial role
                     createdAt: new Date().toISOString()
                 });
 
-                setRole('vault_free');
+                await writeSubscriptionDoc(userCred.user.uid, 'vault');
+
+                setRole('vault');
                 // Route to real role selection 
                 router.replace('/(auth)/role-selection');
             }
@@ -57,6 +96,12 @@ export default function SignupScreen() {
     };
 
     const handleGoogleLogin = async () => {
+        const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID?.trim();
+        if (!webClientId) {
+            showToast('Google Sign-In is not configured. Missing EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID.', 'error');
+            return;
+        }
+
         try {
             setLoading(true);
             await GoogleSignin.hasPlayServices();
@@ -72,21 +117,30 @@ export default function SignupScreen() {
                 await setDoc(doc(db, "users", userCred.user.uid), {
                     fullName: userCred.user.displayName || "Google User",
                     email: userCred.user.email,
-                    role: 'vault_free',
+                    role: 'vault',
                     createdAt: new Date().toISOString()
                 });
-                setRole('vault_free');
+
+                await writeSubscriptionDoc(userCred.user.uid, 'vault');
+
+                setRole('vault');
                 router.replace('/(auth)/role-selection');
             } else {
                 const userData = userDoc.data();
-                setRole(userData.role || 'vault_free');
+                setRole(userData.role || 'vault');
                 router.replace('/(tabs)');
             }
         } catch (error: any) {
             console.error('Google Sign-In error:', error.message);
-            if (error.code !== statusCodes.SIGN_IN_CANCELLED) {
-                showToast(getFriendlyErrorMessage(error), "error");
+            const code = String(error?.code || '');
+            if (code === statusCodes.SIGN_IN_CANCELLED) return;
+
+            if (code === 'DEVELOPER_ERROR' || code === '10') {
+                showToast('Google Sign-In misconfigured. Check OAuth client IDs, SHA-1/SHA-256 fingerprints, package name, and google-services.json.', 'error');
+                return;
             }
+
+            showToast(getFriendlyErrorMessage(error), "error");
         } finally {
             setLoading(false);
         }
@@ -125,14 +179,17 @@ export default function SignupScreen() {
                 await setDoc(doc(db, 'users', userCred.user.uid), {
                     fullName: fullNameFromApple || userCred.user.displayName || 'Apple User',
                     email: userCred.user.email || '',
-                    role: 'vault_free',
+                    role: 'vault',
                     createdAt: new Date().toISOString(),
                 });
-                setRole('vault_free');
+
+                await writeSubscriptionDoc(userCred.user.uid, 'vault');
+
+                setRole('vault');
                 router.replace('/(auth)/role-selection');
             } else {
                 const userData = userDoc.data();
-                setRole(userData.role || 'vault_free');
+                setRole(userData.role || 'vault');
                 router.replace('/(tabs)');
             }
         } catch (error: any) {
@@ -152,7 +209,14 @@ export default function SignupScreen() {
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 style={{ flex: 1 }}
             >
-                <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+                <Animated.View style={{ flex: 1, opacity: opacityAnim, transform: [{ translateX: slideAnim }] }}>
+                    <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+                    <View style={styles.guestRow}>
+                        <TouchableOpacity onPress={goGuestHome}>
+                            <Text style={styles.guestText}>Continue as Guest</Text>
+                        </TouchableOpacity>
+                    </View>
+
                     <Text style={styles.title}>Join ShooutS</Text>
                     <Text style={styles.subtitle}>Create an account to start sharing your sound</Text>
 
@@ -221,11 +285,12 @@ export default function SignupScreen() {
 
                     <View style={styles.footer}>
                         <Text style={styles.footerText}>Already have an account? </Text>
-                        <TouchableOpacity onPress={() => router.push('/(auth)/login')}>
+                        <TouchableOpacity onPress={() => router.push({ pathname: '/(auth)/login', params: redirectTo ? { redirectTo } : undefined })}>
                             <Text style={styles.linkText}>Log In</Text>
                         </TouchableOpacity>
                     </View>
-                </ScrollView>
+                    </ScrollView>
+                </Animated.View>
             </KeyboardAvoidingView>
         </SafeAreaView>
     );
@@ -239,6 +304,16 @@ const styles = StyleSheet.create({
     content: {
         paddingHorizontal: 28,
         paddingVertical: 60,
+    },
+    guestRow: {
+        width: '100%',
+        alignItems: 'flex-end',
+        marginBottom: 12,
+    },
+    guestText: {
+        color: '#B7B7B7',
+        fontSize: 13,
+        fontFamily: 'Poppins-Regular',
     },
     title: {
         fontSize: 32,

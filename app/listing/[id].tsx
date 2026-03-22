@@ -144,7 +144,8 @@ export default function ListingLicenseModal() {
 
     const handleBuyNow = async () => {
         if (!auth.currentUser) {
-            showToast('Please log in to purchase tracks.', 'error');
+            showToast('Please sign in or create an account to purchase tracks.', 'error');
+            router.push({ pathname: '/(auth)/login', params: { redirectTo: '/cart' } });
             return;
         }
 

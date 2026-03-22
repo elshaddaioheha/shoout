@@ -30,6 +30,13 @@ const PROJECT = env.EXPO_PUBLIC_FIREBASE_PROJECT_ID;
 const API_KEY = env.EXPO_PUBLIC_FIREBASE_API_KEY;
 const FS_BASE = `https://firestore.googleapis.com/v1/projects/${PROJECT}/databases/(default)/documents`;
 
+if (!PROJECT) {
+    throw new Error('EXPO_PUBLIC_FIREBASE_PROJECT_ID is required');
+}
+if (PROJECT === 'shoouts-6178f' || PROJECT.includes('prod')) {
+    throw new Error(`Refusing to seed production-like project: ${PROJECT}`);
+}
+
 const TEST_EMAIL = 'test@shoouts.dev';
 const TEST_PASSWORD = 'Shoouts2025!';
 const TEST_NAME = 'Shoouts Tester';

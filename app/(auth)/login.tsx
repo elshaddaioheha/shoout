@@ -1,6 +1,6 @@
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import * as AppleAuthentication from 'expo-apple-authentication';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { GoogleAuthProvider, OAuthProvider, sendPasswordResetEmail, signInWithCredential, signInWithEmailAndPassword } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { Eye, EyeOff } from 'lucide-react-native';
@@ -28,6 +28,7 @@ const { width, height } = Dimensions.get('window');
 
 export default function LoginScreen() {
     const router = useRouter();
+    const { redirectTo } = useLocalSearchParams<{ redirectTo?: string }>();
     const [showPassword, setShowPassword] = useState(false);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -35,6 +36,17 @@ export default function LoginScreen() {
     const { setRole } = useUserStore();
     const { showToast } = useToastStore();
     const [resetLoading, setResetLoading] = useState(false);
+
+    const getPostAuthRoute = () => {
+        if (typeof redirectTo === 'string' && redirectTo.trim().length > 0) {
+            return redirectTo;
+        }
+        return '/(tabs)';
+    };
+
+    const goGuestHome = () => {
+        router.replace('/(tabs)');
+    };
 
     const handleForgotPassword = async () => {
         if (!email.trim()) {
@@ -67,13 +79,13 @@ export default function LoginScreen() {
                 if (userData.role) {
                     setRole(userData.role);
                 } else {
-                    setRole('vault_free'); // fallback
+                    setRole('vault'); // fallback
                 }
             } else {
-                setRole('vault_free');
+                setRole('vault');
             }
 
-            router.replace('/(tabs)');
+            router.replace(getPostAuthRoute() as any);
         } catch (error: any) {
             console.error('Login error:', error.message);
             showToast(getFriendlyErrorMessage(error), "error");
@@ -83,6 +95,12 @@ export default function LoginScreen() {
     };
 
     const handleGoogleLogin = async () => {
+        const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID?.trim();
+        if (!webClientId) {
+            showToast('Google Sign-In is not configured. Missing EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID.', 'error');
+            return;
+        }
+
         try {
             setLoading(true);
             await GoogleSignin.hasPlayServices();
@@ -103,22 +121,28 @@ export default function LoginScreen() {
                 await setDoc(doc(db, "users", userCred.user.uid), {
                     fullName: userCred.user.displayName || "Google User",
                     email: userCred.user.email,
-                    role: 'vault_free', // default initial role for social login
+                    role: 'vault', // default initial role for social login
                     createdAt: new Date().toISOString()
                 });
-                setRole('vault_free');
+                setRole('vault');
                 router.replace('/(auth)/role-selection');
             } else {
                 const userData = userDoc.data();
-                setRole(userData.role || 'vault_free');
-                router.replace('/(tabs)');
+                setRole(userData.role || 'vault');
+                router.replace(getPostAuthRoute() as any);
             }
 
         } catch (error: any) {
             console.error('Google Sign-In error:', error.message);
-            if (error.code !== statusCodes.SIGN_IN_CANCELLED) {
-                showToast(getFriendlyErrorMessage(error), "error");
+            const code = String(error?.code || '');
+            if (code === statusCodes.SIGN_IN_CANCELLED) return;
+
+            if (code === 'DEVELOPER_ERROR' || code === '10') {
+                showToast('Google Sign-In misconfigured. Check OAuth client IDs, SHA-1/SHA-256 fingerprints, package name, and google-services.json.', 'error');
+                return;
             }
+
+            showToast(getFriendlyErrorMessage(error), "error");
         } finally {
             setLoading(false);
         }
@@ -157,15 +181,15 @@ export default function LoginScreen() {
                 await setDoc(doc(db, 'users', userCred.user.uid), {
                     fullName: fullNameFromApple || userCred.user.displayName || 'Apple User',
                     email: userCred.user.email || '',
-                    role: 'vault_free',
+                    role: 'vault',
                     createdAt: new Date().toISOString(),
                 });
-                setRole('vault_free');
+                setRole('vault');
                 router.replace('/(auth)/role-selection');
             } else {
                 const userData = userDoc.data();
-                setRole(userData.role || 'vault_free');
-                router.replace('/(tabs)');
+                setRole(userData.role || 'vault');
+                router.replace(getPostAuthRoute() as any);
             }
         } catch (error: any) {
             if (error?.code === 'ERR_REQUEST_CANCELED') {
@@ -186,6 +210,12 @@ export default function LoginScreen() {
                 style={{ flex: 1 }}
             >
                 <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+                    <View style={styles.guestRow}>
+                        <TouchableOpacity onPress={goGuestHome}>
+                            <Text style={styles.guestText}>Continue as Guest</Text>
+                        </TouchableOpacity>
+                    </View>
+
                     {/* Logo Section */}
                     <View style={styles.logoContainer}>
                         <Text style={styles.logoText}>ShooutS</Text>
@@ -327,6 +357,16 @@ const styles = StyleSheet.create({
         paddingTop: 60,
         paddingBottom: 40,
         alignItems: 'center',
+    },
+    guestRow: {
+        width: '100%',
+        alignItems: 'flex-end',
+        marginBottom: 12,
+    },
+    guestText: {
+        color: '#B7B7B7',
+        fontSize: 13,
+        fontFamily: 'Poppins-Regular',
     },
     logoContainer: {
         width: 256,

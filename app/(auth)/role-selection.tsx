@@ -1,10 +1,9 @@
-import { useToastStore } from '@/store/useToastStore';
 import { UserRole, useUserStore } from '@/store/useUserStore';
-import { getFriendlyErrorMessage } from '@/utils/errorHandler';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { doc, updateDoc } from 'firebase/firestore';
+import { auth, db } from '@/firebaseConfig';
+import { doc, setDoc } from 'firebase/firestore';
 import {
     ChevronRight,
     Crown,
@@ -31,28 +30,15 @@ import {
 } from 'react-native';
 import SafeScreenWrapper from '../../components/SafeScreenWrapper';
 import { theme } from '../../constants/theme';
-import { auth, db } from '../../firebaseConfig';
 import { normalize } from '../../utils/responsive';
 
 const SUBSCRIPTION_TIERS = [
     // --- VAULT PLANS ---
     {
-        id: 'vault_free' as UserRole,
-        title: 'Vault Free',
-        subtitle: 'Free',
-        description: 'Perfect for casual listeners and creators trying out Shoouts with 50MB of storage.',
+        id: 'vault' as UserRole,
+        title: 'Vault',
+        subtitle: 'For Active Creators (N6,981/mo)',
         icon: Headphones,
-        gradient: [theme.colors.surface, '#2A2520'] as [string, string],
-        accentColor: theme.colors.textSecondary,
-        features: ['50MB Storage'],
-        featureIcons: [Download],
-    },
-    {
-        id: 'vault_creator' as UserRole,
-        title: 'Vault Creator',
-        subtitle: 'For Active Creators (₦6,981/mo)',
-        description: 'Boost your storage and organize your demos with Private Folder sharing.',
-        icon: Star,
         gradient: [theme.colors.surface, '#3D2A1F'] as [string, string],
         accentColor: theme.colors.primary,
         features: ['500MB Storage', 'Private Folder Sharing', 'Shareable Secure Links', 'Basic Tracking'],
@@ -61,8 +47,7 @@ const SUBSCRIPTION_TIERS = [
     {
         id: 'vault_pro' as UserRole,
         title: 'Vault Pro',
-        subtitle: 'Professional Storage (₦13,962/mo)',
-        description: 'Advanced features for producers sharing beats and protecting files.',
+        subtitle: 'Professional Storage (N13,962/mo)',
         icon: Crown,
         gradient: ['#863420', '#4A1D13'] as [string, string],
         accentColor: '#FFD700',
@@ -70,34 +55,9 @@ const SUBSCRIPTION_TIERS = [
         featureIcons: [Zap, TrendingUp, Crown],
     },
     {
-        id: 'vault_executive' as UserRole,
-        title: 'Vault Executive',
-        subtitle: 'For Labels & Teams (₦25,132/mo)',
-        description: 'Maximum security and team collaboration for label executives.',
-        icon: ShoppingCart,
-        gradient: ['#1A1A1A', '#000000'] as [string, string],
-        accentColor: '#FFFFFF',
-        features: ['5GB Storage', 'Team Access', 'Priority Support'],
-        featureIcons: [Download, Sparkles, Star],
-    },
-
-    // --- STUDIO PLANS ---
-    {
-        id: 'studio_free' as UserRole,
-        title: 'Studio Free',
-        subtitle: 'Start Selling Music',
-        description: 'Setup catalog for free. Limited listings, no payout access, analytics, or chat.',
-        icon: Mic2,
-        gradient: [theme.colors.surface, '#2A1A3A'] as [string, string],
-        accentColor: '#A78BFA',
-        features: ['Limited Listings', 'Low Search Visibility', '10% Transaction Fee'],
-        featureIcons: [Music, ShoppingCart, TrendingUp],
-    },
-    {
         id: 'studio_pro' as UserRole,
         title: 'Studio Pro',
         subtitle: 'Active Sellers ($18.99/mo | ₦27,000)',
-        description: 'Take control of your music with analytics, custom pricing, and chat.',
         icon: TrendingUp,
         gradient: ['#7C3AED', '#4C1D95'] as [string, string],
         accentColor: '#C4B5FD',
@@ -108,7 +68,6 @@ const SUBSCRIPTION_TIERS = [
         id: 'studio_plus' as UserRole,
         title: 'Studio Plus',
         subtitle: 'High-Volume Brands ($69.99/mo)',
-        description: 'Maximum visibility, advanced analytics, and promotional boosts in search.',
         icon: Sparkles,
         gradient: ['#9333EA', '#3B0764'] as [string, string],
         accentColor: '#FFD700',
@@ -118,21 +77,9 @@ const SUBSCRIPTION_TIERS = [
 
     // --- HYBRID PLANS ---
     {
-        id: 'hybrid_creator' as UserRole,
-        title: 'Hybrid Creator',
-        subtitle: 'Best of Both Worlds (₦20,944/mo)',
-        description: 'Professional independent creators who need both Vault storage and Studio sales.',
-        icon: Crown,
-        gradient: [theme.colors.primary, '#9333EA'] as [string, string],
-        accentColor: '#FFD700',
-        features: ['5GB Vault Storage', 'Sell Directly from Vault', 'Unified Analytics', 'Priority Visibility', 'Reduced Workflow Friction'],
-        featureIcons: [Download, ShoppingCart, TrendingUp, Sparkles, Zap],
-    },
-    {
-        id: 'hybrid_executive' as UserRole,
-        title: 'Hybrid Executive',
-        subtitle: 'The Ultimate Plan (₦34,906/mo)',
-        description: '10GB storage, unified analytics, team access, and dedicated support for major labels.',
+        id: 'hybrid' as UserRole,
+        title: 'Hybrid',
+        subtitle: 'The Ultimate Plan (N34,906/mo)',
         icon: Zap,
         gradient: ['#221133', '#4A0E17'] as [string, string],
         accentColor: '#FFD700',
@@ -145,7 +92,6 @@ export default function RoleSelectionScreen() {
     const router = useRouter();
     const { setRole, setActualRole } = useUserStore();
     const [selectedRole, setSelectedRole] = useState<UserRole | null>(null);
-    const [loading, setLoading] = useState(false);
 
     // Staggered entry animations
     const headerAnim = useRef(new Animated.Value(0)).current;
@@ -195,29 +141,35 @@ export default function RoleSelectionScreen() {
 
     const handleContinue = async () => {
         if (!selectedRole) return;
-        setLoading(true);
-        const { showToast } = useToastStore.getState();
-        try {
-            // Write Role selection to Firebase Database if logged in
 
-            if (auth.currentUser) {
-                await updateDoc(doc(db, "users", auth.currentUser.uid), {
-                    role: selectedRole,
-                    actualRole: selectedRole,
-                    updatedAt: new Date().toISOString()
-                });
-            }
-
-            // Fallback for local state
-            setRole(selectedRole);
-            setActualRole(selectedRole);
-            router.replace('/(tabs)');
-        } catch (error: any) {
-            console.error('Failed to sync role:', error);
-            showToast('Failed to save role: ' + getFriendlyErrorMessage(error), 'error');
-        } finally {
-            setLoading(false);
+        const currentUser = auth.currentUser;
+        if (!currentUser) {
+            return;
         }
+
+        await setDoc(
+            doc(db, 'users', currentUser.uid),
+            {
+                role: selectedRole,
+                updatedAt: new Date().toISOString(),
+            },
+            { merge: true }
+        );
+
+        await setDoc(
+            doc(db, 'users', currentUser.uid, 'subscription', 'current'),
+            {
+                tier: selectedRole,
+                isSubscribed: true,
+                expiresAt: null,
+                updatedAt: new Date().toISOString(),
+            },
+            { merge: true }
+        );
+
+        setRole(selectedRole);
+        setActualRole(selectedRole);
+        router.replace('/(tabs)');
     };
 
     return (
@@ -324,8 +276,8 @@ export default function RoleSelectionScreen() {
                     <TouchableOpacity
                         onPress={handleContinue}
                         activeOpacity={0.85}
-                        disabled={!selectedRole || loading}
-                        style={[styles.continueButton, (!selectedRole || loading) && { opacity: 0.4 }]}
+                        disabled={!selectedRole}
+                        style={[styles.continueButton, !selectedRole && { opacity: 0.4 }]}
                     >
                         <LinearGradient
                             colors={selectedRole ? [theme.colors.primary, '#863420'] : [theme.colors.borderLight, '#222']}
@@ -333,7 +285,7 @@ export default function RoleSelectionScreen() {
                             start={{ x: 0, y: 0 }}
                             end={{ x: 1, y: 0 }}
                         >
-                            <Text style={styles.continueText} allowFontScaling={false}>{loading ? 'Saving...' : 'Continue'}</Text>
+                            <Text style={styles.continueText} allowFontScaling={false}>Continue</Text>
                             <ChevronRight size={theme.iconSize.md} color={theme.colors.textPrimary} />
                         </LinearGradient>
                     </TouchableOpacity>

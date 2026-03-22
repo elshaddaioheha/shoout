@@ -44,5 +44,5 @@ app-example
 /android
 
 # Firebase native config (manage via EAS secrets or CI/CD)
-# google-services.json
+google-services.json
 GoogleService-Info.plist

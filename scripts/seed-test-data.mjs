@@ -43,6 +43,13 @@ const firebaseConfig = {
     appId: env.EXPO_PUBLIC_FIREBASE_APP_ID,
 };
 
+if (!firebaseConfig.projectId) {
+    throw new Error('EXPO_PUBLIC_FIREBASE_PROJECT_ID is required');
+}
+if (firebaseConfig.projectId === 'shoouts-6178f' || firebaseConfig.projectId.includes('prod')) {
+    throw new Error(`Refusing to seed production-like project: ${firebaseConfig.projectId}`);
+}
+
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 const db = getFirestore(app);
 

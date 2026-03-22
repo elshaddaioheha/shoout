@@ -77,6 +77,10 @@ export default function OnboardingFlow() {
     };
 
     const handleGetStarted = () => {
+        router.push('/(tabs)');
+    };
+
+    const handleSignIn = () => {
         router.push('/(auth)/login');
     };
 
@@ -143,17 +147,23 @@ export default function OnboardingFlow() {
                             </LinearGradient>
                         </TouchableOpacity>
                     ) : (
-                        <TouchableOpacity
-                            onPress={handleGetStarted}
-                            activeOpacity={0.8}
-                        >
-                            <LinearGradient
-                                colors={['#ED5639', '#C96F6F']}
-                                style={styles.getStartedButton}
+                        <View style={styles.finalActions}>
+                            <TouchableOpacity
+                                onPress={handleGetStarted}
+                                activeOpacity={0.8}
                             >
-                                <Text style={styles.getStartedText}>Get Started</Text>
-                            </LinearGradient>
-                        </TouchableOpacity>
+                                <LinearGradient
+                                    colors={['#ED5639', '#C96F6F']}
+                                    style={styles.getStartedButton}
+                                >
+                                    <Text style={styles.getStartedText}>Continue as Guest</Text>
+                                </LinearGradient>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity onPress={handleSignIn} activeOpacity={0.8}>
+                                <Text style={styles.signInText}>Sign in or Create account</Text>
+                            </TouchableOpacity>
+                        </View>
                     )}
                 </View>
 
@@ -259,11 +269,20 @@ const styles = StyleSheet.create({
         borderRadius: 30,
         alignSelf: 'flex-start',
     },
+    finalActions: {
+        gap: 14,
+        alignItems: 'flex-start',
+    },
     getStartedText: {
         color: 'white',
         fontSize: 16,
         fontFamily: 'Poppins-SemiBold',
         fontWeight: '600',
+    },
+    signInText: {
+        color: 'rgba(255,255,255,0.85)',
+        fontSize: 14,
+        fontFamily: 'Poppins-Regular',
     },
     illustrationContainer: {
         position: 'absolute',

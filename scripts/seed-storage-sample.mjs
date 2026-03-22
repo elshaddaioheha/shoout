@@ -43,6 +43,14 @@ function normalizeBucketName(bucket) {
 }
 
 function initAdmin(env) {
+  const projectId = env.EXPO_PUBLIC_FIREBASE_PROJECT_ID;
+  if (!projectId) {
+    throw new Error('EXPO_PUBLIC_FIREBASE_PROJECT_ID is required in .env');
+  }
+  if (projectId === 'shoouts-6178f' || projectId.includes('prod')) {
+    throw new Error(`Refusing to seed production-like project: ${projectId}`);
+  }
+
   const storageBucket = normalizeBucketName(env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET);
   if (!storageBucket) {
     throw new Error('EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET is missing in .env');

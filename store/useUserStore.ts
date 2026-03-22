@@ -3,8 +3,12 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
 export type UserRole =
-    | 'vault_free' | 'vault_creator' | 'vault_pro' | 'vault_executive'
-    | 'studio_free' | 'studio_pro' | 'studio_plus'
+    | 'vault' | 'vault_pro' | 'vault_executive'
+    | 'studio_pro' | 'studio_plus'
+    | 'hybrid'
+    // Legacy role ids kept for backward compatibility with existing user docs
+    | 'vault_free' | 'vault_creator'
+    | 'studio_free'
     | 'hybrid_creator' | 'hybrid_executive';
 
 export type ViewMode = 'vault' | 'studio';
@@ -45,12 +49,12 @@ interface PersistedUserState {
 const STORAGE_KEY = 'shoouts-user-preferences-v3';
 
 const defaultState = {
-    role: 'vault_free' as UserRole,
-    actualRole: 'vault_free' as UserRole,
+    role: 'vault' as UserRole,
+    actualRole: 'vault' as UserRole,
     name: 'User',
-    isPremium: false,
+    isPremium: true,
     viewMode: 'vault' as ViewMode,
-    storageLimitGB: 0.05, // 50MB
+    storageLimitGB: 0.5, // 500MB
     canSell: false,
     hasTeamAccess: false,
     hasAdvancedAnalytics: false,
@@ -60,8 +64,8 @@ const defaultState = {
 const getRoleCapabilities = (role: UserRole) => {
     // Shared defaults
     let capabilities = {
-        isPremium: false,
-        storageLimitGB: 0.05,
+        isPremium: true,
+        storageLimitGB: 0.5,
         canSell: false,
         hasTeamAccess: false,
         hasAdvancedAnalytics: false,
@@ -71,10 +75,12 @@ const getRoleCapabilities = (role: UserRole) => {
 
     switch (role) {
         // Vault Plans
-        case 'vault_free':
+        case 'vault':
             return { ...capabilities };
+        case 'vault_free':
+            return { ...capabilities, isPremium: false, storageLimitGB: 0.05 };
         case 'vault_creator':
-            return { ...capabilities, isPremium: true, storageLimitGB: 0.5 };
+            return { ...capabilities };
         case 'vault_pro':
             return { ...capabilities, isPremium: true, storageLimitGB: 1, hasAdvancedAnalytics: true };
         case 'vault_executive':
@@ -89,6 +95,8 @@ const getRoleCapabilities = (role: UserRole) => {
             return { ...capabilities, viewMode: 'studio' as ViewMode, isPremium: true, canSell: true, hasAdvancedAnalytics: true };
 
         // Hybrid Plans
+        case 'hybrid':
+            return { ...capabilities, viewMode: 'vault' as ViewMode, isPremium: true, canSell: true, storageLimitGB: 10, hasAdvancedAnalytics: true, hasTeamAccess: true };
         case 'hybrid_creator':
             return { ...capabilities, viewMode: 'vault' as ViewMode, isPremium: true, canSell: true, storageLimitGB: 5, hasAdvancedAnalytics: true };
         case 'hybrid_executive':

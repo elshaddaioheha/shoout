@@ -1,16 +1,15 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import SettingsHeader from '@/components/settings/SettingsHeader';
-import { auth, db } from '@/firebaseConfig';
+import { auth } from '@/firebaseConfig';
 import { UserRole, useUserStore } from '@/store/useUserStore';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { doc, updateDoc } from 'firebase/firestore';
 import { PayWithFlutterwave } from 'flutterwave-react-native';
 import { Check, CreditCard, PartyPopper, ShieldCheck, Sparkles, Star, ChevronLeft } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { ActivityIndicator, Animated, Dimensions, Modal, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Animated, Modal, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 
-const { width } = Dimensions.get('window');
+const SUBSCRIPTION_VERIFY_URL = process.env.EXPO_PUBLIC_SUBSCRIPTION_VERIFY_URL;
 
 type GradientColors = readonly [string, string, ...string[]];
 type PlanCategory = 'Vault' | 'Studio' | 'Hybrid';
@@ -23,19 +22,8 @@ const CATEGORY_TABS: { id: PlanCategory; label: string; color: string }[] = [
 
 const PLANS = [
     {
-        id: 'vault_free',
-        name: 'Vault Free',
-        monthlyPriceNGN: 0,
-        annualPriceNGN: 0,
-        features: ['50MB Cloud Storage', 'Streaming access', 'Basic support'],
-        color: '#767676',
-        category: 'Vault',
-        gradient: ['rgba(118,118,118,0.1)', 'rgba(0,0,0,0)'] as unknown as GradientColors,
-        borderColor: 'rgba(255,255,255,0.05)'
-    },
-    {
-        id: 'vault_creator',
-        name: 'Vault Creator',
+        id: 'vault',
+        name: 'Vault',
         monthlyPriceNGN: 6981,
         annualPriceNGN: 5934,
         features: ['500MB Cloud Storage', 'Private Folder Sharing', 'Shareable Secure Links', 'Basic Tracking'],
@@ -56,27 +44,6 @@ const PLANS = [
         borderColor: '#EC5C39'
     },
     {
-        id: 'vault_executive',
-        name: 'Vault Executive',
-        monthlyPriceNGN: 25132,
-        annualPriceNGN: 21362,
-        features: ['5GB Cloud Storage', 'Team Access', 'Priority Support'],
-        color: '#EC5C39',
-        category: 'Vault',
-        gradient: ['rgba(236, 92, 57, 0.15)', 'rgba(236, 92, 57, 0.05)', 'rgba(0,0,0,0)'] as unknown as GradientColors,
-        borderColor: '#EC5C39'
-    },
-    {
-        id: 'studio_free',
-        name: 'Studio Free',
-        monthlyPriceNGN: 0,
-        annualPriceNGN: 0,
-        features: ['Limited Listings', 'Low Search Visibility', '10% Transaction Fee'],
-        color: '#767676',
-        category: 'Studio',
-        gradient: ['rgba(118,118,118,0.1)', 'rgba(0,0,0,0)'] as unknown as GradientColors,
-        borderColor: 'rgba(255,255,255,0.05)'
-    },
     {
         id: 'studio_pro',
         name: 'Studio Pro',
@@ -90,19 +57,8 @@ const PLANS = [
         borderColor: '#4CAF50'
     },
     {
-        id: 'hybrid_creator',
-        name: 'Hybrid Creator',
-        monthlyPriceNGN: 20944,
-        annualPriceNGN: 16755,
-        features: ['5GB Vault Storage', 'Sell Directly', 'Unified Analytics', 'Priority Visibility'],
-        color: '#FFD700',
-        category: 'Hybrid',
-        gradient: ['rgba(255, 215, 0, 0.15)', 'rgba(255, 215, 0, 0.05)', 'rgba(0,0,0,0)'] as unknown as GradientColors,
-        borderColor: '#FFD700'
-    },
-    {
-        id: 'hybrid_executive',
-        name: 'Hybrid Executive',
+        id: 'hybrid',
+        name: 'Hybrid',
         monthlyPriceNGN: 34906,
         annualPriceNGN: 27925,
         features: ['10GB Storage', 'Team Collaboration', 'Dedicated Support', '10% Transaction Fee'],
@@ -126,39 +82,73 @@ export default function SubscriptionsScreen() {
     const [isVerifying, setIsVerifying] = useState(false);
     const [showSuccessSplash, setShowSuccessSplash] = useState(false);
     const [splashPlanName, setSplashPlanName] = useState("");
+    const [pendingTxRef, setPendingTxRef] = useState<string>('');
     const splashAnim = React.useRef(new Animated.Value(0)).current;
+
+    const buildSubscriptionTxRef = () => {
+        return `shoouts_sub_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    };
 
     const handleUpgradePress = (plan: typeof PLANS[0], numericPrice: number) => {
         if (numericPrice === 0) {
-            completeUpgrade(plan.id);
+            handlePaymentVerifiedUpgrade(plan.id);
             return;
         }
         setSelectedPlan(plan);
+        setPendingTxRef(buildSubscriptionTxRef());
         setShowPaymentModal(true);
     };
 
-    const completeUpgrade = async (planId: string) => {
+    const completeUpgrade = (planId: string) => {
+        setRole(planId as UserRole);
+
+        setSplashPlanName(planId.replace('_', ' ').toUpperCase());
+        setShowSuccessSplash(true);
+        Animated.sequence([
+            Animated.timing(splashAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
+            Animated.delay(2500),
+            Animated.timing(splashAnim, { toValue: 0, duration: 400, useNativeDriver: true })
+        ]).start(() => setShowSuccessSplash(false));
+    };
+
+    const activatePlanOnServer = async (planId: string, txRef?: string) => {
+        if (!auth.currentUser) {
+            throw new Error('You must be logged in to upgrade.');
+        }
+
+        if (!SUBSCRIPTION_VERIFY_URL) {
+            throw new Error('Subscription verification endpoint is not configured.');
+        }
+
+        const idToken = await auth.currentUser.getIdToken();
+        const response = await fetch(SUBSCRIPTION_VERIFY_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${idToken}`,
+            },
+            body: JSON.stringify({
+                planId,
+                billingCycle: isAnnual ? 'annual' : 'monthly',
+                txRef: txRef || null,
+            }),
+        });
+
+        const payload = await response.json().catch(() => null);
+        if (!response.ok || !payload?.success) {
+            throw new Error(payload?.error || 'Subscription activation failed.');
+        }
+    };
+
+    const handlePaymentVerifiedUpgrade = async (planId: string, txRef?: string) => {
         try {
-            setRole(planId as UserRole);
-
-            // Log to Firebase 
-            if (auth.currentUser) {
-                await updateDoc(doc(db, 'users', auth.currentUser.uid), {
-                    role: planId,
-                    lastSubscribedAt: new Date().toISOString()
-                });
-            }
-            // Trigger splash screen
-            setSplashPlanName(planId.replace('_', ' ').toUpperCase());
-            setShowSuccessSplash(true);
-            Animated.sequence([
-                Animated.timing(splashAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
-                Animated.delay(2500),
-                Animated.timing(splashAnim, { toValue: 0, duration: 400, useNativeDriver: true })
-            ]).start(() => setShowSuccessSplash(false));
-
-        } catch (error) {
-            console.error("Upgrade error: ", error);
+            setIsVerifying(true);
+            await activatePlanOnServer(planId, txRef);
+            completeUpgrade(planId);
+        } catch (error: any) {
+            Alert.alert('Payment verification failed', error?.message || 'Could not verify your payment.');
+        } finally {
+            setIsVerifying(false);
         }
     };
 
@@ -166,14 +156,10 @@ export default function SubscriptionsScreen() {
 
     const handleStripePayment = () => {
         setShowPaymentModal(false);
-        setIsVerifying(true);
-        // Simulate Stripe API call to backend, since we need Node backend for Client Secret
-        setTimeout(() => {
-            setIsVerifying(false);
-            if (selectedPlan) {
-                completeUpgrade(selectedPlan.id);
-            }
-        }, 2000);
+        Alert.alert(
+            'Stripe unavailable',
+            'Stripe/Google Pay checkout is disabled until secure backend verification is deployed. Use Flutterwave for now.'
+        );
     };
 
     return (
@@ -337,11 +323,14 @@ export default function SubscriptionsScreen() {
                                 onRedirect={(data) => {
                                     setShowPaymentModal(false);
                                     if (data.status === 'successful' && selectedPlan) {
-                                        completeUpgrade(selectedPlan.id);
+                                        const txRef = data?.tx_ref || pendingTxRef;
+                                        handlePaymentVerifiedUpgrade(selectedPlan.id, txRef);
+                                    } else {
+                                        Alert.alert('Payment not completed', 'Your payment was not successful.');
                                     }
                                 }}
                                 options={{
-                                    tx_ref: `shoouts_sub_${Date.now()}`,
+                                    tx_ref: pendingTxRef || buildSubscriptionTxRef(),
                                     authorization: process.env.EXPO_PUBLIC_FLUTTERWAVE_PUBLIC_KEY || "FLWPUBK_TEST-dummy-X",
                                     customer: {
                                         email: auth.currentUser?.email || "customer@shoouts.com"
@@ -366,7 +355,7 @@ export default function SubscriptionsScreen() {
                                 <CreditCard color="#635BFF" size={24} />
                                 <View style={styles.payOptionTexts}>
                                     <Text style={styles.payOptionTitle}>Pay with Stripe</Text>
-                                    <Text style={styles.payOptionSub}>International Credit/Debit Card</Text>
+                                    <Text style={styles.payOptionSub}>Disabled until backend verification is live</Text>
                                 </View>
                                 <ChevronLeft size={20} color="rgba(255,255,255,0.2)" style={{ transform: [{ rotate: '180deg' }] }} />
                             </TouchableOpacity>
@@ -375,7 +364,7 @@ export default function SubscriptionsScreen() {
                                 <CreditCard color="#4285F4" size={24} />
                                 <View style={styles.payOptionTexts}>
                                     <Text style={styles.payOptionTitle}>Pay with Google Pay</Text>
-                                    <Text style={styles.payOptionSub}>Fast and Secure Checkout</Text>
+                                    <Text style={styles.payOptionSub}>Disabled until backend verification is live</Text>
                                 </View>
                                 <ChevronLeft size={20} color="rgba(255,255,255,0.2)" style={{ transform: [{ rotate: '180deg' }] }} />
                             </TouchableOpacity>

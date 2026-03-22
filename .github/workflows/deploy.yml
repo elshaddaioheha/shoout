@@ -124,6 +124,7 @@ jobs:
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN_DEV }}
           FLUTTERWAVE_SECRET_HASH: ${{ secrets.FLUTTERWAVE_SECRET_HASH_DEV }}
+          FLUTTERWAVE_SECRET_KEY: ${{ secrets.FLUTTERWAVE_SECRET_KEY_DEV }}
           UPLOAD_BUCKET_NAME: ${{ secrets.UPLOAD_BUCKET_NAME_DEV }}
         run: |
           if [ ! -f .firebaserc ]; then
@@ -134,14 +135,17 @@ jobs:
             echo "Missing dev alias in .firebaserc"
             exit 1
           fi
-          firebase use dev
-          if [ -n "$UPLOAD_BUCKET_NAME" ]; then
-            echo "Deploying functions + Firestore resources"
-            firebase deploy --only functions,firestore:rules,firestore:indexes --force
-          else
-            echo "UPLOAD_BUCKET_NAME_DEV is not set; skipping functions deploy and deploying Firestore resources only"
-            firebase deploy --only firestore:rules,firestore:indexes --force
+          if [ -z "$UPLOAD_BUCKET_NAME" ]; then
+            echo "❌ ERROR: UPLOAD_BUCKET_NAME_DEV is required"
+            exit 1
           fi
+          if [ -z "$FLUTTERWAVE_SECRET_HASH" ] || [ -z "$FLUTTERWAVE_SECRET_KEY" ]; then
+            echo "❌ ERROR: Flutterwave secrets are required for DEV deploy"
+            exit 1
+          fi
+          firebase use dev
+          echo "Deploying functions + Firestore resources"
+          firebase deploy --only functions,firestore:rules,firestore:indexes --force
 
       - name: Notify deployment (dev)
         if: always() && env.SLACK_WEBHOOK_URL != ''
@@ -217,6 +221,7 @@ jobs:
           FIREBASE_TOKEN_PROD: ${{ secrets.FIREBASE_TOKEN_PROD }}
           FIREBASE_TOKEN_FALLBACK: ${{ secrets.FIREBASE_TOKEN }}
           FLUTTERWAVE_SECRET_HASH: ${{ secrets.FLUTTERWAVE_SECRET_HASH_PROD }}
+          FLUTTERWAVE_SECRET_KEY: ${{ secrets.FLUTTERWAVE_SECRET_KEY_PROD }}
           UPLOAD_BUCKET_NAME: ${{ secrets.UPLOAD_BUCKET_NAME_PROD }}
         run: |
           FIREBASE_TOKEN="$FIREBASE_TOKEN_PROD"
@@ -224,14 +229,16 @@ jobs:
             FIREBASE_TOKEN="$FIREBASE_TOKEN_FALLBACK"
           fi
           export FIREBASE_TOKEN
-
-          if [ -n "$UPLOAD_BUCKET_NAME" ]; then
-            echo "Deploying functions + Firestore resources"
-            firebase deploy --project "$FIREBASE_PROJECT_ID_PROD" --only functions,firestore:rules,firestore:indexes --force
-          else
-            echo "UPLOAD_BUCKET_NAME_PROD is not set; skipping functions deploy and deploying Firestore resources only"
-            firebase deploy --project "$FIREBASE_PROJECT_ID_PROD" --only firestore:rules,firestore:indexes --force
+          if [ -z "$UPLOAD_BUCKET_NAME" ]; then
+            echo "❌ ERROR: UPLOAD_BUCKET_NAME_PROD is required"
+            exit 1
           fi
+          if [ -z "$FLUTTERWAVE_SECRET_HASH" ] || [ -z "$FLUTTERWAVE_SECRET_KEY" ]; then
+            echo "❌ ERROR: Flutterwave secrets are required for PROD deploy"
+            exit 1
+          fi
+          echo "Deploying functions + Firestore resources"
+          firebase deploy --project "$FIREBASE_PROJECT_ID_PROD" --only functions,firestore:rules,firestore:indexes --force
 
       - name: Health check (PROD)
         run: |

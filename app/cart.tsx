@@ -154,8 +154,8 @@ export default function CartScreen() {
 
     const handleCheckout = async () => {
         if (!auth.currentUser) {
-            showToast('Please log in to complete your purchase.', 'error');
-            router.push('/(auth)/login');
+            showToast('Please sign in or create an account to complete your purchase.', 'error');
+            router.push({ pathname: '/(auth)/login', params: { redirectTo: '/cart' } });
             return;
         }
         if (!auth.currentUser.email) {

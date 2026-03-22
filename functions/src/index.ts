@@ -59,6 +59,25 @@ type GetCheckoutStatusData = {
 
 const NAIRA_RATE = 1600;
 
+type SubscriptionBillingCycle = 'monthly' | 'annual';
+
+const SUBSCRIPTION_PLAN_PRICING_NGN: Record<string, { monthly: number; annual: number }> = {
+  vault: { monthly: 6981, annual: 5934 * 12 },
+  vault_creator: { monthly: 6981, annual: 5934 * 12 },
+  vault_pro: { monthly: 13962, annual: 11868 * 12 },
+  studio_pro: { monthly: 27000, annual: 22950 * 12 },
+  studio_plus: { monthly: 69990, annual: 55992 * 12 },
+  hybrid: { monthly: 34906, annual: 27925 * 12 },
+  // Legacy ids
+  vault_free: { monthly: 0, annual: 0 },
+  vault_executive: { monthly: 25132, annual: 21362 * 12 },
+  studio_free: { monthly: 0, annual: 0 },
+  hybrid_creator: { monthly: 20944, annual: 16755 * 12 },
+  hybrid_executive: { monthly: 34906, annual: 27925 * 12 },
+};
+
+const FREE_SUBSCRIPTION_PLANS = new Set(['vault_free', 'studio_free']);
+
 function expectedAmountInNgn(totalUsd: number): number {
   return Math.round(totalUsd * NAIRA_RATE);
 }
@@ -67,11 +86,183 @@ function getFlutterwaveSecret(): string {
   return process.env.FLUTTERWAVE_SECRET_HASH || functions.config()?.flutterwave?.secret_hash || '';
 }
 
+function getFlutterwaveSecretKey(): string {
+  return process.env.FLUTTERWAVE_SECRET_KEY || functions.config()?.flutterwave?.secret_key || '';
+}
+
+function getExpectedSubscriptionAmountNgn(planId: string, billingCycle: SubscriptionBillingCycle): number {
+  const pricing = SUBSCRIPTION_PLAN_PRICING_NGN[planId];
+  if (!pricing) {
+    throw new functions.https.HttpsError('invalid-argument', `Unsupported planId: ${planId}`);
+  }
+  return billingCycle === 'annual' ? pricing.annual : pricing.monthly;
+}
+
 function verifyWebhookSignature(rawBody: string, signature: string | undefined, secret: string): boolean {
   if (!signature || !secret) return false;
   const hash = crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
   return hash === signature;
 }
+
+export const activateSubscriptionTier = functions.https.onRequest(async (req, res) => {
+  if (req.method !== 'POST') {
+    res.status(405).json({ success: false, error: 'Method Not Allowed' });
+    return;
+  }
+
+  try {
+    const authHeader = String(req.header('authorization') || '');
+    if (!authHeader.startsWith('Bearer ')) {
+      res.status(401).json({ success: false, error: 'Missing bearer token' });
+      return;
+    }
+
+    const idToken = authHeader.slice('Bearer '.length).trim();
+    const decoded = await admin.auth().verifyIdToken(idToken);
+    const userId = decoded.uid;
+
+    const planId = String(req.body?.planId || '').trim();
+    const billingCycleRaw = String(req.body?.billingCycle || 'monthly').toLowerCase();
+    const billingCycle: SubscriptionBillingCycle = billingCycleRaw === 'annual' ? 'annual' : 'monthly';
+    const txRef = String(req.body?.txRef || '').trim();
+
+    if (!planId) {
+      res.status(400).json({ success: false, error: 'planId is required' });
+      return;
+    }
+
+    const expectedAmountNgn = getExpectedSubscriptionAmountNgn(planId, billingCycle);
+    const isFreeTier = expectedAmountNgn === 0 && FREE_SUBSCRIPTION_PLANS.has(planId);
+    if (expectedAmountNgn > 0 && !txRef) {
+      res.status(400).json({ success: false, error: 'txRef is required for paid plans' });
+      return;
+    }
+
+    let verifiedAmountNgn = expectedAmountNgn;
+    let providerTransactionId: string | null = null;
+
+    if (!isFreeTier) {
+      const secretKey = getFlutterwaveSecretKey();
+      if (!secretKey) {
+        functions.logger.error('FLUTTERWAVE_SECRET_KEY is not configured');
+        res.status(500).json({ success: false, error: 'Payment verification is unavailable' });
+        return;
+      }
+
+      const paymentRef = db.collection('subscriptionPayments').doc(txRef);
+      const existingPaymentSnap = await paymentRef.get();
+
+      if (existingPaymentSnap.exists) {
+        const existing = existingPaymentSnap.data() as Record<string, any>;
+        if (existing.userId === userId && existing.planId === planId && existing.status === 'completed') {
+          res.status(200).json({ success: true, alreadyProcessed: true, planId });
+          return;
+        }
+      }
+
+      const verifyUrl = `https://api.flutterwave.com/v3/transactions/verify_by_reference?tx_ref=${encodeURIComponent(txRef)}`;
+      const verifyResponse = await fetch(verifyUrl, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${secretKey}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!verifyResponse.ok) {
+        functions.logger.error('Flutterwave verify request failed', { status: verifyResponse.status, txRef });
+        res.status(400).json({ success: false, error: 'Unable to verify payment' });
+        return;
+      }
+
+      const verifyPayload = (await verifyResponse.json()) as any;
+      const paymentData = verifyPayload?.data || {};
+      const paymentStatus = String(paymentData?.status || '').toLowerCase();
+      const paymentCurrency = String(paymentData?.currency || '').toUpperCase();
+      const paidAmount = Number(paymentData?.amount || 0);
+
+      if (verifyPayload?.status !== 'success' || paymentStatus !== 'successful') {
+        res.status(400).json({ success: false, error: 'Payment not successful' });
+        return;
+      }
+
+      if (String(paymentData?.tx_ref || '') !== txRef) {
+        res.status(400).json({ success: false, error: 'txRef mismatch' });
+        return;
+      }
+
+      if (!Number.isFinite(paidAmount) || paidAmount < expectedAmountNgn) {
+        res.status(400).json({ success: false, error: 'Paid amount is invalid' });
+        return;
+      }
+
+      if (paymentCurrency !== 'NGN') {
+        res.status(400).json({ success: false, error: 'Invalid payment currency' });
+        return;
+      }
+
+      verifiedAmountNgn = paidAmount;
+      providerTransactionId = String(paymentData?.id || '');
+    }
+
+    const now = admin.firestore.FieldValue.serverTimestamp();
+    const userRef = db.collection('users').doc(userId);
+    const subscriptionRef = userRef.collection('subscription').doc('current');
+    const batch = db.batch();
+
+    batch.set(
+      subscriptionRef,
+      {
+        tier: planId,
+        status: 'active',
+        billingCycle,
+        amountNgn: verifiedAmountNgn,
+        provider: isFreeTier ? 'internal' : 'flutterwave',
+        txRef: isFreeTier ? null : txRef,
+        providerTransactionId,
+        updatedAt: now,
+        activatedAt: now,
+      },
+      { merge: true }
+    );
+
+    batch.set(
+      userRef,
+      {
+        role: planId,
+        lastSubscribedAt: now,
+        subscriptionStatus: 'active',
+      },
+      { merge: true }
+    );
+
+    if (!isFreeTier) {
+      const paymentRef = db.collection('subscriptionPayments').doc(txRef);
+      batch.set(
+        paymentRef,
+        {
+          userId,
+          planId,
+          billingCycle,
+          status: 'completed',
+          amountNgn: verifiedAmountNgn,
+          expectedAmountNgn,
+          provider: 'flutterwave',
+          providerTransactionId,
+          updatedAt: now,
+          createdAt: now,
+        },
+        { merge: true }
+      );
+    }
+
+    await batch.commit();
+    res.status(200).json({ success: true, planId, billingCycle });
+  } catch (error: any) {
+    functions.logger.error('activateSubscriptionTier failed', error);
+    res.status(500).json({ success: false, error: error?.message || 'Internal error' });
+  }
+});
 
 export const createCheckoutSession = functions.https.onCall(async (data: any, context: any) => {
   if (!context?.auth) {
@@ -299,10 +490,11 @@ export const validateStorageLimit = functions.https.onCall(async (data: any, con
     .get();
 
   const subscription = subscriptionSnap.data();
-  const tier = subscription?.tier || 'vault_free';
+  const tier = subscription?.tier || 'vault';
 
   // Determine storage limit in bytes based on tier
   const storageLimitMap: Record<string, number> = {
+    vault: 0.5 * 1024 * 1024 * 1024,           // 500MB
     vault_free: 0.05 * 1024 * 1024 * 1024,      // 50MB
     vault_creator: 0.5 * 1024 * 1024 * 1024,    // 500MB
     vault_pro: 1 * 1024 * 1024 * 1024,           // 1GB
@@ -310,11 +502,12 @@ export const validateStorageLimit = functions.https.onCall(async (data: any, con
     studio_free: 0.1 * 1024 * 1024 * 1024,      // 100MB
     studio_pro: 1 * 1024 * 1024 * 1024,          // 1GB
     studio_plus: 10 * 1024 * 1024 * 1024,       // 10GB
+    hybrid: 10 * 1024 * 1024 * 1024,            // 10GB
     hybrid_creator: 5 * 1024 * 1024 * 1024,     // 5GB
     hybrid_executive: 10 * 1024 * 1024 * 1024,  // 10GB
   };
 
-  const storageLimit = storageLimitMap[tier] || storageLimitMap.vault_free;
+  const storageLimit = storageLimitMap[tier] || storageLimitMap.vault;
 
   // Calculate total storage used by user
   const uploadsSnap = await db
@@ -847,7 +1040,7 @@ export const aggregateBestSellers = functions.https.onRequest(
             id: doc.id,
             name: userData.name || userData.email?.split('@')[0] || 'Unknown',
             email: userData.email || '',
-            tier: subData?.tier || 'vault_free',
+            tier: subData?.tier || 'vault',
             suspendedUntil: userData.suspendedUntil?.seconds
               ? new Date(userData.suspendedUntil.seconds * 1000).toISOString()
               : null,
@@ -914,7 +1107,7 @@ export const aggregateBestSellers = functions.https.onRequest(
         id: creatorId,
         name: userData.name || userData.email?.split('@')[0] || 'Unknown',
         email: userData.email || '',
-        tier: subData?.tier || 'vault_free',
+        tier: subData?.tier || 'vault',
         suspendedUntil: userData.suspendedUntil?.seconds
           ? new Date(userData.suspendedUntil.seconds * 1000).toISOString()
           : null,
