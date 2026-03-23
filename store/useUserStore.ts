@@ -49,12 +49,12 @@ interface PersistedUserState {
 const STORAGE_KEY = 'shoouts-user-preferences-v3';
 
 const defaultState = {
-    role: 'vault' as UserRole,
-    actualRole: 'vault' as UserRole,
+    role: 'vault_free' as UserRole,
+    actualRole: 'vault_free' as UserRole,
     name: 'User',
-    isPremium: true,
+    isPremium: false,
     viewMode: 'vault' as ViewMode,
-    storageLimitGB: 0.5, // 500MB
+    storageLimitGB: 0.05, // 50MB
     canSell: false,
     hasTeamAccess: false,
     hasAdvancedAnalytics: false,

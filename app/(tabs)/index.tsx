@@ -174,20 +174,14 @@ function TrendingSection() {
   const [songs, setSongs] = useState<any[]>([]);
 
   useEffect(() => {
-    // Fetch top 3 tracks by listenCount from Firestore
-    const q = query(
-      collectionGroup(db, 'uploads'),
-      orderBy('listenCount', 'desc'),
-      limit(3)
-    );
-    getDocs(q).then((snap) => {
-      const tracks = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      setSongs(tracks.length ? tracks : [
-        { id: '1', title: 'With You', artist: 'Burna Boy', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3', bgColor: '#D9D9D9' },
-        { id: '2', title: 'Paradise', artist: 'Jungle G', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3', bgColor: '#C9A959' },
-        { id: '3', title: 'Lost in Love', artist: 'Jungle G', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3', bgColor: '#8B7355' },
-      ]);
-    }).catch(() => { });
+    const unsub = onSnapshot(doc(db, 'system', 'trending'), (snap) => {
+      if (snap.exists()) {
+        const items = (snap.data()?.items || []) as any[];
+        setSongs(items.slice(0, 3));
+      }
+    });
+
+    return unsub;
   }, []);
 
   const COLORS = ['#D9D9D9', '#C9A959', '#8B7355'];

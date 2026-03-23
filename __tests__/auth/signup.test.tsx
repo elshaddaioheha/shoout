@@ -8,7 +8,8 @@ import { useUserStore } from '../../store/useUserStore';
 
 // Setup Mocks
 jest.mock('expo-router', () => ({
-    useRouter: () => ({ replace: jest.fn(), push: jest.fn() })
+    useRouter: () => ({ replace: jest.fn(), push: jest.fn() }),
+    useLocalSearchParams: () => ({})
 }));
 
 jest.mock('../../store/useUserStore', () => ({

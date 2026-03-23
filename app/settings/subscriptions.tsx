@@ -44,7 +44,6 @@ const PLANS = [
         borderColor: '#EC5C39'
     },
     {
-    {
         id: 'studio_pro',
         name: 'Studio Pro',
         monthlyPriceNGN: 27000,

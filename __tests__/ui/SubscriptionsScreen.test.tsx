@@ -59,18 +59,16 @@ describe('SubscriptionsScreen UI & Flow Tests', () => {
         jest.clearAllMocks();
         jest.spyOn(Alert, 'alert');
         (useUserStore as unknown as jest.Mock).mockReturnValue({
-            role: 'vault_free',
+            role: 'vault',
             setRole: mockSetRole
         });
     });
 
-    it('renders all 4 subscription plans correctly', () => {
+    it('renders vault plans and marks current plan', () => {
         const { getByText } = render(<SubscriptionsScreen />);
 
-        expect(getByText('Vault Free')).toBeTruthy();
-        expect(getByText('Vault Creator')).toBeTruthy();
+        expect(getByText('Premium Plans')).toBeTruthy();
         expect(getByText('Vault Pro')).toBeTruthy();
-        expect(getByText('Vault Executive')).toBeTruthy();
 
         // Active plan should show "Current Plan"
         expect(getByText('Current Plan')).toBeTruthy();
@@ -88,7 +86,7 @@ describe('SubscriptionsScreen UI & Flow Tests', () => {
         expect(getByText('Pay with Stripe')).toBeTruthy();
     });
 
-    it('simulates a Stripe payment flow successfully', async () => {
+    it('shows Stripe unavailable alert when Stripe option is tapped', async () => {
         const { getByText, getAllByText } = render(<SubscriptionsScreen />);
 
         const chooseButtons = getAllByText('Select Plan');
@@ -97,12 +95,13 @@ describe('SubscriptionsScreen UI & Flow Tests', () => {
         const stripeOption = getByText('Pay with Stripe');
         fireEvent.press(stripeOption);
 
-        // Loading state
-        expect(getByText('Processing Secure Payment...')).toBeTruthy();
-
-        // After simulation
         await waitFor(() => {
-            expect(mockSetRole).toHaveBeenCalledWith('vault_creator');
-        }, { timeout: 2500 });
+            expect(Alert.alert).toHaveBeenCalledWith(
+                'Stripe unavailable',
+                'Stripe/Google Pay checkout is disabled until secure backend verification is deployed. Use Flutterwave for now.'
+            );
+        });
+
+        expect(mockSetRole).not.toHaveBeenCalled();
     });
 });

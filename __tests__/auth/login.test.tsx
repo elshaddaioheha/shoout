@@ -8,7 +8,8 @@ import { useUserStore } from '../../store/useUserStore';
 
 // Setup Mocks
 jest.mock('expo-router', () => ({
-    useRouter: () => ({ replace: jest.fn(), push: jest.fn() })
+    useRouter: () => ({ replace: jest.fn(), push: jest.fn() }),
+    useLocalSearchParams: () => ({})
 }));
 
 jest.mock('../../store/useUserStore', () => ({
@@ -43,6 +44,7 @@ describe('LoginScreen Authorization flows', () => {
 
     beforeEach(() => {
         jest.clearAllMocks();
+        process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID = 'test-web-client-id';
         (useUserStore as unknown as jest.Mock).mockReturnValue({
             setRole: mockSetRole,
         });

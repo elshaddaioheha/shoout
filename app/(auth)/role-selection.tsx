@@ -142,33 +142,31 @@ export default function RoleSelectionScreen() {
     const handleContinue = async () => {
         if (!selectedRole) return;
 
-        const currentUser = auth.currentUser;
-        if (!currentUser) {
-            return;
-        }
-
-        await setDoc(
-            doc(db, 'users', currentUser.uid),
-            {
-                role: selectedRole,
-                updatedAt: new Date().toISOString(),
-            },
-            { merge: true }
-        );
-
-        await setDoc(
-            doc(db, 'users', currentUser.uid, 'subscription', 'current'),
-            {
-                tier: selectedRole,
-                isSubscribed: true,
-                expiresAt: null,
-                updatedAt: new Date().toISOString(),
-            },
-            { merge: true }
-        );
-
         setRole(selectedRole);
         setActualRole(selectedRole);
+
+        if (auth.currentUser) {
+            await setDoc(
+                doc(db, 'users', auth.currentUser.uid),
+                {
+                    role: selectedRole,
+                    updatedAt: new Date().toISOString(),
+                },
+                { merge: true }
+            );
+
+            await setDoc(
+                doc(db, 'users', auth.currentUser.uid, 'subscription', 'current'),
+                {
+                    tier: selectedRole,
+                    isSubscribed: selectedRole !== 'vault_free' && selectedRole !== 'studio_free',
+                    expiresAt: null,
+                    updatedAt: new Date().toISOString(),
+                },
+                { merge: true }
+            );
+        }
+
         router.replace('/(tabs)');
     };
 

@@ -7,7 +7,7 @@ import { usePlaybackStore } from '@/store/usePlaybackStore';
 import { useUserStore } from '@/store/useUserStore';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { collectionGroup, limit, onSnapshot, orderBy, query, where } from 'firebase/firestore';
+import { collectionGroup, getDocs, limit, orderBy, query, startAfter, where } from 'firebase/firestore';
 import {
     DollarSign,
     Filter,
@@ -38,38 +38,78 @@ export default function MarketplaceScreen() {
     const { openSheet, isModeSheetOpen, viewMode } = useAppSwitcherContext();
     const [searchQuery, setSearchQuery] = useState('');
     const [loading, setLoading] = useState(true);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [lastDoc, setLastDoc] = useState<any>(null);
+    const [hasMore, setHasMore] = useState(true);
+    const [allItems, setAllItems] = useState<any[]>([]);
 
     const [trending, setTrending] = useState<any[]>([]);
     const [samples, setSamples] = useState<any[]>([]);
     const [arrivals, setArrivals] = useState<any[]>([]);
 
-    useEffect(() => {
-        // Fetch All Public Tracks
-        const q = query(
+    const rebuildSections = (allItems: any[]) => {
+        setTrending(allItems.slice(0, 5));
+        setSamples(allItems.filter((i: any) => i.assetType === 'Sample' || i.category === 'Sample').slice(0, 5));
+        setArrivals(allItems.slice().sort((a: any, b: any) =>
+            (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)
+        ).slice(0, 5));
+    };
+
+    const loadPage = async (after?: any) => {
+        let q = query(
             collectionGroup(db, 'uploads'),
             where('isPublic', '==', true),
             orderBy('listenCount', 'desc'),
-            limit(10)
+            limit(20)
         );
 
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            const allItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        if (after) {
+            q = query(
+                collectionGroup(db, 'uploads'),
+                where('isPublic', '==', true),
+                orderBy('listenCount', 'desc'),
+                startAfter(after),
+                limit(20)
+            );
+        }
 
-            // Logic to segment for MVP
-            setTrending(allItems.slice(0, 5));
-            setSamples(allItems.filter((i: any) => i.category === 'Sample').slice(0, 5));
-            setArrivals(allItems.slice().sort((a: any, b: any) =>
-                (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)
-            ).slice(0, 5));
+        const snap = await getDocs(q);
+        const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        setLastDoc(snap.docs[snap.docs.length - 1] || null);
+        setHasMore(snap.docs.length === 20);
+        return items;
+    };
 
-            setLoading(false);
-        }, (err) => {
-            console.warn("Marketplace query failed (Check for Firestore Index):", err);
-            setLoading(false);
-        });
-
-        return () => unsubscribe();
+    useEffect(() => {
+        (async () => {
+            try {
+                const items = await loadPage();
+                setAllItems(items);
+                rebuildSections(items);
+            } catch (err) {
+                console.warn('Marketplace query failed (Check for Firestore Index):', err);
+            } finally {
+                setLoading(false);
+            }
+        })();
     }, []);
+
+    const handleLoadMore = async () => {
+        if (!lastDoc || loadingMore || !hasMore) return;
+
+        setLoadingMore(true);
+        try {
+            const moreItems = await loadPage(lastDoc);
+            const combined = [...allItems, ...moreItems];
+            const deduped = Array.from(new Map(combined.map((item: any) => [item.id, item])).values());
+            setAllItems(deduped);
+            rebuildSections(deduped);
+        } catch (err) {
+            console.warn('Failed to load more marketplace items:', err);
+        } finally {
+            setLoadingMore(false);
+        }
+    };
 
     const [filterOpen, setFilterOpen] = useState(false);
     const [sortBy, setSortBy] = useState('Newest');
@@ -180,6 +220,12 @@ export default function MarketplaceScreen() {
                             <MarketplaceSection title="Trending Beats" items={filteredTrending} />
                             <MarketplaceSection title="Top Samples" items={filteredSamples} />
                             <MarketplaceSection title="New Arrivals" items={filteredArrivals} />
+
+                            {hasMore && (
+                                <TouchableOpacity style={styles.loadMoreButton} onPress={handleLoadMore} disabled={loadingMore}>
+                                    <Text style={styles.loadMoreText}>{loadingMore ? 'Loading...' : 'Load More'}</Text>
+                                </TouchableOpacity>
+                            )}
 
                             {filteredTrending.length === 0 && filteredSamples.length === 0 && filteredArrivals.length === 0 && (
                                 <View style={{ padding: 40, alignItems: 'center' }}>
@@ -343,5 +389,18 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(255,255,255,0.15)',
         alignItems: 'center',
         justifyContent: 'center',
+    },
+    loadMoreButton: {
+        alignSelf: 'center',
+        paddingHorizontal: 18,
+        paddingVertical: 10,
+        borderRadius: 12,
+        backgroundColor: 'rgba(255,255,255,0.08)',
+        marginBottom: 16,
+    },
+    loadMoreText: {
+        color: '#FFF',
+        fontFamily: 'Poppins-SemiBold',
+        fontSize: 13,
     },
 });

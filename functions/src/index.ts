@@ -2,6 +2,7 @@ import * as admin from 'firebase-admin';
 import * as crypto from 'crypto';
 import * as functions from 'firebase-functions';
 import { onObjectFinalized } from 'firebase-functions/v2/storage';
+import { onSchedule } from 'firebase-functions/v2/scheduler';
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -556,40 +557,87 @@ export const aggregateBestSellers = functions.https.onRequest(
   async (req, res) => {
     // This can be triggered manually or by Cloud Scheduler
     try {
-      // Query all public uploads across all users
-      const uploadsSnap = await db
-        .collectionGroup('uploads')
-        .where('isPublic', '==', true)
-        .orderBy('listenCount', 'desc')
-        .limit(12)
-        .get();
-
-      const bestSellers = uploadsSnap.docs.map((doc) => ({
-        id: doc.id,
-        title: doc.data().title || 'Untitled',
-        uploaderName: doc.data().uploaderName || 'Unknown',
-        price: doc.data().price || 0,
-        coverUrl: doc.data().coverUrl || '',
-        userId: doc.data().userId || '',
-        listenCount: doc.data().listenCount || 0,
-        audioUrl: doc.data().audioUrl || '',
-      }));
-
-      // Write aggregated result to /system/bestSellers
-      await db.collection('system').doc('bestSellers').set({
-        items: bestSellers,
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        itemCount: bestSellers.length,
-      });
-
-      functions.logger.info('Best sellers updated', { count: bestSellers.length });
-      res.status(200).json({ success: true, count: bestSellers.length });
+      const count = await aggregateBestSellersDoc();
+      res.status(200).json({ success: true, count });
     } catch (error) {
       functions.logger.error('Failed to aggregate best sellers:', error);
       res.status(500).json({ error: 'Failed to aggregate best sellers' });
     }
   }
 );
+
+async function aggregateBestSellersDoc(): Promise<number> {
+  const uploadsSnap = await db
+    .collectionGroup('uploads')
+    .where('isPublic', '==', true)
+    .orderBy('listenCount', 'desc')
+    .limit(12)
+    .get();
+
+  const bestSellers = uploadsSnap.docs.map((doc) => ({
+    id: doc.id,
+    title: doc.data().title || 'Untitled',
+    uploaderName: doc.data().uploaderName || 'Unknown',
+    price: doc.data().price || 0,
+    coverUrl: doc.data().coverUrl || '',
+    userId: doc.data().userId || '',
+    listenCount: doc.data().listenCount || 0,
+    audioUrl: doc.data().audioUrl || '',
+  }));
+
+  await db.collection('system').doc('bestSellers').set({
+    items: bestSellers,
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    itemCount: bestSellers.length,
+  });
+
+  functions.logger.info('Best sellers updated', { count: bestSellers.length });
+  return bestSellers.length;
+}
+
+async function aggregateTrendingDoc(): Promise<number> {
+  const uploadsSnap = await db
+    .collectionGroup('uploads')
+    .where('isPublic', '==', true)
+    .orderBy('listenCount', 'desc')
+    .limit(10)
+    .get();
+
+  const items = uploadsSnap.docs.map((doc) => ({
+    id: doc.id,
+    ...doc.data(),
+    audioUrl: doc.data().audioUrl || '',
+  }));
+
+  await db.collection('system').doc('trending').set({
+    items,
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+
+  functions.logger.info('Trending cache updated', { count: items.length });
+  return items.length;
+}
+
+export const aggregateTrending = functions.https.onRequest(
+  { timeoutSeconds: 300, memory: '256MiB' },
+  async (req, res) => {
+    try {
+      const count = await aggregateTrendingDoc();
+      res.status(200).json({ success: true, count });
+    } catch (error) {
+      functions.logger.error('Failed to aggregate trending:', error);
+      res.status(500).json({ error: 'Failed to aggregate trending' });
+    }
+  }
+);
+
+export const scheduleAggregateBestSellers = onSchedule({ schedule: 'every 60 minutes' }, async () => {
+    await aggregateBestSellersDoc();
+  });
+
+export const scheduleAggregateTrending = onSchedule({ schedule: 'every 60 minutes' }, async () => {
+    await aggregateTrendingDoc();
+  });
 
   /**
    * getStreamingUrl - Returns marketplace preview OR library download URL

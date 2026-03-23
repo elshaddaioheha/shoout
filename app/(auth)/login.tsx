@@ -121,10 +121,10 @@ export default function LoginScreen() {
                 await setDoc(doc(db, "users", userCred.user.uid), {
                     fullName: userCred.user.displayName || "Google User",
                     email: userCred.user.email,
-                    role: 'vault', // default initial role for social login
+                    role: 'vault_free', // default initial role for social login
                     createdAt: new Date().toISOString()
                 });
-                setRole('vault');
+                setRole('vault_free');
                 router.replace('/(auth)/role-selection');
             } else {
                 const userData = userDoc.data();
@@ -181,10 +181,10 @@ export default function LoginScreen() {
                 await setDoc(doc(db, 'users', userCred.user.uid), {
                     fullName: fullNameFromApple || userCred.user.displayName || 'Apple User',
                     email: userCred.user.email || '',
-                    role: 'vault',
+                    role: 'vault_free',
                     createdAt: new Date().toISOString(),
                 });
-                setRole('vault');
+                setRole('vault_free');
                 router.replace('/(auth)/role-selection');
             } else {
                 const userData = userDoc.data();

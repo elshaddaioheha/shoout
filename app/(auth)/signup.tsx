@@ -47,7 +47,7 @@ export default function SignupScreen() {
             doc(db, 'users', uid, 'subscription', 'current'),
             {
                 tier,
-                isSubscribed: true,
+                isSubscribed: tier !== 'vault_free' && tier !== 'studio_free',
                 expiresAt: null,
                 updatedAt: new Date().toISOString(),
             },
@@ -77,13 +77,13 @@ export default function SignupScreen() {
                 await setDoc(doc(db, "users", userCred.user.uid), {
                     fullName,
                     email,
-                    role: 'vault', // Default initial role
+                    role: 'vault_free', // Default initial role
                     createdAt: new Date().toISOString()
                 });
 
-                await writeSubscriptionDoc(userCred.user.uid, 'vault');
+                await writeSubscriptionDoc(userCred.user.uid, 'vault_free');
 
-                setRole('vault');
+                setRole('vault_free');
                 // Route to real role selection 
                 router.replace('/(auth)/role-selection');
             }
@@ -117,13 +117,13 @@ export default function SignupScreen() {
                 await setDoc(doc(db, "users", userCred.user.uid), {
                     fullName: userCred.user.displayName || "Google User",
                     email: userCred.user.email,
-                    role: 'vault',
+                    role: 'vault_free',
                     createdAt: new Date().toISOString()
                 });
 
-                await writeSubscriptionDoc(userCred.user.uid, 'vault');
+                await writeSubscriptionDoc(userCred.user.uid, 'vault_free');
 
-                setRole('vault');
+                setRole('vault_free');
                 router.replace('/(auth)/role-selection');
             } else {
                 const userData = userDoc.data();
@@ -179,13 +179,13 @@ export default function SignupScreen() {
                 await setDoc(doc(db, 'users', userCred.user.uid), {
                     fullName: fullNameFromApple || userCred.user.displayName || 'Apple User',
                     email: userCred.user.email || '',
-                    role: 'vault',
+                    role: 'vault_free',
                     createdAt: new Date().toISOString(),
                 });
 
-                await writeSubscriptionDoc(userCred.user.uid, 'vault');
+                await writeSubscriptionDoc(userCred.user.uid, 'vault_free');
 
-                setRole('vault');
+                setRole('vault_free');
                 router.replace('/(auth)/role-selection');
             } else {
                 const userData = userDoc.data();
