@@ -4,13 +4,16 @@ import * as DocumentPicker from 'expo-document-picker';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { addDoc, collection, doc, getDoc, getDocs, limit, orderBy, query, serverTimestamp, setDoc } from 'firebase/firestore';
 import { getDownloadURL, ref, uploadBytesResumable } from 'firebase/storage';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import {
+    Check,
     ChevronDown,
     ChevronLeft,
+    FolderPlus,
     Image as ImageIcon,
+    Link2,
     Music,
     Upload as UploadIcon,
     X
@@ -18,7 +21,6 @@ import {
 import React, { useState } from 'react';
 import {
     ActivityIndicator,
-    Dimensions,
     KeyboardAvoidingView,
     Platform,
     ScrollView,
@@ -30,21 +32,62 @@ import {
 } from 'react-native';
 import { auth, db, storage } from '../../firebaseConfig';
 
-const { width } = Dimensions.get('window');
-
-const GENRES = ['Afrobeat', 'Amapiano', 'Trap', 'Drill', 'R&B', 'Dancehall'];
-const ASSET_TYPES = ['Beat', 'Sample', 'Loop', 'Drum Kit', 'Vocal Pack', 'Preset', 'Other'];
+const GENRES = ['Afrobeat', 'Afrobeats', 'Amapiano', 'Trap', 'Drill', 'R&B', 'Dancehall'];
+const ASSET_TYPES = ['Single', 'Album', 'Playlist'];
+const PRICE_PRESETS = [5000, 10000, 20000];
 
 type AssetType = typeof ASSET_TYPES[number];
+type FlowStep = 'menu' | 'createFolder' | 'uploadSource' | 'publish';
+
+type PublisherProfile = {
+    stageName: string;
+    recordLabel: string;
+    fullName: string;
+    idNumber: string;
+    bank: string;
+    accountNumber: string;
+    payoutThreshold: string;
+    letFansSubscribe: boolean;
+};
 
 export default function UploadScreen() {
     const router = useRouter();
+    const [flowStep, setFlowStep] = useState<FlowStep>('menu');
+    const [sourceChoice, setSourceChoice] = useState<'storage' | 'local' | null>(null);
+
+    const [profileLoading, setProfileLoading] = useState(false);
+    const [profileChecked, setProfileChecked] = useState(false);
+    const [isFirstTimePublisher, setIsFirstTimePublisher] = useState(true);
+
+    const [publisherProfile, setPublisherProfile] = useState<PublisherProfile>({
+        stageName: '',
+        recordLabel: '',
+        fullName: '',
+        idNumber: '',
+        bank: '',
+        accountNumber: '',
+        payoutThreshold: '',
+        letFansSubscribe: false,
+    });
+
+    const [folderName, setFolderName] = useState('');
+    const [folders, setFolders] = useState<Array<{ id: string; name: string }>>([]);
+    const [selectedFolderId, setSelectedFolderId] = useState('');
+    const [showFolderPicker, setShowFolderPicker] = useState(false);
+
+    const [existingTracks, setExistingTracks] = useState<Array<{ id: string; title: string }>>([]);
+    const [selectedTrackIds, setSelectedTrackIds] = useState<string[]>([]);
+    const [showTrackPicker, setShowTrackPicker] = useState(false);
+
     const [title, setTitle] = useState('');
     const [genre, setGenre] = useState('');
     const [assetType, setAssetType] = useState<AssetType | ''>('');
     const [bpm, setBpm] = useState('');
     const [price, setPrice] = useState('');
     const [description, setDescription] = useState('');
+    const [subscriberOnly, setSubscriberOnly] = useState(false);
+    const [useExistingCover, setUseExistingCover] = useState(false);
+
     const [uploading, setUploading] = useState(false);
     const [showGenrePicker, setShowGenrePicker] = useState(false);
     const [showAssetTypePicker, setShowAssetTypePicker] = useState(false);
@@ -52,9 +95,141 @@ export default function UploadScreen() {
     const [audioFile, setAudioFile] = useState<any>(null);
     const [artworkFile, setArtworkFile] = useState<any>(null);
     const [artworkPreviewUri, setArtworkPreviewUri] = useState<string | null>(null);
+
     const { showToast } = useToastStore();
 
+    const loadFolders = async () => {
+        if (!auth.currentUser) return;
+        const snap = await getDocs(
+            query(collection(db, `users/${auth.currentUser.uid}/folders`), orderBy('createdAt', 'desc'))
+        );
+        const items = snap.docs.map((item) => ({
+            id: item.id,
+            name: String(item.data().name || 'Untitled Folder'),
+        }));
+        setFolders(items);
+    };
+
+    const loadExistingTracks = async () => {
+        if (!auth.currentUser) return;
+        const snap = await getDocs(
+            query(collection(db, `users/${auth.currentUser.uid}/uploads`), orderBy('createdAt', 'desc'), limit(20))
+        );
+        const items = snap.docs.map((item) => ({
+            id: item.id,
+            title: String(item.data().title || 'Untitled'),
+        }));
+        setExistingTracks(items);
+    };
+
+    const checkPublisherProfile = async () => {
+        if (!auth.currentUser || profileChecked || profileLoading) return;
+        setProfileLoading(true);
+        try {
+            const profileRef = doc(db, `users/${auth.currentUser.uid}/publisherProfile/main`);
+            const profileSnap = await getDoc(profileRef);
+            if (profileSnap.exists()) {
+                const data = profileSnap.data() as any;
+                setPublisherProfile({
+                    stageName: String(data.stageName || ''),
+                    recordLabel: String(data.recordLabel || ''),
+                    fullName: String(data.fullName || ''),
+                    idNumber: String(data.idNumber || ''),
+                    bank: String(data.bank || ''),
+                    accountNumber: String(data.accountNumber || ''),
+                    payoutThreshold: String(data.payoutThreshold || ''),
+                    letFansSubscribe: Boolean(data.letFansSubscribe),
+                });
+                setIsFirstTimePublisher(false);
+            } else {
+                setIsFirstTimePublisher(true);
+            }
+            setProfileChecked(true);
+        } catch (error) {
+            console.error('Profile check error:', error);
+            showToast('Could not load publisher profile.', 'error');
+        } finally {
+            setProfileLoading(false);
+        }
+    };
+
+    const goToPublishStep = async (source: 'storage' | 'local') => {
+        setSourceChoice(source);
+        await Promise.all([checkPublisherProfile(), loadFolders(), loadExistingTracks()]);
+        setFlowStep('publish');
+    };
+
+    const handleCreateFolder = async () => {
+        if (!auth.currentUser) {
+            showToast('Authentication error - Please log in again', 'error');
+            return;
+        }
+        const cleanName = folderName.trim();
+        if (!cleanName) {
+            showToast('Please enter a folder name', 'error');
+            return;
+        }
+
+        try {
+            const folderDoc = await addDoc(collection(db, `users/${auth.currentUser.uid}/folders`), {
+                name: cleanName,
+                createdAt: serverTimestamp(),
+            });
+            setFolderName('');
+            await loadFolders();
+            setSelectedFolderId(folderDoc.id);
+            showToast('Folder created successfully', 'success');
+            setFlowStep('uploadSource');
+        } catch (error) {
+            console.error('Create folder error:', error);
+            showToast('Failed to create folder.', 'error');
+        }
+    };
+
+    const savePublisherProfile = async () => {
+        if (!auth.currentUser) {
+            showToast('Authentication error - Please log in again', 'error');
+            return false;
+        }
+
+        if (!publisherProfile.stageName || !publisherProfile.fullName || !publisherProfile.bank || !publisherProfile.accountNumber) {
+            showToast('Please complete stage name, full name, bank and account number.', 'error');
+            return false;
+        }
+
+        try {
+            await setDoc(doc(db, `users/${auth.currentUser.uid}/publisherProfile/main`), {
+                ...publisherProfile,
+                updatedAt: serverTimestamp(),
+                source: 'studio-upload-flow',
+            }, { merge: true });
+            await addDoc(collection(db, `users/${auth.currentUser.uid}/publisherProfileAudit`), {
+                event: 'publisher_profile_created',
+                createdAt: serverTimestamp(),
+            });
+            setIsFirstTimePublisher(false);
+            showToast('Publisher profile saved.', 'success');
+            return true;
+        } catch (error) {
+            console.error('Save publisher profile error:', error);
+            showToast('Failed to save publisher profile.', 'error');
+            return false;
+        }
+    };
+
     const handleBack = () => {
+        if (flowStep === 'publish') {
+            setFlowStep('uploadSource');
+            return;
+        }
+        if (flowStep === 'uploadSource') {
+            setFlowStep('menu');
+            return;
+        }
+        if (flowStep === 'createFolder') {
+            setFlowStep('menu');
+            return;
+        }
         router.back();
     };
 
@@ -66,6 +241,10 @@ export default function UploadScreen() {
             });
             if (result.canceled === false) {
                 setAudioFile(result.assets[0]);
+                if (!title) {
+                    const pickedName = result.assets[0].name || 'Untitled Track';
+                    setTitle(String(pickedName).replace(/\.[^/.]+$/, ''));
+                }
             }
         } catch (error) {
             console.error('Document picker error:', error);
@@ -90,7 +269,27 @@ export default function UploadScreen() {
         }
     };
 
+    const applyPricePreset = (preset: number) => {
+        setPrice(String(preset));
+    };
+
+    const toggleTrackSelection = (trackId: string) => {
+        setSelectedTrackIds((prev) => {
+            if (prev.includes(trackId)) {
+                return prev.filter((id) => id !== trackId);
+            }
+            return [...prev, trackId];
+        });
+    };
+
     const handleUpload = async () => {
+        if (isFirstTimePublisher) {
+            const profileSaved = await savePublisherProfile();
+            if (!profileSaved) {
+                return;
+            }
+        }
+
         if (!title) {
             showToast("Please enter a title", "error");
             return;
@@ -112,65 +311,92 @@ export default function UploadScreen() {
             return;
         }
 
+        if (sourceChoice === 'storage' && selectedTrackIds.length === 0 && !audioFile) {
+            showToast('Select at least one existing track or upload a file.', 'error');
+            return;
+        }
+
         setUploading(true);
         try {
             // 🔒 SECURITY: Validate storage limit before uploading
-            const validateStorageLimit = httpsCallable(getFunctions(), 'validateStorageLimit');
-            const storageValidation = await validateStorageLimit({
-                fileSizeBytes: audioFile.size,
-            });
+            if (audioFile?.size) {
+                const validateStorageLimit = httpsCallable(getFunctions(), 'validateStorageLimit');
+                const storageValidation = await validateStorageLimit({
+                    fileSizeBytes: audioFile.size,
+                });
 
-            const validationData = storageValidation.data as { allowed: boolean };
-            if (!validationData.allowed) {
-                showToast("Storage limit exceeded. Please upgrade your plan.", "error");
-                setUploading(false);
-                return;
+                const validationData = storageValidation.data as { allowed: boolean };
+                if (!validationData.allowed) {
+                    showToast('Storage limit exceeded. Please upgrade your plan.', 'error');
+                    setUploading(false);
+                    return;
+                }
             }
 
-            // 1. Convert local URI into a blob that Firebase Cloud Storage can digest
-            const response = await fetch(audioFile.uri);
-            const blob = await response.blob();
+            let downloadUrl = '';
+            let fileName = '';
+            let fileSizeBytes = 0;
 
-            // 2. Reference in Cloud Storage bucket (/vaults/userId/trackName_timestamp.mp3)
-            const safeFileName = `${title.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}`;
-            const storageRef = ref(storage, `vaults/${auth.currentUser.uid}/${safeFileName}`);
+            if (audioFile) {
+                // 1. Convert local URI into a blob that Firebase Cloud Storage can digest
+                const response = await fetch(audioFile.uri);
+                const blob = await response.blob();
 
-            // 3. Upload bytes to bucket
-            const uploadTask = await uploadBytesResumable(storageRef, blob);
+                // 2. Reference in Cloud Storage bucket (/vaults/userId/trackName_timestamp.mp3)
+                const safeFileName = `${title.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}`;
+                const storageRef = ref(storage, `vaults/${auth.currentUser.uid}/${safeFileName}`);
 
-            // 4. Get the permanent streamable URL
-            const downloadUrl = await getDownloadURL(uploadTask.ref);
+                // 3. Upload bytes to bucket
+                const uploadTask = await uploadBytesResumable(storageRef, blob);
+
+                // 4. Get the permanent streamable URL
+                downloadUrl = await getDownloadURL(uploadTask.ref);
+                fileName = String(audioFile.name || safeFileName);
+                fileSizeBytes = Number(audioFile.size || 0);
+            }
 
             let coverUrl = '';
             if (artworkFile) {
                 const artResponse = await fetch(artworkFile.uri);
                 const artBlob = await artResponse.blob();
-                const artRef = ref(storage, `users/${auth.currentUser.uid}/covers/${safeFileName}`);
+                const artRef = ref(storage, `users/${auth.currentUser.uid}/covers/${Date.now()}_${title.replace(/[^a-zA-Z0-9]/g, '_')}`);
                 const artTask = await uploadBytesResumable(artRef, artBlob);
                 coverUrl = await getDownloadURL(artTask.ref);
             }
 
             // 5. Save the metadata pointer natively into Firestore Collections
             // 🔒 SECURITY: Firestore rules will block pricing if user lacks canSell permission
-            await addDoc(collection(db, `users/${auth.currentUser.uid}/uploads`), {
+            const uploadDoc = await addDoc(collection(db, `users/${auth.currentUser.uid}/uploads`), {
                 title,
                 genre: genre || "Unknown",
-                assetType,
+                assetType: assetType || 'Single',
+                trackType: assetType || 'Single',
                 bpm: parseInt(bpm) || 0,
                 price: parseFloat(price) || 0,
                 description,
                 audioUrl: downloadUrl,
                 coverUrl,
-                fileName: audioFile.name,
-                fileSizeBytes: audioFile.size,
+                fileName,
+                fileSizeBytes,
+                folderId: selectedFolderId || null,
+                sourceChoice: sourceChoice || 'local',
+                useExistingCover,
+                selectedTrackIds,
+                subscriberOnly,
                 listenCount: 0,
+                salesCount: 0,
                 createdAt: serverTimestamp(),
+                publishedAt: serverTimestamp(),
+                published: true,
                 isPublic: true,
                 userId: auth.currentUser.uid,
                 uploaderName: auth.currentUser.displayName || "Shoouter",
             });
 
             showToast("Track uploaded to your Vault successfully!", "success");
+
+            const sharePath = `/listing/${uploadDoc.id}`;
+            showToast(`Share link ready: ${sharePath}`, 'info');
             router.back();
         } catch (error: any) {
             console.error("Upload error: ", error);
@@ -196,7 +422,12 @@ export default function UploadScreen() {
                         <TouchableOpacity onPress={handleBack} style={styles.backButton}>
                             <ChevronLeft size={24} color="#FFF" />
                         </TouchableOpacity>
-                        <Text style={styles.headerTitle}>Upload Music</Text>
+                        <Text style={styles.headerTitle}>
+                            {flowStep === 'menu' && 'Publish Track'}
+                            {flowStep === 'createFolder' && 'Create Folder'}
+                            {flowStep === 'uploadSource' && 'Upload Track'}
+                            {flowStep === 'publish' && 'Publish Track'}
+                        </Text>
                         <View style={{ width: 40 }} />
                     </View>
 
@@ -204,139 +435,367 @@ export default function UploadScreen() {
                         showsVerticalScrollIndicator={false}
                         contentContainerStyle={styles.scrollContent}
                     >
-                        {/* Artwork Upload */}
-                        <TouchableOpacity style={styles.artworkUpload} onPress={handleSelectArtwork}>
-                            {artworkPreviewUri ? (
-                                <Image source={{ uri: artworkPreviewUri }} style={StyleSheet.absoluteFillObject} contentFit="cover" />
-                            ) : (
-                                <LinearGradient
-                                    colors={['rgba(255,255,255,0.05)', 'rgba(255,255,255,0.02)']}
-                                    style={styles.artworkGradient}
-                                >
-                                    <ImageIcon size={32} color="rgba(255,255,255,0.4)" />
-                                    <Text style={styles.uploadArtText}>Tap to add Cover Art</Text>
-                                    <Text style={styles.uploadArtSub}>1:1 Ratio recommended</Text>
-                                </LinearGradient>
-                            )}
-                        </TouchableOpacity>
-
-                        {/* File Upload Section */}
-                        <TouchableOpacity style={styles.fileUploadBox} onPress={handleSelectFile}>
-                            <View style={styles.fileIconContainer}>
-                                <Music size={24} color="#EC5C39" />
-                            </View>
-                            <View style={styles.fileInfo}>
-                                <Text style={styles.fileTitle} numberOfLines={1}>{audioFile ? audioFile.name : 'Select Audio File'}</Text>
-                                <Text style={styles.fileSub}>{audioFile && audioFile.size ? `${(audioFile.size / (1024 * 1024)).toFixed(2)} MB` : 'MP3, WAV or FLAC (Max 50MB)'}</Text>
-                            </View>
-                            <UploadIcon size={20} color={audioFile ? "#EC5C39" : "rgba(255,255,255,0.4)"} />
-                        </TouchableOpacity>
-
-                        {/* Form Fields */}
-                        <View style={styles.form}>
-                            <View style={styles.inputGroup}>
-                                <Text style={styles.label}>Track Title</Text>
-                                <TextInput
-                                    style={styles.input}
-                                    placeholder="Enter song or beat name"
-                                    placeholderTextColor="rgba(255,255,255,0.3)"
-                                    value={title}
-                                    onChangeText={setTitle}
-                                />
-                            </View>
-
-                            <View style={styles.rowInputs}>
-                                <View style={[styles.inputGroup, { flex: 1 }]}>
-                                    <Text style={styles.label}>Genre</Text>
-                                    <TouchableOpacity
-                                        style={styles.pickerTrigger}
-                                        onPress={() => setShowGenrePicker(true)}
-                                    >
-                                        <Text style={[styles.pickerText, !genre && { color: 'rgba(255,255,255,0.3)' }]}>
-                                            {genre || 'Select Genre'}
-                                        </Text>
-                                        <ChevronDown size={18} color="rgba(255,255,255,0.6)" />
-                                    </TouchableOpacity>
-                                </View>
-                                <View style={[styles.inputGroup, { width: 100 }]}>
-                                    <Text style={styles.label}>BPM</Text>
-                                    <TextInput
-                                        style={styles.input}
-                                        placeholder="120"
-                                        placeholderTextColor="rgba(255,255,255,0.3)"
-                                        keyboardType="numeric"
-                                        value={bpm}
-                                        onChangeText={setBpm}
-                                    />
-                                </View>
-                            </View>
-
-                            <View style={styles.inputGroup}>
-                                <Text style={styles.label}>Asset Type</Text>
+                        {flowStep === 'menu' && (
+                            <View style={styles.flowBlock}>
                                 <TouchableOpacity
-                                    style={styles.pickerTrigger}
-                                    onPress={() => setShowAssetTypePicker(true)}
+                                    style={styles.choiceCard}
+                                    onPress={() => setFlowStep('createFolder')}
                                 >
-                                    <Text style={[styles.pickerText, !assetType && { color: 'rgba(255,255,255,0.3)' }]}>
-                                        {assetType || 'Select Asset Type'}
-                                    </Text>
-                                    <ChevronDown size={18} color="rgba(255,255,255,0.6)" />
+                                    <View>
+                                        <Text style={styles.choiceTitle}>Create Folder</Text>
+                                        <Text style={styles.choiceSub}>Organize songs before publishing</Text>
+                                    </View>
+                                    <View style={styles.choiceIcon}>
+                                        <FolderPlus size={26} color="#FFF" />
+                                    </View>
+                                </TouchableOpacity>
+
+                                <TouchableOpacity
+                                    style={styles.choiceCard}
+                                    onPress={() => setFlowStep('uploadSource')}
+                                >
+                                    <View>
+                                        <Text style={styles.choiceTitle}>Upload Track</Text>
+                                        <Text style={styles.choiceSub}>Start your publishing flow</Text>
+                                    </View>
+                                    <View style={styles.choiceIcon}>
+                                        <Music size={26} color="#FFF" />
+                                    </View>
                                 </TouchableOpacity>
                             </View>
+                        )}
 
-                            <View style={styles.inputGroup}>
-                                <Text style={styles.label}>Price (optional)</Text>
-                                <View style={styles.priceInputWrapper}>
-                                    <Text style={styles.currencyPrefix}>$</Text>
+                        {flowStep === 'createFolder' && (
+                            <View style={styles.flowBlock}>
+                                <View style={styles.inputGroup}>
+                                    <Text style={styles.label}>Name of Folder</Text>
                                     <TextInput
-                                        style={[styles.input, { paddingLeft: 30 }]}
-                                        placeholder="29.99"
+                                        style={styles.input}
+                                        placeholder="Name of Folder"
                                         placeholderTextColor="rgba(255,255,255,0.3)"
-                                        keyboardType="decimal-pad"
-                                        value={price}
-                                        onChangeText={setPrice}
+                                        value={folderName}
+                                        onChangeText={setFolderName}
                                     />
                                 </View>
-                            </View>
 
-                            <View style={styles.inputGroup}>
-                                <Text style={styles.label}>Description</Text>
-                                <TextInput
-                                    style={[styles.input, styles.textArea]}
-                                    placeholder="Write something about your track..."
-                                    placeholderTextColor="rgba(255,255,255,0.3)"
-                                    multiline
-                                    numberOfLines={4}
-                                    value={description}
-                                    onChangeText={setDescription}
-                                />
+                                <TouchableOpacity style={styles.publishButton} onPress={handleCreateFolder}>
+                                    <LinearGradient colors={['#EC5C39', '#863420']} style={styles.publishGradient}>
+                                        <Text style={styles.publishText}>Create Folder</Text>
+                                    </LinearGradient>
+                                </TouchableOpacity>
                             </View>
-                        </View>
+                        )}
 
-                        {/* Upload Button */}
-                        <TouchableOpacity
-                            style={styles.publishButton}
-                            onPress={handleUpload}
-                            disabled={uploading}
-                        >
-                            <LinearGradient
-                                colors={['#EC5C39', '#863420']}
-                                style={styles.publishGradient}
-                            >
-                                {uploading ? (
-                                    <ActivityIndicator color="#FFF" />
-                                ) : (
-                                    <View style={styles.buttonContent}>
-                                        <Image
-                                            source={require('@/assets/images/check-circle.png')}
-                                            style={{ width: 20, height: 20, marginRight: 8 }}
-                                            contentFit="contain"
-                                        />
-                                        <Text style={styles.publishText}>Publish Track</Text>
+                        {flowStep === 'uploadSource' && (
+                            <View style={styles.flowBlock}>
+                                <Text style={styles.helperTitle}>Select track source</Text>
+                                <TouchableOpacity style={styles.inlineLink} onPress={() => goToPublishStep('storage')}>
+                                    <Text style={styles.inlineLinkText}>Select items from Storage</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity style={styles.inlineLink} onPress={() => goToPublishStep('local')}>
+                                    <Text style={styles.inlineLinkText}>Select items from Local device</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity style={styles.publishButton} onPress={() => goToPublishStep(sourceChoice || 'local')}>
+                                    <LinearGradient colors={['#EC5C39', '#863420']} style={styles.publishGradient}>
+                                        <Text style={styles.publishText}>Proceed to Publish</Text>
+                                    </LinearGradient>
+                                </TouchableOpacity>
+                            </View>
+                        )}
+
+                        {flowStep === 'publish' && (
+                            <>
+                                {profileLoading && (
+                                    <View style={{ paddingVertical: 24 }}>
+                                        <ActivityIndicator color="#EC5C39" />
                                     </View>
                                 )}
-                            </LinearGradient>
-                        </TouchableOpacity>
+
+                                {/* First-time publisher block */}
+                                {isFirstTimePublisher && !profileLoading && (
+                                    <View style={styles.sectionCard}>
+                                        <Text style={styles.sectionTitle}>First Time Publisher</Text>
+
+                                        <View style={styles.inputGroup}>
+                                            <Text style={styles.label}>Stage Name</Text>
+                                            <TextInput
+                                                style={styles.input}
+                                                placeholder="Enter your stage name"
+                                                placeholderTextColor="rgba(255,255,255,0.3)"
+                                                value={publisherProfile.stageName}
+                                                onChangeText={(value) => setPublisherProfile((prev) => ({ ...prev, stageName: value }))}
+                                            />
+                                        </View>
+
+                                        <View style={styles.inputGroup}>
+                                            <Text style={styles.label}>Record Label</Text>
+                                            <TextInput
+                                                style={styles.input}
+                                                placeholder="Select or input record label"
+                                                placeholderTextColor="rgba(255,255,255,0.3)"
+                                                value={publisherProfile.recordLabel}
+                                                onChangeText={(value) => setPublisherProfile((prev) => ({ ...prev, recordLabel: value }))}
+                                            />
+                                        </View>
+
+                                        <View style={styles.inputGroup}>
+                                            <Text style={styles.label}>Full Name</Text>
+                                            <TextInput
+                                                style={styles.input}
+                                                placeholder="Enter full name"
+                                                placeholderTextColor="rgba(255,255,255,0.3)"
+                                                value={publisherProfile.fullName}
+                                                onChangeText={(value) => setPublisherProfile((prev) => ({ ...prev, fullName: value }))}
+                                            />
+                                        </View>
+
+                                        <View style={styles.inputGroup}>
+                                            <Text style={styles.label}>Means of Identification</Text>
+                                            <TextInput
+                                                style={styles.input}
+                                                placeholder="BVN/NIN/Passport Number"
+                                                placeholderTextColor="rgba(255,255,255,0.3)"
+                                                value={publisherProfile.idNumber}
+                                                onChangeText={(value) => setPublisherProfile((prev) => ({ ...prev, idNumber: value }))}
+                                            />
+                                        </View>
+
+                                        <View style={styles.rowInputs}>
+                                            <View style={[styles.inputGroup, { flex: 1 }]}>
+                                                <Text style={styles.label}>Bank</Text>
+                                                <TextInput
+                                                    style={styles.input}
+                                                    placeholder="Select Bank"
+                                                    placeholderTextColor="rgba(255,255,255,0.3)"
+                                                    value={publisherProfile.bank}
+                                                    onChangeText={(value) => setPublisherProfile((prev) => ({ ...prev, bank: value }))}
+                                                />
+                                            </View>
+                                            <View style={[styles.inputGroup, { flex: 1 }]}>
+                                                <Text style={styles.label}>Account Number</Text>
+                                                <TextInput
+                                                    style={styles.input}
+                                                    placeholder="Account Number"
+                                                    placeholderTextColor="rgba(255,255,255,0.3)"
+                                                    keyboardType="number-pad"
+                                                    value={publisherProfile.accountNumber}
+                                                    onChangeText={(value) => setPublisherProfile((prev) => ({ ...prev, accountNumber: value }))}
+                                                />
+                                            </View>
+                                        </View>
+
+                                        <View style={styles.inputGroup}>
+                                            <Text style={styles.label}>Amount</Text>
+                                            <TextInput
+                                                style={styles.input}
+                                                placeholder="Enter amount"
+                                                placeholderTextColor="rgba(255,255,255,0.3)"
+                                                keyboardType="number-pad"
+                                                value={publisherProfile.payoutThreshold}
+                                                onChangeText={(value) => setPublisherProfile((prev) => ({ ...prev, payoutThreshold: value }))}
+                                            />
+                                        </View>
+
+                                        <TouchableOpacity
+                                            style={styles.toggleRow}
+                                            onPress={() => setPublisherProfile((prev) => ({
+                                                ...prev,
+                                                letFansSubscribe: !prev.letFansSubscribe,
+                                            }))}
+                                        >
+                                            <Text style={styles.inlineLinkText}>Let Fans Subscribe</Text>
+                                            <View style={[styles.checkbox, publisherProfile.letFansSubscribe && styles.checkboxActive]}>
+                                                {publisherProfile.letFansSubscribe && <Check size={12} color="#FFF" />}
+                                            </View>
+                                        </TouchableOpacity>
+                                    </View>
+                                )}
+
+                                {/* Main publish block */}
+                                <View style={styles.sectionCard}>
+                                    {/* File Upload Section */}
+                                    <TouchableOpacity style={styles.fileUploadBox} onPress={handleSelectFile}>
+                                        <View style={styles.fileIconContainer}>
+                                            <Music size={24} color="#EC5C39" />
+                                        </View>
+                                        <View style={styles.fileInfo}>
+                                            <Text style={styles.fileTitle} numberOfLines={1}>{audioFile ? audioFile.name : 'Select Audio File'}</Text>
+                                            <Text style={styles.fileSub}>{audioFile && audioFile.size ? `${(audioFile.size / (1024 * 1024)).toFixed(2)} MB` : 'MP3, WAV or FLAC (Max 50MB)'}</Text>
+                                        </View>
+                                        <UploadIcon size={20} color={audioFile ? '#EC5C39' : 'rgba(255,255,255,0.4)'} />
+                                    </TouchableOpacity>
+
+                                    <View style={styles.inputGroup}>
+                                        <Text style={styles.label}>Type of Track</Text>
+                                        <TouchableOpacity
+                                            style={styles.pickerTrigger}
+                                            onPress={() => setShowAssetTypePicker(true)}
+                                        >
+                                            <Text style={[styles.pickerText, !assetType && { color: 'rgba(255,255,255,0.3)' }]}>
+                                                {assetType || 'Single, Album, Playlist'}
+                                            </Text>
+                                            <ChevronDown size={18} color="rgba(255,255,255,0.6)" />
+                                        </TouchableOpacity>
+                                    </View>
+
+                                    <View style={styles.inputGroup}>
+                                        <Text style={styles.label}>Track Title</Text>
+                                        <TextInput
+                                            style={styles.input}
+                                            placeholder="Enter song or beat name"
+                                            placeholderTextColor="rgba(255,255,255,0.3)"
+                                            value={title}
+                                            onChangeText={setTitle}
+                                        />
+                                    </View>
+
+                                    <View style={styles.inputGroup}>
+                                        <Text style={styles.label}>Select Track (Multiple Selection)</Text>
+                                        <TouchableOpacity
+                                            style={styles.pickerTrigger}
+                                            onPress={() => setShowTrackPicker(true)}
+                                        >
+                                            <Text style={[styles.pickerText, selectedTrackIds.length === 0 && { color: 'rgba(255,255,255,0.3)' }]}>
+                                                {selectedTrackIds.length > 0 ? `${selectedTrackIds.length} selected` : 'Select Tracks'}
+                                            </Text>
+                                            <ChevronDown size={18} color="rgba(255,255,255,0.6)" />
+                                        </TouchableOpacity>
+                                    </View>
+
+                                    <View style={styles.inputGroup}>
+                                        <Text style={styles.label}>Select Genre</Text>
+                                        <TouchableOpacity
+                                            style={styles.pickerTrigger}
+                                            onPress={() => setShowGenrePicker(true)}
+                                        >
+                                            <Text style={[styles.pickerText, !genre && { color: 'rgba(255,255,255,0.3)' }]}>
+                                                {genre || 'Select Genre'}
+                                            </Text>
+                                            <ChevronDown size={18} color="rgba(255,255,255,0.6)" />
+                                        </TouchableOpacity>
+                                    </View>
+
+                                    <View style={styles.inputGroup}>
+                                        <Text style={styles.label}>Select Track Price</Text>
+                                        <View style={styles.pricePillsRow}>
+                                            {PRICE_PRESETS.map((preset) => (
+                                                <TouchableOpacity
+                                                    key={preset}
+                                                    style={styles.pricePill}
+                                                    onPress={() => applyPricePreset(preset)}
+                                                >
+                                                    <Text style={styles.pricePillText}>NGN {preset.toLocaleString()}</Text>
+                                                </TouchableOpacity>
+                                            ))}
+                                        </View>
+                                        <TextInput
+                                            style={styles.input}
+                                            placeholder="Input Price"
+                                            placeholderTextColor="rgba(255,255,255,0.3)"
+                                            keyboardType="decimal-pad"
+                                            value={price}
+                                            onChangeText={setPrice}
+                                        />
+                                    </View>
+
+                                    <View style={styles.inputGroup}>
+                                        <Text style={styles.label}>BPM</Text>
+                                        <TextInput
+                                            style={styles.input}
+                                            placeholder="120"
+                                            placeholderTextColor="rgba(255,255,255,0.3)"
+                                            keyboardType="numeric"
+                                            value={bpm}
+                                            onChangeText={setBpm}
+                                        />
+                                    </View>
+
+                                    <View style={styles.inputGroup}>
+                                        <Text style={styles.label}>Description</Text>
+                                        <TextInput
+                                            style={[styles.input, styles.textArea]}
+                                            placeholder="Write something about your track"
+                                            placeholderTextColor="rgba(255,255,255,0.3)"
+                                            multiline
+                                            numberOfLines={4}
+                                            value={description}
+                                            onChangeText={setDescription}
+                                        />
+                                    </View>
+
+                                    <View style={styles.toggleRow}>
+                                        <TouchableOpacity onPress={() => setUseExistingCover(!useExistingCover)}>
+                                            <Text style={styles.inlineLinkText}>Use existing track cover</Text>
+                                        </TouchableOpacity>
+                                        <View style={[styles.checkbox, useExistingCover && styles.checkboxActive]}>
+                                            {useExistingCover && <Check size={12} color="#FFF" />}
+                                        </View>
+                                    </View>
+
+                                    {!useExistingCover && (
+                                        <TouchableOpacity style={styles.artworkUpload} onPress={handleSelectArtwork}>
+                                            {artworkPreviewUri ? (
+                                                <Image source={{ uri: artworkPreviewUri }} style={StyleSheet.absoluteFillObject} contentFit="cover" />
+                                            ) : (
+                                                <LinearGradient
+                                                    colors={['rgba(255,255,255,0.05)', 'rgba(255,255,255,0.02)']}
+                                                    style={styles.artworkGradient}
+                                                >
+                                                    <ImageIcon size={32} color="rgba(255,255,255,0.4)" />
+                                                    <Text style={styles.uploadArtText}>Select Track Cover</Text>
+                                                    <Text style={styles.uploadArtSub}>Tap to upload image</Text>
+                                                </LinearGradient>
+                                            )}
+                                        </TouchableOpacity>
+                                    )}
+
+                                    <View style={styles.toggleRow}>
+                                        <Text style={styles.inlineLinkText}>Exclusive to subscribers</Text>
+                                        <TouchableOpacity
+                                            onPress={() => setSubscriberOnly(!subscriberOnly)}
+                                            style={[styles.checkbox, subscriberOnly && styles.checkboxActive]}
+                                        >
+                                            {subscriberOnly && <Check size={12} color="#FFF" />}
+                                        </TouchableOpacity>
+                                    </View>
+
+                                    <View style={styles.inputGroup}>
+                                        <Text style={styles.label}>Folder</Text>
+                                        <TouchableOpacity
+                                            style={styles.pickerTrigger}
+                                            onPress={() => setShowFolderPicker(true)}
+                                        >
+                                            <Text style={[styles.pickerText, !selectedFolderId && { color: 'rgba(255,255,255,0.3)' }]}>
+                                                {selectedFolderId
+                                                    ? (folders.find((f) => f.id === selectedFolderId)?.name || 'Selected Folder')
+                                                    : 'Folders/File'}
+                                            </Text>
+                                            <ChevronDown size={18} color="rgba(255,255,255,0.6)" />
+                                        </TouchableOpacity>
+                                    </View>
+                                </View>
+
+                                <TouchableOpacity
+                                    style={styles.publishButton}
+                                    onPress={handleUpload}
+                                    disabled={uploading}
+                                >
+                                    <LinearGradient
+                                        colors={['#EC5C39', '#863420']}
+                                        style={styles.publishGradient}
+                                    >
+                                        {uploading ? (
+                                            <ActivityIndicator color="#FFF" />
+                                        ) : (
+                                            <View style={styles.buttonContent}>
+                                                <Link2 size={18} color="#FFF" style={{ marginRight: 8 }} />
+                                                <Text style={styles.publishText}>Share Link</Text>
+                                            </View>
+                                        )}
+                                    </LinearGradient>
+                                </TouchableOpacity>
+                            </>
+                        )}
 
                         <View style={{ height: 100 }} />
                     </ScrollView>
@@ -419,6 +878,92 @@ export default function UploadScreen() {
                         </View>
                     </TouchableOpacity>
                 )}
+
+                {showFolderPicker && (
+                    <TouchableOpacity
+                        style={styles.modalOverlay}
+                        activeOpacity={1}
+                        onPress={() => setShowFolderPicker(false)}
+                    >
+                        <View style={styles.pickerContent}>
+                            <View style={styles.pickerHeader}>
+                                <Text style={styles.pickerTitle}>Select Folder</Text>
+                                <TouchableOpacity onPress={() => setShowFolderPicker(false)}>
+                                    <X size={24} color="#FFF" />
+                                </TouchableOpacity>
+                            </View>
+                            {folders.length === 0 ? (
+                                <Text style={styles.emptyPickerText}>No folders found. Create one first.</Text>
+                            ) : (
+                                folders.map((folder) => (
+                                    <TouchableOpacity
+                                        key={folder.id}
+                                        style={styles.genreItem}
+                                        onPress={() => {
+                                            setSelectedFolderId(folder.id);
+                                            setShowFolderPicker(false);
+                                        }}
+                                    >
+                                        <Text style={[styles.genreItemText, selectedFolderId === folder.id && { color: '#EC5C39' }]}>
+                                            {folder.name}
+                                        </Text>
+                                        {selectedFolderId === folder.id && (
+                                            <Image
+                                                source={require('@/assets/images/check-circle.png')}
+                                                style={{ width: 18, height: 18 }}
+                                                contentFit="contain"
+                                            />
+                                        )}
+                                    </TouchableOpacity>
+                                ))
+                            )}
+                        </View>
+                    </TouchableOpacity>
+                )}
+
+                {showTrackPicker && (
+                    <TouchableOpacity
+                        style={styles.modalOverlay}
+                        activeOpacity={1}
+                        onPress={() => setShowTrackPicker(false)}
+                    >
+                        <View style={styles.pickerContent}>
+                            <View style={styles.pickerHeader}>
+                                <Text style={styles.pickerTitle}>Select Tracks</Text>
+                                <TouchableOpacity onPress={() => setShowTrackPicker(false)}>
+                                    <X size={24} color="#FFF" />
+                                </TouchableOpacity>
+                            </View>
+                            {existingTracks.length === 0 ? (
+                                <Text style={styles.emptyPickerText}>No existing tracks found yet.</Text>
+                            ) : (
+                                existingTracks.map((track) => (
+                                    <TouchableOpacity
+                                        key={track.id}
+                                        style={styles.genreItem}
+                                        onPress={() => toggleTrackSelection(track.id)}
+                                    >
+                                        <Text
+                                            style={[
+                                                styles.genreItemText,
+                                                selectedTrackIds.includes(track.id) && { color: '#EC5C39' },
+                                            ]}
+                                        >
+                                            {track.title}
+                                        </Text>
+                                        {selectedTrackIds.includes(track.id) && (
+                                            <Image
+                                                source={require('@/assets/images/check-circle.png')}
+                                                style={{ width: 18, height: 18 }}
+                                                contentFit="contain"
+                                            />
+                                        )}
+                                    </TouchableOpacity>
+                                ))
+                            )}
+                        </View>
+                    </TouchableOpacity>
+                )}
             </KeyboardAvoidingView>
         </SafeScreenWrapper>
     );
@@ -452,12 +997,75 @@ const styles = StyleSheet.create({
     scrollContent: {
         paddingBottom: 40,
     },
+    flowBlock: {
+        gap: 18,
+        paddingTop: 12,
+    },
+    choiceCard: {
+        borderRadius: 16,
+        borderWidth: 1.5,
+        borderColor: 'rgba(255,255,255,0.2)',
+        backgroundColor: '#140F10',
+        padding: 18,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    choiceTitle: {
+        color: '#FFF',
+        fontFamily: 'Poppins-SemiBold',
+        fontSize: 20,
+    },
+    choiceSub: {
+        color: 'rgba(255,255,255,0.55)',
+        fontFamily: 'Poppins-Regular',
+        fontSize: 12,
+        marginTop: 4,
+    },
+    choiceIcon: {
+        width: 54,
+        height: 54,
+        borderRadius: 27,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.25)',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    sectionCard: {
+        marginTop: 14,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.08)',
+        backgroundColor: 'rgba(255,255,255,0.02)',
+        padding: 16,
+        gap: 14,
+    },
+    sectionTitle: {
+        color: '#FFF',
+        fontFamily: 'Poppins-Bold',
+        fontSize: 18,
+        marginBottom: 4,
+    },
+    helperTitle: {
+        color: '#FFF',
+        fontFamily: 'Poppins-SemiBold',
+        fontSize: 16,
+    },
+    inlineLink: {
+        paddingVertical: 2,
+    },
+    inlineLinkText: {
+        color: '#EC5C39',
+        fontFamily: 'Poppins-Regular',
+        fontSize: 12,
+        textDecorationLine: 'underline',
+    },
     artworkUpload: {
         width: '100%',
-        aspectRatio: 1,
-        borderRadius: 24,
+        aspectRatio: 1.2,
+        borderRadius: 16,
         overflow: 'hidden',
-        marginBottom: 25,
+        marginBottom: 8,
         borderWidth: 1,
         borderStyle: 'dashed',
         borderColor: 'rgba(255,255,255,0.1)',
@@ -543,6 +1151,22 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         gap: 15,
     },
+    pricePillsRow: {
+        flexDirection: 'row',
+        gap: 8,
+        marginBottom: 8,
+    },
+    pricePill: {
+        backgroundColor: '#D9D9D9',
+        borderRadius: 10,
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+    },
+    pricePillText: {
+        color: '#000',
+        fontFamily: 'Poppins-Regular',
+        fontSize: 12,
+    },
     pickerTrigger: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -586,6 +1210,23 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
     },
+    toggleRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    checkbox: {
+        width: 18,
+        height: 18,
+        borderRadius: 4,
+        borderWidth: 2,
+        borderColor: '#EC5C39',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    checkboxActive: {
+        backgroundColor: '#EC5C39',
+    },
     publishText: {
         color: '#FFF',
         fontFamily: 'Poppins-Bold',
@@ -628,5 +1269,11 @@ const styles = StyleSheet.create({
         color: 'rgba(255,255,255,0.6)',
         fontFamily: 'Poppins-SemiBold',
         fontSize: 16,
-    }
+    },
+    emptyPickerText: {
+        color: 'rgba(255,255,255,0.5)',
+        fontFamily: 'Poppins-Regular',
+        fontSize: 14,
+        paddingVertical: 8,
+    },
 });

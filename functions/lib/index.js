@@ -32,12 +32,17 @@ var __importStar = (this && this.__importStar) || (function () {
         return result;
     };
 })();
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.adminTriggerPayoutReconciliation = exports.adminUnsuspendCreator = exports.adminGetCreatorDetails = exports.adminGetCreators = exports.adminSetUserRole = exports.adminGetPayoutLedger = exports.adminGetComplianceMetrics = exports.adminSuspendCreator = exports.adminReviewReportsBatch = exports.adminReviewReport = exports.adminGetModerationQueue = exports.processAudioUpload = exports.getStreamingUrl = exports.aggregateBestSellers = exports.validateStorageLimit = exports.flutterwaveWebhook = exports.getCheckoutStatus = exports.createCheckoutSession = void 0;
+exports.adminTriggerPayoutReconciliation = exports.adminUnsuspendCreator = exports.adminGetCreatorDetails = exports.adminGetCreators = exports.adminSetUserRole = exports.adminGetPayoutLedger = exports.adminGetComplianceMetrics = exports.adminSuspendCreator = exports.adminReviewReportsBatch = exports.adminReviewReport = exports.adminGetModerationQueue = exports.processAudioUpload = exports.getStreamingUrl = exports.downgradeExpiredSubscriptions = exports.scheduleAggregateTrending = exports.scheduleAggregateBestSellers = exports.aggregateTrending = exports.aggregateBestSellers = exports.validateStorageLimit = exports.flutterwaveWebhook = exports.getCheckoutStatus = exports.createCheckoutSession = exports.activateSubscriptionTier = void 0;
 const admin = __importStar(require("firebase-admin"));
 const crypto = __importStar(require("crypto"));
 const functions = __importStar(require("firebase-functions"));
-const storage_1 = require("firebase-functions/v2/storage");
+const functionsV1 = __importStar(require("firebase-functions/v1"));
+const scheduler_1 = require("firebase-functions/v2/scheduler");
+const pdfkit_1 = __importDefault(require("pdfkit"));
 admin.initializeApp();
 const db = admin.firestore();
 function getUserRoleFromContext(context) {
@@ -61,11 +66,33 @@ async function logAdminAction(params) {
     });
 }
 const NAIRA_RATE = 1600;
+const SUBSCRIPTION_PLAN_PRICING_NGN = {
+    // Canonical tiers:
+    // - vault is the free baseline tier
+    // - vault_pro annual has no discount (business exception)
+    // - studio/hybrid annual are 15% off monthly x 12
+    vault: { monthly: 0, annual: 0 },
+    vault_pro: { monthly: 13962, annual: 13962 * 12 },
+    studio: { monthly: 27000, annual: 22950 * 12 },
+    hybrid: { monthly: 34906, annual: 29670 * 12 },
+};
+const FREE_SUBSCRIPTION_PLANS = new Set(['vault']);
+const EMAIL_COLLECTION = process.env.FIREBASE_TRIGGER_EMAIL_COLLECTION || 'mail';
 function expectedAmountInNgn(totalUsd) {
     return Math.round(totalUsd * NAIRA_RATE);
 }
 function getFlutterwaveSecret() {
     return process.env.FLUTTERWAVE_SECRET_HASH || functions.config()?.flutterwave?.secret_hash || '';
+}
+function getFlutterwaveSecretKey() {
+    return process.env.FLUTTERWAVE_SECRET_KEY || functions.config()?.flutterwave?.secret_key || '';
+}
+function getExpectedSubscriptionAmountNgn(planId, billingCycle) {
+    const pricing = SUBSCRIPTION_PLAN_PRICING_NGN[planId];
+    if (!pricing) {
+        throw new functions.https.HttpsError('invalid-argument', `Unsupported planId: ${planId}`);
+    }
+    return billingCycle === 'annual' ? pricing.annual : pricing.monthly;
 }
 function verifyWebhookSignature(rawBody, signature, secret) {
     if (!signature || !secret)
@@ -73,6 +100,258 @@ function verifyWebhookSignature(rawBody, signature, secret) {
     const hash = crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
     return hash === signature;
 }
+function calculateSubscriptionExpiry(billingCycle) {
+    const next = new Date();
+    if (billingCycle === 'annual') {
+        next.setFullYear(next.getFullYear() + 1);
+    }
+    else {
+        next.setMonth(next.getMonth() + 1);
+    }
+    return admin.firestore.Timestamp.fromDate(next);
+}
+async function renderInvoicePdfBuffer(params) {
+    return new Promise((resolve, reject) => {
+        const doc = new pdfkit_1.default({ margin: 50, size: 'A4' });
+        const chunks = [];
+        doc.on('data', (c) => chunks.push(c));
+        doc.on('end', () => resolve(Buffer.concat(chunks)));
+        doc.on('error', reject);
+        doc.fontSize(20).text('SHOOUTS TAX INVOICE', { align: 'left' });
+        doc.moveDown(0.5);
+        doc.fontSize(11).text(`Invoice No: ${params.invoiceNumber}`);
+        doc.text(`Issued: ${params.issuedAt.toISOString()}`);
+        doc.text(`Bill To: ${params.issuedTo}`);
+        doc.text(`Email: ${params.email}`);
+        doc.moveDown(1);
+        doc.fontSize(12).text('Items', { underline: true });
+        doc.moveDown(0.4);
+        params.lineItems.forEach((line) => {
+            doc
+                .fontSize(10)
+                .text(`${line.description}  | Qty: ${line.qty}  | Unit: NGN ${line.unitAmountNgn.toLocaleString()}  | Total: NGN ${line.totalAmountNgn.toLocaleString()}`);
+        });
+        doc.moveDown(1);
+        doc.fontSize(11).text(`Subtotal: NGN ${params.subtotalNgn.toLocaleString()}`);
+        doc.text(`VAT (7.5%): NGN ${params.vatNgn.toLocaleString()}`);
+        doc.fontSize(13).text(`Grand Total: NGN ${params.totalNgn.toLocaleString()}`, { underline: true });
+        if (params.notes) {
+            doc.moveDown(1);
+            doc.fontSize(10).text(`Notes: ${params.notes}`);
+        }
+        doc.moveDown(1);
+        doc.fontSize(9).text('Shoouts Finance • This document is system generated.', { align: 'left' });
+        doc.end();
+    });
+}
+async function createInvoiceAndGetUrl(params) {
+    const buffer = await renderInvoicePdfBuffer({
+        invoiceNumber: params.invoiceNumber,
+        issuedTo: params.issuedTo,
+        email: params.email,
+        issuedAt: new Date(),
+        lineItems: params.lineItems,
+        subtotalNgn: params.subtotalNgn,
+        vatNgn: params.vatNgn,
+        totalNgn: params.totalNgn,
+        notes: params.notes,
+    });
+    const bucket = admin.storage().bucket();
+    const filePath = `invoices/${params.userId}/${params.invoiceNumber}.pdf`;
+    const file = bucket.file(filePath);
+    await file.save(buffer, {
+        resumable: false,
+        contentType: 'application/pdf',
+        metadata: { cacheControl: 'private, max-age=3600' },
+    });
+    const [signedUrl] = await file.getSignedUrl({
+        action: 'read',
+        expires: Date.now() + 1000 * 60 * 60 * 24 * 30,
+    });
+    return signedUrl;
+}
+async function queueEmail(params) {
+    await db.collection(EMAIL_COLLECTION).add({
+        to: [params.to],
+        message: {
+            subject: params.subject,
+            text: params.text,
+            html: params.html,
+        },
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+}
+exports.activateSubscriptionTier = functions.https.onRequest(async (req, res) => {
+    if (req.method !== 'POST') {
+        res.status(405).json({ success: false, error: 'Method Not Allowed' });
+        return;
+    }
+    try {
+        const authHeader = String(req.header('authorization') || '');
+        if (!authHeader.startsWith('Bearer ')) {
+            res.status(401).json({ success: false, error: 'Missing bearer token' });
+            return;
+        }
+        const idToken = authHeader.slice('Bearer '.length).trim();
+        const decoded = await admin.auth().verifyIdToken(idToken);
+        const userId = decoded.uid;
+        const planId = String(req.body?.planId || '').trim();
+        const billingCycleRaw = String(req.body?.billingCycle || 'monthly').toLowerCase();
+        const billingCycle = billingCycleRaw === 'annual' ? 'annual' : 'monthly';
+        const txRef = String(req.body?.txRef || '').trim();
+        if (!planId) {
+            res.status(400).json({ success: false, error: 'planId is required' });
+            return;
+        }
+        const expectedAmountNgn = getExpectedSubscriptionAmountNgn(planId, billingCycle);
+        const isFreeTier = expectedAmountNgn === 0 && FREE_SUBSCRIPTION_PLANS.has(planId);
+        if (expectedAmountNgn > 0 && !txRef) {
+            res.status(400).json({ success: false, error: 'txRef is required for paid plans' });
+            return;
+        }
+        let verifiedAmountNgn = expectedAmountNgn;
+        let providerTransactionId = null;
+        if (!isFreeTier) {
+            const secretKey = getFlutterwaveSecretKey();
+            if (!secretKey) {
+                functions.logger.error('FLUTTERWAVE_SECRET_KEY is not configured');
+                res.status(500).json({ success: false, error: 'Payment verification is unavailable' });
+                return;
+            }
+            const paymentRef = db.collection('subscriptionPayments').doc(txRef);
+            const existingPaymentSnap = await paymentRef.get();
+            if (existingPaymentSnap.exists) {
+                const existing = existingPaymentSnap.data();
+                if (existing.userId === userId && existing.planId === planId && existing.status === 'completed') {
+                    res.status(200).json({ success: true, alreadyProcessed: true, planId });
+                    return;
+                }
+            }
+            const verifyUrl = `https://api.flutterwave.com/v3/transactions/verify_by_reference?tx_ref=${encodeURIComponent(txRef)}`;
+            const verifyResponse = await fetch(verifyUrl, {
+                method: 'GET',
+                headers: {
+                    Authorization: `Bearer ${secretKey}`,
+                    'Content-Type': 'application/json',
+                },
+            });
+            if (!verifyResponse.ok) {
+                functions.logger.error('Flutterwave verify request failed', { status: verifyResponse.status, txRef });
+                res.status(400).json({ success: false, error: 'Unable to verify payment' });
+                return;
+            }
+            const verifyPayload = (await verifyResponse.json());
+            const paymentData = verifyPayload?.data || {};
+            const paymentStatus = String(paymentData?.status || '').toLowerCase();
+            const paymentCurrency = String(paymentData?.currency || '').toUpperCase();
+            const paidAmount = Number(paymentData?.amount || 0);
+            if (verifyPayload?.status !== 'success' || paymentStatus !== 'successful') {
+                res.status(400).json({ success: false, error: 'Payment not successful' });
+                return;
+            }
+            if (String(paymentData?.tx_ref || '') !== txRef) {
+                res.status(400).json({ success: false, error: 'txRef mismatch' });
+                return;
+            }
+            if (!Number.isFinite(paidAmount) || paidAmount < expectedAmountNgn) {
+                res.status(400).json({ success: false, error: 'Paid amount is invalid' });
+                return;
+            }
+            if (paymentCurrency !== 'NGN') {
+                res.status(400).json({ success: false, error: 'Invalid payment currency' });
+                return;
+            }
+            verifiedAmountNgn = paidAmount;
+            providerTransactionId = String(paymentData?.id || '');
+        }
+        const now = admin.firestore.FieldValue.serverTimestamp();
+        const expiresAt = isFreeTier ? null : calculateSubscriptionExpiry(billingCycle);
+        const subscriptionStatus = isFreeTier ? 'trial' : 'active';
+        const userRef = db.collection('users').doc(userId);
+        const subscriptionRef = userRef.collection('subscription').doc('current');
+        const batch = db.batch();
+        batch.set(subscriptionRef, {
+            tier: planId,
+            status: subscriptionStatus,
+            isSubscribed: !isFreeTier,
+            billingCycle: isFreeTier ? null : billingCycle,
+            expiresAt,
+            amountNgn: verifiedAmountNgn,
+            provider: isFreeTier ? 'internal' : 'flutterwave',
+            txRef: isFreeTier ? null : txRef,
+            providerTransactionId,
+            updatedAt: now,
+            activatedAt: now,
+        }, { merge: true });
+        batch.set(userRef, {
+            role: planId,
+            lastSubscribedAt: now,
+            subscriptionStatus,
+        }, { merge: true });
+        if (!isFreeTier) {
+            const paymentRef = db.collection('subscriptionPayments').doc(txRef);
+            batch.set(paymentRef, {
+                userId,
+                planId,
+                billingCycle,
+                status: 'completed',
+                amountNgn: verifiedAmountNgn,
+                expectedAmountNgn,
+                provider: 'flutterwave',
+                providerTransactionId,
+                updatedAt: now,
+                createdAt: now,
+            }, { merge: true });
+        }
+        await batch.commit();
+        try {
+            const userSnap = await userRef.get();
+            const userData = userSnap.data();
+            const recipientEmail = String(userData?.email || decoded.email || '').trim();
+            const recipientName = String(userData?.fullName || userData?.name || 'Shoouts User').trim();
+            if (recipientEmail) {
+                const subtotal = verifiedAmountNgn;
+                const vat = Math.round(subtotal * 0.075);
+                const total = subtotal + vat;
+                const invoiceNumber = `SUB-${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
+                const invoiceUrl = await createInvoiceAndGetUrl({
+                    userId,
+                    invoiceNumber,
+                    issuedTo: recipientName,
+                    email: recipientEmail,
+                    lineItems: [
+                        {
+                            description: `Subscription: ${planId} (${isFreeTier ? 'trial' : billingCycle})`,
+                            qty: 1,
+                            unitAmountNgn: subtotal,
+                            totalAmountNgn: subtotal,
+                        },
+                    ],
+                    subtotalNgn: subtotal,
+                    vatNgn: vat,
+                    totalNgn: total,
+                    notes: isFreeTier
+                        ? 'Your account is currently on the free/trial Vault tier.'
+                        : `Your plan is active until ${expiresAt?.toDate().toISOString()}.`,
+                });
+                await queueEmail({
+                    to: recipientEmail,
+                    subject: `Shoouts Subscription Update: ${planId}`,
+                    text: `Hi ${recipientName}, your subscription is now ${planId} (${subscriptionStatus}). Invoice: ${invoiceUrl}`,
+                    html: `<p>Hi ${recipientName},</p><p>Your subscription is now <strong>${planId}</strong> (${subscriptionStatus}).</p><p>Invoice: <a href="${invoiceUrl}">Download PDF invoice</a></p>`,
+                });
+            }
+        }
+        catch (emailError) {
+            functions.logger.error('Subscription email/invoice generation failed', emailError);
+        }
+        res.status(200).json({ success: true, planId, billingCycle });
+    }
+    catch (error) {
+        functions.logger.error('activateSubscriptionTier failed', error);
+        res.status(500).json({ success: false, error: error?.message || 'Internal error' });
+    }
+});
 exports.createCheckoutSession = functions.https.onCall(async (data, context) => {
     if (!context?.auth) {
         throw new functions.https.HttpsError('unauthenticated', 'Authentication required');
@@ -221,6 +500,45 @@ exports.flutterwaveWebhook = functions.https.onRequest(async (req, res) => {
         updatedAt: now,
     }, { merge: true });
     await batch.commit();
+    try {
+        const userRef = db.collection('users').doc(session.userId);
+        const userSnap = await userRef.get();
+        const userData = userSnap.data();
+        const recipientEmail = String(userData?.email || '').trim();
+        const recipientName = String(userData?.fullName || userData?.name || 'Shoouts User').trim();
+        if (recipientEmail) {
+            const lineItems = session.items.map((item) => ({
+                description: `${item.title} by ${item.artist}`,
+                qty: 1,
+                unitAmountNgn: Number(item.price || 0),
+                totalAmountNgn: Number(item.price || 0),
+            }));
+            const subtotal = lineItems.reduce((sum, line) => sum + line.totalAmountNgn, 0);
+            const vat = Math.round(subtotal * 0.075);
+            const total = subtotal + vat;
+            const invoiceNumber = `PUR-${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
+            const invoiceUrl = await createInvoiceAndGetUrl({
+                userId: session.userId,
+                invoiceNumber,
+                issuedTo: recipientName,
+                email: recipientEmail,
+                lineItems,
+                subtotalNgn: subtotal,
+                vatNgn: vat,
+                totalNgn: total,
+                notes: `Payment reference: ${txRef}`,
+            });
+            await queueEmail({
+                to: recipientEmail,
+                subject: 'Shoouts Purchase Receipt & Invoice',
+                text: `Hi ${recipientName}, your purchase was successful. Invoice: ${invoiceUrl}`,
+                html: `<p>Hi ${recipientName},</p><p>Your purchase was successful.</p><p>Invoice: <a href="${invoiceUrl}">Download PDF invoice</a></p>`,
+            });
+        }
+    }
+    catch (emailError) {
+        functions.logger.error('Purchase email/invoice generation failed', emailError);
+    }
     res.status(200).send('Processed');
 });
 /**
@@ -249,20 +567,15 @@ exports.validateStorageLimit = functions.https.onCall(async (data, context) => {
         .doc('current')
         .get();
     const subscription = subscriptionSnap.data();
-    const tier = subscription?.tier || 'vault_free';
+    const tier = subscription?.tier || 'vault';
     // Determine storage limit in bytes based on tier
     const storageLimitMap = {
-        vault_free: 0.05 * 1024 * 1024 * 1024, // 50MB
-        vault_creator: 0.5 * 1024 * 1024 * 1024, // 500MB
+        vault: 0.5 * 1024 * 1024 * 1024, // 500MB
         vault_pro: 1 * 1024 * 1024 * 1024, // 1GB
-        vault_executive: 5 * 1024 * 1024 * 1024, // 5GB
-        studio_free: 0.1 * 1024 * 1024 * 1024, // 100MB
-        studio_pro: 1 * 1024 * 1024 * 1024, // 1GB
-        studio_plus: 10 * 1024 * 1024 * 1024, // 10GB
-        hybrid_creator: 5 * 1024 * 1024 * 1024, // 5GB
-        hybrid_executive: 10 * 1024 * 1024 * 1024, // 10GB
+        studio: 2 * 1024 * 1024 * 1024, // 2GB
+        hybrid: 10 * 1024 * 1024 * 1024, // 10GB
     };
-    const storageLimit = storageLimitMap[tier] || storageLimitMap.vault_free;
+    const storageLimit = storageLimitMap[tier] || storageLimitMap.vault;
     // Calculate total storage used by user
     const uploadsSnap = await db
         .collection('users')
@@ -300,35 +613,113 @@ exports.validateStorageLimit = functions.https.onCall(async (data, context) => {
 exports.aggregateBestSellers = functions.https.onRequest({ timeoutSeconds: 540, memory: '512MiB' }, async (req, res) => {
     // This can be triggered manually or by Cloud Scheduler
     try {
-        // Query all public uploads across all users
-        const uploadsSnap = await db
-            .collectionGroup('uploads')
-            .where('isPublic', '==', true)
-            .orderBy('listenCount', 'desc')
-            .limit(12)
-            .get();
-        const bestSellers = uploadsSnap.docs.map((doc) => ({
-            id: doc.id,
-            title: doc.data().title || 'Untitled',
-            uploaderName: doc.data().uploaderName || 'Unknown',
-            price: doc.data().price || 0,
-            coverUrl: doc.data().coverUrl || '',
-            userId: doc.data().userId || '',
-            listenCount: doc.data().listenCount || 0,
-            audioUrl: doc.data().audioUrl || '',
-        }));
-        // Write aggregated result to /system/bestSellers
-        await db.collection('system').doc('bestSellers').set({
-            items: bestSellers,
-            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-            itemCount: bestSellers.length,
-        });
-        functions.logger.info('Best sellers updated', { count: bestSellers.length });
-        res.status(200).json({ success: true, count: bestSellers.length });
+        const count = await aggregateBestSellersDoc();
+        res.status(200).json({ success: true, count });
     }
     catch (error) {
         functions.logger.error('Failed to aggregate best sellers:', error);
         res.status(500).json({ error: 'Failed to aggregate best sellers' });
+    }
+});
+async function aggregateBestSellersDoc() {
+    const uploadsSnap = await db
+        .collectionGroup('uploads')
+        .where('isPublic', '==', true)
+        .orderBy('listenCount', 'desc')
+        .limit(12)
+        .get();
+    const bestSellers = uploadsSnap.docs.map((doc) => ({
+        id: doc.id,
+        title: doc.data().title || 'Untitled',
+        uploaderName: doc.data().uploaderName || 'Unknown',
+        price: doc.data().price || 0,
+        coverUrl: doc.data().coverUrl || '',
+        userId: doc.data().userId || '',
+        listenCount: doc.data().listenCount || 0,
+        audioUrl: doc.data().audioUrl || '',
+    }));
+    await db.collection('system').doc('bestSellers').set({
+        items: bestSellers,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        itemCount: bestSellers.length,
+    });
+    functions.logger.info('Best sellers updated', { count: bestSellers.length });
+    return bestSellers.length;
+}
+async function aggregateTrendingDoc() {
+    const uploadsSnap = await db
+        .collectionGroup('uploads')
+        .where('isPublic', '==', true)
+        .orderBy('listenCount', 'desc')
+        .limit(10)
+        .get();
+    const items = uploadsSnap.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+        audioUrl: doc.data().audioUrl || '',
+    }));
+    await db.collection('system').doc('trending').set({
+        items,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    functions.logger.info('Trending cache updated', { count: items.length });
+    return items.length;
+}
+exports.aggregateTrending = functions.https.onRequest({ timeoutSeconds: 300, memory: '256MiB' }, async (req, res) => {
+    try {
+        const count = await aggregateTrendingDoc();
+        res.status(200).json({ success: true, count });
+    }
+    catch (error) {
+        functions.logger.error('Failed to aggregate trending:', error);
+        res.status(500).json({ error: 'Failed to aggregate trending' });
+    }
+});
+exports.scheduleAggregateBestSellers = (0, scheduler_1.onSchedule)({ schedule: 'every 60 minutes' }, async () => {
+    await aggregateBestSellersDoc();
+});
+exports.scheduleAggregateTrending = (0, scheduler_1.onSchedule)({ schedule: 'every 60 minutes' }, async () => {
+    await aggregateTrendingDoc();
+});
+exports.downgradeExpiredSubscriptions = (0, scheduler_1.onSchedule)({ schedule: 'every 24 hours' }, async () => {
+    const now = admin.firestore.Timestamp.now();
+    const expiredSnap = await db
+        .collectionGroup('subscription')
+        .where('status', '==', 'active')
+        .where('expiresAt', '<=', now)
+        .get();
+    if (expiredSnap.empty) {
+        return;
+    }
+    let batch = db.batch();
+    let batchOps = 0;
+    for (const docSnap of expiredSnap.docs) {
+        const userRef = docSnap.ref.parent.parent;
+        if (!userRef)
+            continue;
+        batch.set(docSnap.ref, {
+            tier: 'vault',
+            status: 'expired',
+            isSubscribed: false,
+            billingCycle: null,
+            expiresAt: null,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            downgradedAt: admin.firestore.FieldValue.serverTimestamp(),
+        }, { merge: true });
+        batch.set(userRef, {
+            role: 'vault',
+            subscriptionStatus: 'expired',
+            downgradedAt: admin.firestore.FieldValue.serverTimestamp(),
+        }, { merge: true });
+        batchOps += 2;
+        if (batchOps >= 400) {
+            await batch.commit();
+            batch = db.batch();
+            batchOps = 0;
+        }
+    }
+    if (batchOps > 0) {
+        await batch.commit();
     }
 });
 /**
@@ -424,10 +815,11 @@ const processAudioUploadHandler = async (event) => {
     }
 };
 // Keep bucket target configurable so CI/CD can deploy even if a fixed bucket region is unavailable.
+// Use 1st gen storage trigger here to avoid Eventarc trigger creation flakiness.
 const uploadBucket = process.env.UPLOAD_BUCKET_NAME;
 exports.processAudioUpload = uploadBucket
-    ? (0, storage_1.onObjectFinalized)({ bucket: uploadBucket }, processAudioUploadHandler)
-    : (0, storage_1.onObjectFinalized)(processAudioUploadHandler);
+    ? functionsV1.storage.bucket(uploadBucket).object().onFinalize(processAudioUploadHandler)
+    : functionsV1.storage.object().onFinalize(processAudioUploadHandler);
 /**
  * Admin APIs (Role-protected via custom claims)
  */
@@ -684,7 +1076,7 @@ exports.adminGetCreators = functions.https.onCall(async (data, context) => {
             id: doc.id,
             name: userData.name || userData.email?.split('@')[0] || 'Unknown',
             email: userData.email || '',
-            tier: subData?.tier || 'vault_free',
+            tier: subData?.tier || 'vault',
             suspendedUntil: userData.suspendedUntil?.seconds
                 ? new Date(userData.suspendedUntil.seconds * 1000).toISOString()
                 : null,
@@ -738,7 +1130,7 @@ exports.adminGetCreatorDetails = functions.https.onCall(async (data, context) =>
         id: creatorId,
         name: userData.name || userData.email?.split('@')[0] || 'Unknown',
         email: userData.email || '',
-        tier: subData?.tier || 'vault_free',
+        tier: subData?.tier || 'vault',
         suspendedUntil: userData.suspendedUntil?.seconds
             ? new Date(userData.suspendedUntil.seconds * 1000).toISOString()
             : null,

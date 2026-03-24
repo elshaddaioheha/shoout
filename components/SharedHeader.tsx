@@ -29,7 +29,7 @@ export default function SharedHeader({
     showCart,
     cartCount,
     showMessages,
-    role = 'vault_free',
+    role = 'vault',
 }: SharedHeaderProps) {
     const router = useRouter();
     const { unreadCount } = useNotificationStore();

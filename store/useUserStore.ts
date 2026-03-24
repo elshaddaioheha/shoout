@@ -3,13 +3,10 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
 export type UserRole =
-    | 'vault' | 'vault_pro' | 'vault_executive'
-    | 'studio_pro' | 'studio_plus'
-    | 'hybrid'
-    // Legacy role ids kept for backward compatibility with existing user docs
-    | 'vault_free' | 'vault_creator'
-    | 'studio_free'
-    | 'hybrid_creator' | 'hybrid_executive';
+    | 'vault'
+    | 'vault_pro'
+    | 'studio'
+    | 'hybrid';
 
 export type ViewMode = 'vault' | 'studio';
 
@@ -49,12 +46,12 @@ interface PersistedUserState {
 const STORAGE_KEY = 'shoouts-user-preferences-v3';
 
 const defaultState = {
-    role: 'vault_free' as UserRole,
-    actualRole: 'vault_free' as UserRole,
+    role: 'vault' as UserRole,
+    actualRole: 'vault' as UserRole,
     name: 'User',
     isPremium: false,
     viewMode: 'vault' as ViewMode,
-    storageLimitGB: 0.05, // 50MB
+    storageLimitGB: 0.5, // 500MB
     canSell: false,
     hasTeamAccess: false,
     hasAdvancedAnalytics: false,
@@ -64,7 +61,7 @@ const defaultState = {
 const getRoleCapabilities = (role: UserRole) => {
     // Shared defaults
     let capabilities = {
-        isPremium: true,
+        isPremium: false,
         storageLimitGB: 0.5,
         canSell: false,
         hasTeamAccess: false,
@@ -77,29 +74,15 @@ const getRoleCapabilities = (role: UserRole) => {
         // Vault Plans
         case 'vault':
             return { ...capabilities };
-        case 'vault_free':
-            return { ...capabilities, isPremium: false, storageLimitGB: 0.05 };
-        case 'vault_creator':
-            return { ...capabilities };
         case 'vault_pro':
             return { ...capabilities, isPremium: true, storageLimitGB: 1, hasAdvancedAnalytics: true };
-        case 'vault_executive':
-            return { ...capabilities, isPremium: true, storageLimitGB: 5, hasAdvancedAnalytics: true, hasTeamAccess: true };
 
         // Studio Plans
-        case 'studio_free':
-            return { ...capabilities, viewMode: 'studio' as ViewMode, canSell: true };
-        case 'studio_pro':
-            return { ...capabilities, viewMode: 'studio' as ViewMode, isPremium: true, canSell: true }; // Basic analytics implicitly true
-        case 'studio_plus':
-            return { ...capabilities, viewMode: 'studio' as ViewMode, isPremium: true, canSell: true, hasAdvancedAnalytics: true };
+        case 'studio':
+            return { ...capabilities, viewMode: 'studio' as ViewMode, isPremium: true, canSell: true, storageLimitGB: 2, hasAdvancedAnalytics: true };
 
         // Hybrid Plans
         case 'hybrid':
-            return { ...capabilities, viewMode: 'vault' as ViewMode, isPremium: true, canSell: true, storageLimitGB: 10, hasAdvancedAnalytics: true, hasTeamAccess: true };
-        case 'hybrid_creator':
-            return { ...capabilities, viewMode: 'vault' as ViewMode, isPremium: true, canSell: true, storageLimitGB: 5, hasAdvancedAnalytics: true };
-        case 'hybrid_executive':
             return { ...capabilities, viewMode: 'vault' as ViewMode, isPremium: true, canSell: true, storageLimitGB: 10, hasAdvancedAnalytics: true, hasTeamAccess: true };
 
         default:

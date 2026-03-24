@@ -1,67 +1,52 @@
 /**
  * Subscription Plan Tests
  *
- * Tests the PLANS data structure and the UI/business logic from the
- * subscriptions screen (app/settings/subscriptions.tsx).
- *
- * We test: plan structure integrity, correct recommended flag, and
- * the role-capability mapping that the subscription screen drives.
+ * Canonical tiers:
+ * - vault (free baseline)
+ * - vault_pro
+ * - studio
+ * - hybrid
  */
 
 jest.mock('@react-native-async-storage/async-storage', () =>
     require('@react-native-async-storage/async-storage/jest/async-storage-mock')
 );
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Plan data (mirrors the PLANS array in app/settings/subscriptions.tsx)
-// We deliberately extract and import the data to keep tests DRY.
-// ─────────────────────────────────────────────────────────────────────────────
 const PLANS = [
     {
-        id: 'vault_free',
-        name: 'Vault Free',
-        price: 'NGN 0',
-        period: '/month',
-        features: ['50MB Cloud Storage', 'Private Links', 'Basic Stats', 'Safe Transfer'],
-        color: '#767676',
+        id: 'vault',
+        name: 'Vault',
+        monthlyPriceNGN: 0,
+        annualPriceNGN: 0,
         category: 'Vault',
-        recommended: false,
+        features: ['500MB Cloud Storage'],
     },
     {
         id: 'vault_pro',
         name: 'Vault Pro',
-        price: 'NGN 5,000',
-        period: '/month',
-        features: ['1GB Cloud Storage', 'Advanced Analytics', 'Custom Branding', 'Priority Support'],
-        color: '#EC5C39',
+        monthlyPriceNGN: 13962,
+        annualPriceNGN: 13962,
         category: 'Vault',
-        recommended: true,
+        features: ['1GB Cloud Storage', 'Advanced Tracking'],
     },
     {
-        id: 'studio_pro',
-        name: 'Studio Pro',
-        price: 'NGN 10,000',
-        period: '/month',
-        features: ['Sell Unlimited Tracks', 'Lower Transaction Fees', 'Studio Dashboard', 'Artist Verification'],
-        color: '#4CAF50',
+        id: 'studio',
+        name: 'Studio',
+        monthlyPriceNGN: 27000,
+        annualPriceNGN: 22950,
         category: 'Studio',
-        recommended: false,
+        features: ['Unlimited Listings', 'Buyer-Seller Chat'],
     },
     {
-        id: 'hybrid_executive',
-        name: 'Executive Hybrid',
-        price: 'NGN 25,000',
-        period: '/month',
-        features: ['10GB Cloud Storage', 'Team Collaboration', '0% Transaction Fees', 'VIP Promotion'],
-        color: '#FFD700',
+        id: 'hybrid',
+        name: 'Hybrid',
+        monthlyPriceNGN: 34906,
+        annualPriceNGN: 29670,
         category: 'Hybrid',
-        recommended: false,
+        features: ['10GB Storage', 'Team Collaboration'],
     },
 ];
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Plan data integrity
-// ─────────────────────────────────────────────────────────────────────────────
 describe('Subscription Plans › data integrity', () => {
     it('contains exactly 4 plans', () => {
         expect(PLANS).toHaveLength(4);
@@ -78,87 +63,48 @@ describe('Subscription Plans › data integrity', () => {
             expect(plan.features.length).toBeGreaterThan(0);
         });
     });
+});
 
-    it('every plan has a non-empty name and price', () => {
-        PLANS.forEach(plan => {
-            expect(plan.name).toBeTruthy();
-            expect(plan.price).toBeTruthy();
-        });
+describe('Subscription Plans › annual pricing policy', () => {
+    it('vault remains free', () => {
+        const vault = PLANS.find(p => p.id === 'vault');
+        expect(vault?.monthlyPriceNGN).toBe(0);
+        expect(vault?.annualPriceNGN).toBe(0);
     });
 
-    it('every plan belongs to a valid category', () => {
-        const validCategories = ['Vault', 'Studio', 'Hybrid'];
-        PLANS.forEach(plan => {
-            expect(validCategories).toContain(plan.category);
-        });
+    it('vault_pro annual has no discount (business exception)', () => {
+        const vaultPro = PLANS.find(p => p.id === 'vault_pro');
+        expect(vaultPro?.annualPriceNGN).toBe(vaultPro?.monthlyPriceNGN);
+    });
+
+    it('studio annual is exactly 15% off monthly', () => {
+        const studio = PLANS.find(p => p.id === 'studio');
+        const expected = Math.round((studio!.monthlyPriceNGN * 85) / 100);
+        expect(studio?.annualPriceNGN).toBe(expected);
+    });
+
+    it('hybrid annual is exactly 15% off monthly', () => {
+        const hybrid = PLANS.find(p => p.id === 'hybrid');
+        const expected = Math.round((hybrid!.monthlyPriceNGN * 85) / 100);
+        expect(hybrid?.annualPriceNGN).toBe(expected);
     });
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Recommended badge
-// ─────────────────────────────────────────────────────────────────────────────
-describe('Subscription Plans › recommended flag', () => {
-    it('exactly one plan is marked recommended', () => {
-        const recommended = PLANS.filter(p => p.recommended);
-        expect(recommended).toHaveLength(1);
-    });
-
-    it('vault_pro is the recommended plan', () => {
-        const recommended = PLANS.find(p => p.recommended);
-        expect(recommended?.id).toBe('vault_pro');
-    });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Pricing order (cheapest to most expensive)
-// ─────────────────────────────────────────────────────────────────────────────
-describe('Subscription Plans › pricing', () => {
-    it('vault_free is free (NGN 0)', () => {
-        const plan = PLANS.find(p => p.id === 'vault_free');
-        expect(plan?.price).toBe('NGN 0');
-    });
-
-    it('hybrid_executive is the most expensive plan', () => {
-        // Extract numeric value from NGN-formatted price
-        const prices = PLANS.map(p => parseInt(p.price.replace(/[^0-9]/g, ''), 10));
-        const maxPrice = Math.max(...prices);
-        const executivePlan = PLANS.find(p => p.id === 'hybrid_executive');
-        const executivePrice = parseInt(executivePlan!.price.replace(/[^0-9]/g, ''), 10);
-        expect(executivePrice).toBe(maxPrice);
-    });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Plan-to-Role mapping (simulates what handleUpgrade does)
-// ─────────────────────────────────────────────────────────────────────────────
-describe('Subscription Plans › plan-to-role mapping', () => {
-    const PLAN_IDS = PLANS.map(p => p.id);
-
-    it('all plan IDs match valid UserRole values', () => {
-        const validRoles = [
-            'vault_free', 'vault_creator', 'vault_pro', 'vault_executive',
-            'studio_free', 'studio_pro', 'studio_plus',
-            'hybrid_creator', 'hybrid_executive',
-        ];
-        PLAN_IDS.forEach(id => {
+describe('Subscription Plans › role mapping', () => {
+    it('all plan IDs match canonical UserRole values', () => {
+        const validRoles = ['vault', 'vault_pro', 'studio', 'hybrid'];
+        PLANS.map(p => p.id).forEach(id => {
             expect(validRoles).toContain(id);
         });
     });
 
-    it('studio_pro plan enables selling – matches store capability', () => {
-        // This test validates the plans screen drives the correct store upgrade
-        const studioPlan = PLANS.find(p => p.id === 'studio_pro');
-        expect(studioPlan?.features).toContain('Sell Unlimited Tracks');
-        // The store test (useUserStore.test.ts) validates studio_pro gives canSell = true
+    it('studio plan includes selling-oriented features', () => {
+        const studio = PLANS.find(p => p.id === 'studio');
+        expect(studio?.features).toContain('Unlimited Listings');
     });
 
-    it('hybrid_executive plan has team collaboration feature', () => {
-        const execPlan = PLANS.find(p => p.id === 'hybrid_executive');
-        expect(execPlan?.features).toContain('Team Collaboration');
-    });
-
-    it('hybrid_executive plan has 0% transaction fees', () => {
-        const execPlan = PLANS.find(p => p.id === 'hybrid_executive');
-        expect(execPlan?.features).toContain('0% Transaction Fees');
+    it('hybrid plan includes collaboration', () => {
+        const hybrid = PLANS.find(p => p.id === 'hybrid');
+        expect(hybrid?.features).toContain('Team Collaboration');
     });
 });

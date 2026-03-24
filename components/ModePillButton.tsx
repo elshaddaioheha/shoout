@@ -19,15 +19,10 @@ const MODE_CONFIG: Record<ViewMode, { Icon: any; color: string }> = {
 };
 
 const TIER_LABELS: Record<UserRole, string> = {
-    vault_free: 'Vault Free',
-    vault_creator: 'Vault Creator',
+    vault: 'Vault',
     vault_pro: 'Vault Pro',
-    vault_executive: 'Vault Executive',
-    studio_free: 'Studio Free',
-    studio_pro: 'Studio Pro',
-    studio_plus: 'Studio Plus',
-    hybrid_creator: 'Hybrid Creator',
-    hybrid_executive: 'Hybrid Executive',
+    studio: 'Studio',
+    hybrid: 'Hybrid',
 };
 
 export default function ModePillButton({ viewMode, role, isOpen, onPress }: ModePillButtonProps) {

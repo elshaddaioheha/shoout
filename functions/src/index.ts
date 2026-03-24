@@ -1,8 +1,9 @@
 import * as admin from 'firebase-admin';
 import * as crypto from 'crypto';
 import * as functions from 'firebase-functions';
-import { onObjectFinalized } from 'firebase-functions/v2/storage';
+import * as functionsV1 from 'firebase-functions/v1';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
+import PDFDocument from 'pdfkit';
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -63,21 +64,18 @@ const NAIRA_RATE = 1600;
 type SubscriptionBillingCycle = 'monthly' | 'annual';
 
 const SUBSCRIPTION_PLAN_PRICING_NGN: Record<string, { monthly: number; annual: number }> = {
-  vault: { monthly: 6981, annual: 5934 * 12 },
-  vault_creator: { monthly: 6981, annual: 5934 * 12 },
-  vault_pro: { monthly: 13962, annual: 11868 * 12 },
-  studio_pro: { monthly: 27000, annual: 22950 * 12 },
-  studio_plus: { monthly: 69990, annual: 55992 * 12 },
-  hybrid: { monthly: 34906, annual: 27925 * 12 },
-  // Legacy ids
-  vault_free: { monthly: 0, annual: 0 },
-  vault_executive: { monthly: 25132, annual: 21362 * 12 },
-  studio_free: { monthly: 0, annual: 0 },
-  hybrid_creator: { monthly: 20944, annual: 16755 * 12 },
-  hybrid_executive: { monthly: 34906, annual: 27925 * 12 },
+  // Canonical tiers:
+  // - vault is the free baseline tier
+  // - vault_pro annual has no discount (business exception)
+  // - studio/hybrid annual are 15% off monthly x 12
+  vault: { monthly: 0, annual: 0 },
+  vault_pro: { monthly: 13962, annual: 13962 * 12 },
+  studio: { monthly: 27000, annual: 22950 * 12 },
+  hybrid: { monthly: 34906, annual: 29670 * 12 },
 };
 
-const FREE_SUBSCRIPTION_PLANS = new Set(['vault_free', 'studio_free']);
+const FREE_SUBSCRIPTION_PLANS = new Set(['vault']);
+const EMAIL_COLLECTION = process.env.FIREBASE_TRIGGER_EMAIL_COLLECTION || 'mail';
 
 function expectedAmountInNgn(totalUsd: number): number {
   return Math.round(totalUsd * NAIRA_RATE);
@@ -103,6 +101,122 @@ function verifyWebhookSignature(rawBody: string, signature: string | undefined, 
   if (!signature || !secret) return false;
   const hash = crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
   return hash === signature;
+}
+
+function calculateSubscriptionExpiry(billingCycle: SubscriptionBillingCycle): admin.firestore.Timestamp {
+  const next = new Date();
+  if (billingCycle === 'annual') {
+    next.setFullYear(next.getFullYear() + 1);
+  } else {
+    next.setMonth(next.getMonth() + 1);
+  }
+  return admin.firestore.Timestamp.fromDate(next);
+}
+
+type InvoiceLine = { description: string; qty: number; unitAmountNgn: number; totalAmountNgn: number };
+
+async function renderInvoicePdfBuffer(params: {
+  invoiceNumber: string;
+  issuedTo: string;
+  email: string;
+  issuedAt: Date;
+  lineItems: InvoiceLine[];
+  subtotalNgn: number;
+  vatNgn: number;
+  totalNgn: number;
+  notes?: string;
+}): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({ margin: 50, size: 'A4' });
+    const chunks: Buffer[] = [];
+    doc.on('data', (c: Buffer) => chunks.push(c));
+    doc.on('end', () => resolve(Buffer.concat(chunks)));
+    doc.on('error', reject);
+
+    doc.fontSize(20).text('SHOOUTS TAX INVOICE', { align: 'left' });
+    doc.moveDown(0.5);
+    doc.fontSize(11).text(`Invoice No: ${params.invoiceNumber}`);
+    doc.text(`Issued: ${params.issuedAt.toISOString()}`);
+    doc.text(`Bill To: ${params.issuedTo}`);
+    doc.text(`Email: ${params.email}`);
+    doc.moveDown(1);
+
+    doc.fontSize(12).text('Items', { underline: true });
+    doc.moveDown(0.4);
+    params.lineItems.forEach((line) => {
+      doc
+        .fontSize(10)
+        .text(`${line.description}  | Qty: ${line.qty}  | Unit: NGN ${line.unitAmountNgn.toLocaleString()}  | Total: NGN ${line.totalAmountNgn.toLocaleString()}`);
+    });
+
+    doc.moveDown(1);
+    doc.fontSize(11).text(`Subtotal: NGN ${params.subtotalNgn.toLocaleString()}`);
+    doc.text(`VAT (7.5%): NGN ${params.vatNgn.toLocaleString()}`);
+    doc.fontSize(13).text(`Grand Total: NGN ${params.totalNgn.toLocaleString()}`, { underline: true });
+    if (params.notes) {
+      doc.moveDown(1);
+      doc.fontSize(10).text(`Notes: ${params.notes}`);
+    }
+    doc.moveDown(1);
+    doc.fontSize(9).text('Shoouts Finance • This document is system generated.', { align: 'left' });
+    doc.end();
+  });
+}
+
+async function createInvoiceAndGetUrl(params: {
+  userId: string;
+  invoiceNumber: string;
+  issuedTo: string;
+  email: string;
+  lineItems: InvoiceLine[];
+  subtotalNgn: number;
+  vatNgn: number;
+  totalNgn: number;
+  notes?: string;
+}): Promise<string> {
+  const buffer = await renderInvoicePdfBuffer({
+    invoiceNumber: params.invoiceNumber,
+    issuedTo: params.issuedTo,
+    email: params.email,
+    issuedAt: new Date(),
+    lineItems: params.lineItems,
+    subtotalNgn: params.subtotalNgn,
+    vatNgn: params.vatNgn,
+    totalNgn: params.totalNgn,
+    notes: params.notes,
+  });
+
+  const bucket = admin.storage().bucket();
+  const filePath = `invoices/${params.userId}/${params.invoiceNumber}.pdf`;
+  const file = bucket.file(filePath);
+  await file.save(buffer, {
+    resumable: false,
+    contentType: 'application/pdf',
+    metadata: { cacheControl: 'private, max-age=3600' },
+  });
+
+  const [signedUrl] = await file.getSignedUrl({
+    action: 'read',
+    expires: Date.now() + 1000 * 60 * 60 * 24 * 30,
+  });
+  return signedUrl;
+}
+
+async function queueEmail(params: {
+  to: string;
+  subject: string;
+  text: string;
+  html: string;
+}): Promise<void> {
+  await db.collection(EMAIL_COLLECTION).add({
+    to: [params.to],
+    message: {
+      subject: params.subject,
+      text: params.text,
+      html: params.html,
+    },
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
 }
 
 export const activateSubscriptionTier = functions.https.onRequest(async (req, res) => {
@@ -207,6 +321,8 @@ export const activateSubscriptionTier = functions.https.onRequest(async (req, re
     }
 
     const now = admin.firestore.FieldValue.serverTimestamp();
+    const expiresAt = isFreeTier ? null : calculateSubscriptionExpiry(billingCycle);
+    const subscriptionStatus = isFreeTier ? 'trial' : 'active';
     const userRef = db.collection('users').doc(userId);
     const subscriptionRef = userRef.collection('subscription').doc('current');
     const batch = db.batch();
@@ -215,8 +331,10 @@ export const activateSubscriptionTier = functions.https.onRequest(async (req, re
       subscriptionRef,
       {
         tier: planId,
-        status: 'active',
-        billingCycle,
+        status: subscriptionStatus,
+        isSubscribed: !isFreeTier,
+        billingCycle: isFreeTier ? null : billingCycle,
+        expiresAt,
         amountNgn: verifiedAmountNgn,
         provider: isFreeTier ? 'internal' : 'flutterwave',
         txRef: isFreeTier ? null : txRef,
@@ -232,7 +350,7 @@ export const activateSubscriptionTier = functions.https.onRequest(async (req, re
       {
         role: planId,
         lastSubscribedAt: now,
-        subscriptionStatus: 'active',
+        subscriptionStatus,
       },
       { merge: true }
     );
@@ -258,6 +376,50 @@ export const activateSubscriptionTier = functions.https.onRequest(async (req, re
     }
 
     await batch.commit();
+
+    try {
+      const userSnap = await userRef.get();
+      const userData = userSnap.data() as Record<string, any> | undefined;
+      const recipientEmail = String(userData?.email || decoded.email || '').trim();
+      const recipientName = String(userData?.fullName || userData?.name || 'Shoouts User').trim();
+
+      if (recipientEmail) {
+        const subtotal = verifiedAmountNgn;
+        const vat = Math.round(subtotal * 0.075);
+        const total = subtotal + vat;
+        const invoiceNumber = `SUB-${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
+        const invoiceUrl = await createInvoiceAndGetUrl({
+          userId,
+          invoiceNumber,
+          issuedTo: recipientName,
+          email: recipientEmail,
+          lineItems: [
+            {
+              description: `Subscription: ${planId} (${isFreeTier ? 'trial' : billingCycle})`,
+              qty: 1,
+              unitAmountNgn: subtotal,
+              totalAmountNgn: subtotal,
+            },
+          ],
+          subtotalNgn: subtotal,
+          vatNgn: vat,
+          totalNgn: total,
+          notes: isFreeTier
+            ? 'Your account is currently on the free/trial Vault tier.'
+            : `Your plan is active until ${expiresAt?.toDate().toISOString()}.`,
+        });
+
+        await queueEmail({
+          to: recipientEmail,
+          subject: `Shoouts Subscription Update: ${planId}`,
+          text: `Hi ${recipientName}, your subscription is now ${planId} (${subscriptionStatus}). Invoice: ${invoiceUrl}`,
+          html: `<p>Hi ${recipientName},</p><p>Your subscription is now <strong>${planId}</strong> (${subscriptionStatus}).</p><p>Invoice: <a href="${invoiceUrl}">Download PDF invoice</a></p>`,
+        });
+      }
+    } catch (emailError) {
+      functions.logger.error('Subscription email/invoice generation failed', emailError);
+    }
+
     res.status(200).json({ success: true, planId, billingCycle });
   } catch (error: any) {
     functions.logger.error('activateSubscriptionTier failed', error);
@@ -457,6 +619,49 @@ export const flutterwaveWebhook = functions.https.onRequest(async (req, res) => 
   );
 
   await batch.commit();
+
+  try {
+    const userRef = db.collection('users').doc(session.userId);
+    const userSnap = await userRef.get();
+    const userData = userSnap.data() as Record<string, any> | undefined;
+    const recipientEmail = String(userData?.email || '').trim();
+    const recipientName = String(userData?.fullName || userData?.name || 'Shoouts User').trim();
+
+    if (recipientEmail) {
+      const lineItems: InvoiceLine[] = session.items.map((item) => ({
+        description: `${item.title} by ${item.artist}`,
+        qty: 1,
+        unitAmountNgn: Number(item.price || 0),
+        totalAmountNgn: Number(item.price || 0),
+      }));
+      const subtotal = lineItems.reduce((sum, line) => sum + line.totalAmountNgn, 0);
+      const vat = Math.round(subtotal * 0.075);
+      const total = subtotal + vat;
+      const invoiceNumber = `PUR-${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
+
+      const invoiceUrl = await createInvoiceAndGetUrl({
+        userId: session.userId,
+        invoiceNumber,
+        issuedTo: recipientName,
+        email: recipientEmail,
+        lineItems,
+        subtotalNgn: subtotal,
+        vatNgn: vat,
+        totalNgn: total,
+        notes: `Payment reference: ${txRef}`,
+      });
+
+      await queueEmail({
+        to: recipientEmail,
+        subject: 'Shoouts Purchase Receipt & Invoice',
+        text: `Hi ${recipientName}, your purchase was successful. Invoice: ${invoiceUrl}`,
+        html: `<p>Hi ${recipientName},</p><p>Your purchase was successful.</p><p>Invoice: <a href="${invoiceUrl}">Download PDF invoice</a></p>`,
+      });
+    }
+  } catch (emailError) {
+    functions.logger.error('Purchase email/invoice generation failed', emailError);
+  }
+
   res.status(200).send('Processed');
 });
 
@@ -496,16 +701,9 @@ export const validateStorageLimit = functions.https.onCall(async (data: any, con
   // Determine storage limit in bytes based on tier
   const storageLimitMap: Record<string, number> = {
     vault: 0.5 * 1024 * 1024 * 1024,           // 500MB
-    vault_free: 0.05 * 1024 * 1024 * 1024,      // 50MB
-    vault_creator: 0.5 * 1024 * 1024 * 1024,    // 500MB
     vault_pro: 1 * 1024 * 1024 * 1024,           // 1GB
-    vault_executive: 5 * 1024 * 1024 * 1024,    // 5GB
-    studio_free: 0.1 * 1024 * 1024 * 1024,      // 100MB
-    studio_pro: 1 * 1024 * 1024 * 1024,          // 1GB
-    studio_plus: 10 * 1024 * 1024 * 1024,       // 10GB
+    studio: 2 * 1024 * 1024 * 1024,             // 2GB
     hybrid: 10 * 1024 * 1024 * 1024,            // 10GB
-    hybrid_creator: 5 * 1024 * 1024 * 1024,     // 5GB
-    hybrid_executive: 10 * 1024 * 1024 * 1024,  // 10GB
   };
 
   const storageLimit = storageLimitMap[tier] || storageLimitMap.vault;
@@ -639,6 +837,61 @@ export const scheduleAggregateTrending = onSchedule({ schedule: 'every 60 minute
     await aggregateTrendingDoc();
   });
 
+export const downgradeExpiredSubscriptions = onSchedule({ schedule: 'every 24 hours' }, async () => {
+    const now = admin.firestore.Timestamp.now();
+    const expiredSnap = await db
+      .collectionGroup('subscription')
+      .where('status', '==', 'active')
+      .where('expiresAt', '<=', now)
+      .get();
+
+    if (expiredSnap.empty) {
+      return;
+    }
+
+    let batch = db.batch();
+    let batchOps = 0;
+
+    for (const docSnap of expiredSnap.docs) {
+      const userRef = docSnap.ref.parent.parent;
+      if (!userRef) continue;
+
+      batch.set(
+        docSnap.ref,
+        {
+          tier: 'vault',
+          status: 'expired',
+          isSubscribed: false,
+          billingCycle: null,
+          expiresAt: null,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          downgradedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+      batch.set(
+        userRef,
+        {
+          role: 'vault',
+          subscriptionStatus: 'expired',
+          downgradedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+      batchOps += 2;
+
+      if (batchOps >= 400) {
+        await batch.commit();
+        batch = db.batch();
+        batchOps = 0;
+      }
+    }
+
+    if (batchOps > 0) {
+      await batch.commit();
+    }
+  });
+
   /**
    * getStreamingUrl - Returns marketplace preview OR library download URL
    * 
@@ -750,11 +1003,12 @@ export const scheduleAggregateTrending = onSchedule({ schedule: 'every 60 minute
     };
 
   // Keep bucket target configurable so CI/CD can deploy even if a fixed bucket region is unavailable.
+  // Use 1st gen storage trigger here to avoid Eventarc trigger creation flakiness.
   const uploadBucket = process.env.UPLOAD_BUCKET_NAME;
 
   export const processAudioUpload = uploadBucket
-    ? onObjectFinalized({ bucket: uploadBucket }, processAudioUploadHandler)
-    : onObjectFinalized(processAudioUploadHandler);
+    ? functionsV1.storage.bucket(uploadBucket).object().onFinalize(processAudioUploadHandler)
+    : functionsV1.storage.object().onFinalize(processAudioUploadHandler);
 
     /**
      * Admin APIs (Role-protected via custom claims)

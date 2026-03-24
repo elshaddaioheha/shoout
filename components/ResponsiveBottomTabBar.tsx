@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Home, Library, MoreHorizontal, Search, ShoppingCart } from 'lucide-react-native';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { colors } from '@/constants/colors';
+import { useUserStore } from '@/store/useUserStore';
 
 interface TabConfig {
     name: string;
@@ -15,13 +16,19 @@ export default function ResponsiveBottomTabBar(props: BottomTabBarProps) {
     const { state, navigation } = props;
     const insets = useSafeAreaInsets();
     const { width } = useWindowDimensions();
+    const viewMode = useUserStore((s) => s.viewMode);
+    const role = useUserStore((s) => s.role);
     const bottomPadding = insets.bottom > 0 ? insets.bottom : 10;
+
+    const creatorLabel = viewMode === 'studio' || role.startsWith('studio') || role.startsWith('hybrid')
+        ? 'Studio'
+        : 'Vault';
 
     const tabs: TabConfig[] = [
         { name: 'index', icon: Home, label: 'Home' },
         { name: 'search', icon: Search, label: 'Explore' },
         { name: 'marketplace', icon: ShoppingCart, label: 'Market Place' },
-        { name: 'library', icon: Library, label: 'Creator' },
+        { name: 'library', icon: Library, label: creatorLabel },
         { name: 'more', icon: MoreHorizontal, label: 'More' },
     ];
 

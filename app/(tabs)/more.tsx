@@ -4,7 +4,7 @@ import SharedHeader from '@/components/SharedHeader';
 import { useUserStore } from '@/store/useUserStore';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { Bell, ChevronRight, CreditCard, Crown, DollarSign, Library, LogOut, Shield, ShoppingCart, Sparkles, TrendingUp } from 'lucide-react-native';
+import { Bell, ChevronRight, CreditCard, Crown, DollarSign, Library, LogOut, Shield, ShoppingCart, Sparkles, TrendingUp, User } from 'lucide-react-native';
 import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
@@ -13,7 +13,7 @@ export default function MoreScreen() {
     const { role, reset } = useUserStore();
     const { openSheet, isModeSheetOpen, viewMode } = useAppSwitcherContext();
 
-    const isStudioOrHybrid = role.startsWith('studio') || role.startsWith('hybrid');
+    const isStudioOrHybrid = role?.startsWith('studio') || role?.startsWith('hybrid');
 
     const handleLogout = () => {
         reset();
@@ -38,6 +38,15 @@ export default function MoreScreen() {
                     )}
 
                     <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>Profile & Updates</Text>
+                        <View style={styles.menuContainer}>
+                            <MenuItem icon={User} label="Profile" color="#EC5C39" onPress={() => router.push('/(tabs)/profile' as any)} />
+                            <MenuItem icon={Bell} label="Notifications" color="#3B82F6" onPress={() => router.push('/notifications' as any)} />
+                            <MenuItem icon={Sparkles} label="Updates" color="#C084FC" onPress={() => router.push('/updates' as any)} />
+                        </View>
+                    </View>
+
+                    <View style={styles.section}>
                         <Text style={styles.sectionTitle}>Library</Text>
                         <View style={styles.menuContainer}>
                             <MenuItem icon={ShoppingCart} label="Cart" color="#EC5C39" onPress={() => router.push('/cart' as any)} />
@@ -56,7 +65,6 @@ export default function MoreScreen() {
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>Settings</Text>
                         <View style={styles.menuContainer}>
-                            <MenuItem icon={Bell} label="Notifications" color="#EC5C39" onPress={() => router.push('/settings/notifications' as any)} />
                             <MenuItem icon={Shield} label="Privacy & Security" color="#64748B" onPress={() => router.push('/settings/privacy' as any)} />
                         </View>
                     </View>

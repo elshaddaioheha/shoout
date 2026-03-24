@@ -1,8 +1,9 @@
 import { useUserStore } from '@/store/useUserStore';
+import { useAuthStore } from '@/store/useAuthStore';
 import { useToastStore } from '@/store/useToastStore';
 import { auth, db } from '@/firebaseConfig';
 import { useRouter } from 'expo-router';
-import { addDoc, collection, onSnapshot, orderBy, query, serverTimestamp } from 'firebase/firestore';
+import { addDoc, collection, doc, onSnapshot, orderBy, query, serverTimestamp, where } from 'firebase/firestore';
 import {
   Archive,
   Check,
@@ -33,8 +34,16 @@ type UploadItem = {
   id: string;
   title?: string;
   artist?: string;
+  uploaderName?: string;
   audioUrl?: string;
   artworkUrl?: string;
+  coverUrl?: string;
+  fileSizeBytes?: number;
+  price?: number;
+  listenCount?: number;
+  likeCount?: number;
+  commentCount?: number;
+  shareCount?: number;
   createdAt?: any;
 };
 
@@ -45,21 +54,33 @@ type VaultFolder = {
   artworkUrl?: string;
 };
 
+type SellerTransaction = {
+  id: string;
+  amount?: number;
+  status?: string;
+  createdAt?: any;
+  trackTitle?: string;
+};
+
 export default function LibraryScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { showToast } = useToastStore();
-  const user = useUserStore((s) => s); // or use the correct property, e.g., s.currentUser, if that's what your store exports
+  const user = useUserStore((s) => s);
+  const authState = useAuthStore((s) => s);
   const [uploads, setUploads] = useState<UploadItem[]>([]);
   const [folders, setFolders] = useState<VaultFolder[]>([]);
+  const [transactions, setTransactions] = useState<SellerTransaction[]>([]);
+  const [followersCount, setFollowersCount] = useState(0);
 
   const [showCreateSheet, setShowCreateSheet] = useState(false);
   const [showCreateFolderSheet, setShowCreateFolderSheet] = useState(false);
   const [folderName, setFolderName] = useState('');
   const [folderCreated, setFolderCreated] = useState(false);
   const [creatingFolder, setCreatingFolder] = useState(false);
-  const isStudioUser = user.viewMode === 'studio' || user.role?.startsWith('studio');
-  const isHybridUser = user.role?.startsWith('hybrid');
+  const activeRole = authState.actualRole || user.actualRole || user.role;
+  const isStudioUser = user.viewMode === 'studio' || activeRole?.startsWith('studio');
+  const isHybridUser = activeRole?.startsWith('hybrid');
   const isCreatorSurface = isStudioUser || isHybridUser;
 
   useEffect(() => {
@@ -85,27 +106,95 @@ export default function LibraryScreen() {
       setFolders(backendFolders);
     });
 
+    const txQuery = query(
+      collection(db, 'transactions'),
+      where('sellerId', '==', auth.currentUser.uid)
+    );
+
+    const unsubTransactions = onSnapshot(txQuery, (snapshot) => {
+      const tx = snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as SellerTransaction[];
+      setTransactions(tx);
+    });
+
+    const unsubUser = onSnapshot(doc(db, 'users', auth.currentUser.uid), (snapshot) => {
+      const userData: any = snapshot.data() || {};
+      const followers = Array.isArray(userData.followers)
+        ? userData.followers.length
+        : Number(userData.followers) || 0;
+      setFollowersCount(followers);
+    });
+
     return () => {
       unsubUploads();
       unsubFolders();
+      unsubTransactions();
+      unsubUser();
     };
   }, []);
 
   const usedStorage = useMemo(() => {
-    const approxMb = uploads.length * 2;
-    const gb = approxMb / 1024;
+    const totalBytes = uploads.reduce((sum, item) => sum + Number(item.fileSizeBytes || 0), 0);
+    const gb = totalBytes / (1024 * 1024 * 1024);
     return gb.toFixed(2);
   }, [uploads.length]);
 
+  const storageLimit = useMemo(() => {
+    if (user.storageLimitGB > 0) return user.storageLimitGB;
+    const fallbackMap: Record<string, number> = {
+      studio_free: 0.1,
+      studio_pro: 1,
+      studio_plus: 10,
+      hybrid: 10,
+      hybrid_creator: 5,
+      hybrid_executive: 10,
+    };
+    return fallbackMap[activeRole || ''] || 0.05;
+  }, [activeRole, user.storageLimitGB]);
+
   const hasVaultContent = folders.length > 0 || uploads.length > 0;
-  const reach = uploads.length * 1200;
-  const engagement = uploads.length * 320;
-  const netSales = uploads.reduce((sum, item: any) => sum + (Number(item?.price) || 0), 0);
-  const earningsPreview = uploads.slice(0, 4).map((item) => ({
-    id: item.id,
-    label: `${item.title || 'Track'} purchased`,
-    amount: Number((item as any).price) > 0 ? Number((item as any).price) : 3000,
-  }));
+  const reach = useMemo(
+    () => uploads.reduce((sum, item) => sum + Number(item.listenCount || 0), 0),
+    [uploads]
+  );
+  const engagement = useMemo(
+    () => uploads.reduce((sum, item) => sum + Number(item.likeCount || 0) + Number(item.commentCount || 0) + Number(item.shareCount || 0), 0),
+    [uploads]
+  );
+  const netSales = useMemo(
+    () => transactions
+      .filter((tx) => !tx.status || String(tx.status).toLowerCase() === 'completed')
+      .reduce((sum, tx) => sum + Number(tx.amount || 0), 0),
+    [transactions]
+  );
+  const earningsPreview = useMemo(
+    () => transactions
+      .slice()
+      .sort((a, b) => {
+        const aTs = a.createdAt?.seconds || 0;
+        const bTs = b.createdAt?.seconds || 0;
+        return bTs - aTs;
+      })
+      .slice(0, 4)
+      .map((tx) => ({
+        id: tx.id,
+        label: `${tx.trackTitle || 'Track'} purchased`,
+        amount: Number(tx.amount || 0),
+      })),
+    [transactions]
+  );
+
+  const creatorTitle = useMemo(() => {
+    if (activeRole === 'studio_plus' || activeRole?.startsWith('hybrid')) return 'Shoouts Studio';
+    if (activeRole === 'studio_pro') return 'Top Studio';
+    if (activeRole === 'studio_free') return 'Basic Studio';
+    return isCreatorSurface ? 'Studio' : 'Vault';
+  }, [activeRole, isCreatorSurface]);
+
+  const planLabel = useMemo(() => {
+    const tier = authState.subscriptionTier || activeRole || 'vault_free';
+    const subscribed = authState.isSubscribed;
+    return `${String(tier).replace(/_/g, ' ')}${subscribed ? '' : ' (free)'}`;
+  }, [activeRole, authState.isSubscribed, authState.subscriptionTier]);
 
   const createFolder = async () => {
     if (!auth.currentUser) {
@@ -157,10 +246,11 @@ export default function LibraryScreen() {
         ]}
       >
         <VaultHeader
-          storageText={`${usedStorage}GB/00.00GB`}
+          storageText={`${usedStorage}GB/${storageLimit.toFixed(2)}GB`}
           userLabel={user?.name || 'Creator'}
-          title={isHybridUser ? 'Hybrid' : isStudioUser ? 'Studio' : 'Vault'}
-          showStorage={!isCreatorSurface}
+          title={isHybridUser ? 'Hybrid' : creatorTitle as any}
+          showStorage={true}
+          planLabel={planLabel}
         />
 
         {isCreatorSurface ? (
@@ -278,7 +368,7 @@ export default function LibraryScreen() {
 
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.statsRow}>
               <StatCard title="Net Sales" value={`NGN ${netSales.toFixed(2)}`} />
-              <StatCard title="New Subscribers" value="0.00" />
+              <StatCard title="New Subscribers" value={`${followersCount}`} />
               <StatCard title="New Likes" value="0.00" />
               <StatCard title="New Follows" value="0.00" />
               <StatCard title="Total Uploaded Track" value={`${uploads.length}`} />
@@ -293,7 +383,7 @@ export default function LibraryScreen() {
                   onPress={() => router.push('/studio/earnings' as any)}
                 >
                   <Text style={styles.earningLabel}>{earning.label}</Text>
-                  <Text style={styles.earningAmount}>NGN {earning.amount.toLocaleString()}.00</Text>
+                  <Text style={styles.earningAmount}>NGN {earning.amount.toLocaleString()}</Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -519,11 +609,13 @@ function VaultHeader({
   userLabel,
   title,
   showStorage,
+  planLabel,
 }: {
   storageText: string;
   userLabel: string;
   title: 'Vault' | 'Studio' | 'Hybrid';
   showStorage: boolean;
+  planLabel: string;
 }) {
   const initials = userLabel
     .split(' ')
@@ -541,7 +633,7 @@ function VaultHeader({
           <Text style={styles.headerTitle}>{title}</Text>
           {showStorage ? <Text style={styles.headerStorage}>{storageText}</Text> : null}
           <View style={styles.planPill}>
-            <Text style={styles.planPillText}>Creator</Text>
+            <Text style={styles.planPillText}>{planLabel}</Text>
           </View>
         </View>
       </View>
@@ -582,17 +674,18 @@ function FolderCard({ folder }: { folder: VaultFolder }) {
 }
 
 function UploadCard({ item }: { item: UploadItem }) {
+  const artwork = item.artworkUrl || item.coverUrl;
   return (
     <View style={styles.cardItem}>
       <View style={styles.trackArt}>
-        {item.artworkUrl ? (
-          <Image source={{ uri: item.artworkUrl }} style={styles.trackArtImage} />
+        {artwork ? (
+          <Image source={{ uri: artwork }} style={styles.trackArtImage} />
         ) : (
           <Music size={28} color="rgba(255,255,255,0.65)" />
         )}
       </View>
       <Text style={styles.cardTitle} numberOfLines={1}>{item.title || 'Untitled Track'}</Text>
-      <Text style={styles.cardMeta} numberOfLines={1}>{item.artist || 'JJ Gospel'}</Text>
+      <Text style={styles.cardMeta} numberOfLines={1}>{item.artist || item.uploaderName || 'Creator'}</Text>
       <Text style={styles.cardMeta}>Upload {formatDate(item.createdAt)}</Text>
     </View>
   );

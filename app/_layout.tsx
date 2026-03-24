@@ -12,6 +12,7 @@ import 'react-native-reanimated';
 import { auth } from '../firebaseConfig';
 import { fetchVerifiedSubscriptionTier } from '@/utils/subscriptionVerification';
 import { useAuthStore } from '@/store/useAuthStore';
+import { useUserStore } from '@/store/useUserStore';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -20,6 +21,7 @@ export default function RootLayout() {
   const router = useRouter();
   const [authResolved, setAuthResolved] = useState(false);
   const { setVerifying } = useAuthStore();
+  const { setRole, setActualRole } = useUserStore();
 
   const [loaded, error] = useFonts({
     'Poppins-Regular': Poppins_400Regular,
@@ -33,11 +35,16 @@ export default function RootLayout() {
         // User is authenticated — fetch and verify their subscription tier from server
         try {
           setVerifying(true);
-          await fetchVerifiedSubscriptionTier();
+          const verifiedTier = await fetchVerifiedSubscriptionTier();
+          // Keep capability store in sync with server-verified role.
+          setActualRole(verifiedTier);
+          setRole(verifiedTier);
         } catch (error) {
           console.error('Failed to verify subscription tier:', error);
           // Even if verification fails, allow user to proceed with free tier
           // They'll be restricted from paid features client-side
+          setActualRole('vault');
+          setRole('vault');
         } finally {
           setVerifying(false);
         }
@@ -48,7 +55,7 @@ export default function RootLayout() {
     });
 
     return unsub;
-  }, [router, setVerifying]);
+  }, [router, setActualRole, setRole, setVerifying]);
 
   useEffect(() => {
     if (loaded || error) {

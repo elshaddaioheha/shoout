@@ -180,7 +180,7 @@ export default function ArtistProfileScreen() {
                             <TouchableOpacity
                                 key={track.id}
                                 style={styles.trackCard}
-                                onPress={() => router.push({ pathname: '/listing/[id]', params: { id: track.id } })}
+                                onPress={() => router.push({ pathname: '/listing/[id]', params: { id: track.id, uploaderId: artistId as string } })}
                             >
                                 <View style={styles.trackArtwork}>
                                     <Music size={20} color="rgba(255,255,255,0.2)" />

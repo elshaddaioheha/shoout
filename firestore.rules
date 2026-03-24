@@ -35,7 +35,7 @@ service cloud.firestore {
 
     function hasSafeInitialUserRole() {
       return !('role' in request.resource.data)
-        || request.resource.data.role in ['vault', 'vault_free', 'studio_free'];
+        || request.resource.data.role in ['vault'];
     }
 
     // 🔒 CRITICAL: Backend-only writes via Admin SDK
@@ -50,7 +50,7 @@ service cloud.firestore {
     // Checks the user's subscription document to ensure they have canSell capability
     function canUserSell(uid) {
       let userSub = get(/databases/$(database)/documents/users/$(uid)/subscription/current);
-      return userSub.data.tier in ['studio_free', 'studio_pro', 'studio_plus', 'hybrid_creator', 'hybrid_executive'];
+      return userSub.data.tier in ['studio', 'hybrid'];
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -82,6 +82,18 @@ service cloud.firestore {
       allow create: if isOwner(uid) && hasSafeInitialUserRole();
       allow update: if isOwner(uid) && !hasRestrictedUserFieldChange();
       allow delete: if false; // Soft-delete only — never hard delete users
+
+      // ── Subscription ───────────────────────────────────────────────────────
+      // Owners can read current subscription. Owners can only create/update
+      // a free vault baseline record; paid activations are backend-only.
+      match /subscription/{subscriptionId} {
+        allow read: if isOwner(uid);
+        allow create, update: if isOwner(uid)
+          && request.resource.data.tier == 'vault'
+          && request.resource.data.isSubscribed == false
+          && request.resource.data.status in ['free', 'trial'];
+        allow delete: if false;
+      }
 
       // ── Uploads (Vault / Studio) ──────────────────────────────────────────
       // Any authenticated user can READ uploads (for marketplace discovery).
@@ -143,6 +155,23 @@ service cloud.firestore {
           && isValidString(request.resource.data.name);
         allow update: if isOwner(uid);
         allow delete: if isOwner(uid);
+      }
+
+      // ── Publisher Profile ────────────────────────────────────────────────
+      // Only the owner can read/write their publisher profile.
+      match /publisherProfile/{profileId} {
+        allow read: if isOwner(uid);
+        allow create, update: if isOwner(uid);
+        allow delete: if isOwner(uid);
+      }
+
+      // ── Publisher Profile Audit ──────────────────────────────────────────
+      // Only the owner can read and append audit entries.
+      // Audit records are append-only from client side.
+      match /publisherProfileAudit/{auditId} {
+        allow read: if isOwner(uid);
+        allow create: if isOwner(uid);
+        allow update, delete: if false;
       }
 
       // ── Ad Campaigns ─────────────────────────────────────────────────────

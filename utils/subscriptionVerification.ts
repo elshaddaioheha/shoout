@@ -32,18 +32,18 @@ export async function fetchVerifiedSubscriptionTier(): Promise<UserRole> {
     const subscriptionSnap = await getDoc(subscriptionRef);
 
     if (!subscriptionSnap.exists()) {
-      // New user without subscription record — default to vault_free
-      console.warn('No subscription document found for user, defaulting to vault_free');
-      updateAuthStore('vault_free', {
-        tier: 'vault_free',
+      // New user without subscription record — default to vault trial tier
+      console.warn('No subscription document found for user, defaulting to vault');
+      updateAuthStore('vault', {
+        tier: 'vault',
         isSubscribed: false,
         expiresAt: null,
       });
-      return 'vault_free';
+      return 'vault';
     }
 
     const subscriptionData = subscriptionSnap.data() as SubscriptionPlan;
-    const tier = subscriptionData.tier || 'vault_free';
+    const tier = subscriptionData.tier || 'vault';
     const isSubscribed = subscriptionData.isSubscribed ?? false;
     const expiresAt = subscriptionData.expiresAt
       ? (subscriptionData.expiresAt as Timestamp).toMillis()
@@ -51,13 +51,13 @@ export async function fetchVerifiedSubscriptionTier(): Promise<UserRole> {
 
     // Check if subscription has expired
     if (isSubscribed && expiresAt && Date.now() > expiresAt) {
-      console.warn('User subscription has expired, downgrading to vault_free');
-      updateAuthStore('vault_free', {
-        tier: 'vault_free',
+      console.warn('User subscription has expired, downgrading to vault');
+      updateAuthStore('vault', {
+        tier: 'vault',
         isSubscribed: false,
         expiresAt: null,
       });
-      return 'vault_free';
+      return 'vault';
     }
 
     // Update store with verified subscription data

@@ -180,11 +180,25 @@ function BrowseView({ genres, onGenrePress, onSeeAll }: {
     onGenrePress: (n: string) => void,
     onSeeAll: () => void
 }) {
+    const router = useRouter();
+
     const playlists = [
-        { title: "Wizkid Playlist Specal", subtitle: "Personal Selection", price: "NGN 3000.00" },
-        { title: "Shoouts Top 100", subtitle: "Afro Gospel" },
-        { title: "Breezy Playlist", subtitle: "Afro Beats", price: "NGN 3000.00" }
+        { id: 'wizkid-special', title: "Wizkid Playlist Specal", subtitle: "Personal Selection", price: "NGN 3000.00" },
+        { id: 'shoouts-top-100', title: "Shoouts Top 100", subtitle: "Afro Gospel" },
+        { id: 'breezy-playlist', title: "Breezy Playlist", subtitle: "Afro Beats", price: "NGN 3000.00" }
     ];
+
+    const openPlaylist = (pl: any) => {
+        router.push({
+            pathname: '/playlist/[id]',
+            params: {
+                id: pl.id,
+                title: pl.title,
+                subtitle: pl.subtitle,
+                price: pl.price || '',
+            },
+        });
+    };
 
     return (
         <View>
@@ -217,7 +231,7 @@ function BrowseView({ genres, onGenrePress, onSeeAll }: {
 
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
                 {playlists.map((playlist, idx) => (
-                    <View key={idx} style={styles.playlistItem}>
+                    <TouchableOpacity key={idx} style={styles.playlistItem} activeOpacity={0.8} onPress={() => openPlaylist(playlist)}>
                         <View style={styles.playlistVisualContainer}>
                             <View style={[styles.playlistLayer, { backgroundColor: '#464646', transform: [{ rotate: '9.7deg' }] }]} />
                             <View style={[styles.playlistLayer, { backgroundColor: '#767676', transform: [{ rotate: '5.15deg' }], top: 3 }]} />
@@ -228,7 +242,7 @@ function BrowseView({ genres, onGenrePress, onSeeAll }: {
                             <Text style={styles.playlistSubtitle}>{playlist.subtitle}</Text>
                             {playlist.price && <Text style={styles.playlistPrice}>{playlist.price}</Text>}
                         </View>
-                    </View>
+                    </TouchableOpacity>
                 ))}
             </ScrollView>
         </View>

@@ -3,12 +3,14 @@ import { useCartStore } from '@/store/useCartStore';
 import { useToastStore } from '@/store/useToastStore';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
-    collection,
     collectionGroup,
     doc,
+    documentId,
     getDoc,
     getDocs,
+    limit,
     query,
+    where,
 } from 'firebase/firestore';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
@@ -100,12 +102,18 @@ export default function ListingLicenseModal() {
                     }
                 }
 
-                const q = query(collectionGroup(db, 'uploads'));
+                const q = query(
+                    collectionGroup(db, 'uploads'),
+                    where(documentId(), '==', id as string),
+                    limit(1)
+                );
                 const snapshot = await getDocs(q);
-                const foundDoc = snapshot.docs.find((d) => d.id === id);
+                const foundDoc = snapshot.docs[0];
 
                 if (foundDoc) {
                     setListing({ id: foundDoc.id, ...foundDoc.data() });
+                } else {
+                    setListing(null);
                 }
             } catch (err) {
                 console.error('Error fetching listing for modal:', err);
