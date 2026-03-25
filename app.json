@@ -2,7 +2,7 @@
   "expo": {
     "name": "Shoouts",
     "slug": "shouuts",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "shouuts",
@@ -55,7 +55,9 @@
       "policy": "appVersion"
     },
     "updates": {
-      "url": "https://u.expo.dev/536db878-94a0-4cff-9221-dd105ed01d48"
+      "url": "https://u.expo.dev/536db878-94a0-4cff-9221-dd105ed01d48",
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
     }
   }
 }
