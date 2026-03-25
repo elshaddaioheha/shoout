@@ -5,6 +5,7 @@ import { collection, doc, onSnapshot, orderBy, query, where } from 'firebase/fir
 import { ArrowLeft, CalendarDays, TrendingDown, TrendingUp } from 'lucide-react-native';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import SettingsHeader from '@/components/settings/SettingsHeader';
 
 type UploadTrack = {
   id: string;
@@ -102,13 +103,11 @@ export default function StudioAnalyticsScreen() {
   return (
     <SafeScreenWrapper>
       <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.headerRow}>
-          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.85}>
-            <ArrowLeft size={20} color="#FFFFFF" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Analytics</Text>
-          <View style={styles.headerSpacer} />
-        </View>
+        <SettingsHeader
+          title="Analytics"
+          onBack={() => router.back()}
+          style={{ paddingHorizontal: 0, paddingVertical: 0, marginBottom: 28 }}
+        />
 
         <View style={styles.rangeRow}>
           <CalendarDays size={12} color="#FFFFFF" />
@@ -221,26 +220,7 @@ function toCompact(value: number) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#140F10' },
   content: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 120 },
-  headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
-  backBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.06)',
-  },
-  headerTitle: {
-    flex: 1,
-    textAlign: 'center',
-    color: '#FFFFFF',
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 20,
-    lineHeight: 25,
-    letterSpacing: -0.5,
-  },
-  headerSpacer: { width: 34 },
-  rangeRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 },
+  rangeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 20 },
   rangeText: { color: 'rgba(255,255,255,0.65)', fontFamily: 'Poppins-Medium', fontSize: 12, lineHeight: 15 },
   metricsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 },
   metricCard: {

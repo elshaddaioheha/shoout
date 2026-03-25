@@ -6,6 +6,7 @@ import { collection, onSnapshot, orderBy, query, where } from 'firebase/firestor
 import { ArrowLeft, DollarSign, Mic, Users } from 'lucide-react-native';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import SettingsHeader from '@/components/settings/SettingsHeader';
 
 type TransactionItem = {
   id: string;
@@ -49,13 +50,11 @@ export default function StudioEarningsScreen() {
   return (
     <SafeScreenWrapper>
       <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.headerRow}>
-          <TouchableOpacity style={styles.iconBtn} onPress={() => router.back()} activeOpacity={0.85}>
-            <ArrowLeft size={20} color="#FFFFFF" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Sales & Earnings</Text>
-          <View style={styles.headerSpacer} />
-        </View>
+        <SettingsHeader
+          title="Sales & Earnings"
+          onBack={() => router.back()}
+          style={{ paddingHorizontal: 0, paddingVertical: 0, marginBottom: 16 }}
+        />
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.statsRow}>
           {stats.map((stat) => (
@@ -90,17 +89,6 @@ export default function StudioEarningsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#140F10' },
   content: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 120 },
-  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
-  iconBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.06)',
-  },
-  headerTitle: { color: '#FFFFFF', fontFamily: 'Poppins-SemiBold', fontSize: 20, lineHeight: 25, letterSpacing: -0.5 },
-  headerSpacer: { width: 34 },
   statsRow: { gap: 10, paddingBottom: 16 },
   statCard: {
     width: 170,

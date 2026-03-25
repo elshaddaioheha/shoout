@@ -7,6 +7,7 @@ import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { ArrowLeft, ChevronDown, Image as ImageIcon, Play, Repeat2, Shuffle, SkipBack, SkipForward, Target } from 'lucide-react-native';
 import React, { useMemo, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import SettingsHeader from '@/components/settings/SettingsHeader';
 
 type StepCard = {
   id: string;
@@ -174,15 +175,16 @@ export default function AdsCreationScreen() {
   return (
     <SafeScreenWrapper>
       <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.headerRow}>
-          <TouchableOpacity style={styles.backBtn} onPress={goBack} activeOpacity={0.85}>
-            <ArrowLeft size={20} color="#D9D9D9" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Ads Creation</Text>
-          <View style={styles.profileDot}>
-            <Text style={styles.profileLetter}>C</Text>
-          </View>
-        </View>
+        <SettingsHeader
+          title="Ads Creation"
+          onBack={goBack}
+          rightElement={
+            <View style={styles.profileDot}>
+              <Text style={styles.profileLetter}>C</Text>
+            </View>
+          }
+          style={{ paddingHorizontal: 0 }}
+        />
 
         <View style={styles.stepWrap}>
           <Text style={styles.stepTitle}>{STEP_TITLES[step as 1 | 2 | 3 | 4 | 5].title}</Text>
@@ -218,7 +220,7 @@ export default function AdsCreationScreen() {
         {step === 4 ? (
           <View style={styles.sectionWrap}>
             <Text style={styles.formLabel}>Add Image</Text>
-            <TouchableOpacity style={styles.uploadBox} activeOpacity={0.9}>
+            <TouchableOpacity style={styles.uploadBox} activeOpacity={0.9} onPress={() => showToast('Image upload coming soon', 'info')}>
               <ImageIcon size={28} color="#737373" />
               <Text style={styles.uploadText}>Upload img Jpegs and Pngs only</Text>
             </TouchableOpacity>
@@ -412,21 +414,6 @@ function cycleChoice(current: string, list: string[], setter: (value: string) =>
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#140F10' },
   content: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 140 },
-  headerRow: { height: 57, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  backBtn: {
-    width: 31,
-    height: 31,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    color: '#FFFFFF',
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 20,
-    lineHeight: 25,
-    letterSpacing: -0.5,
-  },
   profileDot: {
     width: 33,
     height: 35,

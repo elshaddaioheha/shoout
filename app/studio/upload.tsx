@@ -31,6 +31,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import SettingsHeader from '@/components/settings/SettingsHeader';
 import { formatUsd } from '../../utils/pricing';
 
 const GENRES = ['Afrobeat', 'Afrobeats', 'Amapiano', 'Trap', 'Drill', 'R&B', 'Dancehall'];
@@ -459,18 +460,11 @@ export default function UploadScreen() {
             >
                 <View style={styles.container}>
                     {/* Header */}
-                    <View style={styles.header}>
-                        <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-                            <ChevronLeft size={24} color="#FFF" />
-                        </TouchableOpacity>
-                        <Text style={styles.headerTitle}>
-                            {flowStep === 'menu' && 'Publish Track'}
-                            {flowStep === 'createFolder' && 'Create Folder'}
-                            {flowStep === 'uploadSource' && 'Upload Track'}
-                            {flowStep === 'publish' && 'Publish Track'}
-                        </Text>
-                        <View style={{ width: 40 }} />
-                    </View>
+                    <SettingsHeader
+                        title={flowStep === 'menu' ? 'Publish Track' : flowStep === 'createFolder' ? 'Create Folder' : flowStep === 'uploadSource' ? 'Upload Track' : 'Publish Track'}
+                        onBack={handleBack}
+                        style={{ paddingHorizontal: 0, paddingVertical: 0, marginBottom: 10 }}
+                    />
 
                     <ScrollView
                         showsVerticalScrollIndicator={false}
@@ -1060,26 +1054,6 @@ const styles = StyleSheet.create({
         color: '#FFF',
         fontFamily: 'Poppins-SemiBold',
         fontSize: 15,
-    },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingVertical: 15,
-        marginBottom: 10,
-    },
-    backButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: 'rgba(255,255,255,0.05)',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    headerTitle: {
-        fontSize: 20,
-        fontFamily: 'Poppins-Bold',
-        color: '#FFF',
     },
     scrollContent: {
         paddingBottom: 40,

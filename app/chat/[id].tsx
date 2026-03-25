@@ -24,6 +24,7 @@ import {
 import React, { useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,
+    Alert,
     Dimensions,
     FlatList,
     KeyboardAvoidingView,
@@ -210,10 +211,10 @@ export default function ChatConversationScreen() {
                     </View>
 
                     <View style={styles.headerIcons}>
-                        <TouchableOpacity style={styles.iconBtn}>
+                        <TouchableOpacity style={styles.iconBtn} onPress={() => Alert.alert('Coming Soon')}>
                             <Phone size={20} color="#FFF" />
                         </TouchableOpacity>
-                        <TouchableOpacity style={styles.iconBtn}>
+                        <TouchableOpacity style={styles.iconBtn} onPress={() => Alert.alert('Coming Soon')}>
                             <Video size={20} color="#FFF" />
                         </TouchableOpacity>
                     </View>

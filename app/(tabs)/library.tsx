@@ -294,7 +294,7 @@ export default function LibraryScreen() {
               <>
                 <View style={styles.listingsHeader}>
                   <Text style={styles.listingsTitle}>My Storage</Text>
-                  <TouchableOpacity activeOpacity={0.8}>
+                  <TouchableOpacity activeOpacity={0.8} onPress={() => showToast('Coming soon', 'info')}>
                     <Text style={styles.listingsViewAll}>View all</Text>
                   </TouchableOpacity>
                 </View>
@@ -313,7 +313,7 @@ export default function LibraryScreen() {
 
             <View style={styles.listingsHeader}>
               <Text style={styles.listingsTitle}>My Listings</Text>
-              <TouchableOpacity activeOpacity={0.8}>
+              <TouchableOpacity activeOpacity={0.8} onPress={() => showToast('Coming soon', 'info')}>
                 <Text style={styles.listingsViewAll}>View all</Text>
               </TouchableOpacity>
             </View>
@@ -344,7 +344,7 @@ export default function LibraryScreen() {
               <>
                 <View style={styles.listingsHeader}>
                   <Text style={styles.listingsTitle}>Promotions</Text>
-                  <TouchableOpacity activeOpacity={0.8}>
+                  <TouchableOpacity activeOpacity={0.8} onPress={() => showToast('Coming soon', 'info')}>
                     <Text style={styles.listingsViewAll}>View all</Text>
                   </TouchableOpacity>
                 </View>
@@ -398,7 +398,7 @@ export default function LibraryScreen() {
         ) : (
           <>
             <View style={styles.actionsRow}>
-              <TouchableOpacity style={styles.filterButton} activeOpacity={0.8}>
+              <TouchableOpacity style={styles.filterButton} activeOpacity={0.8} onPress={() => showToast('Coming soon', 'info')}>
                 <Filter size={18} color="#FFFFFF" />
                 <Text style={styles.filterText}>filter</Text>
               </TouchableOpacity>
@@ -433,7 +433,7 @@ export default function LibraryScreen() {
               <>
                 <View style={styles.sectionHeader}>
                   <Text style={styles.sectionTitle}>Recent Upload</Text>
-                  <TouchableOpacity activeOpacity={0.8}>
+                  <TouchableOpacity activeOpacity={0.8} onPress={() => showToast('Coming soon', 'info')}>
                     <Text style={styles.seeAll}>See All</Text>
                   </TouchableOpacity>
                 </View>
@@ -494,6 +494,7 @@ export default function LibraryScreen() {
           <TouchableOpacity
             style={[styles.linkFab, { bottom: insets.bottom + 92 }]}
             activeOpacity={0.85}
+            onPress={() => showToast('Coming soon', 'info')}
           >
             <Link2 size={20} color="#FFFFFF" />
           </TouchableOpacity>

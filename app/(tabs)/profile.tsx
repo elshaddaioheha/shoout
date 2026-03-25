@@ -250,7 +250,7 @@ export default function ProfileScreen() {
                         color="#9333EA"
                         onPress={() => {
                             if (role.startsWith('studio') || role.startsWith('hybrid')) {
-                                router.push('/studio' as any);
+                                router.push('/studio/analytics' as any);
                             } else {
                                 Alert.alert(
                                     "Upgrade Required",

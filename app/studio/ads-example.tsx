@@ -2,7 +2,8 @@ import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ArrowLeft, MoreHorizontal, Play, Repeat2, Shuffle, SkipBack, SkipForward } from 'lucide-react-native';
 import React from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import SettingsHeader from '@/components/settings/SettingsHeader';
 
 export default function AdsExampleScreen() {
   const router = useRouter();
@@ -12,14 +13,16 @@ export default function AdsExampleScreen() {
   return (
     <SafeScreenWrapper>
       <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.headerRow}>
-          <TouchableOpacity style={styles.iconBtn} activeOpacity={0.85} onPress={() => router.back()}>
-            <ArrowLeft size={22} color="#FFFFFF" />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.iconBtn} activeOpacity={0.85}>
-            <MoreHorizontal size={22} color="#FFFFFF" />
-          </TouchableOpacity>
-        </View>
+        <SettingsHeader
+          title="Ads Example"
+          onBack={() => router.back()}
+          rightElement={
+            <TouchableOpacity style={styles.iconBtn} activeOpacity={0.85} onPress={() => Alert.alert('Coming Soon')}>
+              <MoreHorizontal size={22} color="#FFFFFF" />
+            </TouchableOpacity>
+          }
+          style={{ paddingHorizontal: 0, marginBottom: 18 }}
+        />
 
         <View style={styles.coverArt} />
 
@@ -63,7 +66,7 @@ export default function AdsExampleScreen() {
             </View>
           </View>
 
-          <TouchableOpacity style={styles.listenBtn} activeOpacity={0.9}>
+          <TouchableOpacity style={styles.listenBtn} activeOpacity={0.9} onPress={() => Alert.alert('Coming Soon')}>
             <Text style={styles.listenText}>Listen</Text>
           </TouchableOpacity>
         </View>
@@ -75,13 +78,6 @@ export default function AdsExampleScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#140F10' },
   content: { paddingTop: 10, paddingBottom: 120 },
-  headerRow: {
-    paddingHorizontal: 20,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 18,
-  },
   iconBtn: {
     width: 31,
     height: 31,

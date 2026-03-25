@@ -4,7 +4,8 @@ import { useRouter } from 'expo-router';
 import { collection, onSnapshot, orderBy, query, where } from 'firebase/firestore';
 import { ArrowLeft, MessageSquarePlus, UserRound } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import SettingsHeader from '@/components/settings/SettingsHeader';
 
 type MessageRow = {
   id: string;
@@ -59,24 +60,23 @@ export default function StudioMessagesScreen() {
   return (
     <SafeScreenWrapper>
       <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
-          <View style={styles.leftHeader}>
-            <TouchableOpacity onPress={() => router.back()} activeOpacity={0.85}>
-              <ArrowLeft size={22} color="#FFFFFF" />
+        <SettingsHeader
+          title="Message"
+          onBack={() => router.back()}
+          rightElement={
+            <TouchableOpacity activeOpacity={0.85} onPress={() => Alert.alert('Coming Soon')}>
+              <MessageSquarePlus size={22} color="#FFFFFF" />
             </TouchableOpacity>
-            <Text style={styles.title}>Message</Text>
-          </View>
-          <TouchableOpacity activeOpacity={0.85}>
-            <MessageSquarePlus size={22} color="#FFFFFF" />
-          </TouchableOpacity>
-        </View>
+          }
+          style={{ paddingHorizontal: 0, paddingVertical: 0, marginBottom: 18 }}
+        />
 
         {rows.length === 0 ? (
           <View style={styles.emptyWrap}>
             <UserRound size={44} color="rgba(255,255,255,0.37)" />
             <Text style={styles.emptyTitle}>No chats yet</Text>
             <Text style={styles.emptySub}>Send a message and turn conversations into shoutouts</Text>
-            <TouchableOpacity style={styles.startBtn}>
+            <TouchableOpacity style={styles.startBtn} onPress={() => Alert.alert('Coming Soon')}>
               <Text style={styles.startBtnText}>Send</Text>
             </TouchableOpacity>
           </View>
@@ -126,9 +126,6 @@ export default function StudioMessagesScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#140F10' },
   content: { paddingHorizontal: 20, paddingTop: 14, paddingBottom: 120 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 },
-  leftHeader: { flexDirection: 'row', alignItems: 'center', gap: 16 },
-  title: { color: '#FFFFFF', fontFamily: 'Poppins-SemiBold', fontSize: 20, lineHeight: 25, letterSpacing: -0.5 },
   emptyWrap: { marginTop: 150, alignItems: 'center', gap: 12 },
   emptyTitle: { color: '#FFFFFF', fontFamily: 'Poppins-Medium', fontSize: 14, lineHeight: 12, letterSpacing: -0.5 },
   emptySub: { color: 'rgba(255,255,255,0.37)', fontFamily: 'Poppins-Medium', fontSize: 8, lineHeight: 12, letterSpacing: -0.5 },

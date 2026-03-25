@@ -2,7 +2,7 @@ import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ChevronLeft, MoreVertical, Play, Shuffle, Heart, ShoppingCart } from 'lucide-react-native';
 import React, { useMemo } from 'react';
-import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 // Template-only screen for playlist detail. Pass real data via route params or wire to store later.
 export default function PlaylistScreen() {
@@ -54,7 +54,7 @@ export default function PlaylistScreen() {
             <Text style={styles.headerTitle}>{meta.title}</Text>
             <Text style={styles.headerSubtitle}>{meta.subtitle}</Text>
           </View>
-          <TouchableOpacity style={styles.iconButton}>
+          <TouchableOpacity style={styles.iconButton} onPress={() => Alert.alert('Coming Soon')}>
             <MoreVertical size={22} color="#FFF" />
           </TouchableOpacity>
         </View>
@@ -102,10 +102,10 @@ export default function PlaylistScreen() {
                 </View>
                 <View style={styles.trackActions}>
                   {t.price ? <Text style={styles.trackPrice}>{t.price}</Text> : <Text style={styles.trackDuration}>{t.duration}</Text>}
-                  <TouchableOpacity style={styles.smallIcon}>
+                  <TouchableOpacity style={styles.smallIcon} onPress={() => Alert.alert('Coming Soon')}>
                     <ShoppingCart size={16} color="#EC5C39" />
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.smallIcon}>
+                  <TouchableOpacity style={styles.smallIcon} onPress={() => Alert.alert('Coming Soon')}>
                     <Heart size={16} color="#EC5C39" />
                   </TouchableOpacity>
                 </View>

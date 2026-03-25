@@ -24,6 +24,7 @@ import {
     View
 } from 'react-native';
 import { auth, db } from '../../firebaseConfig';
+import SettingsHeader from '@/components/settings/SettingsHeader';
 
 const { width } = Dimensions.get('window');
 
@@ -96,15 +97,15 @@ export default function WithdrawalScreen() {
         <SafeScreenWrapper>
             <View style={styles.container}>
                 {/* Header */}
-                <View style={styles.header}>
-                    <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-                        <ChevronLeft size={24} color="#FFF" />
-                    </TouchableOpacity>
-                    <Text style={styles.headerTitle}>Earnings</Text>
-                    <TouchableOpacity style={styles.historyButton} onPress={() => showToast('Scroll down to see your payout history below.', 'info')}>
-                        <History size={20} color="#FFF" />
-                    </TouchableOpacity>
-                </View>
+                <SettingsHeader
+                    title="Earnings"
+                    onBack={handleBack}
+                    rightElement={
+                        <TouchableOpacity style={styles.historyButton} onPress={() => showToast('Scroll down to see your payout history below.', 'info')}>
+                            <History size={20} color="#FFF" />
+                        </TouchableOpacity>
+                    }
+                />
 
                 {loading ? (
                     <View style={{ flex: 1, justifyContent: 'center' }}>
@@ -160,7 +161,7 @@ export default function WithdrawalScreen() {
 
                         {/* Payment Method (Static for MVP UI) */}
                         <Text style={styles.sectionTitle}>Payment Method</Text>
-                        <TouchableOpacity style={styles.bankCard}>
+                        <TouchableOpacity style={styles.bankCard} onPress={() => showToast('Bank account management will be available in the next update.', 'info')}>
                             <View style={styles.bankIcon}>
                                 <Building2 size={24} color="#EC5C39" />
                             </View>
@@ -229,26 +230,6 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         paddingHorizontal: 20,
-    },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingVertical: 15,
-        marginBottom: 10,
-    },
-    backButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: 'rgba(255,255,255,0.05)',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    headerTitle: {
-        fontSize: 20,
-        fontFamily: 'Poppins-Bold',
-        color: '#FFF',
     },
     historyButton: {
         width: 40,

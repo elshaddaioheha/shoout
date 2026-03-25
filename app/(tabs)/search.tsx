@@ -49,7 +49,7 @@ const ALL_GENRES = [
 export default function SearchScreen() {
     const [viewMode, setViewMode] = useState<ViewMode>('browse');
     const [searchQuery, setSearchQuery] = useState('');
-    const [results, setResults] = useState<{ songs: any[], artists: string[] }>({ songs: [], artists: [] });
+    const [results, setResults] = useState<{ songs: any[], artists: any[] }>({ songs: [], artists: [] });
     const [searching, setSearching] = useState(false);
     const { openSheet, isModeSheetOpen, viewMode: appViewMode } = useAppSwitcherContext();
 
@@ -76,7 +76,7 @@ export default function SearchScreen() {
             const artists = userSnap.docs
                 .map(d => ({ id: d.id, ...d.data() as any }))
                 .filter(u => u.fullName?.toLowerCase().includes(q.toLowerCase()))
-                .map(u => u.fullName)
+                .map(u => ({ id: u.id, name: u.fullName }))
                 .slice(0, 5);
 
             setResults({ songs, artists });
@@ -282,7 +282,7 @@ function AllGenresView({ genres, onGenrePress }: { genres: any[], onGenrePress: 
 }
 
 // Sub-component for Search Results View
-function SearchResultsView({ songs, artists, searching, query }: { songs: any[], artists: string[], searching: boolean, query: string }) {
+function SearchResultsView({ songs, artists, searching, query }: { songs: any[], artists: any[], searching: boolean, query: string }) {
     const router = useRouter();
     if (searching) {
         return <View style={{ alignItems: 'center', paddingTop: 60 }}><Text style={{ color: 'rgba(255,255,255,0.5)', fontFamily: 'Poppins-Regular' }}>Searching...</Text></View>;
@@ -314,9 +314,9 @@ function SearchResultsView({ songs, artists, searching, query }: { songs: any[],
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
                 {artists.map((artist, idx) => (
-                    <TouchableOpacity key={idx} style={styles.artistItem}>
+                    <TouchableOpacity key={idx} style={styles.artistItem} onPress={() => router.push({ pathname: '/profile/[id]', params: { id: artist.id } } as any)}>
                         <View style={styles.circlePlaceholder} />
-                        <Text style={styles.artistNameSmall}>{artist}</Text>
+                        <Text style={styles.artistNameSmall}>{artist.name}</Text>
                     </TouchableOpacity>
                 ))}
             </ScrollView>

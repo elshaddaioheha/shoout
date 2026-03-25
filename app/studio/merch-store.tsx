@@ -20,6 +20,7 @@ import {
     Trash2
 } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
+import SettingsHeader from '@/components/settings/SettingsHeader';
 import {
     ActivityIndicator,
     Alert,
@@ -95,21 +96,21 @@ export default function MerchStoreManagement() {
     return (
         <SafeScreenWrapper>
             <View style={styles.container}>
-                {/* Header */}
-                <View style={styles.header}>
-                    <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-                        <ChevronLeft size={24} color="#FFF" />
-                    </TouchableOpacity>
-                    <Text style={styles.headerTitle}>Merch & Store</Text>
-                    <TouchableOpacity style={styles.addButton} onPress={() => router.push('/studio/upload' as any)}>
-                        <LinearGradient
-                            colors={['#EC5C39', '#863420']}
-                            style={styles.addGradient}
-                        >
-                            <Plus size={20} color="#FFF" />
-                        </LinearGradient>
-                    </TouchableOpacity>
-                </View>
+                <SettingsHeader
+                    title="Merch & Store"
+                    onBack={handleBack}
+                    rightElement={
+                        <TouchableOpacity style={styles.addButton} onPress={() => router.push('/studio/upload' as any)}>
+                            <LinearGradient
+                                colors={['#EC5C39', '#863420']}
+                                style={styles.addGradient}
+                            >
+                                <Plus size={20} color="#FFF" />
+                            </LinearGradient>
+                        </TouchableOpacity>
+                    }
+                    style={{ paddingHorizontal: 0, paddingVertical: 0, marginBottom: 10 }}
+                />
 
                 {/* Search */}
                 <View style={styles.searchContainer}>
@@ -268,26 +269,6 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         paddingHorizontal: 20,
-    },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingVertical: 15,
-        marginBottom: 10,
-    },
-    backButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: 'rgba(255,255,255,0.05)',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    headerTitle: {
-        fontSize: 20,
-        fontFamily: 'Poppins-Bold',
-        color: '#FFF',
     },
     addButton: {
         width: 40,

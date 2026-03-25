@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+    Alert,
     View,
     Text,
     StyleSheet,
@@ -54,7 +55,7 @@ export default function ArtistSettingsScreen() {
                     title="Studio Settings"
                     onBack={() => router.back()}
                     rightElement={(
-                        <TouchableOpacity style={styles.saveButton}>
+                        <TouchableOpacity style={styles.saveButton} onPress={() => Alert.alert('Coming Soon')}>
                             <Save size={20} color="#EC5C39" />
                         </TouchableOpacity>
                     )}
@@ -63,7 +64,7 @@ export default function ArtistSettingsScreen() {
                 <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
                     {/* Banner and Profile Section */}
                     <View style={styles.imagesSection}>
-                        <TouchableOpacity style={styles.bannerContainer}>
+                        <TouchableOpacity style={styles.bannerContainer} onPress={() => Alert.alert('Coming Soon')}>
                             <View style={styles.bannerPlaceholder}>
                                 <ImageIcon size={32} color="rgba(255,255,255,0.2)" />
                                 <View style={styles.camIcon}>
@@ -72,7 +73,7 @@ export default function ArtistSettingsScreen() {
                             </View>
                         </TouchableOpacity>
 
-                        <TouchableOpacity style={styles.profilePicContainer}>
+                        <TouchableOpacity style={styles.profilePicContainer} onPress={() => Alert.alert('Coming Soon')}>
                             <View style={styles.profilePicPlaceholder}>
                                 <Music2 size={32} color="#EC5C39" />
                                 <View style={styles.camIconSmall}>
@@ -152,7 +153,7 @@ export default function ArtistSettingsScreen() {
 
                     {/* Danger Zone */}
                     <View style={[styles.section, { marginBottom: 40 }]}>
-                        <TouchableOpacity style={styles.dangerButton}>
+                        <TouchableOpacity style={styles.dangerButton} onPress={() => Alert.alert('Coming Soon')}>
                             <Shield size={18} color="#FF4D4D" style={{ marginRight: 10 }} />
                             <Text style={styles.dangerText}>Verify Artist Status</Text>
                         </TouchableOpacity>

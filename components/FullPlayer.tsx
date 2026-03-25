@@ -331,7 +331,7 @@ export default function FullPlayer({ visible, onClose }: FullPlayerProps) {
                         <Share2 size={22} color="rgba(255,255,255,0.7)" />
                     </TouchableOpacity>
                     <View style={{ flex: 1 }} />
-                    <TouchableOpacity style={styles.lyricsButton}>
+                    <TouchableOpacity style={styles.lyricsButton} onPress={() => Alert.alert('Lyrics coming soon', 'This feature is currently in development.')}>
                         <Text style={styles.lyricsLabel}>Lyrics</Text>
                     </TouchableOpacity>
                 </View>
