@@ -1,5 +1,6 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import { auth, db } from '@/firebaseConfig';
+import { formatUsd } from '@/utils/pricing';
 import { useRouter } from 'expo-router';
 import { collection, onSnapshot, orderBy, query, where } from 'firebase/firestore';
 import { ArrowLeft, DollarSign, Mic, Users } from 'lucide-react-native';
@@ -40,7 +41,7 @@ export default function StudioEarningsScreen() {
   );
 
   const stats = [
-    { title: 'Net Sales', value: `NGN ${netSales.toLocaleString(undefined, { minimumFractionDigits: 2 })}`, icon: <DollarSign size={18} color="#FFFFFF" /> },
+    { title: 'Net Sales', value: formatUsd(netSales), icon: <DollarSign size={18} color="#FFFFFF" /> },
     { title: 'New Subscribers', value: '0.00', icon: <Users size={18} color="#FFFFFF" /> },
     { title: 'Total Uploaded Track', value: `${transactions.length}`, icon: <Mic size={18} color="#FFFFFF" /> },
   ];
@@ -76,7 +77,7 @@ export default function StudioEarningsScreen() {
             {transactions.slice(0, 20).map((item) => (
               <View key={item.id} style={styles.txRow}>
                 <Text style={styles.txTitle}>{item.trackTitle || 'Track purchased'}</Text>
-                <Text style={styles.txAmount}>NGN {(Number(item.amount) || 0).toLocaleString()}.00</Text>
+                <Text style={styles.txAmount}>{formatUsd(Number(item.amount) || 0)}</Text>
               </View>
             ))}
           </View>

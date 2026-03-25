@@ -43,6 +43,7 @@ const functions = __importStar(require("firebase-functions"));
 const functionsV1 = __importStar(require("firebase-functions/v1"));
 const scheduler_1 = require("firebase-functions/v2/scheduler");
 const pdfkit_1 = __importDefault(require("pdfkit"));
+const subscriptionLifecycle_1 = require("./subscriptionLifecycle");
 admin.initializeApp();
 const db = admin.firestore();
 function getUserRoleFromContext(context) {
@@ -101,14 +102,7 @@ function verifyWebhookSignature(rawBody, signature, secret) {
     return hash === signature;
 }
 function calculateSubscriptionExpiry(billingCycle) {
-    const next = new Date();
-    if (billingCycle === 'annual') {
-        next.setFullYear(next.getFullYear() + 1);
-    }
-    else {
-        next.setMonth(next.getMonth() + 1);
-    }
-    return admin.firestore.Timestamp.fromDate(next);
+    return admin.firestore.Timestamp.fromDate((0, subscriptionLifecycle_1.calculateSubscriptionExpiryDate)(billingCycle));
 }
 async function renderInvoicePdfBuffer(params) {
     return new Promise((resolve, reject) => {
@@ -157,7 +151,7 @@ async function createInvoiceAndGetUrl(params) {
         notes: params.notes,
     });
     const bucket = admin.storage().bucket();
-    const filePath = `invoices/${params.userId}/${params.invoiceNumber}.pdf`;
+    const filePath = (0, subscriptionLifecycle_1.invoiceStoragePath)(params.userId, params.invoiceNumber);
     const file = bucket.file(filePath);
     await file.save(buffer, {
         resumable: false,
@@ -172,12 +166,7 @@ async function createInvoiceAndGetUrl(params) {
 }
 async function queueEmail(params) {
     await db.collection(EMAIL_COLLECTION).add({
-        to: [params.to],
-        message: {
-            subject: params.subject,
-            text: params.text,
-            html: params.html,
-        },
+        ...(0, subscriptionLifecycle_1.buildMailQueuePayload)(params),
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 }
@@ -698,17 +687,12 @@ exports.downgradeExpiredSubscriptions = (0, scheduler_1.onSchedule)({ schedule: 
         if (!userRef)
             continue;
         batch.set(docSnap.ref, {
-            tier: 'vault',
-            status: 'expired',
-            isSubscribed: false,
-            billingCycle: null,
-            expiresAt: null,
+            ...(0, subscriptionLifecycle_1.firestoreExpiredSubscriptionDocPatch)(),
             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
             downgradedAt: admin.firestore.FieldValue.serverTimestamp(),
         }, { merge: true });
         batch.set(userRef, {
-            role: 'vault',
-            subscriptionStatus: 'expired',
+            ...(0, subscriptionLifecycle_1.firestoreExpiredUserRolePatch)(),
             downgradedAt: admin.firestore.FieldValue.serverTimestamp(),
         }, { merge: true });
         batchOps += 2;

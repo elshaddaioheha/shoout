@@ -1,6 +1,7 @@
 import { useAppSwitcherContext } from '@/app/(tabs)/_layout';
 import SharedHeader from '@/components/SharedHeader';
 import { auth, db } from '@/firebaseConfig';
+import { formatUsd } from '@/utils/pricing';
 import { useCartStore } from '@/store/useCartStore';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -181,23 +182,28 @@ function BrowseView({ genres, onGenrePress, onSeeAll }: {
     onSeeAll: () => void
 }) {
     const router = useRouter();
+    const [playlists, setPlaylists] = useState<any[]>([]);
 
-    const playlists = [
-        { id: 'wizkid-special', title: "Wizkid Playlist Specal", subtitle: "Personal Selection", price: "NGN 3000.00" },
-        { id: 'shoouts-top-100', title: "Shoouts Top 100", subtitle: "Afro Gospel" },
-        { id: 'breezy-playlist', title: "Breezy Playlist", subtitle: "Afro Beats", price: "NGN 3000.00" }
-    ];
+    useEffect(() => {
+        const load = async () => {
+            try {
+                const q = query(
+                    collectionGroup(db, 'uploads'),
+                    orderBy('listenCount', 'desc'),
+                    limit(6)
+                );
+                const snap = await getDocs(q);
+                setPlaylists(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+            } catch (e) {
+                console.warn('browse playlists load failed', e);
+            }
+        };
+
+        load();
+    }, []);
 
     const openPlaylist = (pl: any) => {
-        router.push({
-            pathname: '/playlist/[id]',
-            params: {
-                id: pl.id,
-                title: pl.title,
-                subtitle: pl.subtitle,
-                price: pl.price || '',
-            },
-        });
+        router.push(`/playlist/${pl.id}` as any);
     };
 
     return (
@@ -230,20 +236,24 @@ function BrowseView({ genres, onGenrePress, onSeeAll }: {
             </View>
 
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
-                {playlists.map((playlist, idx) => (
-                    <TouchableOpacity key={idx} style={styles.playlistItem} activeOpacity={0.8} onPress={() => openPlaylist(playlist)}>
-                        <View style={styles.playlistVisualContainer}>
-                            <View style={[styles.playlistLayer, { backgroundColor: '#464646', transform: [{ rotate: '9.7deg' }] }]} />
-                            <View style={[styles.playlistLayer, { backgroundColor: '#767676', transform: [{ rotate: '5.15deg' }], top: 3 }]} />
-                            <View style={[styles.playlistLayer, { backgroundColor: '#D9D9D9', top: 12 }]} />
-                        </View>
-                        <View style={{ marginTop: 24 }}>
-                            <Text style={styles.playlistTitle}>{playlist.title}</Text>
-                            <Text style={styles.playlistSubtitle}>{playlist.subtitle}</Text>
-                            {playlist.price && <Text style={styles.playlistPrice}>{playlist.price}</Text>}
-                        </View>
-                    </TouchableOpacity>
-                ))}
+                {playlists.length === 0 ? (
+                    <Text style={{ color: 'rgba(255,255,255,0.5)', fontFamily: 'Poppins-Regular' }}>No playlists yet.</Text>
+                ) : (
+                    playlists.map((playlist, idx) => (
+                        <TouchableOpacity key={playlist.id || idx} style={styles.playlistItem} activeOpacity={0.8} onPress={() => openPlaylist(playlist)}>
+                            <View style={styles.playlistVisualContainer}>
+                                <View style={[styles.playlistLayer, { backgroundColor: '#464646', transform: [{ rotate: '9.7deg' }] }]} />
+                                <View style={[styles.playlistLayer, { backgroundColor: '#767676', transform: [{ rotate: '5.15deg' }], top: 3 }]} />
+                                <View style={[styles.playlistLayer, { backgroundColor: '#D9D9D9', top: 12 }]} />
+                            </View>
+                            <View style={{ marginTop: 24 }}>
+                                <Text style={styles.playlistTitle}>{playlist.title || 'Untitled'}</Text>
+                                <Text style={styles.playlistSubtitle}>{playlist.genre || playlist.category || 'Track'}</Text>
+                                {typeof playlist.price === 'number' ? <Text style={styles.playlistPrice}>{formatUsd(playlist.price)}</Text> : null}
+                            </View>
+                        </TouchableOpacity>
+                    ))
+                )}
             </ScrollView>
         </View>
     );
@@ -363,7 +373,7 @@ function SongItem({ song }: { song: any }) {
             <View style={styles.songMainInfo}>
                 <Text style={styles.songTitleText}>{song.title}</Text>
                 <Text style={styles.songArtistText}>{song.artist || song.uploaderName}</Text>
-                <Text style={styles.songPriceText}>{song.price ? `NGN ${Number(song.price).toLocaleString()}` : 'Free'}</Text>
+                <Text style={styles.songPriceText}>{song.price ? formatUsd(Number(song.price)) : 'Free'}</Text>
             </View>
             <View style={styles.songActionsRow}>
                 <TouchableOpacity onPress={() => !inCart && addItem({ id: song.id, title: song.title, artist: song.artist || song.uploaderName, price: song.price || 0, uploaderId: song.uploaderId || '' })}>

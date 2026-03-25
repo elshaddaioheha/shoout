@@ -4,7 +4,7 @@ import { setDoc } from 'firebase/firestore';
 import React from 'react';
 import SignupScreen from '../../app/(auth)/signup';
 import { useToastStore } from '../../store/useToastStore';
-import { useUserStore } from '../../store/useUserStore';
+import { hydrateSubscriptionTier } from '../../utils/subscriptionVerification';
 
 // Setup Mocks
 jest.mock('expo-router', () => ({
@@ -12,8 +12,8 @@ jest.mock('expo-router', () => ({
     useLocalSearchParams: () => ({})
 }));
 
-jest.mock('../../store/useUserStore', () => ({
-    useUserStore: jest.fn()
+jest.mock('../../utils/subscriptionVerification', () => ({
+    hydrateSubscriptionTier: jest.fn().mockResolvedValue('vault'),
 }));
 
 jest.mock('../../store/useToastStore', () => ({
@@ -50,14 +50,10 @@ jest.mock('@react-native-google-signin/google-signin', () => ({
 }));
 
 describe('SignupScreen Authorization flows', () => {
-    const mockSetRole = jest.fn();
     const mockShowToast = jest.fn();
 
     beforeEach(() => {
         jest.clearAllMocks();
-        (useUserStore as unknown as jest.Mock).mockReturnValue({
-            setRole: mockSetRole,
-        });
         (useToastStore as unknown as jest.Mock).mockReturnValue({
             showToast: mockShowToast,
         });
@@ -86,10 +82,9 @@ describe('SignupScreen Authorization flows', () => {
             expect(setDoc).toHaveBeenCalledWith({ _path: 'users/user-123' }, {
                 fullName: 'Test Creator',
                 email: 'test@shoouts.com',
-                role: 'vault_free',
                 createdAt: expect.any(String)
             });
-            expect(mockSetRole).toHaveBeenCalledWith('vault_free');
+            expect(hydrateSubscriptionTier).toHaveBeenCalled();
         }, { timeout: 12000 });
     }, 15000);
 

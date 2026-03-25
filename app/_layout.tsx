@@ -7,12 +7,20 @@ import { Stack, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { onAuthStateChanged } from 'firebase/auth';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import 'react-native-reanimated';
 import { auth } from '../firebaseConfig';
-import { fetchVerifiedSubscriptionTier } from '@/utils/subscriptionVerification';
+import { hydrateSubscriptionTier } from '@/utils/subscriptionVerification';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useUserStore } from '@/store/useUserStore';
+
+/**
+ * Shared flag — set to true by login/signup/social screens immediately before
+ * calling router.replace() so that the onAuthStateChanged listener below
+ * knows navigation has already been handled and won't fire a second redirect.
+ * Reset to false once the listener has read it.
+ */
+export const authNavigationHandled = { current: false };
 
 SplashScreen.preventAutoHideAsync();
 
@@ -21,7 +29,8 @@ export default function RootLayout() {
   const router = useRouter();
   const [authResolved, setAuthResolved] = useState(false);
   const { setVerifying } = useAuthStore();
-  const { setRole, setActualRole } = useUserStore();
+  // Tracks whether this is the very first auth event (cold start vs re-auth)
+  const isFirstAuthEvent = useRef(true);
 
   const [loaded, error] = useFonts({
     'Poppins-Regular': Poppins_400Regular,
@@ -35,27 +44,49 @@ export default function RootLayout() {
         // User is authenticated — fetch and verify their subscription tier from server
         try {
           setVerifying(true);
-          const verifiedTier = await fetchVerifiedSubscriptionTier();
-          // Keep capability store in sync with server-verified role.
-          setActualRole(verifiedTier);
-          setRole(verifiedTier);
+          await hydrateSubscriptionTier();
         } catch (error) {
           console.error('Failed to verify subscription tier:', error);
           // Even if verification fails, allow user to proceed with free tier
-          // They'll be restricted from paid features client-side
-          setActualRole('vault');
-          setRole('vault');
+          useAuthStore.getState().setActualRole('vault');
+          useAuthStore.getState().setSubscriptionData({
+            tier: 'vault',
+            isSubscribed: false,
+            expiresAt: null,
+          });
+          useUserStore.getState().setActualRole('vault');
+          useUserStore.getState().setRole('vault');
         } finally {
           setVerifying(false);
         }
-        
-        router.replace('/(tabs)');
+
+        // Populate name from Firebase Auth so every screen shows the real name,
+        // not the default 'User' hardcoded in the store.
+        const displayName = user.displayName?.trim() || 'User';
+        useUserStore.getState().setName(displayName);
+
+        // Only navigate if the auth screen hasn't already redirected.
+        // login.tsx / signup.tsx set authNavigationHandled.current = true
+        // before calling router.replace() so we skip this to avoid a
+        // double-navigation race condition.
+        if (!authNavigationHandled.current) {
+          router.replace('/(tabs)');
+        }
+        authNavigationHandled.current = false; // reset for the next event
+      } else {
+        // No authenticated user — redirect to login on initial load only.
+        // Subsequent sign-outs are handled by the logout handler directly.
+        if (isFirstAuthEvent.current) {
+          router.replace('/(auth)/login');
+        }
       }
+
+      isFirstAuthEvent.current = false;
       setAuthResolved(true);
     });
 
     return unsub;
-  }, [router, setActualRole, setRole, setVerifying]);
+  }, [router, setVerifying]);
 
   useEffect(() => {
     if (loaded || error) {

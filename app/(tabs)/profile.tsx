@@ -1,6 +1,11 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import { auth, db } from '@/firebaseConfig';
+import { useAuthStore } from '@/store/useAuthStore';
+import { useCartStore } from '@/store/useCartStore';
+import { useNotificationStore } from '@/store/useNotificationStore';
+import { usePlaybackStore } from '@/store/usePlaybackStore';
 import { useUserStore } from '@/store/useUserStore';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { collection, doc, getDoc, getDocs } from 'firebase/firestore';
@@ -111,15 +116,50 @@ export default function ProfileScreen() {
         Alert.alert('Edit Profile', "Profile editing coming soon. You'll be able to update your photo, bio, and display name.");
     };
 
-    const handleLogout = async () => {
+    const performLogout = async () => {
+        // 1. Stop Firestore notification listener first — prevents it from
+        //    continuing to emit events for the signed-out user.
+        useNotificationStore.getState().stopListening();
+
+        // 2. Revoke Google Sign-In session so the next login always
+        //    shows the account picker instead of silently reusing the
+        //    previous session (critical on shared devices).
+        try {
+            const hadPreviousSignIn = GoogleSignin.hasPreviousSignIn();
+            if (hadPreviousSignIn) {
+                await GoogleSignin.revokeAccess();
+                await GoogleSignin.signOut();
+            }
+        } catch (e) {
+            // Non-fatal: Google session revocation failure should not block logout
+            console.warn('Google sign-out error:', e);
+        }
+
+        // 3. Sign out of Firebase
         try {
             await auth.signOut();
         } catch (e) {
-            console.warn('signOut error:', e);
+            console.warn('Firebase signOut error:', e);
         } finally {
-            reset();
+            // 4. Clear all stores — prevents data leaking to the next user
+            //    who signs in on the same device.
+            reset();                                        // useUserStore
+            useAuthStore.getState().reset();               // auth / subscription
+            useCartStore.getState().clearCart();           // cart items (persisted)
+            await usePlaybackStore.getState().clearTrack(); // stop audio + unload
             router.replace('/(auth)/login');
         }
+    };
+
+    const handleLogout = () => {
+        Alert.alert(
+            'Log Out',
+            'Are you sure you want to log out?',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Log Out', style: 'destructive', onPress: performLogout },
+            ]
+        );
     };
 
     return (

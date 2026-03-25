@@ -1,5 +1,6 @@
 import { useUserStore } from '@/store/useUserStore';
 import { useAuthStore } from '@/store/useAuthStore';
+import { formatUsd } from '@/utils/pricing';
 import { useToastStore } from '@/store/useToastStore';
 import { auth, db } from '@/firebaseConfig';
 import { useRouter } from 'expo-router';
@@ -141,14 +142,12 @@ export default function LibraryScreen() {
   const storageLimit = useMemo(() => {
     if (user.storageLimitGB > 0) return user.storageLimitGB;
     const fallbackMap: Record<string, number> = {
-      studio_free: 0.1,
-      studio_pro: 1,
-      studio_plus: 10,
+      vault: 0.5,
+      vault_pro: 1,
+      studio: 2,
       hybrid: 10,
-      hybrid_creator: 5,
-      hybrid_executive: 10,
     };
-    return fallbackMap[activeRole || ''] || 0.05;
+    return fallbackMap[activeRole || ''] || 0.5;
   }, [activeRole, user.storageLimitGB]);
 
   const hasVaultContent = folders.length > 0 || uploads.length > 0;
@@ -184,14 +183,13 @@ export default function LibraryScreen() {
   );
 
   const creatorTitle = useMemo(() => {
-    if (activeRole === 'studio_plus' || activeRole?.startsWith('hybrid')) return 'Shoouts Studio';
-    if (activeRole === 'studio_pro') return 'Top Studio';
-    if (activeRole === 'studio_free') return 'Basic Studio';
+    if (activeRole === 'hybrid') return 'Shoouts Studio';
+    if (activeRole === 'studio') return 'Studio';
     return isCreatorSurface ? 'Studio' : 'Vault';
   }, [activeRole, isCreatorSurface]);
 
   const planLabel = useMemo(() => {
-    const tier = authState.subscriptionTier || activeRole || 'vault_free';
+    const tier = authState.subscriptionTier || activeRole || 'vault';
     const subscribed = authState.isSubscribed;
     return `${String(tier).replace(/_/g, ' ')}${subscribed ? '' : ' (free)'}`;
   }, [activeRole, authState.isSubscribed, authState.subscriptionTier]);
@@ -233,6 +231,15 @@ export default function LibraryScreen() {
     setFolderName('');
   };
 
+  const openUpload = () => {
+    if (!auth.currentUser) {
+      showToast('Please sign in to upload your music.', 'error');
+      router.push({ pathname: '/(auth)/login', params: { redirectTo: '/studio/upload' } });
+      return;
+    }
+    router.push('/studio/upload');
+  };
+
   return (
     <View style={styles.screen}>
       <ScrollView
@@ -249,7 +256,7 @@ export default function LibraryScreen() {
           storageText={`${usedStorage}GB/${storageLimit.toFixed(2)}GB`}
           userLabel={user?.name || 'Creator'}
           title={isHybridUser ? 'Hybrid' : creatorTitle as any}
-          showStorage={true}
+          showStorage={false}
           planLabel={planLabel}
         />
 
@@ -319,7 +326,7 @@ export default function LibraryScreen() {
                   <TouchableOpacity
                     style={styles.createListingBtn}
                     activeOpacity={0.9}
-                    onPress={() => router.push('/studio/upload')}
+                    onPress={openUpload}
                   >
                     <Text style={styles.createListingText}>Create Listing</Text>
                   </TouchableOpacity>
@@ -367,7 +374,7 @@ export default function LibraryScreen() {
             </TouchableOpacity>
 
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.statsRow}>
-              <StatCard title="Net Sales" value={`NGN ${netSales.toFixed(2)}`} />
+              <StatCard title="Net Sales" value={formatUsd(netSales)} />
               <StatCard title="New Subscribers" value={`${followersCount}`} />
               <StatCard title="New Likes" value="0.00" />
               <StatCard title="New Follows" value="0.00" />
@@ -383,7 +390,7 @@ export default function LibraryScreen() {
                   onPress={() => router.push('/studio/earnings' as any)}
                 >
                   <Text style={styles.earningLabel}>{earning.label}</Text>
-                  <Text style={styles.earningAmount}>NGN {earning.amount.toLocaleString()}</Text>
+                  <Text style={styles.earningAmount}>{formatUsd(earning.amount)}</Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -461,7 +468,7 @@ export default function LibraryScreen() {
           <TouchableOpacity
             style={[styles.uploadFab, { bottom: insets.bottom + 130 }]}
             activeOpacity={0.85}
-            onPress={() => router.push('/studio/upload')}
+            onPress={openUpload}
           >
             <Upload size={20} color="#EC5C39" />
           </TouchableOpacity>
@@ -512,7 +519,7 @@ export default function LibraryScreen() {
               onPress={() => {
                 setShowCreateSheet(false);
                 if (isHybridUser) {
-                  router.push('/studio/upload');
+                  openUpload();
                 } else {
                   setShowCreateFolderSheet(true);
                 }
@@ -534,7 +541,7 @@ export default function LibraryScreen() {
                 if (isHybridUser) {
                   router.push('/studio/ads-intro' as any);
                 } else {
-                  router.push('/studio/upload');
+                  openUpload();
                 }
               }}
             >
@@ -692,9 +699,9 @@ function UploadCard({ item }: { item: UploadItem }) {
 }
 
 function formatDate(date?: any) {
-  if (!date) return '20/09/2025';
+  if (!date) return '';
   const parsed = typeof date?.toDate === 'function' ? date.toDate() : new Date(date);
-  if (Number.isNaN(parsed.getTime())) return '20/09/2025';
+  if (Number.isNaN(parsed.getTime())) return '';
 
   const day = String(parsed.getDate()).padStart(2, '0');
   const month = String(parsed.getMonth() + 1).padStart(2, '0');

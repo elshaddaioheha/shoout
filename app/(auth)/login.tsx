@@ -20,8 +20,9 @@ import {
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { auth, db } from '../../firebaseConfig';
+import { authNavigationHandled } from '../_layout';
 import { useToastStore } from '../../store/useToastStore';
-import { useUserStore } from '../../store/useUserStore';
+import { ensureDefaultSubscriptionDoc, hydrateSubscriptionTier } from '../../utils/subscriptionVerification';
 import { getFriendlyErrorMessage } from '../../utils/errorHandler';
 
 const { width, height } = Dimensions.get('window');
@@ -33,7 +34,6 @@ export default function LoginScreen() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
-    const { setRole } = useUserStore();
     const { showToast } = useToastStore();
     const [resetLoading, setResetLoading] = useState(false);
 
@@ -68,25 +68,14 @@ export default function LoginScreen() {
         if (!email || !password) return;
         setLoading(true);
         try {
-            // 1. Authenticate with Firebase securely
-            const userCred = await signInWithEmailAndPassword(auth, email, password);
-
-            // 2. Fetch their metadata (Role, etc) from Firestore
-            const userDoc = await getDoc(doc(db, "users", userCred.user.uid));
-
-            if (userDoc.exists()) {
-                const userData = userDoc.data();
-                if (userData.role) {
-                    setRole(userData.role);
-                } else {
-                    setRole('vault'); // fallback
-                }
-            } else {
-                setRole('vault');
-            }
-
+            await signInWithEmailAndPassword(auth, email, password);
+            // Hydration and navigation are handled by onAuthStateChanged in _layout.tsx.
+            // Setting the flag here tells the listener that THIS screen will navigate,
+            // so it should use the redirectTo param rather than the default '/(tabs)'.
+            authNavigationHandled.current = true;
             router.replace(getPostAuthRoute() as any);
         } catch (error: any) {
+            authNavigationHandled.current = false;
             console.error('Login error:', error.message);
             showToast(getFriendlyErrorMessage(error), "error");
         } finally {
@@ -121,14 +110,18 @@ export default function LoginScreen() {
                 await setDoc(doc(db, "users", userCred.user.uid), {
                     fullName: userCred.user.displayName || "Google User",
                     email: userCred.user.email,
-                    role: 'vault_free', // default initial role for social login
                     createdAt: new Date().toISOString()
                 });
-                setRole('vault_free');
+                await ensureDefaultSubscriptionDoc(userCred.user.uid);
+                await hydrateSubscriptionTier();
+                // New user — navigate to role selection.
+                // Flag prevents onAuthStateChanged from firing a second redirect.
+                authNavigationHandled.current = true;
                 router.replace('/(auth)/role-selection');
             } else {
-                const userData = userDoc.data();
-                setRole(userData.role || 'vault');
+                await hydrateSubscriptionTier();
+                // Existing user — honour redirectTo param if present.
+                authNavigationHandled.current = true;
                 router.replace(getPostAuthRoute() as any);
             }
 
@@ -181,14 +174,15 @@ export default function LoginScreen() {
                 await setDoc(doc(db, 'users', userCred.user.uid), {
                     fullName: fullNameFromApple || userCred.user.displayName || 'Apple User',
                     email: userCred.user.email || '',
-                    role: 'vault_free',
                     createdAt: new Date().toISOString(),
                 });
-                setRole('vault_free');
+                await ensureDefaultSubscriptionDoc(userCred.user.uid);
+                await hydrateSubscriptionTier();
+                authNavigationHandled.current = true;
                 router.replace('/(auth)/role-selection');
             } else {
-                const userData = userDoc.data();
-                setRole(userData.role || 'vault');
+                await hydrateSubscriptionTier();
+                authNavigationHandled.current = true;
                 router.replace(getPostAuthRoute() as any);
             }
         } catch (error: any) {

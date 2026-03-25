@@ -11,7 +11,7 @@
  * TEST LOGIN:
  *   Email:    test@shoouts.dev
  *   Password: Shoouts2025!
- *   Role:     hybrid_creator  (vault + studio access)
+ *   Role:     hybrid  (vault + studio access)
  */
 
 import { readFileSync } from 'fs';
@@ -162,13 +162,13 @@ async function main() {
     const { idToken: token, localId: uid } = auth;
     L('✓', `UID: ${uid}`);
 
-    // Update profile to hybrid_creator
+    // Update profile to hybrid
     console.log('\n👤  Updating tester profile...');
     await upsert(`users/${uid}`, {
         uid, displayName: TEST_NAME, email: TEST_EMAIL,
-        role: 'hybrid_creator', isPremium: true, createdAt: ts(14),
+        role: 'hybrid', isPremium: true, createdAt: ts(14),
     }, token);
-    L('✓', 'Profile set to hybrid_creator');
+    L('✓', 'Profile set to hybrid');
 
     // Seed tracks (all under the test user's uid)
     console.log('\n🎵  Seeding tracks...');
@@ -225,7 +225,7 @@ async function main() {
     console.log('🔐  TEST LOGIN:');
     console.log(`    Email:    ${TEST_EMAIL}`);
     console.log(`    Password: ${TEST_PASSWORD}`);
-    console.log(`    Role:     hybrid_creator\n`);
+    console.log(`    Role:     hybrid\n`);
     console.log('📦  DATA:');
     console.log(`    🎵  ${seeded.filter(t => t.isPublic).length} public marketplace tracks`);
     console.log(`    🔒  1 private vault track`);

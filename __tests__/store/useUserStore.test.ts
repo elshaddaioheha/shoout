@@ -23,9 +23,9 @@ beforeEach(() => {
 // Default state
 // ─────────────────────────────────────────────────────────────────────────────
 describe('useUserStore › default state', () => {
-    it('starts with vault_free role', () => {
+    it('starts with vault role', () => {
         const { result } = renderHook(() => useUserStore());
-        expect(result.current.role).toBe('vault_free');
+        expect(result.current.role).toBe('vault');
     });
 
     it('defaults to vault view mode', () => {
@@ -33,17 +33,17 @@ describe('useUserStore › default state', () => {
         expect(result.current.viewMode).toBe('vault');
     });
 
-    it('cannot sell on free vault plan', () => {
+    it('cannot sell on vault plan', () => {
         const { result } = renderHook(() => useUserStore());
         expect(result.current.canSell).toBe(false);
     });
 
-    it('has 50MB storage on free vault plan', () => {
+    it('has 500MB storage on vault plan', () => {
         const { result } = renderHook(() => useUserStore());
-        expect(result.current.storageLimitGB).toBe(0.05);
+        expect(result.current.storageLimitGB).toBe(0.5);
     });
 
-    it('is not premium on free tier', () => {
+    it('is not premium on vault tier', () => {
         const { result } = renderHook(() => useUserStore());
         expect(result.current.isPremium).toBe(false);
     });
@@ -52,89 +52,56 @@ describe('useUserStore › default state', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 // Vault plans
 // ─────────────────────────────────────────────────────────────────────────────
-describe('useUserStore › vault plans', () => {
-    it('vault_creator: isPremium, 500MB storage', () => {
-        const { result } = renderHook(() => useUserStore());
-        act(() => result.current.setRole('vault_creator'));
-        expect(result.current.isPremium).toBe(true);
-        expect(result.current.storageLimitGB).toBe(0.5);
-        expect(result.current.canSell).toBe(false);
-    });
-
-    it('vault_pro: 1GB storage, advanced analytics', () => {
+describe('useUserStore › vault_pro', () => {
+    it('vault_pro: 1GB storage, advanced analytics, premium', () => {
         const { result } = renderHook(() => useUserStore());
         act(() => result.current.setRole('vault_pro'));
+        expect(result.current.isPremium).toBe(true);
         expect(result.current.storageLimitGB).toBe(1);
         expect(result.current.hasAdvancedAnalytics).toBe(true);
         expect(result.current.canSell).toBe(false);
     });
-
-    it('vault_executive: 5GB, team access', () => {
-        const { result } = renderHook(() => useUserStore());
-        act(() => result.current.setRole('vault_executive'));
-        expect(result.current.storageLimitGB).toBe(5);
-        expect(result.current.hasTeamAccess).toBe(true);
-    });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Studio plans
+// Studio
 // ─────────────────────────────────────────────────────────────────────────────
-describe('useUserStore › studio plans', () => {
-    it('studio_free: can sell', () => {
+describe('useUserStore › studio', () => {
+    it('studio: can sell, premium, studio view mode, 2GB', () => {
         const { result } = renderHook(() => useUserStore());
-        act(() => result.current.setRole('studio_free'));
+        act(() => result.current.setRole('studio'));
         expect(result.current.canSell).toBe(true);
+        expect(result.current.isPremium).toBe(true);
         expect(result.current.viewMode).toBe('studio');
-    });
-
-    it('studio_pro: can sell, isPremium', () => {
-        const { result } = renderHook(() => useUserStore());
-        act(() => result.current.setRole('studio_pro'));
-        expect(result.current.canSell).toBe(true);
-        expect(result.current.isPremium).toBe(true);
-    });
-
-    it('studio_plus: can sell, advanced analytics, isPremium', () => {
-        const { result } = renderHook(() => useUserStore());
-        act(() => result.current.setRole('studio_plus'));
-        expect(result.current.canSell).toBe(true);
+        expect(result.current.storageLimitGB).toBe(2);
         expect(result.current.hasAdvancedAnalytics).toBe(true);
-        expect(result.current.isPremium).toBe(true);
     });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Hybrid plans
+// Hybrid
 // ─────────────────────────────────────────────────────────────────────────────
-describe('useUserStore › hybrid plans', () => {
-    it('hybrid_creator: can sell, 5GB, analytics', () => {
+describe('useUserStore › hybrid', () => {
+    it('hybrid: can sell, 10GB, team access, analytics', () => {
         const { result } = renderHook(() => useUserStore());
-        act(() => result.current.setRole('hybrid_creator'));
-        expect(result.current.canSell).toBe(true);
-        expect(result.current.storageLimitGB).toBe(5);
-        expect(result.current.hasAdvancedAnalytics).toBe(true);
-        expect(result.current.isPremium).toBe(true);
-    });
-
-    it('hybrid_executive: can sell, 10GB, team access', () => {
-        const { result } = renderHook(() => useUserStore());
-        act(() => result.current.setRole('hybrid_executive'));
+        act(() => result.current.setRole('hybrid'));
         expect(result.current.canSell).toBe(true);
         expect(result.current.storageLimitGB).toBe(10);
+        expect(result.current.hasAdvancedAnalytics).toBe(true);
         expect(result.current.hasTeamAccess).toBe(true);
+        expect(result.current.isPremium).toBe(true);
     });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Sidebar role badge logic
+// Sidebar / badge role hints (string prefix checks used in UI)
 // ─────────────────────────────────────────────────────────────────────────────
-describe('useUserStore › Sidebar hybrid detection', () => {
-    const hybridRoles: UserRole[] = ['hybrid_creator', 'hybrid_executive'];
-    const nonHybridRoles: UserRole[] = ['vault_free', 'vault_pro', 'studio_pro'];
+describe('useUserStore › hybrid detection helpers', () => {
+    const hybridRoles: UserRole[] = ['hybrid'];
+    const nonHybridRoles: UserRole[] = ['vault', 'vault_pro', 'studio'];
 
     hybridRoles.forEach(role => {
-        it(`role "${role}" is correctly detected as hybrid via startsWith`, () => {
+        it(`role "${role}" is detected as hybrid via startsWith`, () => {
             expect(role.startsWith('hybrid')).toBe(true);
         });
     });
@@ -168,13 +135,13 @@ describe('useUserStore › actions', () => {
         expect(useUserStore.getState().viewMode).toBe('vault');
     });
 
-    it('reset returns to default vault_free state', () => {
+    it('reset returns to default vault state', () => {
         act(() => {
-            useUserStore.getState().setRole('hybrid_executive');
+            useUserStore.getState().setRole('hybrid');
             useUserStore.getState().setName('Big Boss');
             useUserStore.getState().reset();
         });
-        expect(useUserStore.getState().role).toBe('vault_free');
+        expect(useUserStore.getState().role).toBe('vault');
         expect(useUserStore.getState().name).toBe('User');
         expect(useUserStore.getState().isPremium).toBe(false);
     });

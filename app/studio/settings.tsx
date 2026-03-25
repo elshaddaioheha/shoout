@@ -30,14 +30,20 @@ import { LinearGradient } from 'expo-linear-gradient';
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import SettingsHeader from '@/components/settings/SettingsHeader';
 import { useRouter } from 'expo-router';
+import { useUserStore } from '@/store/useUserStore';
 
 const { width } = Dimensions.get('window');
 
 export default function ArtistSettingsScreen() {
     const router = useRouter();
-    const [name, setName] = useState('Breezy Afro');
-    const [bio, setBio] = useState('Creating the future of Afro music. Producing hits since 2018.');
-    const [website, setWebsite] = useState('www.breezyafro.com');
+    // Seed display name from the global store so it matches the rest of the app.
+    const storeName = useUserStore((s) => s.name);
+    const [name, setName] = useState(storeName || '');
+    const [bio, setBio] = useState('');
+    const [website, setWebsite] = useState('');
+    const [instagram, setInstagram] = useState('');
+    const [twitter, setTwitter] = useState('');
+    const [youtube, setYoutube] = useState('');
     const [isPrivate, setIsPrivate] = useState(false);
     const [notifications, setNotifications] = useState(true);
 
@@ -110,9 +116,9 @@ export default function ArtistSettingsScreen() {
                         <Text style={styles.sectionTitle}>Social Links</Text>
 
                         <SocialInput icon={<Globe size={18} color="#FFF" />} value={website} onChangeText={setWebsite} label="Website" />
-                        <SocialInput icon={<Instagram size={18} color="#E4405F" />} value="@breezy_afro" label="Instagram" />
-                        <SocialInput icon={<Twitter size={18} color="#1DA1F2" />} value="@breezy_afro" label="Twitter" />
-                        <SocialInput icon={<Youtube size={18} color="#FF0000" />} value="Breezy Afro Official" label="YouTube" />
+                        <SocialInput icon={<Instagram size={18} color="#E4405F" />} value={instagram} onChangeText={setInstagram} label="Instagram" />
+                        <SocialInput icon={<Twitter size={18} color="#1DA1F2" />} value={twitter} onChangeText={setTwitter} label="Twitter" />
+                        <SocialInput icon={<Youtube size={18} color="#FF0000" />} value={youtube} onChangeText={setYoutube} label="YouTube" />
                     </View>
 
                     {/* Preferences */}
@@ -159,7 +165,7 @@ export default function ArtistSettingsScreen() {
     );
 }
 
-function SocialInput({ icon, value, label }: any) {
+function SocialInput({ icon, value, label, onChangeText }: { icon: React.ReactNode; value: string; label: string; onChangeText?: (text: string) => void }) {
     return (
         <View style={styles.socialInputContainer}>
             <View style={styles.socialIcon}>
@@ -170,8 +176,11 @@ function SocialInput({ icon, value, label }: any) {
                 <TextInput
                     style={styles.socialTextInput}
                     value={value}
+                    onChangeText={onChangeText}
                     placeholder={`Enter ${label} link`}
                     placeholderTextColor="rgba(255,255,255,0.2)"
+                    autoCapitalize="none"
+                    autoCorrect={false}
                 />
             </View>
             <ExternalLink size={16} color="rgba(255,255,255,0.3)" />

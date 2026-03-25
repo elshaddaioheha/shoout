@@ -82,7 +82,7 @@ const NOW = new Date().toISOString();
 const ARTISTS = [
     {
         email: 'burnaboy@seed.shoouts.com', password: 'Seed1234!',
-        profile: { fullName: 'Burna Boy', role: 'hybrid_executive', bio: 'Afrobeats legend. Odogwu himself.', genre: 'Afrobeats', followers: 4210, following: 302, playlists: 8, verified: true },
+        profile: { fullName: 'Burna Boy', role: 'hybrid', bio: 'Afrobeats legend. Odogwu himself.', genre: 'Afrobeats', followers: 4210, following: 302, playlists: 8, verified: true },
         tracks: [
             { id: 'bb_t1', title: 'With You', genre: 'Afrobeats', price: 0, listenCount: 2980, audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3', isPublic: true },
             { id: 'bb_t2', title: 'Paradise', genre: 'Afrobeats', price: 3000, listenCount: 1540, audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3', isPublic: true },
@@ -102,7 +102,7 @@ const ARTISTS = [
     },
     {
         email: 'tems@seed.shoouts.com', password: 'Seed1234!',
-        profile: { fullName: 'Tems', role: 'studio_pro', bio: 'The voice of a generation. Afro-soul creator.', genre: 'Afro Soul', followers: 3800, following: 210, playlists: 5, verified: true },
+        profile: { fullName: 'Tems', role: 'studio', bio: 'The voice of a generation. Afro-soul creator.', genre: 'Afro Soul', followers: 3800, following: 210, playlists: 5, verified: true },
         tracks: [
             { id: 'tems_t1', title: 'Essences', genre: 'Afro Soul', price: 0, listenCount: 2100, audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3', isPublic: true },
             { id: 'tems_t2', title: 'Free Mind', genre: 'Afro Soul', price: 2700, listenCount: 1850, audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3', isPublic: true },
@@ -118,7 +118,7 @@ const ARTISTS = [
     },
     {
         email: 'soundofsalem@seed.shoouts.com', password: 'Seed1234!',
-        profile: { fullName: 'Sound of Salem', role: 'studio_pro', bio: 'Producer. Beatmaker. Afro-Gospel pioneer.', genre: 'Gospel', followers: 1200, following: 90, playlists: 12, verified: false },
+        profile: { fullName: 'Sound of Salem', role: 'studio', bio: 'Producer. Beatmaker. Afro-Gospel pioneer.', genre: 'Gospel', followers: 1200, following: 90, playlists: 12, verified: false },
         tracks: [
             { id: 'sos_t1', title: 'Gospel Fire', genre: 'Gospel', price: 0, listenCount: 740, audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3', isPublic: true },
         ],
@@ -139,7 +139,7 @@ const ARTISTS = [
     },
     {
         email: 'lawrenceoyor@seed.shoouts.com', password: 'Seed1234!',
-        profile: { fullName: 'Lawrence Oyor', role: 'studio_pro', bio: 'Afro-Gospel minister. Worship leader.', genre: 'Gospel', followers: 920, following: 55, playlists: 3, verified: false },
+        profile: { fullName: 'Lawrence Oyor', role: 'studio', bio: 'Afro-Gospel minister. Worship leader.', genre: 'Gospel', followers: 920, following: 55, playlists: 3, verified: false },
         tracks: [
             { id: 'lo_t1', title: 'Worship Medley', genre: 'Gospel', price: 0, listenCount: 650, audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-13.mp3', isPublic: true },
             { id: 'lo_t2', title: 'Hallelujah Riddim', genre: 'Gospel', price: 1500, listenCount: 430, audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-14.mp3', isPublic: true },

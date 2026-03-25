@@ -34,6 +34,9 @@ yarn-error.*
 .env
 .env*.local
 
+# Firebase Extension secrets (see extensions/*.env.example)
+extensions/*.env
+
 # typescript
 *.tsbuildinfo
 
@@ -43,6 +46,6 @@ app-example
 /ios
 /android
 
-# Firebase native config (manage via EAS secrets or CI/CD)
+# Firebase native config (download from Firebase Console / EAS secrets locally)
 google-services.json
 GoogleService-Info.plist

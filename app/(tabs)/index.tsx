@@ -1,6 +1,7 @@
 import { useAppSwitcherContext } from '@/app/(tabs)/_layout';
 import SharedHeader from '@/components/SharedHeader';
 import { auth, db } from '@/firebaseConfig';
+import { formatUsd } from '@/utils/pricing';
 import { useCartStore } from '@/store/useCartStore';
 import { usePlaybackStore } from '@/store/usePlaybackStore';
 import { BlurView } from 'expo-blur';
@@ -231,11 +232,24 @@ function TrendingCard({ song, bgColor, onPlay }: { song: any; bgColor: string; o
 
 function PlaylistSection() {
   const router = useRouter();
-  const playlists = [
-    { title: "Wizkid Playlist Specal", subtitle: "Personal Selection", price: "NGN 3000.00" },
-    { title: "Shoouts Top 100", subtitle: "Afro Gospel" },
-    { title: "Breezy Playlist", subtitle: "Afro Beats", price: "NGN 3000.00" }
-  ];
+  const [playlists, setPlaylists] = useState<any[]>([]);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const q = query(
+          collectionGroup(db, 'uploads'),
+          orderBy('listenCount', 'desc'),
+          limit(6)
+        );
+        const snap = await getDocs(q);
+        setPlaylists(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      } catch (e) {
+        console.warn('playlist load failed', e);
+      }
+    };
+    load();
+  }, []);
 
   return (
     <View style={styles.section}>
@@ -244,20 +258,29 @@ function PlaylistSection() {
         <TouchableOpacity onPress={() => router.push('/(tabs)/search')}><Text style={styles.seeAllText}>See All</Text></TouchableOpacity>
       </View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
-        {playlists.map((playlist, idx) => (
-          <View key={idx} style={styles.playlistItem}>
-            <View style={styles.playlistVisualContainer}>
-              <View style={[styles.playlistLayer, { backgroundColor: '#464646', transform: [{ rotate: '9.7deg' }] }]} />
-              <View style={[styles.playlistLayer, { backgroundColor: '#767676', transform: [{ rotate: '5.15deg' }], top: 3 }]} />
-              <View style={[styles.playlistLayer, { backgroundColor: '#D9D9D9', top: 12 }]} />
-            </View>
-            <View style={{ marginTop: 24 }}>
-              <Text style={styles.playlistTitle}>{playlist.title}</Text>
-              <Text style={styles.playlistSubtitle}>{playlist.subtitle}</Text>
-              {playlist.price && <Text style={styles.playlistPrice}>{playlist.price}</Text>}
-            </View>
-          </View>
-        ))}
+        {playlists.length === 0 ? (
+          <Text style={{ color: 'rgba(255,255,255,0.5)', fontFamily: 'Poppins-Regular' }}>No playlists yet.</Text>
+        ) : (
+          playlists.map((playlist, idx) => (
+            <TouchableOpacity
+              key={playlist.id || idx}
+              style={styles.playlistItem}
+              activeOpacity={0.85}
+              onPress={() => router.push({ pathname: '/listing/[id]', params: { id: playlist.id, uploaderId: playlist.uploaderId } })}
+            >
+              <View style={styles.playlistVisualContainer}>
+                <View style={[styles.playlistLayer, { backgroundColor: '#464646', transform: [{ rotate: '9.7deg' }] }]} />
+                <View style={[styles.playlistLayer, { backgroundColor: '#767676', transform: [{ rotate: '5.15deg' }], top: 3 }]} />
+                <View style={[styles.playlistLayer, { backgroundColor: '#D9D9D9', top: 12 }]} />
+              </View>
+              <View style={{ marginTop: 24 }}>
+                <Text style={styles.playlistTitle}>{playlist.title || 'Untitled'}</Text>
+                <Text style={styles.playlistSubtitle}>{playlist.genre || playlist.category || 'Track'}</Text>
+                {typeof playlist.price === 'number' ? <Text style={styles.playlistPrice}>{formatUsd(playlist.price)}</Text> : null}
+              </View>
+            </TouchableOpacity>
+          ))
+        )}
       </ScrollView>
     </View>
   );
@@ -347,7 +370,20 @@ function FreeMusicCard({ song, onPlay }: { song: any; onPlay: () => void }) {
 
 function ArtistsSection() {
   const router = useRouter();
-  const artists = ["Davido", "Wizkid", "Lawrence Oyor", "Rema", "Dusin Oyekun"];
+  const [artists, setArtists] = useState<any[]>([]);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const q = query(collection(db, 'users'), orderBy('followers', 'desc'), limit(8));
+        const snap = await getDocs(q);
+        setArtists(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      } catch (e) {
+        console.warn('artists load failed', e);
+      }
+    };
+    load();
+  }, []);
 
   return (
     <View style={styles.section}>
@@ -356,12 +392,16 @@ function ArtistsSection() {
         <TouchableOpacity onPress={() => router.push('/(tabs)/search')}><Text style={styles.seeAllText}>See All</Text></TouchableOpacity>
       </View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
-        {artists.map((artist, idx) => (
-          <TouchableOpacity key={idx} style={styles.artistItem}>
-            <View style={styles.circlePlaceholder} />
-            <Text style={styles.artistNameSmall}>{artist}</Text>
-          </TouchableOpacity>
-        ))}
+        {artists.length === 0 ? (
+          <Text style={{ color: 'rgba(255,255,255,0.5)', fontFamily: 'Poppins-Regular' }}>No artists yet.</Text>
+        ) : (
+          artists.map((artist, idx) => (
+            <TouchableOpacity key={artist.id || idx} style={styles.artistItem} onPress={() => router.push({ pathname: '/profile/[id]', params: { id: artist.id } })}>
+              <View style={styles.circlePlaceholder} />
+              <Text style={styles.artistNameSmall}>{artist.fullName || artist.displayName || 'Artist'}</Text>
+            </TouchableOpacity>
+          ))
+        )}
       </ScrollView>
     </View>
   );
@@ -381,13 +421,8 @@ function PopularBeatsSection() {
     );
     getDocs(q).then((snap) => {
       if (!snap.empty) setBeats(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-      else setBeats([
-        { id: 'beat1', title: 'Afro Beats', artist: 'Sound of Salem', price: 'NGN 3,000', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3' },
-        { id: 'beat2', title: 'Sonic Beats', artist: 'Sound of Salem', price: 'NGN 3,000', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-9.mp3' },
-        { id: 'beat3', title: 'DA Beats', artist: 'Sound of Salem', price: 'NGN 3,000', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-10.mp3' },
-        { id: 'beat4', title: 'Project B', artist: 'Sound of Salem', price: 'NGN 3,000', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-11.mp3' },
-      ]);
-    }).catch(() => { });
+      else setBeats([]);
+    }).catch(() => { setBeats([]); });
   }, []);
 
   return (
@@ -397,14 +432,18 @@ function PopularBeatsSection() {
         <TouchableOpacity onPress={() => router.push('/(tabs)/marketplace')}><Text style={styles.seeAllText}>See All</Text></TouchableOpacity>
       </View>
       <View style={styles.beatsList}>
-        {beats.map((beat, idx) => (
-          <BeatRow
-            key={beat.id || idx}
-            beat={beat}
-            isLast={idx === beats.length - 1}
-            onPlay={() => setTrack({ id: beat.id, title: beat.title, artist: beat.artist || beat.uploaderName, url: beat.audioUrl || beat.url, uploaderId: beat.uploaderId })}
-          />
-        ))}
+        {beats.length === 0 ? (
+          <Text style={{ color: 'rgba(255,255,255,0.5)', fontFamily: 'Poppins-Regular' }}>No beats available yet.</Text>
+        ) : (
+          beats.map((beat, idx) => (
+            <BeatRow
+              key={beat.id || idx}
+              beat={beat}
+              isLast={idx === beats.length - 1}
+              onPlay={() => setTrack({ id: beat.id, title: beat.title, artist: beat.artist || beat.uploaderName, url: beat.audioUrl || beat.url, uploaderId: beat.uploaderId })}
+            />
+          ))
+        )}
       </View>
     </View>
   );
@@ -414,7 +453,7 @@ function BeatRow({ beat, isLast, onPlay }: { beat: any; isLast: boolean; onPlay:
   const { isFav, toggle } = useFavourite(beat.id);
   const { addItem, items } = useCartStore();
   const inCart = items.some((i: any) => i.id === beat.id);
-  const priceDisplay = beat.price && typeof beat.price === 'number' ? `NGN ${beat.price.toLocaleString()}` : (beat.price || '');
+  const priceDisplay = beat.price && typeof beat.price === 'number' ? formatUsd(beat.price) : (beat.price || '');
   return (
     <View style={styles.beatItem}>
       <TouchableOpacity style={styles.beatRow} onPress={onPlay}>

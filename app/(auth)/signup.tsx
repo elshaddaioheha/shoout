@@ -8,8 +8,9 @@ import React from 'react';
 import { Animated, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { auth, db } from '../../firebaseConfig';
+import { authNavigationHandled } from '../_layout';
 import { useToastStore } from '../../store/useToastStore';
-import { useUserStore } from '../../store/useUserStore';
+import { hydrateSubscriptionTier } from '../../utils/subscriptionVerification';
 import { getFriendlyErrorMessage } from '../../utils/errorHandler';
 
 type SignupSubscriptionTier = 'vault' | 'vault_pro' | 'studio' | 'hybrid';
@@ -22,7 +23,6 @@ export default function SignupScreen() {
     const [password, setPassword] = React.useState('');
     const [confirmPassword, setConfirmPassword] = React.useState('');
     const [loading, setLoading] = React.useState(false);
-    const { setRole } = useUserStore();
     const { showToast } = useToastStore();
     const slideAnim = React.useRef(new Animated.Value(-40)).current;
     const opacityAnim = React.useRef(new Animated.Value(0)).current;
@@ -79,17 +79,18 @@ export default function SignupScreen() {
                 await setDoc(doc(db, "users", userCred.user.uid), {
                     fullName,
                     email,
-                    role: 'vault', // Default initial role
                     createdAt: new Date().toISOString()
                 });
 
                 await writeSubscriptionDoc(userCred.user.uid, 'vault');
+                await hydrateSubscriptionTier();
 
-                setRole('vault');
-                // Route to real role selection 
+                // Signal to onAuthStateChanged that we are handling navigation.
+                authNavigationHandled.current = true;
                 router.replace('/(auth)/role-selection');
             }
         } catch (error: any) {
+            authNavigationHandled.current = false;
             console.error('Signup error:', error.message);
             showToast(getFriendlyErrorMessage(error), "error");
         } finally {
@@ -119,17 +120,16 @@ export default function SignupScreen() {
                 await setDoc(doc(db, "users", userCred.user.uid), {
                     fullName: userCred.user.displayName || "Google User",
                     email: userCred.user.email,
-                    role: 'vault',
                     createdAt: new Date().toISOString()
                 });
 
                 await writeSubscriptionDoc(userCred.user.uid, 'vault');
-
-                setRole('vault');
+                await hydrateSubscriptionTier();
+                authNavigationHandled.current = true;
                 router.replace('/(auth)/role-selection');
             } else {
-                const userData = userDoc.data();
-                setRole(userData.role || 'vault');
+                await hydrateSubscriptionTier();
+                authNavigationHandled.current = true;
                 router.replace('/(tabs)');
             }
         } catch (error: any) {
@@ -181,17 +181,16 @@ export default function SignupScreen() {
                 await setDoc(doc(db, 'users', userCred.user.uid), {
                     fullName: fullNameFromApple || userCred.user.displayName || 'Apple User',
                     email: userCred.user.email || '',
-                    role: 'vault',
                     createdAt: new Date().toISOString(),
                 });
 
                 await writeSubscriptionDoc(userCred.user.uid, 'vault');
-
-                setRole('vault');
+                await hydrateSubscriptionTier();
+                authNavigationHandled.current = true;
                 router.replace('/(auth)/role-selection');
             } else {
-                const userData = userDoc.data();
-                setRole(userData.role || 'vault');
+                await hydrateSubscriptionTier();
+                authNavigationHandled.current = true;
                 router.replace('/(tabs)');
             }
         } catch (error: any) {

@@ -7,6 +7,7 @@ import { useRouter } from 'expo-router';
 import { addDoc, collection, doc, getDoc, getDocs, limit, orderBy, query, serverTimestamp, setDoc } from 'firebase/firestore';
 import { getDownloadURL, ref, uploadBytesResumable } from 'firebase/storage';
 import { getFunctions, httpsCallable } from 'firebase/functions';
+import { app, auth, db, storage } from '../../firebaseConfig';
 import {
     Check,
     ChevronDown,
@@ -18,7 +19,7 @@ import {
     Upload as UploadIcon,
     X
 } from 'lucide-react-native';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     KeyboardAvoidingView,
@@ -30,11 +31,11 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-import { auth, db, storage } from '../../firebaseConfig';
+import { formatUsd } from '../../utils/pricing';
 
 const GENRES = ['Afrobeat', 'Afrobeats', 'Amapiano', 'Trap', 'Drill', 'R&B', 'Dancehall'];
 const ASSET_TYPES = ['Single', 'Album', 'Playlist'];
-const PRICE_PRESETS = [5000, 10000, 20000];
+const PRICE_PRESETS = [9.99, 19.99, 29.99];
 
 type AssetType = typeof ASSET_TYPES[number];
 type FlowStep = 'menu' | 'createFolder' | 'uploadSource' | 'publish';
@@ -52,6 +53,7 @@ type PublisherProfile = {
 
 export default function UploadScreen() {
     const router = useRouter();
+    const [isLoggedIn, setIsLoggedIn] = useState(!!auth.currentUser);
     const [flowStep, setFlowStep] = useState<FlowStep>('menu');
     const [sourceChoice, setSourceChoice] = useState<'storage' | 'local' | null>(null);
 
@@ -97,6 +99,30 @@ export default function UploadScreen() {
     const [artworkPreviewUri, setArtworkPreviewUri] = useState<string | null>(null);
 
     const { showToast } = useToastStore();
+
+    useEffect(() => {
+        const unsub = auth.onAuthStateChanged((user) => setIsLoggedIn(!!user));
+        return unsub;
+    }, []);
+
+    if (!isLoggedIn) {
+        return (
+            <SafeScreenWrapper>
+                <View style={[styles.centered, { padding: 24 }]}> 
+                    <Text style={styles.guestTitle}>Sign in to upload</Text>
+                    <Text style={styles.guestSubtitle}>Create an account or log in to list your music for sale.</Text>
+                    <View style={styles.guestActions}>
+                        <TouchableOpacity style={styles.primaryButton} onPress={() => router.push('/(auth)/signup' as any)}>
+                            <Text style={styles.primaryButtonText}>Create account</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.secondaryButton} onPress={() => router.push('/(auth)/login' as any)}>
+                            <Text style={styles.secondaryButtonText}>Log in</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </SafeScreenWrapper>
+        );
+    }
 
     const loadFolders = async () => {
         if (!auth.currentUser) return;
@@ -161,7 +187,8 @@ export default function UploadScreen() {
 
     const handleCreateFolder = async () => {
         if (!auth.currentUser) {
-            showToast('Authentication error - Please log in again', 'error');
+            // Shouldn't happen — screen guards unauthenticated access above
+            console.warn('[upload] handleCreateFolder: no auth.currentUser');
             return;
         }
         const cleanName = folderName.trim();
@@ -188,7 +215,7 @@ export default function UploadScreen() {
 
     const savePublisherProfile = async () => {
         if (!auth.currentUser) {
-            showToast('Authentication error - Please log in again', 'error');
+            console.warn('[upload] savePublisherProfile: no auth.currentUser');
             return false;
         }
 
@@ -283,6 +310,20 @@ export default function UploadScreen() {
     };
 
     const handleUpload = async () => {
+        // Auth check first — must be signed in before any validation
+        // Force-refresh the ID token so the Cloud Functions call receives
+        // a non-expired JWT even if the user has been in the app for a while.
+        if (!auth.currentUser) {
+            showToast("Session expired — please log in again", "error");
+            return;
+        }
+        try {
+            await auth.currentUser.getIdToken(true);
+        } catch (tokenError) {
+            console.warn('Token refresh failed:', tokenError);
+            // Non-fatal — continue with existing token
+        }
+
         if (isFirstTimePublisher) {
             const profileSaved = await savePublisherProfile();
             if (!profileSaved) {
@@ -306,10 +347,6 @@ export default function UploadScreen() {
             showToast("Please select an audio file to upload", "error");
             return;
         }
-        if (!auth.currentUser) {
-            showToast("Authentication error - Please log in again", "error");
-            return;
-        }
 
         if (sourceChoice === 'storage' && selectedTrackIds.length === 0 && !audioFile) {
             showToast('Select at least one existing track or upload a file.', 'error');
@@ -318,10 +355,14 @@ export default function UploadScreen() {
 
         setUploading(true);
         try {
-            // 🔒 SECURITY: Validate storage limit before uploading
+            // Validate storage limit via Cloud Function.
+            // Pass the Firebase app instance explicitly so getFunctions() attaches
+            // the correct project — without it the call can be sent to a default
+            // (possibly uninitialized) app, causing unauthenticated errors.
             if (audioFile?.size) {
-                const validateStorageLimit = httpsCallable(getFunctions(), 'validateStorageLimit');
-                const storageValidation = await validateStorageLimit({
+                const functions = getFunctions(app);
+                const validateStorageLimitFn = httpsCallable(functions, 'validateStorageLimit');
+                const storageValidation = await validateStorageLimitFn({
                     fileSizeBytes: audioFile.size,
                 });
 
@@ -684,7 +725,7 @@ export default function UploadScreen() {
                                                     style={styles.pricePill}
                                                     onPress={() => applyPricePreset(preset)}
                                                 >
-                                                    <Text style={styles.pricePillText}>NGN {preset.toLocaleString()}</Text>
+                                                    <Text style={styles.pricePillText}>{formatUsd(preset)}</Text>
                                                 </TouchableOpacity>
                                             ))}
                                         </View>
@@ -973,6 +1014,52 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         paddingHorizontal: 20,
+    },
+    centered: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 16,
+    },
+    guestTitle: {
+        fontSize: 22,
+        fontFamily: 'Poppins-Bold',
+        color: '#FFF',
+        textAlign: 'center',
+    },
+    guestSubtitle: {
+        fontSize: 14,
+        fontFamily: 'Poppins-Regular',
+        color: 'rgba(255,255,255,0.65)',
+        textAlign: 'center',
+        lineHeight: 20,
+    },
+    guestActions: {
+        width: '100%',
+        gap: 12,
+    },
+    primaryButton: {
+        backgroundColor: '#EC5C39',
+        borderRadius: 12,
+        paddingVertical: 14,
+        alignItems: 'center',
+    },
+    primaryButtonText: {
+        color: '#FFF',
+        fontFamily: 'Poppins-Bold',
+        fontSize: 16,
+    },
+    secondaryButton: {
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.25)',
+        borderRadius: 12,
+        paddingVertical: 14,
+        alignItems: 'center',
+    },
+    secondaryButtonText: {
+        color: '#FFF',
+        fontFamily: 'Poppins-SemiBold',
+        fontSize: 15,
     },
     header: {
         flexDirection: 'row',

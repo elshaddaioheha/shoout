@@ -1,4 +1,5 @@
-import { UserRole, useUserStore } from '@/store/useUserStore';
+import type { UserRole } from '@/store/useUserStore';
+import { hydrateSubscriptionTier } from '@/utils/subscriptionVerification';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -10,9 +11,6 @@ import {
     Download,
     Headphones,
     Mic2,
-    Music,
-    ShoppingCart,
-    Sparkles,
     Star,
     TrendingUp,
     Zap
@@ -30,6 +28,7 @@ import {
 } from 'react-native';
 import SafeScreenWrapper from '../../components/SafeScreenWrapper';
 import { theme } from '../../constants/theme';
+import { formatUsd, ngnToUsd } from '../../utils/pricing';
 import { normalize } from '../../utils/responsive';
 
 const SUBSCRIPTION_TIERS = [
@@ -37,60 +36,49 @@ const SUBSCRIPTION_TIERS = [
     {
         id: 'vault' as UserRole,
         title: 'Vault',
-        subtitle: 'For Active Creators (N6,981/mo)',
+        subtitle: `For Active Creators (${formatUsd(ngnToUsd(6981))}/mo)`,
         icon: Headphones,
         gradient: [theme.colors.surface, '#3D2A1F'] as [string, string],
         accentColor: theme.colors.primary,
-        features: ['500MB Storage', 'Private Folder Sharing', 'Shareable Secure Links', 'Basic Tracking'],
+        features: ['Private Folder Sharing', 'Shareable Secure Links', 'Basic Tracking'],
         featureIcons: [Download, Mic2, Zap, TrendingUp],
     },
     {
         id: 'vault_pro' as UserRole,
         title: 'Vault Pro',
-        subtitle: 'Professional Storage (N13,962/mo)',
+        subtitle: `Professional tier (${formatUsd(ngnToUsd(13962))}/mo)`,
         icon: Crown,
         gradient: ['#863420', '#4A1D13'] as [string, string],
         accentColor: '#FFD700',
-        features: ['1GB Storage', 'Advanced Tracking', 'File Locking & Permissions'],
+        features: ['Advanced Tracking', 'File Locking & Permissions'],
         featureIcons: [Zap, TrendingUp, Crown],
     },
     {
-        id: 'studio_pro' as UserRole,
-        title: 'Studio Pro',
-        subtitle: 'Active Sellers ($18.99/mo | ₦27,000)',
+        id: 'studio' as UserRole,
+        title: 'Studio',
+        subtitle: `Active Sellers (${formatUsd(ngnToUsd(27000))}/mo)`,
         icon: TrendingUp,
         gradient: ['#7C3AED', '#4C1D95'] as [string, string],
         accentColor: '#C4B5FD',
         features: ['Unlimited Listings', 'Buyer-Seller Chat', 'Pricing & License Control', 'Payout Access', 'Standard Visibility'],
         featureIcons: [Zap, Mic2, Star, Download, TrendingUp],
     },
-    {
-        id: 'studio_plus' as UserRole,
-        title: 'Studio Plus',
-        subtitle: 'High-Volume Brands ($69.99/mo)',
-        icon: Sparkles,
-        gradient: ['#9333EA', '#3B0764'] as [string, string],
-        accentColor: '#FFD700',
-        features: ['Priority Search Visibility', 'Promotional Boosts', 'Advanced Sales Analytics'],
-        featureIcons: [Crown, TrendingUp, Zap],
-    },
 
     // --- HYBRID PLANS ---
     {
         id: 'hybrid' as UserRole,
         title: 'Hybrid',
-        subtitle: 'The Ultimate Plan (N34,906/mo)',
+        subtitle: `The Ultimate Plan (${formatUsd(ngnToUsd(34906))}/mo)`,
         icon: Zap,
         gradient: ['#221133', '#4A0E17'] as [string, string],
         accentColor: '#FFD700',
-        features: ['10GB Storage', 'Team Collaboration', 'Dedicated Support', '10% Transaction Fee'],
+        features: ['Team Collaboration', 'Dedicated Support', '10% Transaction Fee'],
         featureIcons: [Download, Crown, Star, TrendingUp],
     },
 ];
 
 export default function RoleSelectionScreen() {
     const router = useRouter();
-    const { setRole, setActualRole } = useUserStore();
     const [selectedRole, setSelectedRole] = useState<UserRole | null>(null);
 
     // Staggered entry animations
@@ -142,24 +130,12 @@ export default function RoleSelectionScreen() {
     const handleContinue = async () => {
         if (!selectedRole) return;
 
-        setRole(selectedRole);
-        setActualRole(selectedRole);
-
         if (auth.currentUser) {
-            await setDoc(
-                doc(db, 'users', auth.currentUser.uid),
-                {
-                    role: selectedRole,
-                    updatedAt: new Date().toISOString(),
-                },
-                { merge: true }
-            );
-
             await setDoc(
                 doc(db, 'users', auth.currentUser.uid, 'subscription', 'current'),
                 {
                     tier: selectedRole,
-                    isSubscribed: selectedRole !== 'vault_free' && selectedRole !== 'studio_free',
+                    isSubscribed: false,
                     expiresAt: null,
                     updatedAt: new Date().toISOString(),
                 },
@@ -167,6 +143,7 @@ export default function RoleSelectionScreen() {
             );
         }
 
+        await hydrateSubscriptionTier();
         router.replace('/(tabs)');
     };
 

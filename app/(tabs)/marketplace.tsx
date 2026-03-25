@@ -4,6 +4,7 @@ import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import SharedHeader from '@/components/SharedHeader';
 import { useCartStore } from '@/store/useCartStore';
 import { usePlaybackStore } from '@/store/usePlaybackStore';
+import { useToastStore } from '@/store/useToastStore';
 import { useUserStore } from '@/store/useUserStore';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -27,13 +28,14 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
-import { db } from '../../firebaseConfig';
+import { auth, db } from '../../firebaseConfig';
 
 const { width } = Dimensions.get('window');
 
 export default function MarketplaceScreen() {
     const router = useRouter();
     const { role, viewMode: storeViewMode } = useUserStore();
+    const { showToast } = useToastStore();
     const cartItems = useCartStore(state => state.items);
     const { openSheet, isModeSheetOpen, viewMode } = useAppSwitcherContext();
     const [searchQuery, setSearchQuery] = useState('');
@@ -194,7 +196,14 @@ export default function MarketplaceScreen() {
                             <View style={styles.studioActions}>
                                 <TouchableOpacity
                                     style={styles.studioActionBtn}
-                                    onPress={() => router.push('/studio/upload')}
+                                    onPress={() => {
+                                        if (!auth.currentUser) {
+                                            showToast('Please sign in to upload your music.', 'error');
+                                            router.push({ pathname: '/(auth)/login', params: { redirectTo: '/studio/upload' } });
+                                            return;
+                                        }
+                                        router.push('/studio/upload');
+                                    }}
                                 >
                                     <Upload size={18} color="#FFF" />
                                     <Text style={styles.studioActionText}>Upload</Text>

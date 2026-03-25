@@ -55,12 +55,12 @@ const db = getFirestore(app);
 
 // ─── Test Users (representative of each tier) ─────────────────────────────────
 const TEST_USERS = [
-    { uid: 'seed_vault_free_001', name: 'Kofi Mensah', role: 'vault_free', email: 'kofi@shoouts.test' },
+    { uid: 'seed_vault_free_001', name: 'Kofi Mensah', role: 'vault', email: 'kofi@shoouts.test' },
     { uid: 'seed_vault_pro_001', name: 'Ama Owusu', role: 'vault_pro', email: 'ama@shoouts.test' },
-    { uid: 'seed_studio_free_001', name: 'Dele Okafor', role: 'studio_free', email: 'dele@shoouts.test' },
-    { uid: 'seed_studio_pro_001', name: 'Fatima Al-Rashid', role: 'studio_pro', email: 'fatima@shoouts.test' },
-    { uid: 'seed_hybrid_creator_001', name: 'Sound of Salem', role: 'hybrid_creator', email: 'salem@shoouts.test' },
-    { uid: 'seed_hybrid_exec_001', name: 'Lagos Beats HQ', role: 'hybrid_executive', email: 'lbhq@shoouts.test' },
+    { uid: 'seed_studio_free_001', name: 'Dele Okafor', role: 'vault', email: 'dele@shoouts.test' },
+    { uid: 'seed_studio_pro_001', name: 'Fatima Al-Rashid', role: 'studio', email: 'fatima@shoouts.test' },
+    { uid: 'seed_hybrid_creator_001', name: 'Sound of Salem', role: 'hybrid', email: 'salem@shoouts.test' },
+    { uid: 'seed_hybrid_exec_001', name: 'Lagos Beats HQ', role: 'hybrid', email: 'lbhq@shoouts.test' },
 ];
 
 // ─── Seed Uploads (Vault + Marketplace) ──────────────────────────────────────
@@ -160,7 +160,7 @@ async function seed() {
             displayName: user.name,
             email: user.email,
             role: user.role,
-            isPremium: !user.role.includes('free'),
+            isPremium: user.role !== 'vault',
             createdAt: ago(30),
             photoURL: null,
         }, { merge: true });
@@ -186,9 +186,9 @@ async function seed() {
         log('✓', `${track.title} — $${track.price} [${track.isPublic ? 'PUBLIC' : 'PRIVATE'}]`);
     }
 
-    // 3. Seed purchases: vault_free user bought 2 tracks
+    // 3. Seed purchases: vault user bought 2 tracks
     console.log('\n🛒  Seeding purchases...');
-    const buyer = TEST_USERS[0]; // kofi — vault_free
+    const buyer = TEST_USERS[0]; // kofi — vault
     const [track1, track2] = uploadRefs.filter(r => r.track.isPublic);
 
     for (const { ref, track, user } of [track1, track2]) {
@@ -240,9 +240,9 @@ async function seed() {
     console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
     console.log('✅  Seed complete!\n');
     console.log('📋  Test Accounts Created:');
-    console.log('    Buyer  (vault_free):       uid = seed_vault_free_001');
-    console.log('    Seller (studio_pro):        uid = seed_studio_pro_001');
-    console.log('    Hybrid (hybrid_creator):    uid = seed_hybrid_creator_001\n');
+    console.log('    Buyer  (vault):             uid = seed_vault_free_001');
+    console.log('    Seller (studio):            uid = seed_studio_pro_001');
+    console.log('    Hybrid:                     uid = seed_hybrid_creator_001\n');
     console.log('📦  Marketplace: 5 public tracks seeded');
     console.log('🔒  Vault:       1 private track seeded');
     console.log('🛒  Purchases:   2 completed transactions\n');

@@ -118,12 +118,12 @@ function log(emoji, msg) { console.log(`  ${emoji}  ${msg}`); }
 
 // ─── Seed Data ────────────────────────────────────────────────────────────────
 const USERS = [
-    { uid: 'seed_vault_free_001', name: 'Kofi Mensah', role: 'vault_free', email: 'kofi@shoouts.test' },
+    { uid: 'seed_vault_free_001', name: 'Kofi Mensah', role: 'vault', email: 'kofi@shoouts.test' },
     { uid: 'seed_vault_pro_001', name: 'Ama Owusu', role: 'vault_pro', email: 'ama@shoouts.test' },
-    { uid: 'seed_studio_free_001', name: 'Dele Okafor', role: 'studio_free', email: 'dele@shoouts.test' },
-    { uid: 'seed_studio_pro_001', name: 'Fatima Al-Rashid', role: 'studio_pro', email: 'fatima@shoouts.test' },
-    { uid: 'seed_hybrid_creator_001', name: 'Sound of Salem', role: 'hybrid_creator', email: 'salem@shoouts.test' },
-    { uid: 'seed_hybrid_exec_001', name: 'Lagos Beats HQ', role: 'hybrid_executive', email: 'lbhq@shoouts.test' },
+    { uid: 'seed_studio_free_001', name: 'Dele Okafor', role: 'vault', email: 'dele@shoouts.test' },
+    { uid: 'seed_studio_pro_001', name: 'Fatima Al-Rashid', role: 'studio', email: 'fatima@shoouts.test' },
+    { uid: 'seed_hybrid_creator_001', name: 'Sound of Salem', role: 'hybrid', email: 'salem@shoouts.test' },
+    { uid: 'seed_hybrid_exec_001', name: 'Lagos Beats HQ', role: 'hybrid', email: 'lbhq@shoouts.test' },
 ];
 
 const TRACKS = [
@@ -190,7 +190,7 @@ async function seed() {
     for (const u of USERS) {
         await writeDoc(`users/${u.uid}`, {
             uid: u.uid, displayName: u.name, email: u.email,
-            role: u.role, isPremium: !u.role.includes('free'),
+            role: u.role, isPremium: u.role !== 'vault',
             createdAt: ts(30), photoURL: null,
         }, token);
         log('✓', `${u.name} (${u.role})`);
@@ -211,7 +211,7 @@ async function seed() {
         log('✓', `[${docId.slice(-6)}] ${t.title} — $${t.price} ${t.isPublic ? '🌐' : '🔒'}`);
     }
 
-    // 3. Purchases — vault_free user (Kofi) bought first 2 public tracks
+    // 3. Purchases — vault user (Kofi) bought first 2 public tracks
     console.log('\n🛒  Seeding purchases...');
     const buyer = 'seed_vault_free_001';
     const publicTracks = seededTracks.filter(t => t.isPublic).slice(0, 2);

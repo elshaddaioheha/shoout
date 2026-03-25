@@ -1,24 +1,94 @@
 import { useAppSwitcherContext } from '@/app/(tabs)/_layout';
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import SharedHeader from '@/components/SharedHeader';
+import { useAuthStore } from '@/store/useAuthStore';
+import { useCartStore } from '@/store/useCartStore';
+import { useNotificationStore } from '@/store/useNotificationStore';
+import { usePlaybackStore } from '@/store/usePlaybackStore';
 import { useUserStore } from '@/store/useUserStore';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import { onAuthStateChanged } from 'firebase/auth';
 import { Bell, ChevronRight, CreditCard, Crown, DollarSign, Library, LogOut, Shield, ShoppingCart, Sparkles, TrendingUp, User } from 'lucide-react-native';
-import React from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { auth } from '../../firebaseConfig';
 
 export default function MoreScreen() {
     const router = useRouter();
     const { role, reset } = useUserStore();
     const { openSheet, isModeSheetOpen, viewMode } = useAppSwitcherContext();
+    const [isLoggedIn, setIsLoggedIn] = useState(!!auth.currentUser);
+
+    useEffect(() => {
+        const unsub = onAuthStateChanged(auth, (user) => setIsLoggedIn(!!user));
+        return unsub;
+    }, []);
 
     const isStudioOrHybrid = role?.startsWith('studio') || role?.startsWith('hybrid');
 
-    const handleLogout = () => {
-        reset();
-        router.replace('/(auth)/login');
+    const performLogout = async () => {
+        useNotificationStore.getState().stopListening();
+
+        try {
+            const hadPreviousSignIn = GoogleSignin.hasPreviousSignIn();
+            if (hadPreviousSignIn) {
+                await GoogleSignin.revokeAccess();
+                await GoogleSignin.signOut();
+            }
+        } catch (e) {
+            console.warn('Google sign-out error:', e);
+        }
+
+        try {
+            await auth.signOut();
+        } catch (e) {
+            console.warn('signOut error:', e);
+        } finally {
+            reset();
+            useAuthStore.getState().reset();
+            useCartStore.getState().clearCart();
+            await usePlaybackStore.getState().clearTrack();
+            router.replace('/(auth)/login');
+        }
     };
+
+    const handleLogout = () => {
+        Alert.alert(
+            'Log Out',
+            'Are you sure you want to log out?',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Log Out', style: 'destructive', onPress: performLogout },
+            ]
+        );
+    };
+
+    if (!isLoggedIn) {
+        return (
+            <SafeScreenWrapper>
+                <View style={styles.container}>
+                    <SharedHeader viewMode={viewMode} isModeSheetOpen={isModeSheetOpen} onModePillPress={openSheet} />
+                    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+                        <View style={styles.guestCard}>
+                            <Text style={styles.guestTitle}>Welcome to Shoouts</Text>
+                            <Text style={styles.guestSubtitle}>Sign up or log in to manage your library, cart, and profile.</Text>
+                            <View style={styles.guestActions}>
+                                <TouchableOpacity style={styles.primaryButton} onPress={() => router.push('/(auth)/signup' as any)}>
+                                    <Text style={styles.primaryButtonText}>Create account</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity style={styles.secondaryButton} onPress={() => router.push('/(auth)/login' as any)}>
+                                    <Text style={styles.secondaryButtonText}>Log in</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                        <View style={{ height: 120 }} />
+                    </ScrollView>
+                </View>
+            </SafeScreenWrapper>
+        );
+    }
 
     return (
         <SafeScreenWrapper>
@@ -137,4 +207,19 @@ const styles = StyleSheet.create({
     upgradeTextContainer: { flex: 1 },
     upgradeTitle: { color: '#FFF', fontSize: 18, fontFamily: 'Poppins-Bold' },
     upgradeSubtitle: { color: 'rgba(255,255,255,0.8)', fontSize: 12, fontFamily: 'Poppins-Regular' },
+    guestCard: {
+        backgroundColor: 'rgba(255,255,255,0.04)',
+        borderRadius: 24,
+        padding: 24,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.05)',
+        gap: 12,
+    },
+    guestTitle: { color: '#FFF', fontSize: 20, fontFamily: 'Poppins-Bold' },
+    guestSubtitle: { color: 'rgba(255,255,255,0.65)', fontSize: 13, fontFamily: 'Poppins-Regular' },
+    guestActions: { flexDirection: 'row', gap: 12, marginTop: 8 },
+    primaryButton: { flex: 1, backgroundColor: '#EC5C39', paddingVertical: 12, borderRadius: 12, alignItems: 'center' },
+    primaryButtonText: { color: '#FFF', fontFamily: 'Poppins-SemiBold', fontSize: 14 },
+    secondaryButton: { flex: 1, backgroundColor: 'rgba(255,255,255,0.08)', paddingVertical: 12, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+    secondaryButtonText: { color: '#FFF', fontFamily: 'Poppins-Medium', fontSize: 14 },
 });

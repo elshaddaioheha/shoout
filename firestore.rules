@@ -50,7 +50,15 @@ service cloud.firestore {
     // Checks the user's subscription document to ensure they have canSell capability
     function canUserSell(uid) {
       let userSub = get(/databases/$(database)/documents/users/$(uid)/subscription/current);
-      return userSub.data.tier in ['studio', 'hybrid'];
+      return userSub.data.tier in ['studio', 'hybrid']
+        && userSub.data.isSubscribed == true;
+    }
+
+    // Client-only subscription writes: unpaid tier intent / vault baseline.
+    // Paid activation (isSubscribed true, payment fields) is backend-only via Admin SDK.
+    function clientSubscriptionUnpaidOk() {
+      return request.resource.data.isSubscribed == false
+        && request.resource.data.tier in ['vault', 'vault_pro', 'studio', 'hybrid'];
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -89,9 +97,9 @@ service cloud.firestore {
       match /subscription/{subscriptionId} {
         allow read: if isOwner(uid);
         allow create, update: if isOwner(uid)
-          && request.resource.data.tier == 'vault'
-          && request.resource.data.isSubscribed == false
-          && request.resource.data.status in ['free', 'trial'];
+          && clientSubscriptionUnpaidOk()
+          && (!('status' in request.resource.data)
+              || request.resource.data.status in ['free', 'trial']);
         allow delete: if false;
       }
 
@@ -105,7 +113,9 @@ service cloud.firestore {
           && isValidString(request.resource.data.title)
           && request.resource.data.price >= 0
           && (request.resource.data.price == 0 || canUserSell(uid));
-        allow update: if isOwner(uid);
+        allow update: if isOwner(uid)
+          && request.resource.data.price >= 0
+          && (request.resource.data.price == 0 || canUserSell(uid));
         allow delete: if isOwner(uid);
       }
 
@@ -320,6 +330,11 @@ service cloud.firestore {
       allow create: if backendOnly();
       allow update: if backendOnly();
       allow delete: if backendOnly();
+    }
+
+    // Outbound email queue for Trigger Email extension — written only via Admin SDK / extension
+    match /mail/{mailId} {
+      allow read, write: if false;
     }
   }
 }

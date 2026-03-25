@@ -30,6 +30,13 @@ export const mockSetDoc = jest.fn(() => Promise.resolve());
 export const initializeApp = jest.fn(() => ({}));
 export const getApps = jest.fn(() => []);
 export const mockDeleteDoc = jest.fn(() => Promise.resolve());
+
+/** Modular entrypoints (`firebase/auth`, `firebase/firestore`) resolve here via Jest moduleNameMapper. */
+export const getAuth = jest.fn(() => ({ currentUser: null }));
+export const getFirestore = jest.fn(() => ({}));
+export const Timestamp = {
+  fromMillis: (ms: number) => ({ toMillis: () => ms }),
+};
 export const mockOnSnapshot = jest.fn((query, callback) => {
     callback({ docs: [] });
     return jest.fn(); // unsubscribe fn
@@ -65,7 +72,7 @@ export const getDoc = jest.fn(() =>
         id: 'mock-artist-id',
         data: () => ({
             name: 'Mock Artist',
-            role: 'studio_pro',
+            role: 'studio',
             followers: [],
             following: [],
         }),

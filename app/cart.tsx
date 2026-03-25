@@ -1,5 +1,6 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import { auth, db } from '@/firebaseConfig';
+import { formatUsd } from '@/utils/pricing';
 import { useCartStore } from '@/store/useCartStore';
 import { useToastStore } from '@/store/useToastStore';
 import { Image } from 'expo-image';
@@ -49,8 +50,6 @@ type MarketplaceItem = {
     coverUrl?: string;
     userId?: string;
 };
-
-const formatNaira = (value: number) => `NGN ${value.toFixed(2)}`;
 
 export default function CartScreen() {
     const router = useRouter();
@@ -202,7 +201,7 @@ export default function CartScreen() {
             <View style={styles.itemInfo}>
                 <Text style={styles.itemTitle} numberOfLines={1}>{item.title}</Text>
                 <Text style={styles.itemArtist}>{item.artist}</Text>
-                <Text style={styles.itemPrice}>{formatNaira(item.price)}</Text>
+                <Text style={styles.itemPrice}>{formatUsd(item.price)}</Text>
             </View>
             <TouchableOpacity
                 style={styles.removeBtn}
@@ -290,7 +289,7 @@ export default function CartScreen() {
                                         </View>
                                         <Text style={styles.bestSellerItemTitle} numberOfLines={1}>{item.title || 'Untitled Track'}</Text>
                                         <Text style={styles.bestSellerItemArtist} numberOfLines={1}>{item.uploaderName || 'Creator'}</Text>
-                                        <Text style={styles.bestSellerItemPrice}>{formatNaira(item.price || 0)}</Text>
+                                        <Text style={styles.bestSellerItemPrice}>{formatUsd(item.price || 0)}</Text>
                                     </TouchableOpacity>
                                 ))}
                             </ScrollView>
@@ -317,7 +316,7 @@ export default function CartScreen() {
                             </View>
                             <View style={styles.totalRow}>
                                 <Text style={styles.totalLabel}>Total Price</Text>
-                                <Text style={styles.totalValue}>{formatNaira(total)}</Text>
+                                <Text style={styles.totalValue}>{formatUsd(total)}</Text>
                             </View>
 
                             <TouchableOpacity

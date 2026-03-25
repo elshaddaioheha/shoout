@@ -1,8 +1,9 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import SettingsHeader from '@/components/settings/SettingsHeader';
 import { auth } from '@/firebaseConfig';
-import { UserRole, useUserStore } from '@/store/useUserStore';
-import { useAuthStore } from '@/store/useAuthStore';
+import { useUserStore } from '@/store/useUserStore';
+import { hydrateSubscriptionTier } from '@/utils/subscriptionVerification';
+import { formatUsd, ngnToUsd, usdToNgn } from '@/utils/pricing';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { PayWithFlutterwave } from 'flutterwave-react-native';
@@ -21,13 +22,15 @@ const CATEGORY_TABS: { id: PlanCategory; label: string; color: string }[] = [
     { id: 'Hybrid', label: 'Hybrid', color: '#FFD700' },
 ];
 
+/** USD list prices; NGN charged at checkout = usdToNgn(...) to match Cloud Functions. */
 const PLANS = [
     {
         id: 'vault',
         name: 'Vault',
-        monthlyPriceNGN: 0,
-        annualPriceNGN: 0,
-        features: ['500MB Cloud Storage', 'Private Folder Sharing', 'Shareable Secure Links', 'Basic Tracking'],
+        monthlyPriceUsd: 0,
+        annualPerMonthUsd: 0,
+        annualTotalUsd: 0,
+        features: ['Private Folder Sharing', 'Shareable Secure Links', 'Basic Tracking'],
         color: '#EC5C39',
         category: 'Vault',
         gradient: ['rgba(236, 92, 57, 0.15)', 'rgba(236, 92, 57, 0.05)', 'rgba(0,0,0,0)'] as unknown as GradientColors,
@@ -36,9 +39,10 @@ const PLANS = [
     {
         id: 'vault_pro',
         name: 'Vault Pro',
-        monthlyPriceNGN: 13962,
-        annualPriceNGN: 13962,
-        features: ['1GB Cloud Storage', 'Advanced Tracking', 'File Locking & Permissions'],
+        monthlyPriceUsd: ngnToUsd(13962),
+        annualPerMonthUsd: ngnToUsd(13962),
+        annualTotalUsd: ngnToUsd(13962 * 12),
+        features: ['Advanced Tracking', 'File Locking & Permissions'],
         color: '#EC5C39',
         category: 'Vault',
         gradient: ['rgba(236, 92, 57, 0.15)', 'rgba(236, 92, 57, 0.05)', 'rgba(0,0,0,0)'] as unknown as GradientColors,
@@ -47,8 +51,9 @@ const PLANS = [
     {
         id: 'studio',
         name: 'Studio',
-        monthlyPriceNGN: 27000,
-        annualPriceNGN: 22950,
+        monthlyPriceUsd: ngnToUsd(27000),
+        annualPerMonthUsd: ngnToUsd(22950),
+        annualTotalUsd: ngnToUsd(22950 * 12),
         features: ['Unlimited Listings', 'Buyer-Seller Chat', 'Pricing & License Control', 'Payout Access', 'Standard Visibility'],
         color: '#4CAF50',
         category: 'Studio',
@@ -59,9 +64,10 @@ const PLANS = [
     {
         id: 'hybrid',
         name: 'Hybrid',
-        monthlyPriceNGN: 34906,
-        annualPriceNGN: 29670,
-        features: ['10GB Storage', 'Team Collaboration', 'Dedicated Support', '10% Transaction Fee'],
+        monthlyPriceUsd: ngnToUsd(34906),
+        annualPerMonthUsd: ngnToUsd(29670),
+        annualTotalUsd: ngnToUsd(29670 * 12),
+        features: ['Team Collaboration', 'Dedicated Support', '10% Transaction Fee'],
         color: '#FFD700',
         category: 'Hybrid',
         gradient: ['rgba(255, 215, 0, 0.15)', 'rgba(255, 215, 0, 0.05)', 'rgba(0,0,0,0)'] as unknown as GradientColors,
@@ -73,8 +79,7 @@ const PLANS = [
 
 export default function SubscriptionsScreen() {
     const router = useRouter();
-    const { role, setRole } = useUserStore();
-    const { setActualRole, setSubscriptionData } = useAuthStore();
+    const { role } = useUserStore();
 
     const [activeCategory, setActiveCategory] = useState<PlanCategory>('Vault');
     const [selectedPlan, setSelectedPlan] = useState<typeof PLANS[0] | null>(null);
@@ -90,8 +95,8 @@ export default function SubscriptionsScreen() {
         return `shoouts_sub_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     };
 
-    const handleUpgradePress = (plan: typeof PLANS[0], numericPrice: number) => {
-        if (numericPrice === 0) {
+    const handleUpgradePress = (plan: typeof PLANS[0], dueUsd: number) => {
+        if (dueUsd === 0) {
             handlePaymentVerifiedUpgrade(plan.id);
             return;
         }
@@ -100,15 +105,7 @@ export default function SubscriptionsScreen() {
         setShowPaymentModal(true);
     };
 
-    const completeUpgrade = (planId: string) => {
-        setRole(planId as UserRole);
-        setActualRole(planId as UserRole);
-        setSubscriptionData({
-            tier: planId,
-            isSubscribed: planId !== 'vault',
-            expiresAt: null,
-        });
-
+    const showUpgradeSuccess = (planId: string) => {
         setSplashPlanName(planId.replace('_', ' ').toUpperCase());
         setShowSuccessSplash(true);
         Animated.sequence([
@@ -151,7 +148,8 @@ export default function SubscriptionsScreen() {
         try {
             setIsVerifying(true);
             await activatePlanOnServer(planId, txRef);
-            completeUpgrade(planId);
+            await hydrateSubscriptionTier();
+            showUpgradeSuccess(planId);
         } catch (error: any) {
             Alert.alert('Payment verification failed', error?.message || 'Could not verify your payment.');
         } finally {
@@ -234,9 +232,9 @@ export default function SubscriptionsScreen() {
 
                     {PLANS.filter(p => p.category === activeCategory).map((plan) => {
                         const isCurrentPlan = role === plan.id;
-                        const numericPrice = isAnnual ? plan.annualPriceNGN : plan.monthlyPriceNGN;
-                        const priceDisplay = numericPrice === 0 ? 'Free' : `NGN ${numericPrice.toLocaleString()}`;
-                        const isDiscounted = isAnnual && numericPrice > 0 && plan.id !== 'vault_pro';
+                        const dueUsd = isAnnual ? plan.annualPerMonthUsd : plan.monthlyPriceUsd;
+                        const priceDisplay = dueUsd === 0 ? 'Free' : `${formatUsd(dueUsd)}`;
+                        const isDiscounted = isAnnual && dueUsd > 0 && plan.id !== 'vault_pro';
 
                         return (
                             <View key={plan.id} style={[styles.cardWrapper, { borderColor: plan.borderColor }]}>
@@ -269,10 +267,10 @@ export default function SubscriptionsScreen() {
                                     </View>
                                     <View style={styles.priceRow}>
                                         <Text style={styles.planPrice}>{priceDisplay}</Text>
-                                        {numericPrice > 0 && <Text style={styles.planPeriod}>/{isAnnual ? 'month (annual billing)' : 'month'}</Text>}
+                                        {dueUsd > 0 && <Text style={styles.planPeriod}>/{isAnnual ? 'month (annual billing)' : 'month'}</Text>}
                                     </View>
-                                    {isDiscounted ? (
-                                        <Text style={styles.annualTotalText}>Billed as NGN {(numericPrice * 12).toLocaleString()} per year</Text>
+                                    {isAnnual && plan.annualTotalUsd > 0 ? (
+                                        <Text style={styles.annualTotalText}>Billed as {formatUsd(plan.annualTotalUsd)} per year (charged in NGN)</Text>
                                     ) : null}
                                 </View>
 
@@ -292,7 +290,7 @@ export default function SubscriptionsScreen() {
                                         styles.actionButton,
                                         isCurrentPlan ? styles.disabledButton : { backgroundColor: plan.color }
                                     ]}
-                                    onPress={() => handleUpgradePress(plan, numericPrice)}
+                                    onPress={() => handleUpgradePress(plan, isAnnual ? plan.annualTotalUsd : plan.monthlyPriceUsd)}
                                     disabled={isCurrentPlan}
                                 >
                                     <Text style={[styles.actionButtonText, isCurrentPlan && { color: 'rgba(255,255,255,0.4)' }]}>
@@ -324,7 +322,7 @@ export default function SubscriptionsScreen() {
                             </View>
 
                             <Text style={styles.paymentAmountInfo}>
-                                Total Due: NGN {isAnnual ? ((selectedPlan?.annualPriceNGN ?? 0) * 12).toLocaleString() : (selectedPlan?.monthlyPriceNGN ?? 0).toLocaleString()}
+                                Total: {formatUsd(isAnnual ? (selectedPlan?.annualTotalUsd ?? 0) : (selectedPlan?.monthlyPriceUsd ?? 0))} (NGN {usdToNgn(isAnnual ? (selectedPlan?.annualTotalUsd ?? 0) : (selectedPlan?.monthlyPriceUsd ?? 0)).toLocaleString()} via Flutterwave)
                             </Text>
 
                             <PayWithFlutterwave
@@ -343,7 +341,7 @@ export default function SubscriptionsScreen() {
                                     customer: {
                                         email: auth.currentUser?.email || "customer@shoouts.com"
                                     },
-                                    amount: isAnnual ? ((selectedPlan?.annualPriceNGN ?? 0) * 12) : (selectedPlan?.monthlyPriceNGN ?? 0),
+                                    amount: usdToNgn(isAnnual ? (selectedPlan?.annualTotalUsd ?? 0) : (selectedPlan?.monthlyPriceUsd ?? 0)),
                                     currency: 'NGN',
                                     payment_options: 'card'
                                 }}

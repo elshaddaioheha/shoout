@@ -159,7 +159,7 @@ async function seed() {
     fullName: creator.displayName,
     displayName: creator.displayName,
     email: creator.email,
-    role: 'studio_pro',
+    role: 'studio',
     bio: 'Seeded sample creator for storage/upload testing.',
     genre: 'Afrobeats',
     isPremium: true,
@@ -172,7 +172,7 @@ async function seed() {
   };
 
   const subscription = {
-    tier: 'studio_pro',
+    tier: 'studio',
     isSubscribed: true,
     expiresAt: admin.firestore.Timestamp.fromMillis(Date.now() + 1000 * 60 * 60 * 24 * 365),
     updatedAt: now,

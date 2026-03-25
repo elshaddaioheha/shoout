@@ -4,6 +4,14 @@ import * as functions from 'firebase-functions';
 import * as functionsV1 from 'firebase-functions/v1';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import PDFDocument from 'pdfkit';
+import {
+  buildMailQueuePayload,
+  calculateSubscriptionExpiryDate,
+  firestoreExpiredSubscriptionDocPatch,
+  firestoreExpiredUserRolePatch,
+  invoiceStoragePath,
+  type SubscriptionBillingCycle,
+} from './subscriptionLifecycle';
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -61,18 +69,76 @@ type GetCheckoutStatusData = {
 
 const NAIRA_RATE = 1600;
 
-type SubscriptionBillingCycle = 'monthly' | 'annual';
-
-const SUBSCRIPTION_PLAN_PRICING_NGN: Record<string, { monthly: number; annual: number }> = {
-  // Canonical tiers:
-  // - vault is the free baseline tier
-  // - vault_pro annual has no discount (business exception)
-  // - studio/hybrid annual are 15% off monthly x 12
-  vault: { monthly: 0, annual: 0 },
-  vault_pro: { monthly: 13962, annual: 13962 * 12 },
-  studio: { monthly: 27000, annual: 22950 * 12 },
-  hybrid: { monthly: 34906, annual: 29670 * 12 },
+/** Canonical USD list prices; Flutterwave charges Math.round(usd * NAIRA_RATE) in NGN. */
+const SUBSCRIPTION_PLAN_PRICING_USD: Record<string, { monthly: number; annualTotal: number }> = {
+  vault: { monthly: 0, annualTotal: 0 },
+  vault_pro: { monthly: 13962 / NAIRA_RATE, annualTotal: (13962 * 12) / NAIRA_RATE },
+  studio: { monthly: 27000 / NAIRA_RATE, annualTotal: (22950 * 12) / NAIRA_RATE },
+  hybrid: { monthly: 34906 / NAIRA_RATE, annualTotal: (29670 * 12) / NAIRA_RATE },
 };
+
+/** License add-on SKUs must match `app/listing/[id].tsx` LICENSE_OPTIONS (USD). */
+const LICENSE_USD_PRICES: Record<string, number> = {
+  mp3_tagged: 4.95,
+  wav_2_free: 24.99,
+  unlimited_wav_4_free: 32.99,
+  unlimited_stems_9_free: 51.99,
+};
+
+const LICENSE_SKUS_ORDERED = Object.keys(LICENSE_USD_PRICES).sort((a, b) => b.length - a.length);
+
+const CART_TOTAL_EPSILON = 0.02;
+
+function parseCartItemId(rawId: string): { uploadId: string; licenseSku: string | null } {
+  for (const sku of LICENSE_SKUS_ORDERED) {
+    const suf = '_' + sku;
+    if (rawId.endsWith(suf)) {
+      return { uploadId: rawId.slice(0, -suf.length), licenseSku: sku };
+    }
+  }
+  return { uploadId: rawId, licenseSku: null };
+}
+
+async function resolveCheckoutLine(raw: CheckoutItem): Promise<CheckoutItem> {
+  const uploaderId = String(raw.uploaderId || '').trim();
+  const { uploadId, licenseSku } = parseCartItemId(String(raw.id || '').trim());
+  if (!uploadId || !uploaderId) {
+    throw new functions.https.HttpsError('invalid-argument', 'Invalid cart item');
+  }
+
+  const snap = await db.collection('users').doc(uploaderId).collection('uploads').doc(uploadId).get();
+  if (!snap.exists) {
+    throw new functions.https.HttpsError('not-found', 'Listing not found');
+  }
+
+  const d = snap.data() as Record<string, any>;
+  if (d.isPublic !== true) {
+    throw new functions.https.HttpsError('failed-precondition', 'Listing is not public');
+  }
+
+  let priceUsd: number;
+  if (licenseSku && LICENSE_USD_PRICES[licenseSku] != null) {
+    priceUsd = LICENSE_USD_PRICES[licenseSku];
+  } else {
+    priceUsd = Number(d.price);
+  }
+
+  if (!Number.isFinite(priceUsd) || priceUsd < 0) {
+    throw new functions.https.HttpsError('failed-precondition', 'Invalid listing price');
+  }
+
+  priceUsd = Math.round(priceUsd * 100) / 100;
+
+  return {
+    id: raw.id,
+    uploaderId,
+    title: String(d.title || raw.title || 'Track'),
+    artist: String(d.uploaderName || d.artist || raw.artist || 'Artist'),
+    price: priceUsd,
+    audioUrl: String(d.audioUrl || raw.audioUrl || ''),
+    coverUrl: String(d.coverUrl || raw.coverUrl || ''),
+  };
+}
 
 const FREE_SUBSCRIPTION_PLANS = new Set(['vault']);
 const EMAIL_COLLECTION = process.env.FIREBASE_TRIGGER_EMAIL_COLLECTION || 'mail';
@@ -90,11 +156,12 @@ function getFlutterwaveSecretKey(): string {
 }
 
 function getExpectedSubscriptionAmountNgn(planId: string, billingCycle: SubscriptionBillingCycle): number {
-  const pricing = SUBSCRIPTION_PLAN_PRICING_NGN[planId];
+  const pricing = SUBSCRIPTION_PLAN_PRICING_USD[planId];
   if (!pricing) {
     throw new functions.https.HttpsError('invalid-argument', `Unsupported planId: ${planId}`);
   }
-  return billingCycle === 'annual' ? pricing.annual : pricing.monthly;
+  const usd = billingCycle === 'annual' ? pricing.annualTotal : pricing.monthly;
+  return Math.round(usd * NAIRA_RATE);
 }
 
 function verifyWebhookSignature(rawBody: string, signature: string | undefined, secret: string): boolean {
@@ -104,13 +171,7 @@ function verifyWebhookSignature(rawBody: string, signature: string | undefined, 
 }
 
 function calculateSubscriptionExpiry(billingCycle: SubscriptionBillingCycle): admin.firestore.Timestamp {
-  const next = new Date();
-  if (billingCycle === 'annual') {
-    next.setFullYear(next.getFullYear() + 1);
-  } else {
-    next.setMonth(next.getMonth() + 1);
-  }
-  return admin.firestore.Timestamp.fromDate(next);
+  return admin.firestore.Timestamp.fromDate(calculateSubscriptionExpiryDate(billingCycle));
 }
 
 type InvoiceLine = { description: string; qty: number; unitAmountNgn: number; totalAmountNgn: number };
@@ -187,7 +248,7 @@ async function createInvoiceAndGetUrl(params: {
   });
 
   const bucket = admin.storage().bucket();
-  const filePath = `invoices/${params.userId}/${params.invoiceNumber}.pdf`;
+  const filePath = invoiceStoragePath(params.userId, params.invoiceNumber);
   const file = bucket.file(filePath);
   await file.save(buffer, {
     resumable: false,
@@ -209,12 +270,7 @@ async function queueEmail(params: {
   html: string;
 }): Promise<void> {
   await db.collection(EMAIL_COLLECTION).add({
-    to: [params.to],
-    message: {
-      subject: params.subject,
-      text: params.text,
-      html: params.html,
-    },
+    ...buildMailQueuePayload(params),
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
   });
 }
@@ -433,24 +489,37 @@ export const createCheckoutSession = functions.https.onCall(async (data: any, co
   }
 
   const userId = context.auth.uid;
-  const items = (data?.items || []) as CheckoutItem[];
-  const totalAmountUsd = Number(data?.totalAmountUsd || 0);
+  const rawItems = (data?.items || []) as CheckoutItem[];
+  const clientTotalUsd = Number(data?.totalAmountUsd || 0);
 
-  if (!Array.isArray(items) || items.length === 0) {
+  if (!Array.isArray(rawItems) || rawItems.length === 0) {
     throw new functions.https.HttpsError('invalid-argument', 'Cart is empty');
   }
 
-  if (!Number.isFinite(totalAmountUsd) || totalAmountUsd <= 0) {
+  if (!Number.isFinite(clientTotalUsd) || clientTotalUsd <= 0) {
     throw new functions.https.HttpsError('invalid-argument', 'Invalid cart total');
   }
 
+  const items: CheckoutItem[] = [];
+  for (const raw of rawItems) {
+    items.push(await resolveCheckoutLine(raw));
+  }
+
+  const serverTotalUsd = Math.round(items.reduce((sum, i) => sum + i.price, 0) * 100) / 100;
+  if (Math.abs(serverTotalUsd - clientTotalUsd) > CART_TOTAL_EPSILON) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      `Cart total mismatch (server ${serverTotalUsd} USD vs client ${clientTotalUsd} USD)`
+    );
+  }
+
   const txRef = `shoouts_cart_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
-  const totalAmountNgn = expectedAmountInNgn(totalAmountUsd);
+  const totalAmountNgn = expectedAmountInNgn(serverTotalUsd);
 
   await db.collection('checkoutSessions').doc(txRef).set({
     userId,
     items,
-    totalAmountUsd,
+    totalAmountUsd: serverTotalUsd,
     totalAmountNgn,
     status: 'pending',
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -546,10 +615,39 @@ export const flutterwaveWebhook = functions.https.onRequest(async (req, res) => 
     items: CheckoutItem[];
     totalAmountNgn: number;
     status: string;
+    expiresAt?: admin.firestore.Timestamp;
   };
 
   if (session.status === 'completed') {
     res.status(200).send('Already processed');
+    return;
+  }
+
+  if (session.expiresAt && typeof session.expiresAt.toMillis === 'function') {
+    if (session.expiresAt.toMillis() < Date.now()) {
+      await sessionRef.set(
+        {
+          status: 'expired',
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+      res.status(200).send('Session expired');
+      return;
+    }
+  }
+
+  const paymentCurrency = String(data?.currency || '').toUpperCase();
+  if (paymentCurrency !== 'NGN') {
+    await sessionRef.set(
+      {
+        status: 'invalid_currency',
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        providerPayload: data || null,
+      },
+      { merge: true }
+    );
+    res.status(400).send('Invalid currency');
     return;
   }
 
@@ -628,12 +726,16 @@ export const flutterwaveWebhook = functions.https.onRequest(async (req, res) => 
     const recipientName = String(userData?.fullName || userData?.name || 'Shoouts User').trim();
 
     if (recipientEmail) {
-      const lineItems: InvoiceLine[] = session.items.map((item) => ({
-        description: `${item.title} by ${item.artist}`,
-        qty: 1,
-        unitAmountNgn: Number(item.price || 0),
-        totalAmountNgn: Number(item.price || 0),
-      }));
+      const lineItems: InvoiceLine[] = session.items.map((item) => {
+        const usd = Number(item.price || 0);
+        const lineNgn = Math.round(usd * NAIRA_RATE);
+        return {
+          description: `${item.title} by ${item.artist}`,
+          qty: 1,
+          unitAmountNgn: lineNgn,
+          totalAmountNgn: lineNgn,
+        };
+      });
       const subtotal = lineItems.reduce((sum, line) => sum + line.totalAmountNgn, 0);
       const vat = Math.round(subtotal * 0.075);
       const total = subtotal + vat;
@@ -859,11 +961,7 @@ export const downgradeExpiredSubscriptions = onSchedule({ schedule: 'every 24 ho
       batch.set(
         docSnap.ref,
         {
-          tier: 'vault',
-          status: 'expired',
-          isSubscribed: false,
-          billingCycle: null,
-          expiresAt: null,
+          ...firestoreExpiredSubscriptionDocPatch(),
           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
           downgradedAt: admin.firestore.FieldValue.serverTimestamp(),
         },
@@ -872,8 +970,7 @@ export const downgradeExpiredSubscriptions = onSchedule({ schedule: 'every 24 ho
       batch.set(
         userRef,
         {
-          role: 'vault',
-          subscriptionStatus: 'expired',
+          ...firestoreExpiredUserRolePatch(),
           downgradedAt: admin.firestore.FieldValue.serverTimestamp(),
         },
         { merge: true }

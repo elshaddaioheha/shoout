@@ -1,44 +1,26 @@
 {
   "project_info": {
-    "project_number": "REPLACE_WITH_PROJECT_NUMBER",
-    "project_id": "REPLACE_WITH_PROJECT_ID",
-    "storage_bucket": "REPLACE_WITH_STORAGE_BUCKET"
+    "project_number": "YOUR_PROJECT_NUMBER",
+    "project_id": "your-firebase-project-id",
+    "storage_bucket": "your-firebase-project-id.appspot.com"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "REPLACE_WITH_MOBILE_SDK_APP_ID",
+        "mobilesdk_app_id": "1:YOUR_PROJECT_NUMBER:android:YOUR_APP_ID",
         "android_client_info": {
           "package_name": "com.shoouts"
         }
       },
-      "oauth_client": [
-        {
-          "client_id": "REPLACE_WITH_ANDROID_OAUTH_CLIENT_ID",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.shoouts",
-            "certificate_hash": "REPLACE_WITH_CERTIFICATE_HASH"
-          }
-        },
-        {
-          "client_id": "REPLACE_WITH_WEB_OAUTH_CLIENT_ID",
-          "client_type": 3
-        }
-      ],
+      "oauth_client": [],
       "api_key": [
         {
-          "current_key": "REPLACE_WITH_FIREBASE_API_KEY"
+          "current_key": "YOUR_ANDROID_API_KEY_FROM_FIREBASE_CONSOLE"
         }
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": [
-            {
-              "client_id": "REPLACE_WITH_WEB_OAUTH_CLIENT_ID",
-              "client_type": 3
-            }
-          ]
+          "other_platform_oauth_client": []
         }
       }
     }

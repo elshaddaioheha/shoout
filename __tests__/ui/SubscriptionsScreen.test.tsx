@@ -31,6 +31,10 @@ jest.mock('../../store/useUserStore', () => ({
     useUserStore: jest.fn()
 }));
 
+jest.mock('@/utils/subscriptionVerification', () => ({
+    hydrateSubscriptionTier: jest.fn().mockResolvedValue('vault'),
+}));
+
 // Mock Firebase config
 jest.mock('@/firebaseConfig', () => ({
     auth: { currentUser: { uid: 'test-user', email: 'test@shoouts.com' } },

@@ -2,11 +2,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
-export type UserRole =
-    | 'vault'
-    | 'vault_pro'
-    | 'studio'
-    | 'hybrid';
+/** Canonical subscription tiers — same IDs as Cloud Functions + Firestore `subscription.tier`. */
+export type UserRole = 'vault' | 'vault_pro' | 'studio' | 'hybrid';
 
 export type ViewMode = 'vault' | 'studio';
 
@@ -34,7 +31,7 @@ interface UserState {
 
 /**
  * PersistedUserState
- * 
+ *
  * SECURITY NOTE: Only UI preferences are persisted to AsyncStorage.
  * actualRole and all permission-based data are NEVER persisted locally.
  * They are set only from server-verified sources in useAuthStore.
@@ -45,54 +42,62 @@ interface PersistedUserState {
 
 const STORAGE_KEY = 'shoouts-user-preferences-v3';
 
-const defaultState = {
-    role: 'vault' as UserRole,
-    actualRole: 'vault' as UserRole,
-    name: 'User',
-    isPremium: false,
-    viewMode: 'vault' as ViewMode,
-    storageLimitGB: 0.5, // 500MB
-    canSell: false,
-    hasTeamAccess: false,
-    hasAdvancedAnalytics: false,
-    transactionFeePercent: 10,
-};
-
 const getRoleCapabilities = (role: UserRole) => {
-    // Shared defaults
-    let capabilities = {
+    const base = {
         isPremium: false,
         storageLimitGB: 0.5,
         canSell: false,
         hasTeamAccess: false,
         hasAdvancedAnalytics: false,
         transactionFeePercent: 10,
-        viewMode: 'vault' as ViewMode
+        viewMode: 'vault' as ViewMode,
     };
 
     switch (role) {
-        // Vault Plans
         case 'vault':
-            return { ...capabilities };
+            return { ...base, storageLimitGB: 0.5 };
         case 'vault_pro':
-            return { ...capabilities, isPremium: true, storageLimitGB: 1, hasAdvancedAnalytics: true };
-
-        // Studio Plans
+            return {
+                ...base,
+                isPremium: true,
+                storageLimitGB: 1,
+                hasAdvancedAnalytics: true,
+            };
         case 'studio':
-            return { ...capabilities, viewMode: 'studio' as ViewMode, isPremium: true, canSell: true, storageLimitGB: 2, hasAdvancedAnalytics: true };
-
-        // Hybrid Plans
+            return {
+                ...base,
+                isPremium: true,
+                viewMode: 'studio' as ViewMode,
+                canSell: true,
+                storageLimitGB: 2,
+                hasAdvancedAnalytics: true,
+            };
         case 'hybrid':
-            return { ...capabilities, viewMode: 'vault' as ViewMode, isPremium: true, canSell: true, storageLimitGB: 10, hasAdvancedAnalytics: true, hasTeamAccess: true };
-
-        default:
-            return capabilities;
+            return {
+                ...base,
+                isPremium: true,
+                viewMode: 'vault' as ViewMode,
+                canSell: true,
+                storageLimitGB: 10,
+                hasAdvancedAnalytics: true,
+                hasTeamAccess: true,
+            };
+        default: {
+            const _exhaustive: never = role;
+            return _exhaustive;
+        }
     }
 };
 
-const createBaseState = (): Omit<UserState, 'setRole' | 'setActualRole' | 'setName' | 'setPremium' | 'setViewMode' | 'reset'> => ({
-    ...defaultState,
-});
+const createBaseState = (): Omit<UserState, 'setRole' | 'setActualRole' | 'setName' | 'setPremium' | 'setViewMode' | 'reset'> => {
+    const role: UserRole = 'vault';
+    return {
+        role,
+        actualRole: role,
+        name: 'User',
+        ...getRoleCapabilities(role),
+    };
+};
 
 export const useUserStore = create<UserState>()(
     persist(

@@ -48,7 +48,7 @@ const ARTISTS = [
         email: 'burnaboy@seed.shoouts.com',
         profile: {
             fullName: 'Burna Boy',
-            role: 'hybrid_executive',
+            role: 'hybrid',
             bio: 'Afrobeats legend. Odogwu himself.',
             genre: 'Afrobeats',
             followers: 4210,
@@ -73,7 +73,7 @@ const ARTISTS = [
         email: 'tems@seed.shoouts.com',
         profile: {
             fullName: 'Tems',
-            role: 'studio_pro',
+            role: 'studio',
             bio: 'The voice of a generation. Afro-soul creator.',
             genre: 'Afro Soul',
             followers: 3800,
@@ -95,7 +95,7 @@ const ARTISTS = [
         email: 'soundofsalem@seed.shoouts.com',
         profile: {
             fullName: 'Sound of Salem',
-            role: 'studio_pro',
+            role: 'studio',
             bio: 'Producer. Beatmaker. Afro-Gospel pioneer.',
             genre: 'Gospel',
             followers: 1200,
@@ -121,7 +121,7 @@ const ARTISTS = [
         email: 'lawrenceoyor@seed.shoouts.com',
         profile: {
             fullName: 'Lawrence Oyor',
-            role: 'studio_pro',
+            role: 'studio',
             bio: 'Afro-Gospel minister. Worship leader.',
             genre: 'Gospel',
             followers: 920,

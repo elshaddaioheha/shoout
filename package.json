@@ -12,11 +12,13 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
+    "test:functions": "npm --prefix functions test",
     "dev:seed": "node ./scripts/seed.mjs",
     "dev:seed:test": "node ./scripts/seed-test-data.mjs",
     "dev:seed:full": "node ./scripts/seedFullData.mjs",
     "dev:seed:rest": "node ./scripts/seed-rest.mjs",
-    "dev:seed:storage-sample": "node ./scripts/seed-storage-sample.mjs"
+    "dev:seed:storage-sample": "node ./scripts/seed-storage-sample.mjs",
+    "dev:seed:auth-admin": "node ./scripts/seed-auth-users-admin.mjs"
   },
   "dependencies": {
     "@expo-google-fonts/poppins": "^0.4.1",
@@ -84,6 +86,9 @@
     "testEnvironment": "node",
     "setupFiles": [
       "<rootDir>/jest.setup.js"
+    ],
+    "testPathIgnorePatterns": [
+      "<rootDir>/functions/"
     ],
     "transformIgnorePatterns": [
       "node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg|lucide-react-native|zustand)"

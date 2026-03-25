@@ -63,7 +63,7 @@ async function seedData() {
     const burnaboy = {
         email: "burnaboy@test.shoouts.com",
         fullName: "Burna Boy (Mock)",
-        role: "hybrid_executive",
+        role: "hybrid",
         bio: "Odogwu himself.",
         createdAt: new Date().toISOString()
     };
@@ -75,7 +75,7 @@ async function seedData() {
     const tems = {
         email: "tems@test.shoouts.com",
         fullName: "Tems (Mock)",
-        role: "studio_pro",
+        role: "studio",
         bio: "Leading the vibe.",
         createdAt: new Date().toISOString()
     };

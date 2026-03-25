@@ -1,6 +1,7 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import Sidebar from '@/components/Sidebar';
 import { db } from '@/firebaseConfig';
+import { formatUsd } from '@/utils/pricing';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { ShoppingBag, Star, Tag } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
@@ -102,7 +103,7 @@ function MerchCard({ item }: any) {
                 <Text style={styles.itemName} numberOfLines={1}>{item.name}</Text>
                 <Text style={styles.itemArtist} numberOfLines={1}>by {item.artistName || 'Creator'}</Text>
                 <View style={styles.priceRow}>
-                    <Text style={styles.itemPrice}>NGN {item.price}</Text>
+                    <Text style={styles.itemPrice}>{formatUsd(Number(item.price) || 0)}</Text>
                     <View style={styles.rating}>
                         <Star size={12} color="#FFD700" fill="#FFD700" />
                         <Text style={styles.ratingText}>{item.rating ?? '—'}</Text>

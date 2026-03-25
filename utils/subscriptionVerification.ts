@@ -1,7 +1,8 @@
 import { getAuth } from 'firebase/auth';
-import { getFirestore, doc, getDoc, Timestamp } from 'firebase/firestore';
+import { getFirestore, doc, getDoc, setDoc, Timestamp } from 'firebase/firestore';
 import type { UserRole } from '@/store/useUserStore';
 import { useAuthStore } from '@/store/useAuthStore';
+import { useUserStore } from '@/store/useUserStore';
 
 type SubscriptionPlan = {
   tier: UserRole;
@@ -74,6 +75,37 @@ export async function fetchVerifiedSubscriptionTier(): Promise<UserRole> {
     useAuthStore.getState().setVerificationError(err);
     throw err;
   }
+}
+
+/**
+ * Ensures `users/{uid}/subscription/current` exists with a default vault record.
+ * Call after creating a new Auth user so tier reads stay canonical on subscription/current.
+ */
+export async function ensureDefaultSubscriptionDoc(uid: string): Promise<void> {
+  const db = getFirestore();
+  const subscriptionRef = doc(db, 'users', uid, 'subscription', 'current');
+  const snap = await getDoc(subscriptionRef);
+  if (snap.exists()) return;
+
+  await setDoc(subscriptionRef, {
+    tier: 'vault' as UserRole,
+    status: 'trial',
+    isSubscribed: false,
+    billingCycle: null,
+    expiresAt: null,
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+/**
+ * Fetches tier from `users/{uid}/subscription/current` (auth store) and mirrors it into useUserStore.
+ * Use after sign-in and whenever subscription/current is written so both stores match.
+ */
+export async function hydrateSubscriptionTier(): Promise<UserRole> {
+  const tier = await fetchVerifiedSubscriptionTier();
+  useUserStore.getState().setActualRole(tier);
+  useUserStore.getState().setRole(tier);
+  return tier;
 }
 
 /**

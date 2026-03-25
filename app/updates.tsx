@@ -11,7 +11,7 @@ type UpdateItem = {
   title: string;
   body: string;
   chip?: string;
-  icon?: JSX.Element;
+  icon?: React.ReactElement;
   dateLabel?: string;
 };
 

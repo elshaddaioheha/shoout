@@ -1,5 +1,6 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import { auth, db } from '@/firebaseConfig';
+import { formatUsd } from '@/utils/pricing';
 import { useToastStore } from '@/store/useToastStore';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
@@ -58,7 +59,7 @@ const STEP2_TYPES: StepCard[] = [
 
 const GENRES = ['Afrobeats', 'Amapiano', 'Gospel', 'Hip-Hop', 'R&B'];
 const LOCATIONS = ['Nigeria', 'Ghana', 'South Africa', 'UK', 'US'];
-const BUDGETS = ['NGN 3,150', 'NGN 5,000', 'NGN 10,000'];
+const BUDGETS = [formatUsd(2), formatUsd(3.13), formatUsd(6.25)];
 const DURATIONS = ['7 days', '10 days', '14 days'];
 
 const STEP_TITLES = {
@@ -128,7 +129,7 @@ export default function AdsCreationScreen() {
 
     try {
       setSaving(true);
-      const daily = Number((budget.match(/[\d,]+/)?.[0] || '3150').replace(',', ''));
+      const daily = Number((budget.match(/[\d.]+/)?.[0] || '2'));
       const days = Number(duration.split(' ')[0]) || 10;
 
       await addDoc(collection(db, `users/${uid}/campaigns`), {
@@ -163,7 +164,7 @@ export default function AdsCreationScreen() {
   };
 
   const totalBudget = useMemo(() => {
-    const daily = Number((budget.match(/[\d,]+/)?.[0] || '3150').replace(',', ''));
+    const daily = Number((budget.match(/[\d.]+/)?.[0] || '2'));
     const days = Number(duration.split(' ')[0]) || 10;
     return { daily, total: daily * days };
   }, [budget, duration]);
@@ -243,11 +244,11 @@ export default function AdsCreationScreen() {
           <View style={styles.sectionWrap}>
             <View style={styles.summaryCard}>
               <Text style={styles.summaryLabel}>Campaign Summary</Text>
-              <SummaryRow label="Daily Budget" value={`NGN ${totalBudget.daily.toLocaleString()}`} />
-              <SummaryRow label="Total Budget" value={`NGN ${totalBudget.total.toLocaleString()}`} />
+              <SummaryRow label="Daily Budget" value={formatUsd(totalBudget.daily)} />
+              <SummaryRow label="Total Budget" value={formatUsd(totalBudget.total)} />
               <SummaryRow label="Duration" value={duration} />
               <View style={styles.summaryDivider} />
-              <SummaryRow label="Total Amount" value={`NGN ${totalBudget.total.toLocaleString()}`} bold />
+              <SummaryRow label="Total Amount" value={formatUsd(totalBudget.total)} bold />
             </View>
 
             <Text style={styles.paymentTitle}>Payment Method</Text>
@@ -258,7 +259,7 @@ export default function AdsCreationScreen() {
             >
               <View>
                 <Text style={styles.paymentMain}>Pay using Shoutout wallet</Text>
-                <Text style={styles.paymentSub}>Available balance: NGN 35,000</Text>
+                <Text style={styles.paymentSub}>Available balance: {formatUsd(21.88)}</Text>
               </View>
               <View style={styles.walletBadge} />
             </TouchableOpacity>
