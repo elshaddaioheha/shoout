@@ -12,7 +12,6 @@
     },
     "android": {
       "package": "com.shoouts",
-      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#140F10",
         "foregroundImage": "./assets/images/logo-rings.png",
