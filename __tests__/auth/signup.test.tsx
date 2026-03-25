@@ -1,4 +1,4 @@
-import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { setDoc } from 'firebase/firestore';
 import React from 'react';
@@ -14,6 +14,7 @@ jest.mock('expo-router', () => ({
 
 jest.mock('../../utils/subscriptionVerification', () => ({
     hydrateSubscriptionTier: jest.fn().mockResolvedValue('vault'),
+    ensureDefaultSubscriptionDoc: jest.fn().mockResolvedValue(undefined),
 }));
 
 jest.mock('../../store/useToastStore', () => ({
@@ -68,12 +69,14 @@ describe('SignupScreen Authorization flows', () => {
             user: { uid: 'user-123' }
         });
 
-        // Act
+        // Act — wrap all events + async side-effects in act
         fireEvent.changeText(getByPlaceholderText('Full Name'), 'Test Creator');
         fireEvent.changeText(getByPlaceholderText('Email'), 'test@shoouts.com');
         fireEvent.changeText(getByPlaceholderText('Password'), 'password123');
         fireEvent.changeText(getByPlaceholderText('Confirm Password'), 'password123');
-        fireEvent.press(getByText('Sign Up'));
+        await act(async () => {
+            fireEvent.press(getByText('Sign Up'));
+        });
 
         // Assert
         await waitFor(() => {

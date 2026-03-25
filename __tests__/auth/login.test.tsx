@@ -13,6 +13,12 @@ jest.mock('expo-router', () => ({
     useLocalSearchParams: () => ({})
 }));
 
+// Mock _layout so login.tsx can import authNavigationHandled without
+// pulling in the entire Expo Router layout and its native dependencies.
+jest.mock('../../app/_layout', () => ({
+    authNavigationHandled: { current: false },
+}));
+
 jest.mock('../../utils/subscriptionVerification', () => ({
     hydrateSubscriptionTier: jest.fn().mockResolvedValue('vault'),
     ensureDefaultSubscriptionDoc: jest.fn().mockResolvedValue(undefined),
@@ -45,6 +51,15 @@ jest.mock('@react-native-google-signin/google-signin', () => ({
     statusCodes: { SIGN_IN_CANCELLED: 'SIGN_IN_CANCELLED' }
 }));
 
+// Mock Apple Authentication (iOS-only, not available in test env)
+jest.mock('expo-apple-authentication', () => ({
+    AppleAuthenticationButton: 'AppleAuthenticationButton',
+    AppleAuthenticationButtonType: { SIGN_IN: 'SIGN_IN' },
+    AppleAuthenticationButtonStyle: { WHITE: 'WHITE' },
+    signInAsync: jest.fn(),
+    isAvailableAsync: jest.fn().mockResolvedValue(false),
+}));
+
 describe('LoginScreen Authorization flows', () => {
     beforeEach(() => {
         jest.clearAllMocks();
@@ -59,24 +74,31 @@ describe('LoginScreen Authorization flows', () => {
     it('handles standard Email/Password authentication correctly', async () => {
         const { getByPlaceholderText, getByText } = render(<LoginScreen />);
 
-        // Mock dependencies
         (signInWithEmailAndPassword as jest.Mock).mockResolvedValue({
             user: { uid: 'user-123' }
         });
-        // Act — batch text changes so handleLogin sees updated email/password state
-        act(() => {
+
+        // Fill in the form — wrap in act so controlled state flushes
+        await act(async () => {
             fireEvent.changeText(getByPlaceholderText('Email Address'), 'test@shoouts.com');
             fireEvent.changeText(getByPlaceholderText('Password'), 'password123');
         });
+
+        // Press the Login button
         await act(async () => {
             fireEvent.press(getByText('Login'));
         });
 
-        // Assert
+        // signInWithEmailAndPassword should have been called.
+        // Note: hydrateSubscriptionTier is NOT called by handleLogin directly —
+        // it is delegated to onAuthStateChanged in _layout.tsx which is mocked.
         await waitFor(
             () => {
-                expect(signInWithEmailAndPassword).toHaveBeenCalled();
-                expect(hydrateSubscriptionTier).toHaveBeenCalled();
+                expect(signInWithEmailAndPassword).toHaveBeenCalledWith(
+                    expect.anything(),
+                    'test@shoouts.com',
+                    'password123'
+                );
             },
             { timeout: 15000 }
         );

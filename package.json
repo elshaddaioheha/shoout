@@ -91,7 +91,7 @@
       "<rootDir>/functions/"
     ],
     "transformIgnorePatterns": [
-      "node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg|lucide-react-native|zustand)"
+      "node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg|lucide-react-native|zustand|expo-router|expo-constants|expo-modules-core|expo-font|expo-image|expo-document-picker|expo-linear-gradient|expo-blur|expo-haptics|expo-file-system|expo-av|expo-splash-screen|expo-linking|expo-web-browser)"
     ],
     "moduleNameMapper": {
       "^@/(.*)$": "<rootDir>/$1",
@@ -102,12 +102,7 @@
       "^../firebaseConfig$": "<rootDir>/__mocks__/firebaseConfig.ts",
       "expo-linear-gradient": "<rootDir>/__mocks__/expo-linear-gradient.js",
       "flutterwave-react-native": "<rootDir>/__mocks__/flutterwave-react-native.js",
-      "expo/src/winter$": "<rootDir>/__mocks__/expoRuntime.js",
-      "expo/src/winter/index": "<rootDir>/__mocks__/expoRuntime.js",
-      "expo/src/winter/runtime$": "<rootDir>/__mocks__/expoRuntime.js",
-      "expo/src/winter/runtime.native": "<rootDir>/__mocks__/expoRuntime.js",
-      "expo/src/winter/ImportMetaRegistry": "<rootDir>/__mocks__/ImportMetaRegistry.ts",
-      "expo/src/winter/installGlobal": "<rootDir>/__mocks__/expoRuntime.js",
+      "expo/src/winter/(.*)$": "<rootDir>/__mocks__/expoRuntime.js",
       "expo/src/utils/getBundleUrl": "<rootDir>/__mocks__/expoRuntime.js"
     },
     "collectCoverageFrom": [
