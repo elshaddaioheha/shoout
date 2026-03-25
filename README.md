@@ -1,479 +1,145 @@
-# Shoouts: Complete Setup & Deployment Guide
+# Shoouts: Complete Technical Setup & Deployment Guide
 
-## 📱 What is Shoouts?
+Shoouts is an African-first mobile audio streaming and creator marketplace platform built to help artists, producers, and executives store, monetize, and share their IP securely.
 
-Shoouts is a mobile audio streaming and creator marketplace platform built with:
-- **Frontend:** Expo React Native (iOS/Android)
-- **Backend:** Firebase (Functions, Firestore, Storage, Auth)
+## 📱 Tech Stack
+- **Frontend:** Expo React Native (iOS/Android) using Expo Router
+- **Global State:** Zustand (with persist middleware for cart/session data)
+- **Backend:** Firebase (Cloud Functions, Firestore, Storage, Auth)
 - **Payments:** Flutterwave integration
-- **Streaming:** HLS watermarked audio with signed URLs
-- **Deployment:** GitHub Actions CI/CD with multi-environment support
+- **Deployment:** GitHub Actions CI/CD (lint, test, security, deploy) & Expo Application Services (EAS) for native builds
 
 ---
 
-## 🚀 Quick Start (10 minutes)
+## 🚀 Quick Start (Local Development)
 
 ### Prerequisites
-```bash
-Node.js 20+
-Firebase CLI
-Git
-GitHub account
-Flutterwave account (payments)
-Mux account (audio transcoding - optional)
-```
+- Node.js 20+
+- Firebase CLI (`npm i -g firebase-tools`)
+- Git
+- EAS CLI (`npm i -g eas-cli`)
 
-### Installation
+### Installation & Run
 
 ```bash
 # Clone repository
 git clone https://github.com/elshaddaioheha/shoout
 cd shoout
 
-# Install dependencies
+# Install frontend dependencies
 npm install
+
+# Install backend dependencies
 cd functions && npm install && cd ..
 
-# Build
-npm run build
-
-# Run locally
+# Start local Expo server
 npm start
 ```
 
 ---
 
-## 📋 Project Structure
+## 🔐 Environment Variables & Secrets Configuration
+
+Shoouts requires specific secrets for local development, CI/CD, and Native App Builds.
+
+### 1. `EXPO_PUBLIC_*` Variables (Local & EAS Secrets)
+These variables (Firebase keys, Flutterwave Public Key, Google OAuth IDs) configure the frontend app.
+- **Local:** Define them in your `.env` file at the root.
+- **EAS Build:** Expose them directly in Expo using the `eas secret:create` CLI or via the [Expo Dashboard](https://expo.dev).
+
+*Warning: Never bake private backend keys into `EXPO_PUBLIC_*` variables.*
+
+### 2. Native App Files (`google-services.json` / `GoogleService-Info.plist`)
+Native Firebase integration requires the strict configuration files to avoid runtime crashing.
+- Do not commit these files to GitHub (they are specified in `.gitignore`).
+- For EAS Android builds, dynamic configuration is handled in `app.config.ts` via the `GOOGLE_SERVICES_JSON` variable.
+- Upload this file to Expo Secrets using:
+  ```bash
+  eas secret:create --scope project --name GOOGLE_SERVICES_JSON --type file --value google-services.json
+  ```
+
+### 3. Server-side Secrets (Firebase Functions)
+These must be set securely via the Firebase CLI to be accessible strictly within Node runtime environments.
+```bash
+firebase functions:secrets:set FLUTTERWAVE_SECRET_KEY
+firebase functions:secrets:set FLUTTERWAVE_SECRET_HASH
+firebase functions:secrets:set UPLOAD_BUCKET_NAME
+```
+
+---
+
+## 🛠 Project Architecture
 
 ```
 shoout/
-├── .github/workflows/deploy.yml       # GitHub Actions CI/CD
-├── app/                               # Expo app (tabs, auth, pages)
-├── components/                        # Reusable UI components
-├── functions/                         # Cloud Functions (backend)
-│   └── src/
-│       └── index.ts                   # Main function exports
-├── hooks/                             # React hooks (auth, UI state)
-├── scripts/                           # Database seed scripts
-├── store/                             # Zustand state management
-├── utils/                             # API, error handling
-├── firebase.json                      # Firebase config
-├── firestore.rules                    # Security rules
-├── storage.rules                      # Storage permissions
-├── eas.json                           # Expo Application Services config
-├── package.json                       # Dependencies
-└── tsconfig.json                      # TypeScript config
+├── .github/workflows/deploy.yml       # Production/Dev CI/CD logic
+├── app/                               # Mobile App Routes (Tabs, Auth, Vault, Studio)
+│   ├── (auth)/                        # Authentication flow
+│   └── _layout.tsx                    # Root navigation & auth session listeners
+├── components/                        # Reusable modular UI components
+├── functions/                         # Cloud Functions (Webhook parsing, DB management)
+├── hooks/                             # Custom React hooks
+├── scripts/                           # Local database seeding scripts
+├── store/                             # Zustand slice stores (Auth, Cart, User, etc.)
+├── utils/                             # Error boundaries & responsive styling helpers
+├── .firebaserc                        # Firebase environment routing aliases
+├── app.config.ts                      # Dynamic Expo config for EAS secrets injection
+├── eas.json                           # Expo Application Services profiles config
+└── package.json                       # Dependencies & Jest setup mapping
 ```
 
 ---
 
-## 🔐 Security & Payment System
+## 🛡 Security & Authentication Lifecycles
 
-### How Payments Work
+### Auth Guards & Store State
+Firebase Authentication dictates the single source of truth for the session.
+- **Startup:** On `onAuthStateChanged`, all relevant stores (user metadata, subscriptions) are explicitly populated.
+- **Logout:** Handled universally by `performLogout()`. This explicitly purges `useUserStore`, `useAuthStore`, `useCartStore`, and `useToastStore`, unmounts listeners to prevent memory leaks/race conditions, and boots the user to the guest interface cleanly.
+- Firebase triggers strict authentication error toasts exclusively when an authentic user tries to access server-locked functionality (e.g., Cloud Functions).
 
-```
-Buyer purchases track ($10 USD)
-  ↓
-App sends payment to Flutterwave
-  ↓
-Buyer completes payment
-  ↓
-Flutterwave webhook → Cloud Function
-  ↓
-Function verifies signature + amount
-  ↓
-Creates Firestore transaction record
-  ↓
-User's library updated (purchases collection)
-  ↓
-✅ User can now download/stream track
-```
-
-### Security Model
-
-- **Transactions** & **Purchases**: Read-only for clients (backend-only creation)
-- **Firestore Rules**: Enforce that clients cannot directly create purchase records
-- **Flutterwave Verification**: Signature validation on every webhook
-- **Signed URLs**: Audio files accessed via time-limited signed URLs (1 hour expiry)
-- **Watermarking**: Marketplace previews watermarked (HLS streaming)
-
-### Key Firestore Collections
-
-```
-transactions/
-  └── {txId}: transactionId, buyerId, sellerId, amount, status, createdAt
-
-users/{uid}/purchases/
-  └── {id}: trackId, title, artist, price, purchasedAt, audioUrl
-
-users/{uid}/uploads/
-  └── {id}: title, artist, price, isPublic, listenCount, audioUrl, coverUrl
-
-system/bestSellers
-  └── Cached list of top 12 tracks (updated hourly)
-```
+### Subscription Verification
+A user's permission (Vault, Studio, Hybrid plans) depends exclusively on the verified document at `users/{uid}/subscription/current`.
+- Stores fallback to "vault" gracefully pending backend resolution.
+- Firebase automatically demotes expired users seamlessly.
 
 ---
 
-## 📦 Audio Streaming Features
+## 🚀 GitHub Actions CI/CD Pipeline
 
-### Marketplace Preview (Watermarked)
-- Watermarked HLS stream (low bitrate)
-- Public access (no auth required if track is public)
-- 1-hour signed URL expiry
-- Path: `hls-previews/{uploaderId}/{trackId}/manifest.m3u8`
+The `.github/workflows/deploy.yml` pipeline strictly enforces quality before auto-deploying to Firebase environments:
 
-### Library Download (Original Quality)
-- Full-quality original audio (WAV format)
-- Requires verified purchase in `users/{uid}/purchases`
-- 15-minute signed URL expiry
-- Path: `originals/{uploaderId}/{trackId}.wav`
+1. **lint-and-type-check**: Runs `tsc --noEmit` on Cloud functions and widespread ESLint.
+2. **test**: Executes the whole Jest suite (`npm run test`) validating store state, auth rendering, UI fallbacks, and component isolation.
+3. **security**: Checks `npm audit` and validates source code with `gitleaks` for any exposed private tokens.
+4. **deploy-dev** (Triggers on `push` to `dev` branch): Automatically uses `FIREBASE_TOKEN_DEV` to push Functions and Firestore rules to the development project.
+5. **deploy-prod** (Triggers on `push` to `master`/`main`): Extracts `proj` ID precisely via `.firebaserc` and uses a mapped GCP Service Account JSON to authorize and deploy to the explicit Production server.
 
-### Transcoding Pipeline
-1. User uploads audio to `vaults/{userId}/`
-2. Cloud Function triggers `processAudioUpload`
-3. Original moved to `originals/` (secure folder)
-4. Mux (or FFmpeg) creates HLS watermark + segments
-5. HLS segments stored to `hls-previews/`
-6. Upload document tagged with `transcodingStatus: 'complete'`
+*Ensure all GitHub Repository Secrets listed in `.github/workflows/deploy.yml` are accurately populated before pushing.*
 
 ---
 
-## 🔧 Environment Setup
+## 📱 EAS Android Build Deployment
 
-### Firebase Projects
+To trigger an Android build targeting production or preview:
 
-You need **two separate Firebase projects** (dev and prod):
-
+1. Verify the `eas.json` `preview` or `production` profiles.
+2. Confirm the file secret `GOOGLE_SERVICES_JSON` exists in your Expo Dashboard.
+3. Run the non-interactive build:
 ```bash
-# Create projects
-firebase projects create shoouts-dev
-firebase projects create shoouts-prod
-
-# Initialize
-firebase init --project=shoouts-dev
-firebase init --project=shoouts-prod
+eas build --platform android --profile preview --non-interactive
 ```
-
-Update `.firebaserc`:
-```json
-{
-  "projects": {
-    "dev": "shoouts-dev-xxxxx",
-    "prod": "shoouts-prod-yyyyy"
-  },
-  "default": "dev"
-}
-```
-
-### Environment Variables
-
-**`.env.local`** (local development):
-```
-EXPO_PUBLIC_FIREBASE_API_KEY=AIz...
-EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=shoouts-dev.firebaseapp.com
-EXPO_PUBLIC_FIREBASE_PROJECT_ID=shoouts-dev-xxxxx
-EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=shoouts-dev.appspot.com
-EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=123456789
-EXPO_PUBLIC_FIREBASE_APP_ID=1:123456789:web:abcdef123456
-```
-
-**Functions environment** (set via GitHub Secrets):
-- `FLUTTERWAVE_SECRET_HASH` - Webhook signing key
-
-(Optional) If you want to add transcoding later, you can add a transcoder service and corresponding secrets.
+4. Access the generated APK or AAB inside your EAS Dashboard.
 
 ---
 
-## 🚀 GitHub Actions Deployment
+## 🐛 Common Troubleshooting
 
-### Setup (First Time Only)
+**"Authentication Error" on Upload**
+If the upload function rejects requests, ensure the server-side environment `UPLOAD_BUCKET_NAME` is actually mapped inside the Firebase secrets, and `auth` is refreshing tokens synchronously before resolving Functions instances (`getIdToken(true)`).
 
-**Step 1: Generate Firebase Token**
-```bash
-firebase login:ci
-# Outputs: 1234567890abcdefghijk...
-```
+**EAS Build Fails Missing JSON**
+Double-check you are not hardcoding `GOOGLE_SERVICES_JSON` inside `eas.json` (the CLI overrides files with plain string variables if both are declared). Let `app.config.ts` dynamically assign the file location during runtime.
 
-**Step 2: Add GitHub Secrets**
-
-Go to: **GitHub → Repo Settings → Secrets and variables → Actions**
-
-Add these secrets:
-
-| Secret | Where to Get |
-|--------|--------------|
-| `FIREBASE_TOKEN_DEV` | `firebase login:ci` output |
-| `FIREBASE_TOKEN_PROD` | `firebase login:ci` output (same) |
-| `FLUTTERWAVE_SECRET_HASH_DEV` | Flutterwave Dashboard → Settings → Webhooks (TEST) |
-| `FLUTTERWAVE_SECRET_HASH_PROD` | Flutterwave Dashboard → Settings → Webhooks (LIVE) |
-| `SLACK_WEBHOOK_URL` | Slack Workspace → Apps → Incoming Webhooks (optional) |
-
-### Deployment Flows
-
-**Development Branch** (Auto-deploy on every push):
-```bash
-git checkout dev
-git commit -m "New feature"
-git push origin dev
-# → GitHub Actions: lint → test → security → auto-deploy to firebase-dev
-```
-
-**Main Branch** (Manual approval required):
-```bash
-git checkout main
-git pull origin dev
-git push origin main
-# → GitHub Actions: lint → test → security
-# → Awaits approval in GitHub UI
-# → Admin approves → auto-deploy to firebase-prod
-```
-
-### Workflow Jobs
-
-1. **lint-and-type-check** - TypeScript + ESLint
-2. **test** - Jest unit tests with coverage
-3. **security** - npm audit + gitleaks secret scanning
-4. **deploy-dev** - Auto-deploy to dev Firebase (dev branch only)
-5. **deploy-prod** - Deploy to prod Firebase (main branch only, approval required)
-
----
-
-## 📊 Local Development Workflow
-
-### Running Locally
-
-```bash
-# Terminal 1: Start Expo server
-npm start
-
-# Terminal 2 (in another window): Build for iOS/Android
-npm run ios
-npm run android
-```
-
-### Firebase Emulator (Local Testing)
-
-```bash
-firebase emulators:start
-
-# In another window
-npm run dev:seed    # Seed test data into emulator
-npm test            # Run Jest tests
-```
-
-### Building for Production
-
-```bash
-# Web build
-npm run web
-
-# iOS build (EAS)
-eas build --platform ios
-
-# Android build (EAS)
-eas build --platform android
-```
-
----
-
-## 🐛 Troubleshooting
-
-### "Firebase project not found"
-```bash
-firebase projects:list
-firebase use dev    # or prod
-```
-
-### "TypeScript compilation errors"
-```bash
-cd functions
-npm run build
-```
-
-### "Flutterwave webhook signature invalid"
-1. Verify `FLUTTERWAVE_SECRET_HASH` matches Dashboard
-2. Check webhook is v2 (not v1)
-3. Verify RAW body is being used (not parsed JSON)
-
-### "GitHub Actions deployment failed"
-1. Check GitHub Actions tab for error logs
-2. Verify all secrets are set: **Settings → Secrets → Review list**
-3. Run `npm run build` locally to verify code compiles
-
-### "Signed URL expired"
-Normal - URLs expire after 1 hour. Generate a new one via `getStreamingUrl()` Cloud Function.
-
----
-
-## 📱 Core Features
-
-### Authentication
-- Firebase Auth (email + social login)
-- Role-based access: user, creator, admin
-- Custom claims for authorization
-- Secure token refresh
-
-### Upload System
-- Audio file upload to Cloud Storage
-- File validation (type, size)
-- Storage quota enforcement per subscription tier
-- Automatic transcoding to HLS
-
-### Shopping Cart
-- Add/remove tracks
-- Checkout session creation
-- Flutterwave payment collection
-- Atomic batch writes on payment success
-
-### Library
-- View purchased tracks
-- Stream/download purchased audio
-- Delete from library
-- Search within library
-
-### Create Mode (Creator Tools)
-- Upload audio tracks
-- Set price and metadata
-- View earnings
-- See listener analytics
-
-### Marketplace
-- Browse public tracks
-- Filter by genre/artist
-- Preview before purchase (watermarked)
-- One-click purchase
-
----
-
-## 💰 Monetization
-
-### Subscription Tiers
-
-**Vault (Listener)**
-- Free: 50MB storage, preview only
-- Creator: 500MB, 5 uploads, analytics
-- Pro: 1GB, unlimited uploads
-- Executive: 5GB, analytics + payouts
-
-**Studio (Creator)**
-- Free: 100MB, basic analytics
-- Pro: 1GB, advanced analytics
-- Plus: 10GB, revenue share setup
-
-### Revenue Model
-- Buyers pay fixed price per track
-- Creator receives 100% of track price (Flutterwave fee absorbed)
-- Platform takes 0% (covers via Flutterwave SaaS fee under business account)
-
----
-
-## 📚 API Reference
-
-### Key Cloud Functions
-
-| Function | Type | Purpose |
-|----------|------|---------|
-| `createCheckoutSession` | HTTPS | Create Flutterwave checkout |
-| `getCheckoutStatus` | HTTPS | Check payment status |
-| `flutterwaveWebhook` | HTTPS | Receive payment webhooks |
-| `getStreamingUrl` | HTTPS | Get signed URL for audio |
-| `validateStorageLimit` | HTTPS | Check user quota |
-| `aggregateBestSellers` | HTTP | Cache top tracks (hourly) |
-| `processAudioUpload` | Storage Trigger | Handle new uploads |
-| `onHlsTranscodingComplete` | HTTP | Receive Mux webhooks |
-
-### Firestore Security Rules
-
-```firestore
-// Allow all reads if user is authenticated
-allow read: if request.auth != null;
-
-// Deny all direct writes (backend-only)
-allow write: if false;
-
-// Custom: Allow creator to read own uploads
-match /users/{uid}/uploads/{uploadId} {
-  allow read: if request.auth.uid == uid;
-  allow write: if false;  // Backend only
-}
-
-// Custom: Allow user to read own purchases
-match /users/{uid}/purchases/{purchaseId} {
-  allow read: if request.auth.uid == uid;
-  allow write: if false;  // Backend only
-}
-```
-
----
-
-## 🔄 Deployment Checklist
-
-### Before First Deploy
-
-- [ ] Create Firebase dev + prod projects
-- [ ] Update `.firebaserc` with project IDs
-- [ ] Deploy Firestore rules: `firebase deploy --only firestore:rules`
-- [ ] Deploy storage rules: `firebase deploy --only storage`
-- [ ] Create Flutterwave test account + get webhook secret
-- [ ] Set up GitHub Secrets (all 8)
-- [ ] Test locally: `npm start`
-
-### Launch
-
-- [ ] Push to `dev` branch → verify workflow runs
-- [ ] Test payment flow locally
-- [ ] Push to `main` branch → approve → deploy to prod
-- [ ] Verify production endpoints in Firebase Console
-- [ ] Monitor Cloud Functions logs: `firebase functions:log --project=prod`
-
-### Post-Launch
-
-- [ ] Monitor best sellers caching job
-- [ ] Check for webhook failures
-- [ ] Review user uploads and flagged content
-- [ ] Track payment success rate
-
----
-
-## 📞 Support
-
-### Common Commands
-
-```bash
-# Deploy everything
-firebase deploy --project=dev
-
-# Deploy only functions
-firebase deploy --only functions --project=dev
-
-# View logs
-firebase functions:log --project=prod
-
-# Emulator
-firebase emulators:start
-
-# List functions
-firebase functions:list --project=prod
-
-# Delete function
-firebase functions:delete functionName --project=prod
-```
-
-### Getting Help
-
-- **Firebase Docs:** https://firebase.google.com/docs
-- **Expo Docs:** https://docs.expo.dev
-- **Flutterwave Docs:** https://developer.flutterwave.com
-- **GitHub Actions:** https://github.com/features/actions
-
----
-
-## 📄 License
-
-MIT
-
----
-
-**Last Updated:** March 2026  
-**Status:** Production Ready ✅
+**Jest Expo Import Crashes**
+Our `package.json` natively remaps the `expo/src/winter` polyfills and standardizes tests through `__mocks__/firebase.ts` to prevent UI native bindings from destroying Node test runs. If adding new modules (e.g., `expo-apple-authentication`), you must mock them globally first inside test setups.
