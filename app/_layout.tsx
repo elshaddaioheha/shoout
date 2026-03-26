@@ -1,6 +1,6 @@
 import GlobalToast from '@/components/GlobalToast';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { Poppins_400Regular, Poppins_600SemiBold, Poppins_700Bold, useFonts } from '@expo-google-fonts/poppins';
+import { Poppins_400Regular, Poppins_500Medium, Poppins_600SemiBold, Poppins_700Bold, useFonts } from '@expo-google-fonts/poppins';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack, useRouter } from 'expo-router';
@@ -8,6 +8,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useEffect, useRef, useState } from 'react';
+import { Platform } from 'react-native';
 import 'react-native-reanimated';
 import { auth } from '../firebaseConfig';
 import { hydrateSubscriptionTier } from '@/utils/subscriptionVerification';
@@ -34,6 +35,7 @@ export default function RootLayout() {
 
   const [loaded, error] = useFonts({
     'Poppins-Regular': Poppins_400Regular,
+    'Poppins-Medium': Poppins_500Medium,
     'Poppins-SemiBold': Poppins_600SemiBold,
     'Poppins-Bold': Poppins_700Bold,
   });
@@ -66,16 +68,12 @@ export default function RootLayout() {
         useUserStore.getState().setName(displayName);
 
         // Only navigate if the auth screen hasn't already redirected.
-        // login.tsx / signup.tsx set authNavigationHandled.current = true
-        // before calling router.replace() so we skip this to avoid a
-        // double-navigation race condition.
         if (!authNavigationHandled.current) {
           router.replace('/(tabs)');
         }
-        authNavigationHandled.current = false; // reset for the next event
+        authNavigationHandled.current = false;
       } else {
         // No authenticated user — redirect to login on initial load only.
-        // Subsequent sign-outs are handled by the logout handler directly.
         if (isFirstAuthEvent.current) {
           router.replace('/(auth)/login');
         }
@@ -85,7 +83,23 @@ export default function RootLayout() {
       setAuthResolved(true);
     });
 
-    return unsub;
+    // Safety timeout: if Firebase auth doesn't respond within 5 seconds
+    // (common on web due to network/CORS issues), force the app to render
+    // so the user isn't stuck on a blank screen.
+    const authTimeout = setTimeout(() => {
+      setAuthResolved((prev) => {
+        if (!prev) {
+          console.warn('[layout] Auth timeout — forcing render. User may not be logged in.');
+          router.replace('/(auth)/login');
+        }
+        return true;
+      });
+    }, 3000);
+
+    return () => {
+      unsub();
+      clearTimeout(authTimeout);
+    };
   }, [router, setVerifying]);
 
   useEffect(() => {
@@ -93,18 +107,22 @@ export default function RootLayout() {
       SplashScreen.hideAsync();
     }
 
-    // Configure Google Sign-In
-    const googleWebClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID?.trim();
-    if (!googleWebClientId) {
-      console.warn('Google Sign-In not configured: EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID is missing.');
+    // Configure Google Sign-In (native only — web support requires a paid sponsor tier)
+    if (Platform.OS !== 'web') {
+      const googleWebClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID?.trim();
+      if (!googleWebClientId) {
+        console.warn('Google Sign-In not configured: EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID is missing.');
+      }
+      GoogleSignin.configure({
+        webClientId: googleWebClientId || '',
+      });
     }
-
-    GoogleSignin.configure({
-      webClientId: googleWebClientId || '', // Requires Web Client ID from Firebase Console -> Authentication -> Sign-in method -> Google -> Web SDK configuration
-    });
   }, [loaded, error]);
 
-  if ((!loaded && !error) || !authResolved) {
+  // Block render until fonts are ready — but do NOT block on authResolved.
+  // The navigator must be mounted first so that router.replace() calls from
+  // the auth listener (or the timeout) have a Stack to navigate into.
+  if (!loaded && !error) {
     return null;
   }
 

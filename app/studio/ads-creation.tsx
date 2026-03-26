@@ -4,9 +4,9 @@ import { formatUsd } from '@/utils/pricing';
 import { useToastStore } from '@/store/useToastStore';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
-import { ArrowLeft, ChevronDown, Image as ImageIcon, Play, Repeat2, Shuffle, SkipBack, SkipForward, Target } from 'lucide-react-native';
+import { ArrowLeft, ChevronDown, Image as ImageIcon, Megaphone, Play, Repeat2, Shuffle, SkipBack, SkipForward, Target } from 'lucide-react-native';
 import React, { useMemo, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import SettingsHeader from '@/components/settings/SettingsHeader';
 
 type StepCard = {
@@ -73,9 +73,14 @@ const STEP_TITLES = {
 
 export default function AdsCreationScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ step?: string }>();
+  const params = useLocalSearchParams<{ step?: string; trackId?: string; trackTitle?: string; coverUrl?: string }>();
   const paramStep = Number(params.step || '1');
   const step = paramStep >= 1 && paramStep <= 5 ? paramStep : 1;
+
+  // Track context — set when launched from the upload success splash
+  const promotingTrackId = params.trackId || '';
+  const promotingTrackTitle = params.trackTitle || '';
+  const promotingTrackCoverUrl = params.coverUrl || '';
 
   const [selectedGoal, setSelectedGoal] = useState<string>('');
   const [selectedType, setSelectedType] = useState<string>('');
@@ -83,7 +88,9 @@ export default function AdsCreationScreen() {
   const [location, setLocation] = useState(LOCATIONS[0]);
   const [budget, setBudget] = useState(BUDGETS[0]);
   const [duration, setDuration] = useState(DURATIONS[1]);
-  const [headline, setHeadline] = useState('New Heat out now!!!');
+  const [headline, setHeadline] = useState(
+    promotingTrackTitle ? `Listen to "${promotingTrackTitle}" now!` : 'New Heat out now!!!'
+  );
   const [walletSelected, setWalletSelected] = useState(true);
   const [saving, setSaving] = useState(false);
   const { showToast } = useToastStore();
@@ -145,6 +152,8 @@ export default function AdsCreationScreen() {
         headline,
         paymentMethod: walletSelected ? 'wallet' : 'card',
         status: 'active',
+        // Link to the promoted track when launched from upload success
+        ...(promotingTrackId ? { trackId: promotingTrackId, trackTitle: promotingTrackTitle } : {}),
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
@@ -186,6 +195,15 @@ export default function AdsCreationScreen() {
           style={{ paddingHorizontal: 0 }}
         />
 
+        {/* Track context banner — shown when promoting a specific track */}
+        {promotingTrackTitle ? (
+          <View style={styles.trackBanner}>
+            <Megaphone size={14} color="#EC5C39" />
+            <Text style={styles.trackBannerText} numberOfLines={1}>
+              Promoting: <Text style={{ color: '#EC5C39' }}>{promotingTrackTitle}</Text>
+            </Text>
+          </View>
+        ) : null}
         <View style={styles.stepWrap}>
           <Text style={styles.stepTitle}>{STEP_TITLES[step as 1 | 2 | 3 | 4 | 5].title}</Text>
           <Text style={styles.stepSub}>{STEP_TITLES[step as 1 | 2 | 3 | 4 | 5].subtitle}</Text>
@@ -213,17 +231,23 @@ export default function AdsCreationScreen() {
             <LabeledField label="Day" value={duration} onPress={() => cycleChoice(duration, DURATIONS, setDuration)} />
 
             <Text style={styles.previewTitle}>Preview</Text>
-            <CompactAdPreview headline={headline} />
+            <CompactAdPreview headline={headline} trackTitle={promotingTrackTitle} coverUrl={promotingTrackCoverUrl} />
           </View>
         ) : null}
 
         {step === 4 ? (
           <View style={styles.sectionWrap}>
             <Text style={styles.formLabel}>Add Image</Text>
-            <TouchableOpacity style={styles.uploadBox} activeOpacity={0.9} onPress={() => showToast('Image upload coming soon', 'info')}>
-              <ImageIcon size={28} color="#737373" />
-              <Text style={styles.uploadText}>Upload img Jpegs and Pngs only</Text>
-            </TouchableOpacity>
+            {promotingTrackCoverUrl ? (
+                <View style={[styles.uploadBox, { overflow: 'hidden' }]}>
+                    <Image source={{ uri: promotingTrackCoverUrl }} style={{ width: '100%', height: '100%' }} />
+                </View>
+            ) : (
+                <TouchableOpacity style={styles.uploadBox} activeOpacity={0.9} onPress={() => showToast('Image upload coming soon', 'info')}>
+                  <ImageIcon size={28} color="#737373" />
+                  <Text style={styles.uploadText}>Upload img Jpegs and Pngs only</Text>
+                </TouchableOpacity>
+            )}
 
             <Text style={styles.formLabel}>Headline</Text>
             <View style={styles.inputWrap}>
@@ -238,7 +262,11 @@ export default function AdsCreationScreen() {
             </View>
 
             <Text style={styles.previewTitle}>Preview</Text>
-            {showAudioPreview ? <AudioAdPreview /> : <CompactAdPreview headline={headline} />}
+            {showAudioPreview ? (
+                <AudioAdPreview trackTitle={promotingTrackTitle} coverUrl={promotingTrackCoverUrl} />
+            ) : (
+                <CompactAdPreview headline={headline} trackTitle={promotingTrackTitle} coverUrl={promotingTrackCoverUrl} />
+            )}
           </View>
         ) : null}
 
@@ -347,15 +375,19 @@ function LabeledField({ label, value, onPress }: { label: string; value: string;
   );
 }
 
-function CompactAdPreview({ headline }: { headline: string }) {
+function CompactAdPreview({ headline, trackTitle, coverUrl }: { headline: string; trackTitle?: string; coverUrl?: string }) {
   return (
     <View style={styles.compactPreview}>
       <View style={styles.compactLeft}>
-        <View style={styles.previewImage} />
+        {coverUrl ? (
+            <Image source={{ uri: coverUrl }} style={styles.previewImage} />
+        ) : (
+            <View style={styles.previewImage} />
+        )}
         <View style={styles.previewTextWrap}>
           <Text style={styles.sponsoredText}>Sponsored</Text>
           <Text style={styles.previewHeadline} numberOfLines={1}>{headline || 'New Heat out now!!!'}</Text>
-          <Text style={styles.previewSub} numberOfLines={1}>Check out Wizkid latest single</Text>
+          <Text style={styles.previewSub} numberOfLines={1}>{trackTitle ? `Check out ${trackTitle}` : 'Check out Wizkid latest single'}</Text>
         </View>
       </View>
       <View style={styles.listenBtn}>
@@ -365,11 +397,15 @@ function CompactAdPreview({ headline }: { headline: string }) {
   );
 }
 
-function AudioAdPreview() {
+function AudioAdPreview({ trackTitle, coverUrl }: { trackTitle?: string; coverUrl?: string }) {
   return (
     <View style={styles.audioWrap}>
-      <View style={styles.audioCover} />
-      <Text style={styles.audioTitle}>Ojoro</Text>
+      {coverUrl ? (
+          <Image source={{ uri: coverUrl }} style={styles.audioCover} />
+      ) : (
+          <View style={styles.audioCover} />
+      )}
+      <Text style={styles.audioTitle}>{trackTitle || 'Ojoro'}</Text>
       <Text style={styles.audioArtist}>Sounds of Salem</Text>
 
       <View style={styles.waveRow}>
@@ -414,6 +450,24 @@ function cycleChoice(current: string, list: string[], setter: (value: string) =>
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#140F10' },
   content: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 140 },
+  trackBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(236,92,57,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(236,92,57,0.3)',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 4,
+  },
+  trackBannerText: {
+    color: 'rgba(255,255,255,0.8)',
+    fontFamily: 'Poppins-Regular',
+    fontSize: 12,
+    flex: 1,
+  },
   profileDot: {
     width: 33,
     height: 35,

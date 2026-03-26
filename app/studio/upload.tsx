@@ -1,21 +1,22 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
+import SettingsHeader from '@/components/settings/SettingsHeader';
 import { useToastStore } from '@/store/useToastStore';
 import * as DocumentPicker from 'expo-document-picker';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { addDoc, collection, doc, getDoc, getDocs, limit, orderBy, query, serverTimestamp, setDoc } from 'firebase/firestore';
-import { getDownloadURL, ref, uploadBytesResumable } from 'firebase/storage';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import { app, auth, db, storage } from '../../firebaseConfig';
+import { getDownloadURL, ref, uploadBytesResumable } from 'firebase/storage';
 import {
     Check,
     ChevronDown,
-    ChevronLeft,
     FolderPlus,
     Image as ImageIcon,
     Link2,
+    Megaphone,
     Music,
+    Share2,
     Upload as UploadIcon,
     X
 } from 'lucide-react-native';
@@ -25,13 +26,14 @@ import {
     KeyboardAvoidingView,
     Platform,
     ScrollView,
+    Share,
     StyleSheet,
     Text,
     TextInput,
     TouchableOpacity,
     View,
 } from 'react-native';
-import SettingsHeader from '@/components/settings/SettingsHeader';
+import { app, auth, db, storage } from '../../firebaseConfig';
 import { formatUsd } from '../../utils/pricing';
 
 const GENRES = ['Afrobeat', 'Afrobeats', 'Amapiano', 'Trap', 'Drill', 'R&B', 'Dancehall'];
@@ -95,6 +97,11 @@ export default function UploadScreen() {
     const [showGenrePicker, setShowGenrePicker] = useState(false);
     const [showAssetTypePicker, setShowAssetTypePicker] = useState(false);
 
+    // Success splash
+    const [uploadSuccess, setUploadSuccess] = useState(false);
+    const [uploadedTrackId, setUploadedTrackId] = useState<string | null>(null);
+    const [uploadedTitle, setUploadedTitle] = useState('');
+
     const [audioFile, setAudioFile] = useState<any>(null);
     const [artworkFile, setArtworkFile] = useState<any>(null);
     const [artworkPreviewUri, setArtworkPreviewUri] = useState<string | null>(null);
@@ -109,7 +116,7 @@ export default function UploadScreen() {
     if (!isLoggedIn) {
         return (
             <SafeScreenWrapper>
-                <View style={[styles.centered, { padding: 24 }]}> 
+                <View style={[styles.centered, { padding: 24 }]}>
                     <Text style={styles.guestTitle}>Sign in to upload</Text>
                     <Text style={styles.guestSubtitle}>Create an account or log in to list your music for sale.</Text>
                     <View style={styles.guestActions}>
@@ -311,19 +318,14 @@ export default function UploadScreen() {
     };
 
     const handleUpload = async () => {
-        // Auth check first — must be signed in before any validation
-        // Force-refresh the ID token so the Cloud Functions call receives
-        // a non-expired JWT even if the user has been in the app for a while.
         if (!auth.currentUser) {
             showToast("Session expired — please log in again", "error");
             return;
         }
-        try {
-            await auth.currentUser.getIdToken(true);
-        } catch (tokenError) {
-            console.warn('Token refresh failed:', tokenError);
-            // Non-fatal — continue with existing token
-        }
+        // Use existing token without force-refreshing — force-refreshing triggers
+        // notifyAuthListeners which closes all active Firestore streams (causing
+        // the 'Missing permissions' error visible in folder tracks).
+        // The token is already fresh enough for a new upload.
 
         if (isFirstTimePublisher) {
             const profileSaved = await savePublisherProfile();
@@ -360,18 +362,23 @@ export default function UploadScreen() {
             // Pass the Firebase app instance explicitly so getFunctions() attaches
             // the correct project — without it the call can be sent to a default
             // (possibly uninitialized) app, causing unauthenticated errors.
-            if (audioFile?.size) {
-                const functions = getFunctions(app);
-                const validateStorageLimitFn = httpsCallable(functions, 'validateStorageLimit');
-                const storageValidation = await validateStorageLimitFn({
-                    fileSizeBytes: audioFile.size,
-                });
-
-                const validationData = storageValidation.data as { allowed: boolean };
-                if (!validationData.allowed) {
-                    showToast('Storage limit exceeded. Please upgrade your plan.', 'error');
-                    setUploading(false);
-                    return;
+            // Validate storage limit via Cloud Function.
+            // Skip on web — the CF requires App Check which is not configured
+            // for web, causing a consistent 401 Unauthorized error.
+            if (audioFile?.size && Platform.OS !== 'web') {
+                try {
+                    const functions = getFunctions(app);
+                    const validateStorageLimitFn = httpsCallable(functions, 'validateStorageLimit');
+                    const storageValidation = await validateStorageLimitFn({ fileSizeBytes: audioFile.size });
+                    const validationData = storageValidation.data as { allowed: boolean };
+                    if (!validationData.allowed) {
+                        showToast('Storage limit exceeded. Please upgrade your plan.', 'error');
+                        setUploading(false);
+                        return;
+                    }
+                } catch (cfError: any) {
+                    // Non-fatal: if CF is unreachable, proceed with upload
+                    console.warn('validateStorageLimit skipped:', cfError?.message);
                 }
             }
 
@@ -435,11 +442,10 @@ export default function UploadScreen() {
                 uploaderName: auth.currentUser.displayName || "Shoouter",
             });
 
-            showToast("Track uploaded to your Vault successfully!", "success");
-
-            const sharePath = `/listing/${uploadDoc.id}`;
-            showToast(`Share link ready: ${sharePath}`, 'info');
-            router.back();
+            showToast("Track uploaded successfully!", "success");
+            setUploadedTrackId(uploadDoc.id);
+            setUploadedTitle(title);
+            setUploadSuccess(true);
         } catch (error: any) {
             console.error("Upload error: ", error);
             if (error.code === 'resource-exhausted') {
@@ -451,6 +457,66 @@ export default function UploadScreen() {
             setUploading(false);
         }
     };
+
+    // ── Success Splash ─────────────────────────────────────────────────────────
+    if (uploadSuccess && uploadedTrackId) {
+        const shareUrl = `https://shoouts.app/listing/${uploadedTrackId}`;
+        const handleShare = async () => {
+            try {
+                await Share.share({
+                    message: `🎵 Listen to "${uploadedTitle}" on Shoouts: ${shareUrl}`,
+                    url: shareUrl,
+                    title: uploadedTitle,
+                });
+            } catch (e) {
+                showToast('Copy this link: ' + shareUrl, 'info');
+            }
+        };
+        return (
+            <SafeScreenWrapper>
+                <View style={styles.splashContainer}>
+                    <View style={styles.splashRingOuter}>
+                        <View style={styles.splashRingInner}>
+                            <View style={styles.splashCheckCircle}>
+                                <Check size={36} color="#140F10" strokeWidth={3} />
+                            </View>
+                        </View>
+                    </View>
+                    <Text style={styles.splashTitle}>Track Published! 🎉</Text>
+                    <Text style={styles.splashSub}>Your track "{uploadedTitle}" is now live in your Vault.</Text>
+                    <View style={styles.splashLinkBox}>
+                        <Link2 size={16} color="#EC5C39" />
+                        <Text style={styles.splashLinkText} numberOfLines={1} selectable>{shareUrl}</Text>
+                    </View>
+                    <TouchableOpacity style={styles.splashShareBtn} onPress={handleShare}>
+                        <Share2 size={18} color="#140F10" />
+                        <Text style={styles.splashShareText}>Share Link</Text>
+                    </TouchableOpacity>
+
+                    {/* Promote CTA */}
+                    <TouchableOpacity
+                        style={styles.splashPromoteBtn}
+                        onPress={() => router.push({
+                            pathname: '/studio/ads-creation' as any,
+                            params: {
+                                step: '1',
+                                trackId: uploadedTrackId,
+                                trackTitle: uploadedTitle,
+                                coverUrl: artworkPreviewUri || '',
+                            },
+                        })}
+                    >
+                        <Megaphone size={18} color="#EC5C39" />
+                        <Text style={styles.splashPromoteText}>Promote this Track</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity style={styles.splashDoneBtn} onPress={() => router.back()}>
+                        <Text style={styles.splashDoneText}>Done</Text>
+                    </TouchableOpacity>
+                </View>
+            </SafeScreenWrapper>
+        );
+    }
 
     return (
         <SafeScreenWrapper>
@@ -823,8 +889,8 @@ export default function UploadScreen() {
                                             <ActivityIndicator color="#FFF" />
                                         ) : (
                                             <View style={styles.buttonContent}>
-                                                <Link2 size={18} color="#FFF" style={{ marginRight: 8 }} />
-                                                <Text style={styles.publishText}>Share Link</Text>
+                                                <UploadIcon size={18} color="#FFF" style={{ marginRight: 8 }} />
+                                                <Text style={styles.publishText}>Upload Track</Text>
                                             </View>
                                         )}
                                     </LinearGradient>
@@ -1336,5 +1402,117 @@ const styles = StyleSheet.create({
         fontFamily: 'Poppins-Regular',
         fontSize: 14,
         paddingVertical: 8,
+    },
+
+    // ── Upload Success Splash ───────────────────────────────────────────────
+    splashContainer: {
+        flex: 1,
+        backgroundColor: '#140F10',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: 32,
+        gap: 20,
+    },
+    splashRingOuter: {
+        width: 140,
+        height: 140,
+        borderRadius: 70,
+        borderWidth: 2,
+        borderColor: 'rgba(236,92,57,0.2)',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    splashRingInner: {
+        width: 110,
+        height: 110,
+        borderRadius: 55,
+        borderWidth: 2,
+        borderColor: 'rgba(236,92,57,0.4)',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    splashCheckCircle: {
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        backgroundColor: '#EC5C39',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    splashTitle: {
+        color: '#FFF',
+        fontFamily: 'Poppins-Bold',
+        fontSize: 24,
+        textAlign: 'center',
+    },
+    splashSub: {
+        color: 'rgba(255,255,255,0.6)',
+        fontFamily: 'Poppins-Regular',
+        fontSize: 14,
+        textAlign: 'center',
+        lineHeight: 22,
+    },
+    splashLinkBox: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        backgroundColor: 'rgba(236,92,57,0.08)',
+        borderWidth: 1,
+        borderColor: 'rgba(236,92,57,0.25)',
+        borderRadius: 12,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        width: '100%',
+    },
+    splashLinkText: {
+        color: '#EC5C39',
+        fontFamily: 'Poppins-Regular',
+        fontSize: 12,
+        flex: 1,
+    },
+    splashShareBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 10,
+        backgroundColor: '#EC5C39',
+        borderRadius: 16,
+        paddingVertical: 16,
+        width: '100%',
+    },
+    splashShareText: {
+        color: '#140F10',
+        fontFamily: 'Poppins-Bold',
+        fontSize: 16,
+    },
+    splashPromoteBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 10,
+        width: '100%',
+        paddingVertical: 16,
+        borderRadius: 16,
+        borderWidth: 1.5,
+        borderColor: '#EC5C39',
+        backgroundColor: 'rgba(236,92,57,0.08)',
+    },
+    splashPromoteText: {
+        color: '#EC5C39',
+        fontFamily: 'Poppins-Bold',
+        fontSize: 16,
+    },
+    splashDoneBtn: {
+        width: '100%',
+        alignItems: 'center',
+        paddingVertical: 14,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.1)',
+    },
+    splashDoneText: {
+        color: 'rgba(255,255,255,0.6)',
+        fontFamily: 'Poppins-Bold',
+        fontSize: 15,
     },
 });

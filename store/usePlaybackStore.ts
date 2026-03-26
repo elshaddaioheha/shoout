@@ -21,6 +21,12 @@ interface PlaybackState {
   volume: number;
   sound: Audio.Sound | null;
   repeatActive: boolean;
+  
+  // Playlist queue
+  queue: Track[];
+  currentTrackIndex: number;
+  shuffleActive: boolean;
+  shuffledQueue: Track[];
 
   // Actions
   setTrack: (track: Track) => Promise<void>;
@@ -31,6 +37,13 @@ interface PlaybackState {
   setVolume: (volume: number) => Promise<void>;
   clearTrack: () => Promise<void>;
   setRepeat: (value: boolean) => void;
+  
+  // Playlist actions
+  initializePlaylist: (tracks: Track[], startIndex?: number, shuffle?: boolean) => Promise<void>;
+  playNextTrack: () => Promise<void>;
+  playPreviousTrack: () => Promise<void>;
+  setShuffleMode: (enabled: boolean) => Promise<void>;
+  playTrackAtIndex: (index: number) => Promise<void>;
 }
 
 export const usePlaybackStore = create<PlaybackState>((set, get) => ({
@@ -42,6 +55,10 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => ({
   volume: 1.0,
   sound: null,
   repeatActive: false,
+  queue: [],
+  currentTrackIndex: -1,
+  shuffleActive: false,
+  shuffledQueue: [],
 
   setTrack: async (track: Track) => {
     const { sound: currentSound } = get();
@@ -82,13 +99,23 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => ({
           });
 
           if (status.didJustFinish) {
-            const { repeatActive, sound: s } = get();
-            if (repeatActive && s) {
-              // Restart from beginning
-              s.setPositionAsync(0).then(() => s.playAsync());
+            const { queue, repeatActive } = get();
+            
+            // If we have a playlist queue, play the next track
+            if (queue.length > 0) {
+              get().playNextTrack().catch(err => console.error('Auto-play next failed:', err));
             } else {
-              // Stop and reset position
-              set({ isPlaying: false, position: 0 });
+              // No playlist - handle repeat or stop
+              if (repeatActive) {
+                // Restart from beginning
+                const sound = get().sound;
+                if (sound) {
+                  sound.setPositionAsync(0).then(() => sound.playAsync());
+                }
+              } else {
+                // Stop and reset position
+                set({ isPlaying: false, position: 0 });
+              }
             }
           }
         }
@@ -173,5 +200,110 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => ({
       } catch (_) { }
     }
     set({ currentTrack: null, sound: null, isPlaying: false, position: 0, duration: 0 });
+  },
+
+  // Playlist management
+  initializePlaylist: async (tracks: Track[], startIndex = 0, shuffle = false) => {
+    if (tracks.length === 0) return;
+
+    let queueToUse = [...tracks];
+    let shuffledIndexes = [];
+
+    if (shuffle) {
+      // Fisher-Yates shuffle for the queue
+      shuffledIndexes = Array.from({ length: queueToUse.length }, (_, i) => i);
+      for (let i = shuffledIndexes.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffledIndexes[i], shuffledIndexes[j]] = [shuffledIndexes[j], shuffledIndexes[i]];
+      }
+      queueToUse = shuffledIndexes.map(idx => tracks[idx]);
+    }
+
+    const trackToPlay = queueToUse[0];
+    set({
+      queue: tracks,
+      currentTrackIndex: shuffle ? shuffledIndexes[0] : startIndex,
+      shuffleActive: shuffle,
+      shuffledQueue: shuffle ? queueToUse : [],
+    });
+
+    // Play the first track
+    await get().setTrack(trackToPlay);
+  },
+
+  playTrackAtIndex: async (index: number) => {
+    const { queue, shuffleActive, shuffledQueue } = get();
+    const trackList = shuffleActive ? shuffledQueue : queue;
+
+    if (index < 0 || index >= trackList.length) return;
+
+    const track = trackList[index];
+    set({ currentTrackIndex: index });
+    await get().setTrack(track);
+  },
+
+  playNextTrack: async () => {
+    const { queue, currentTrackIndex, shuffleActive, shuffledQueue, repeatActive } = get();
+    const trackList = shuffleActive ? shuffledQueue : queue;
+
+    if (trackList.length === 0) return;
+
+    let nextIndex = currentTrackIndex + 1;
+
+    // Handle end of playlist
+    if (nextIndex >= trackList.length) {
+      if (repeatActive) {
+        nextIndex = 0; // Loop back to beginning
+      } else {
+        // Stop playback at end
+        await get().clearTrack();
+        set({ currentTrackIndex: -1 });
+        return;
+      }
+    }
+
+    await get().playTrackAtIndex(nextIndex);
+  },
+
+  playPreviousTrack: async () => {
+    const { currentTrackIndex, position, shuffleActive, shuffledQueue, queue } = get();
+    const trackList = shuffleActive ? shuffledQueue : queue;
+
+    if (trackList.length === 0) return;
+
+    // If more than 3 seconds in, restart current track; otherwise go to previous
+    if (position > 3000) {
+      await get().seekTo(0);
+      return;
+    }
+
+    if (currentTrackIndex > 0) {
+      await get().playTrackAtIndex(currentTrackIndex - 1);
+    }
+  },
+
+  setShuffleMode: async (enabled: boolean) => {
+    const { queue, currentTrack, currentTrackIndex, shuffledQueue } = get();
+
+    if (queue.length === 0) return;
+
+    if (enabled && !shuffledQueue.length) {
+      // Enable shuffle: create a shuffled queue
+      const indexes = Array.from({ length: queue.length }, (_, i) => i);
+      for (let i = indexes.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [indexes[i], indexes[j]] = [indexes[j], indexes[i]];
+      }
+      const newShuffledQueue = indexes.map(idx => queue[idx]);
+      set({ shuffleActive: true, shuffledQueue: newShuffledQueue, currentTrackIndex: 0 });
+    } else if (!enabled) {
+      // Disable shuffle: revert to original queue with current track position
+      const indexInOriginal = currentTrack ? queue.findIndex(t => t.id === currentTrack.id) : currentTrackIndex;
+      set({
+        shuffleActive: false,
+        shuffledQueue: [],
+        currentTrackIndex: indexInOriginal >= 0 ? indexInOriginal : 0,
+      });
+    }
   },
 }));

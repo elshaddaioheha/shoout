@@ -9,7 +9,7 @@ import { useRouter } from 'expo-router';
 import { PayWithFlutterwave } from 'flutterwave-react-native';
 import { Check, CreditCard, PartyPopper, ShieldCheck, Sparkles, Star, ChevronLeft } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, Animated, Modal, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Animated, Modal, Platform, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 
 const SUBSCRIPTION_VERIFY_URL = process.env.EXPO_PUBLIC_SUBSCRIPTION_VERIFY_URL;
 
@@ -325,37 +325,48 @@ export default function SubscriptionsScreen() {
                                 Total: {formatUsd(isAnnual ? (selectedPlan?.annualTotalUsd ?? 0) : (selectedPlan?.monthlyPriceUsd ?? 0))} (NGN {usdToNgn(isAnnual ? (selectedPlan?.annualTotalUsd ?? 0) : (selectedPlan?.monthlyPriceUsd ?? 0)).toLocaleString()} via Flutterwave)
                             </Text>
 
-                            <PayWithFlutterwave
-                                onRedirect={(data) => {
-                                    setShowPaymentModal(false);
-                                    if (data.status === 'successful' && selectedPlan) {
-                                        const txRef = data?.tx_ref || pendingTxRef;
-                                        handlePaymentVerifiedUpgrade(selectedPlan.id, txRef);
-                                    } else {
-                                        Alert.alert('Payment not completed', 'Your payment was not successful.');
-                                    }
-                                }}
-                                options={{
-                                    tx_ref: pendingTxRef || buildSubscriptionTxRef(),
-                                    authorization: process.env.EXPO_PUBLIC_FLUTTERWAVE_PUBLIC_KEY || "FLWPUBK_TEST-dummy-X",
-                                    customer: {
-                                        email: auth.currentUser?.email || "customer@shoouts.com"
-                                    },
-                                    amount: usdToNgn(isAnnual ? (selectedPlan?.annualTotalUsd ?? 0) : (selectedPlan?.monthlyPriceUsd ?? 0)),
-                                    currency: 'NGN',
-                                    payment_options: 'card'
-                                }}
-                                customButton={(props) => (
-                                    <TouchableOpacity style={styles.paymentOption} onPress={props.onPress} disabled={props.disabled}>
-                                        <CreditCard color="#EC5C39" size={24} />
-                                        <View style={styles.payOptionTexts}>
-                                            <Text style={styles.payOptionTitle}>Pay with Flutterwave</Text>
-                                            <Text style={styles.payOptionSub}>Secured localized payment (NGN)</Text>
-                                        </View>
-                                        <ChevronLeft size={20} color="rgba(255,255,255,0.2)" style={{ transform: [{ rotate: '180deg' }] }} />
-                                    </TouchableOpacity>
-                                )}
-                            />
+                            {Platform.OS === 'web' ? (
+                                <View style={styles.webPaymentNotice}>
+                                    <CreditCard color="#EC5C39" size={28} />
+                                    <Text style={styles.webPaymentTitle}>Mobile Payment Required</Text>
+                                    <Text style={styles.webPaymentSub}>
+                                        Flutterwave payments are not supported in the browser.{"\n"}
+                                        Please open the Shoouts app on your Android or iOS device to subscribe.
+                                    </Text>
+                                </View>
+                            ) : (
+                                <PayWithFlutterwave
+                                    onRedirect={(data) => {
+                                        setShowPaymentModal(false);
+                                        if (data.status === 'successful' && selectedPlan) {
+                                            const txRef = data?.tx_ref || pendingTxRef;
+                                            handlePaymentVerifiedUpgrade(selectedPlan.id, txRef);
+                                        } else {
+                                            Alert.alert('Payment not completed', 'Your payment was not successful.');
+                                        }
+                                    }}
+                                    options={{
+                                        tx_ref: pendingTxRef || buildSubscriptionTxRef(),
+                                        authorization: process.env.EXPO_PUBLIC_FLUTTERWAVE_PUBLIC_KEY || "FLWPUBK_TEST-dummy-X",
+                                        customer: {
+                                            email: auth.currentUser?.email || "customer@shoouts.com"
+                                        },
+                                        amount: usdToNgn(isAnnual ? (selectedPlan?.annualTotalUsd ?? 0) : (selectedPlan?.monthlyPriceUsd ?? 0)),
+                                        currency: 'NGN',
+                                        payment_options: 'card'
+                                    }}
+                                    customButton={(props) => (
+                                        <TouchableOpacity style={styles.paymentOption} onPress={props.onPress} disabled={props.disabled}>
+                                            <CreditCard color="#EC5C39" size={24} />
+                                            <View style={styles.payOptionTexts}>
+                                                <Text style={styles.payOptionTitle}>Pay with Flutterwave</Text>
+                                                <Text style={styles.payOptionSub}>Secured localized payment (NGN)</Text>
+                                            </View>
+                                            <ChevronLeft size={20} color="rgba(255,255,255,0.2)" style={{ transform: [{ rotate: '180deg' }] }} />
+                                        </TouchableOpacity>
+                                    )}
+                                />
+                            )}
 
                             <TouchableOpacity style={[styles.paymentOption, { marginBottom: 10 }]} onPress={handleStripePayment}>
                                 <CreditCard color="#635BFF" size={24} />
@@ -590,5 +601,19 @@ const styles = StyleSheet.create({
         backgroundColor: '#140F10'
     },
     splashTitle: { color: '#FFF', fontSize: 28, fontFamily: 'Poppins-Bold', textAlign: 'center', marginHorizontal: 20 },
-    splashSub: { color: '#FFD700', fontSize: 16, fontFamily: 'Poppins-Medium', textAlign: 'center', marginTop: 10, marginHorizontal: 20 }
+    splashSub: { color: '#FFD700', fontSize: 16, fontFamily: 'Poppins-Medium', textAlign: 'center', marginTop: 10, marginHorizontal: 20 },
+
+    // Web-only: Flutterwave CORS notice
+    webPaymentNotice: {
+        backgroundColor: 'rgba(236, 92, 57, 0.08)',
+        borderWidth: 1,
+        borderColor: 'rgba(236, 92, 57, 0.25)',
+        borderRadius: 16,
+        padding: 20,
+        alignItems: 'center',
+        marginBottom: 16,
+        gap: 10,
+    },
+    webPaymentTitle: { fontSize: 16, fontFamily: 'Poppins-Bold', color: '#FFF', textAlign: 'center' },
+    webPaymentSub: { fontSize: 13, fontFamily: 'Poppins-Regular', color: 'rgba(255,255,255,0.6)', textAlign: 'center', lineHeight: 20 },
 });

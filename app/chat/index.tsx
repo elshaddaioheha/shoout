@@ -82,7 +82,7 @@ export default function ChatListScreen() {
         return (
             <TouchableOpacity
                 style={styles.chatCard}
-                onPress={() => router.push({ pathname: '/chat/[id]', params: { id: otherUserId } })}
+                onPress={() => router.push({ pathname: '/chat/[id]', params: { id: otherUserId || '' } })}
             >
                 <View style={styles.avatarContainer}>
                     <View style={styles.avatar}>

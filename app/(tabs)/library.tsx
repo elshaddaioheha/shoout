@@ -663,8 +663,13 @@ function StatCard({ title, value }: { title: string; value: string }) {
 }
 
 function FolderCard({ folder }: { folder: VaultFolder }) {
+  const router = useRouter();
   return (
-    <View style={styles.cardItem}>
+    <TouchableOpacity
+      style={styles.cardItem}
+      activeOpacity={0.8}
+      onPress={() => router.push({ pathname: '/vault/folder/[id]', params: { id: folder.id, name: folder.name } } as any)}
+    >
       <View style={styles.folderVisual}>
         <View style={styles.folderBack} />
         <View style={styles.folderFront}>
@@ -677,7 +682,7 @@ function FolderCard({ folder }: { folder: VaultFolder }) {
       </View>
       <Text style={styles.cardTitle} numberOfLines={1}>{folder.name}</Text>
       <Text style={styles.cardMeta}>Upload {formatDate(folder.createdAt)}</Text>
-    </View>
+    </TouchableOpacity>
   );
 }
 

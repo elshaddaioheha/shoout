@@ -1,6 +1,8 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
+import SettingsHeader from '@/components/settings/SettingsHeader';
+import { usePlaybackStore } from '@/store/usePlaybackStore';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ChevronLeft, MoreVertical, Play, Shuffle, Heart, ShoppingCart } from 'lucide-react-native';
+import { Heart, MoreVertical, Play, ShoppingCart, Shuffle } from 'lucide-react-native';
 import React, { useMemo } from 'react';
 import { Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
@@ -8,6 +10,7 @@ import { Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } fr
 export default function PlaylistScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
+  const initializePlaylist = usePlaybackStore(state => state.initializePlaylist);
 
   const meta = {
     id: (params.id as string) || 'playlist',
@@ -32,32 +35,66 @@ export default function PlaylistScreen() {
       artist: 'Artist name',
       duration: '3:10',
       price: meta.price,
+      url: '', // Placeholder tracks won't have URLs
     }));
   }, [params.tracks, meta.price]);
 
-  const onPlay = () => {
-    // TODO: hook into existing player / playback store with playlist id
+  const onPlay = async () => {
+    if (tracks.length === 0) {
+      Alert.alert('Error', 'No tracks in this playlist');
+      return;
+    }
+
+    // Filter out tracks without URLs (placeholders)
+    const playableTracks = tracks.filter(t => t.url);
+    if (playableTracks.length === 0) {
+      Alert.alert('Error', 'No playable tracks in this playlist');
+      return;
+    }
+
+    try {
+      await initializePlaylist(playableTracks, 0, false);
+    } catch (error) {
+      console.error('Failed to start playlist:', error);
+      Alert.alert('Error', 'Failed to start playback');
+    }
   };
 
-  const onShuffle = () => {
-    // TODO: hook shuffle into existing player / playback store
+  const onShuffle = async () => {
+    if (tracks.length === 0) {
+      Alert.alert('Error', 'No tracks in this playlist');
+      return;
+    }
+
+    // Filter out tracks without URLs (placeholders)
+    const playableTracks = tracks.filter(t => t.url);
+    if (playableTracks.length === 0) {
+      Alert.alert('Error', 'No playable tracks in this playlist');
+      return;
+    }
+
+    try {
+      await initializePlaylist(playableTracks, 0, true);
+    } catch (error) {
+      console.error('Failed to start shuffled playlist:', error);
+      Alert.alert('Error', 'Failed to start playback');
+    }
   };
 
   return (
     <SafeScreenWrapper>
       <View style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.iconButton}>
-            <ChevronLeft size={22} color="#FFF" />
-          </TouchableOpacity>
-          <View style={{ flex: 1, alignItems: 'center' }}>
-            <Text style={styles.headerTitle}>{meta.title}</Text>
-            <Text style={styles.headerSubtitle}>{meta.subtitle}</Text>
-          </View>
-          <TouchableOpacity style={styles.iconButton} onPress={() => Alert.alert('Coming Soon')}>
-            <MoreVertical size={22} color="#FFF" />
-          </TouchableOpacity>
-        </View>
+        <SettingsHeader
+          title={meta.title}
+          onBack={() => router.back()}
+          rightElement={
+            <TouchableOpacity style={styles.iconButton} onPress={() => Alert.alert('Coming Soon')}>
+              <MoreVertical size={22} color="#FFF" />
+            </TouchableOpacity>
+          }
+          style={{ paddingHorizontal: 0, paddingVertical: 0, marginBottom: 2 }}
+        />
+        {meta.subtitle ? <Text style={styles.headerSubtitle}>{meta.subtitle}</Text> : null}
 
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
           <View style={styles.coverWrap}>
@@ -92,7 +129,23 @@ export default function PlaylistScreen() {
 
           <View style={styles.trackList}>
             {tracks.map((t, idx) => (
-              <View key={t.id || idx} style={styles.trackRow}>
+              <TouchableOpacity
+                key={t.id || idx}
+                style={styles.trackRow}
+                onPress={() => {
+                  if (!t.url) {
+                    Alert.alert('Error', 'This track cannot be played');
+                    return;
+                  }
+                  const playableTracks = tracks.filter(track => track.url);
+                  const trackIndex = playableTracks.findIndex(track => track.id === t.id);
+                  initializePlaylist(playableTracks, trackIndex, false).catch(err => {
+                    console.error('Failed to play track:', err);
+                    Alert.alert('Error', 'Failed to play this track');
+                  });
+                }}
+                activeOpacity={0.7}
+              >
                 <View style={styles.trackInfo}>
                   <View style={styles.trackThumb} />
                   <View style={{ flex: 1 }}>
@@ -109,7 +162,7 @@ export default function PlaylistScreen() {
                     <Heart size={16} color="#EC5C39" />
                   </TouchableOpacity>
                 </View>
-              </View>
+              </TouchableOpacity>
             ))}
           </View>
         </ScrollView>

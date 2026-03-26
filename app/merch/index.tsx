@@ -3,8 +3,9 @@ import Sidebar from '@/components/Sidebar';
 import { db } from '@/firebaseConfig';
 import { formatUsd } from '@/utils/pricing';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
-import { ShoppingBag, Star, Tag } from 'lucide-react-native';
+import { ChevronLeft, ShoppingBag, Star, Tag } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
+import { useRouter } from 'expo-router';
 import {
     ActivityIndicator,
     Dimensions,
@@ -20,6 +21,7 @@ import {
 const { width } = Dimensions.get('window');
 
 export default function MerchStoreScreen() {
+    const router = useRouter();
     const [merch, setMerch] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -43,6 +45,12 @@ export default function MerchStoreScreen() {
         <SafeScreenWrapper>
             <View style={styles.container}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16 }}>
+                    <TouchableOpacity
+                        onPress={() => router.back()}
+                        style={styles.backBtn}
+                    >
+                        <ChevronLeft size={22} color="#FFF" />
+                    </TouchableOpacity>
                     <Text style={{ color: '#FFF', fontSize: 22, fontFamily: 'Poppins-Bold', flex: 1 }}>Merch Store</Text>
                 </View>
 
@@ -119,6 +127,12 @@ function MerchCard({ item }: any) {
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#140F10' },
     center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    backBtn: {
+        width: 38, height: 38, borderRadius: 19,
+        backgroundColor: 'rgba(255,255,255,0.06)',
+        alignItems: 'center', justifyContent: 'center',
+        marginRight: 12,
+    },
     searchBar: {
         flexDirection: 'row',
         alignItems: 'center',
