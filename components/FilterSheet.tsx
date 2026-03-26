@@ -13,9 +13,8 @@
  *   />
  */
 import { BlurView } from 'expo-blur';
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect } from 'react';
 import {
-    Animated,
     Modal,
     ScrollView,
     StyleSheet,
@@ -24,6 +23,12 @@ import {
     TouchableWithoutFeedback,
     View,
 } from 'react-native';
+import Animated, {
+    Easing,
+    useAnimatedStyle,
+    useSharedValue,
+    withTiming,
+} from 'react-native-reanimated';
 
 interface Props {
     visible: boolean;
@@ -43,32 +48,36 @@ export default function FilterSheet({
     categories, selectedCategory, onCategoryChange,
     onReset,
 }: Props) {
-    const slideAnim = useRef(new Animated.Value(400)).current;
-    const fadeAnim = useRef(new Animated.Value(0)).current;
+    const slideAnim = useSharedValue(400);
+    const fadeAnim = useSharedValue(0);
 
     useEffect(() => {
-        if (visible) {
-            Animated.parallel([
-                Animated.timing(slideAnim, { toValue: 0, duration: 240, useNativeDriver: true }),
-                Animated.timing(fadeAnim, { toValue: 1, duration: 240, useNativeDriver: true }),
-            ]).start();
-        } else {
-            Animated.parallel([
-                Animated.timing(slideAnim, { toValue: 400, duration: 200, useNativeDriver: true }),
-                Animated.timing(fadeAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
-            ]).start();
-        }
-    }, [visible]);
+        slideAnim.value = withTiming(visible ? 0 : 400, {
+            duration: visible ? 240 : 200,
+            easing: Easing.out(Easing.cubic),
+        });
+        fadeAnim.value = withTiming(visible ? 1 : 0, {
+            duration: visible ? 240 : 200,
+        });
+    }, [visible, slideAnim, fadeAnim]);
+
+    const overlayAnimatedStyle = useAnimatedStyle(() => ({
+        opacity: fadeAnim.value,
+    }));
+
+    const sheetAnimatedStyle = useAnimatedStyle(() => ({
+        transform: [{ translateY: slideAnim.value }],
+    }));
 
     return (
         <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
             <TouchableWithoutFeedback onPress={onClose}>
-                <Animated.View style={[styles.overlay, { opacity: fadeAnim }]}>
+                <Animated.View style={[styles.overlay, overlayAnimatedStyle]}>
                     <BlurView intensity={24} tint="dark" style={StyleSheet.absoluteFill} />
                 </Animated.View>
             </TouchableWithoutFeedback>
 
-            <Animated.View style={[styles.sheet, { transform: [{ translateY: slideAnim }] }]}>
+            <Animated.View style={[styles.sheet, sheetAnimatedStyle]}>
                 <View style={styles.handle} />
 
                 <View style={styles.sheetHeader}>

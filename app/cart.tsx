@@ -152,12 +152,13 @@ export default function CartScreen() {
     };
 
     const handleCheckout = async () => {
-        if (!auth.currentUser) {
+        const user = auth.currentUser;
+        if (!user) {
             showToast('Please sign in or create an account to complete your purchase.', 'error');
             router.push({ pathname: '/(auth)/login', params: { redirectTo: '/cart' } });
             return;
         }
-        if (!auth.currentUser.email) {
+        if (!user.email) {
             showToast('Email is required to complete payment. Please verify your email in settings.', 'error');
             router.push('/settings/notifications');
             return;
@@ -166,6 +167,9 @@ export default function CartScreen() {
 
         setCheckingOut(true);
         try {
+            // Force-refresh token so callable carries a fresh auth context on web.
+            await user.getIdToken(true);
+
             const functions = getFunctions();
             const createCheckoutSession = httpsCallable(functions, 'createCheckoutSession');
             const result = await createCheckoutSession({
@@ -183,6 +187,11 @@ export default function CartScreen() {
             setShowFWButton(true);
         } catch (error) {
             console.error('Checkout session init failed:', error);
+            if (String((error as any)?.message || '').toLowerCase().includes('authentication required')) {
+                showToast('Session expired. Please sign in again.', 'error');
+                router.push({ pathname: '/(auth)/login', params: { redirectTo: '/cart' } });
+                return;
+            }
             showToast('Unable to initialize secure checkout. Please try again.', 'error');
         } finally {
             setCheckingOut(false);

@@ -2,7 +2,6 @@ import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-    Animated,
     Dimensions,
     ScrollView,
     StatusBar,
@@ -37,48 +36,31 @@ const screens = [
 
 export default function OnboardingFlow() {
     const [currentScreen, setCurrentScreen] = useState(0);
-    const fadeAnim = useRef(new Animated.Value(1)).current;
-    const slideAnim = useRef(new Animated.Value(0)).current;
     const scrollRef = useRef<ScrollView | null>(null);
     const autoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const router = useRouter();
 
     const handleComplete = React.useCallback(() => {
         if (autoTimer.current) {
-            clearInterval(autoTimer.current);
+            clearTimeout(autoTimer.current);
             autoTimer.current = null;
         }
         router.replace('/(auth)/login');
     }, [router]);
 
-    const animateContent = () => {
-        fadeAnim.setValue(0);
-        slideAnim.setValue(20);
-        Animated.parallel([
-            Animated.timing(fadeAnim, { toValue: 1, duration: 250, useNativeDriver: true }),
-            Animated.timing(slideAnim, { toValue: 0, duration: 250, useNativeDriver: true }),
-        ]).start();
-    };
-
-    useEffect(() => {
-        animateContent();
-    }, [currentScreen]);
-
     useEffect(() => {
         if (autoTimer.current) {
             clearTimeout(autoTimer.current);
-            autoTimer.current = null;
         }
 
-        autoTimer.current = setTimeout(() => {
-            if (currentScreen >= screens.length - 1) {
-                handleComplete();
-                return;
-            }
-            const next = currentScreen + 1;
-            setCurrentScreen(next);
-            scrollRef.current?.scrollTo({ x: next * width, animated: true });
-        }, 3000);
+        // Do not auto-advance from the final screen; let user finish manually.
+        if (currentScreen < screens.length - 1) {
+            autoTimer.current = setTimeout(() => {
+                const next = currentScreen + 1;
+                setCurrentScreen(next);
+                scrollRef.current?.scrollTo({ x: next * width, animated: true });
+            }, 3000);
+        }
 
         return () => {
             if (autoTimer.current) {
@@ -86,7 +68,7 @@ export default function OnboardingFlow() {
                 autoTimer.current = null;
             }
         };
-    }, [currentScreen, handleComplete]);
+    }, [currentScreen]);
 
     const handleMomentumEnd = (event: any) => {
         const offsetX = event.nativeEvent.contentOffset.x;
@@ -111,19 +93,19 @@ export default function OnboardingFlow() {
             <StatusBar barStyle="light-content" />
 
             {/* Content Section */}
-            <Animated.View style={[
-                styles.content,
-                {
-                    opacity: fadeAnim,
-                    transform: [{ translateX: slideAnim }]
-                }
-            ]}>
+            <View style={styles.content}>
                 <ScrollView
                     ref={(ref) => (scrollRef.current = ref)}
                     horizontal
                     pagingEnabled
                     showsHorizontalScrollIndicator={false}
                     onMomentumScrollEnd={handleMomentumEnd}
+                    onScrollBeginDrag={() => {
+                        if (autoTimer.current) {
+                            clearTimeout(autoTimer.current);
+                            autoTimer.current = null;
+                        }
+                    }}
                     contentContainerStyle={{ alignItems: 'flex-start', height: '100%' }}
                 >
                     {screens.map((screen, idx) => (
@@ -171,7 +153,7 @@ export default function OnboardingFlow() {
                         </View>
                     ))}
                 </ScrollView>
-            </Animated.View>
+            </View>
 
             <View style={styles.paginationRow}>
                 {screens.map((_, dotIdx) => (

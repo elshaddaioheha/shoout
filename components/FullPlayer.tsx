@@ -1,5 +1,11 @@
 import { usePlaybackStore } from '@/store/usePlaybackStore';
+import { useCartStore } from '@/store/useCartStore';
+import { useToastStore } from '@/store/useToastStore';
+import { auth, db } from '@/firebaseConfig';
+import { Image } from 'expo-image';
+import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import { collection, deleteDoc, doc, limit, onSnapshot, query, setDoc, where } from 'firebase/firestore';
 import {
     ChevronDown,
     Heart,
@@ -12,7 +18,7 @@ import {
     SkipBack,
     SkipForward,
 } from 'lucide-react-native';
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -38,6 +44,9 @@ interface FullPlayerProps {
 }
 
 export default function FullPlayer({ visible, onClose }: FullPlayerProps) {
+    const router = useRouter();
+    const { addItem } = useCartStore();
+    const { showToast } = useToastStore();
     const {
         currentTrack,
         isPlaying,
@@ -55,6 +64,7 @@ export default function FullPlayer({ visible, onClose }: FullPlayerProps) {
 
     const [shuffleActive, setShuffleActive] = useState(false);
     const [liked, setLiked] = useState(false);
+    const [alreadyPurchased, setAlreadyPurchased] = useState(false);
 
     // Slider state
     const sliderWidth = useRef(0);
@@ -144,7 +154,89 @@ export default function FullPlayer({ visible, onClose }: FullPlayerProps) {
         ]);
     };
 
+    useEffect(() => {
+        const uid = auth.currentUser?.uid;
+        if (!uid || !currentTrack?.id) {
+            setLiked(false);
+            setAlreadyPurchased(false);
+            return;
+        }
+
+        const favRef = doc(db, `users/${uid}/favourites`, currentTrack.id);
+        const unsubFav = onSnapshot(favRef, (snap) => setLiked(snap.exists()));
+
+        const purchaseQ = query(
+            collection(db, `users/${uid}/purchases`),
+            where('trackId', '==', currentTrack.id),
+            limit(1)
+        );
+        const unsubPurchase = onSnapshot(purchaseQ, (snap) => setAlreadyPurchased(!snap.empty));
+
+        return () => {
+            unsubFav();
+            unsubPurchase();
+        };
+    }, [currentTrack?.id]);
+
     if (!currentTrack) return null;
+
+    const toggleFavourite = async () => {
+        const uid = auth.currentUser?.uid;
+        if (!uid || !currentTrack) {
+            showToast('Sign in to save favourites.', 'info');
+            return;
+        }
+
+        const favRef = doc(db, `users/${uid}/favourites`, currentTrack.id);
+
+        try {
+            if (liked) {
+                await deleteDoc(favRef);
+                showToast('Removed from favourites.', 'info');
+            } else {
+                await setDoc(favRef, {
+                    id: currentTrack.id,
+                    title: currentTrack.title,
+                    artist: currentTrack.artist,
+                    url: currentTrack.url,
+                    uploaderId: currentTrack.uploaderId || '',
+                    addedAt: new Date().toISOString(),
+                });
+                showToast('Added to favourites.', 'success');
+            }
+        } catch (_err) {
+            showToast('Could not update favourite right now.', 'error');
+        }
+    };
+
+    const handlePurchase = () => {
+        if (!currentTrack) return;
+
+        if (!auth.currentUser) {
+            showToast('Please sign in to purchase tracks.', 'error');
+            router.push({ pathname: '/(auth)/login', params: { redirectTo: '/cart' } });
+            return;
+        }
+
+        if (alreadyPurchased) {
+            showToast('You already purchased this track.', 'info');
+            return;
+        }
+
+        addItem({
+            id: currentTrack.id,
+            title: currentTrack.title,
+            artist: currentTrack.artist,
+            price: 0,
+            audioUrl: currentTrack.url,
+            uploaderId: currentTrack.uploaderId || '',
+            category: 'Track',
+        });
+
+        showToast('Track added to cart. Complete purchase in cart.', 'success');
+        onClose();
+        router.push('/cart');
+    };
 
     const knobScale = knobAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.5] });
 
@@ -197,6 +289,9 @@ export default function FullPlayer({ visible, onClose }: FullPlayerProps) {
                             start={{ x: 0, y: 0 }}
                             end={{ x: 1, y: 1 }}
                         />
+                        {currentTrack.artworkUrl ? (
+                            <Image source={{ uri: currentTrack.artworkUrl }} style={styles.artworkImage} contentFit="cover" />
+                        ) : null}
                         {isBuffering && (
                             <View style={styles.bufferingOverlay}>
                                 <ActivityIndicator size="large" color="white" />
@@ -213,7 +308,7 @@ export default function FullPlayer({ visible, onClose }: FullPlayerProps) {
                         <Text numberOfLines={1} style={styles.trackArtist}>{currentTrack.artist}</Text>
                     </View>
                     <TouchableOpacity
-                        onPress={() => setLiked(!liked)}
+                        onPress={toggleFavourite}
                         hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                         style={styles.likeButton}
                     >
@@ -330,7 +425,13 @@ export default function FullPlayer({ visible, onClose }: FullPlayerProps) {
                     >
                         <Share2 size={22} color="rgba(255,255,255,0.7)" />
                     </TouchableOpacity>
-                    <View style={{ flex: 1 }} />
+                    <TouchableOpacity
+                        style={[styles.purchaseButton, alreadyPurchased && styles.purchaseButtonDisabled]}
+                        onPress={handlePurchase}
+                        disabled={alreadyPurchased}
+                    >
+                        <Text style={styles.purchaseLabel}>{alreadyPurchased ? 'Purchased' : 'Purchase'}</Text>
+                    </TouchableOpacity>
                     <TouchableOpacity style={styles.lyricsButton} onPress={() => Alert.alert('Lyrics coming soon', 'This feature is currently in development.')}>
                         <Text style={styles.lyricsLabel}>Lyrics</Text>
                     </TouchableOpacity>
@@ -398,6 +499,9 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 12 },
         shadowOpacity: 0.4,
         shadowRadius: 24,
+    },
+    artworkImage: {
+        ...StyleSheet.absoluteFillObject,
     },
     bufferingOverlay: {
         ...StyleSheet.absoluteFillObject,
@@ -513,6 +617,22 @@ const styles = StyleSheet.create({
     },
     actionButton: {
         padding: 8,
+    },
+    purchaseButton: {
+        backgroundColor: '#EC5C39',
+        paddingHorizontal: 20,
+        paddingVertical: 10,
+        borderRadius: 12,
+        minWidth: 108,
+        alignItems: 'center',
+    },
+    purchaseButtonDisabled: {
+        backgroundColor: 'rgba(255,255,255,0.18)',
+    },
+    purchaseLabel: {
+        color: '#FFFFFF',
+        fontSize: 13,
+        fontFamily: 'Poppins-SemiBold',
     },
     lyricsButton: {
         backgroundColor: 'rgba(255,255,255,0.07)',

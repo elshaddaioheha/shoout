@@ -22,6 +22,7 @@ import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     Dimensions,
+    Image,
     ScrollView,
     StyleSheet,
     Text,
@@ -294,6 +295,12 @@ function MarketplaceSection({ title, items }: any) {
                         onPress={() => router.push({ pathname: '/listing/[id]' as any, params: { id: item.id, uploaderId: item.userId } })}
                     >
                         <View style={styles.cardImage}>
+                            {(item.artworkUrl || item.coverUrl) ? (
+                                <Image
+                                    source={{ uri: item.artworkUrl || item.coverUrl }}
+                                    style={styles.cardImageAsset}
+                                />
+                            ) : null}
                             <Music size={32} color="rgba(255,255,255,0.1)" />
                             <View style={styles.priceBadge}>
                                 <Text style={styles.priceText}>${item.price?.toFixed(2) || '0.00'}</Text>
@@ -308,7 +315,8 @@ function MarketplaceSection({ title, items }: any) {
                                         title: item.title,
                                         artist: item.uploaderName || "Creator",
                                         url: item.audioUrl,
-                                        uploaderId: item.userId
+                                        uploaderId: item.userId,
+                                        artworkUrl: item.artworkUrl || item.coverUrl || '',
                                     });
                                 }}
                             >
@@ -349,7 +357,8 @@ const styles = StyleSheet.create({
     seeAll: { fontSize: 14, fontFamily: 'Poppins-Medium', color: '#EC5C39' },
     horizontalScroll: { paddingLeft: 24 },
     marketCard: { width: 160, marginRight: 16 },
-    cardImage: { width: 160, height: 160, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.03)', alignItems: 'center', justifyContent: 'center', marginBottom: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+    cardImage: { width: 160, height: 160, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.03)', alignItems: 'center', justifyContent: 'center', marginBottom: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', overflow: 'hidden' },
+    cardImageAsset: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%' },
     priceBadge: { position: 'absolute', bottom: 12, right: 12, backgroundColor: '#EC5C39', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
     priceText: { color: '#FFF', fontSize: 12, fontFamily: 'Poppins-Bold' },
     itemTitle: { color: '#FFF', fontSize: 15, fontFamily: 'Poppins-SemiBold' },

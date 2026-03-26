@@ -43,6 +43,10 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
+    // Do not start auth-driven navigation until fonts are ready and
+    // the root navigator can mount safely.
+    if (!loaded && !error) return;
+
     const unsub = onAuthStateChanged(auth, async (user) => {
       if (user) {
         // User is authenticated — fetch and verify their subscription tier from server
@@ -102,7 +106,7 @@ export default function RootLayout() {
       unsub();
       clearTimeout(authTimeout);
     };
-  }, [router, setVerifying]);
+  }, [loaded, error, router, setVerifying]);
 
   useEffect(() => {
     // Configure Google Sign-In (native only — web support requires a paid sponsor tier)

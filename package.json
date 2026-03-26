@@ -17,6 +17,9 @@
     "dev:seed:test": "node ./scripts/seed-test-data.mjs",
     "dev:seed:full": "node ./scripts/seedFullData.mjs",
     "dev:seed:rest": "node ./scripts/seed-rest.mjs",
+    "dev:seed:royalty-free": "node ./scripts/seed-royalty-free.mjs",
+    "dev:seed:royalty-free-admin": "node ./scripts/seed-royalty-free-admin.mjs",
+    "dev:seed:media": "node ./scripts/seed-media.mjs",
     "dev:seed:storage-sample": "node ./scripts/seed-storage-sample.mjs",
     "dev:seed:auth-admin": "node ./scripts/seed-auth-users-admin.mjs"
   },

@@ -3,6 +3,7 @@ import SharedHeader from '@/components/SharedHeader';
 import { formatUsd } from '@/utils/pricing';
 import { useCartStore } from '@/store/useCartStore';
 import { usePlaybackStore } from '@/store/usePlaybackStore';
+import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import {
   Heart,
@@ -11,10 +12,11 @@ import {
   ShoppingCart,
   Users
 } from 'lucide-react-native';
-import React, { useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   Dimensions,
-  ScrollView,
+  FlatList,
+  Image as RNImage,
   StatusBar,
   StyleSheet,
   Text,
@@ -23,48 +25,70 @@ import {
 } from 'react-native';
 
 const { width } = Dimensions.get('window');
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
-// Mocked home data — keeps the home screen static and removes Firestore reads
+const TRENDING_CARD_WIDTH = clamp(Math.round(width * 0.65), 220, 300);
+const TRENDING_CARD_HEIGHT = Math.round(TRENDING_CARD_WIDTH * 0.83);
+const PLAYLIST_CARD_WIDTH = clamp(Math.round(width * 0.34), 124, 168);
+const PLAYLIST_VISUAL_WIDTH = Math.round(PLAYLIST_CARD_WIDTH * 0.8);
+const PLAYLIST_VISUAL_HEIGHT = Math.round(PLAYLIST_VISUAL_WIDTH * 1.1);
+const FREE_CARD_WIDTH = clamp(Math.round(width * 0.39), 138, 182);
+const ARTIST_CARD_WIDTH = clamp(Math.round(width * 0.24), 84, 108);
+const BEAT_IMAGE_WIDTH = clamp(Math.round(width * 0.17), 56, 72);
+
+const spacing = {
+  xs: 4,
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 24,
+  xxl: 32,
+} as const;
+
+// Mocked home data with CDN assets — keeps the home screen static and removes Firestore reads
 const TRENDING_SONGS = [
-  { id: 't1', title: 'Orbit', artist: 'Mara Jade', uploaderName: 'Mara Jade', audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3', uploaderId: 'u1' },
-  { id: 't2', title: 'Night Drive', artist: 'Luna', uploaderName: 'Luna', audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3', uploaderId: 'u2' },
-  { id: 't3', title: 'Glow', artist: 'Dusk', uploaderName: 'Dusk', audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3', uploaderId: 'u3' },
+  { id: 't1', title: 'Orbit', artist: 'Mara Jade', uploaderName: 'Mara Jade', audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3', uploaderId: 'u1', artworkUrl: 'https://picsum.photos/seed/t1/400/400?random=1' },
+  { id: 't2', title: 'Night Drive', artist: 'Luna', uploaderName: 'Luna', audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3', uploaderId: 'u2', artworkUrl: 'https://picsum.photos/seed/t2/400/400?random=2' },
+  { id: 't3', title: 'Glow', artist: 'Dusk', uploaderName: 'Dusk', audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3', uploaderId: 'u3', artworkUrl: 'https://picsum.photos/seed/t3/400/400?random=3' },
 ];
 
 const TOP_PLAYLISTS = [
-  { id: 'p1', title: 'Studio Focus', genre: 'Lo-fi', price: 0 },
-  { id: 'p2', title: 'Creator Picks', genre: 'Indie', price: 12 },
-  { id: 'p3', title: 'Vault Vibes', genre: 'Alt R&B', price: 8 },
-  { id: 'p4', title: 'Sunset', genre: 'Afro-pop', price: 5 },
-  { id: 'p5', title: 'Midnight', genre: 'EDM', price: 10 },
-  { id: 'p6', title: 'Acoustic Gems', genre: 'Acoustic', price: 6 },
+  { id: 'p1', title: 'Studio Focus', genre: 'Lo-fi', price: 0, artworkUrl: 'https://picsum.photos/seed/p1/300/300' },
+  { id: 'p2', title: 'Creator Picks', genre: 'Indie', price: 12, artworkUrl: 'https://picsum.photos/seed/p2/300/300' },
+  { id: 'p3', title: 'Vault Vibes', genre: 'Alt R&B', price: 8, artworkUrl: 'https://picsum.photos/seed/p3/300/300' },
+  { id: 'p4', title: 'Sunset', genre: 'Afro-pop', price: 5, artworkUrl: 'https://picsum.photos/seed/p4/300/300' },
+  { id: 'p5', title: 'Midnight', genre: 'EDM', price: 10, artworkUrl: 'https://picsum.photos/seed/p5/300/300' },
+  { id: 'p6', title: 'Acoustic Gems', genre: 'Acoustic', price: 6, artworkUrl: 'https://picsum.photos/seed/p6/300/300' },
 ];
 
 const FREE_MUSIC = [
-  { id: 'f1', title: 'Weightless', artist: 'Nova', audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3', uploaderId: 'u5', price: 0 },
-  { id: 'f2', title: 'Sundown', artist: 'Kai', audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3', uploaderId: 'u6', price: 0 },
-  { id: 'f3', title: 'Breeze', artist: 'Ola', audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3', uploaderId: 'u7', price: 0 },
+  { id: 'f1', title: 'Weightless', artist: 'Nova', audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3', uploaderId: 'u5', price: 0, artworkUrl: 'https://picsum.photos/seed/f1/300/300' },
+  { id: 'f2', title: 'Sundown', artist: 'Kai', audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3', uploaderId: 'u6', price: 0, artworkUrl: 'https://picsum.photos/seed/f2/300/300' },
+  { id: 'f3', title: 'Breeze', artist: 'Ola', audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3', uploaderId: 'u7', price: 0, artworkUrl: 'https://picsum.photos/seed/f3/300/300' },
 ];
 
 const ARTISTS = [
-  { id: 'a1', fullName: 'Mara Jade' },
-  { id: 'a2', fullName: 'Luna' },
-  { id: 'a3', fullName: 'Dusk' },
-  { id: 'a4', fullName: 'Nova' },
-  { id: 'a5', fullName: 'Kai' },
-  { id: 'a6', fullName: 'Ola' },
-  { id: 'a7', fullName: 'Sage' },
-  { id: 'a8', fullName: 'Vela' },
+  { id: 'a1', fullName: 'Mara Jade', avatarUrl: 'https://i.pravatar.cc/150?u=a1' },
+  { id: 'a2', fullName: 'Luna', avatarUrl: 'https://i.pravatar.cc/150?u=a2' },
+  { id: 'a3', fullName: 'Dusk', avatarUrl: 'https://i.pravatar.cc/150?u=a3' },
+  { id: 'a4', fullName: 'Nova', avatarUrl: 'https://i.pravatar.cc/150?u=a4' },
+  { id: 'a5', fullName: 'Kai', avatarUrl: 'https://i.pravatar.cc/150?u=a5' },
+  { id: 'a6', fullName: 'Ola', avatarUrl: 'https://i.pravatar.cc/150?u=a6' },
+  { id: 'a7', fullName: 'Sage', avatarUrl: 'https://i.pravatar.cc/150?u=a7' },
+  { id: 'a8', fullName: 'Vela', avatarUrl: 'https://i.pravatar.cc/150?u=a8' },
 ];
 
 const POPULAR_BEATS = [
-  { id: 'b1', title: 'Pulse', artist: 'Sage', uploaderName: 'Sage', price: 20, audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3', uploaderId: 'u8' },
-  { id: 'b2', title: 'Drift', artist: 'Vela', uploaderName: 'Vela', price: 18, audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3', uploaderId: 'u9' },
-  { id: 'b3', title: 'Slingshot', artist: 'Ro', uploaderName: 'Ro', price: 22, audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-9.mp3', uploaderId: 'u10' },
-  { id: 'b4', title: 'Orbit', artist: 'Mara Jade', uploaderName: 'Mara Jade', price: 16, audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-10.mp3', uploaderId: 'u1' },
-  { id: 'b5', title: 'Low Tide', artist: 'Kai', uploaderName: 'Kai', price: 14, audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-11.mp3', uploaderId: 'u6' },
-  { id: 'b6', title: 'Lanterns', artist: 'Nova', uploaderName: 'Nova', price: 12, audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-12.mp3', uploaderId: 'u5' },
+  { id: 'b1', title: 'Pulse', artist: 'Sage', uploaderName: 'Sage', price: 20, audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3', uploaderId: 'u8', artworkUrl: 'https://picsum.photos/seed/b1/200/200' },
+  { id: 'b2', title: 'Drift', artist: 'Vela', uploaderName: 'Vela', price: 18, audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3', uploaderId: 'u9', artworkUrl: 'https://picsum.photos/seed/b2/200/200' },
+  { id: 'b3', title: 'Slingshot', artist: 'Ro', uploaderName: 'Ro', price: 22, audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-9.mp3', uploaderId: 'u10', artworkUrl: 'https://picsum.photos/seed/b3/200/200' },
+  { id: 'b4', title: 'Orbit', artist: 'Mara Jade', uploaderName: 'Mara Jade', price: 16, audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-10.mp3', uploaderId: 'u1', artworkUrl: 'https://picsum.photos/seed/b4/200/200' },
+  { id: 'b5', title: 'Low Tide', artist: 'Kai', uploaderName: 'Kai', price: 14, audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-11.mp3', uploaderId: 'u6', artworkUrl: 'https://picsum.photos/seed/b5/200/200' },
+  { id: 'b6', title: 'Lanterns', artist: 'Nova', uploaderName: 'Nova', price: 12, audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-12.mp3', uploaderId: 'u5', artworkUrl: 'https://picsum.photos/seed/b6/200/200' },
 ];
+
+type HomeSectionKey = 'trending' | 'playlist' | 'freeMusic' | 'artists' | 'popularBeats';
+const HOME_SECTIONS: HomeSectionKey[] = ['trending', 'playlist', 'freeMusic', 'artists', 'popularBeats'];
 
 // ─── Local favourite hook (no Firestore) ───────────────────────────────────────
 function useLocalFavourite(_trackId: string) {
@@ -74,9 +98,25 @@ function useLocalFavourite(_trackId: string) {
 }
 
 export default function HomeScreen() {
-  const router = useRouter();
   const { openSheet, isModeSheetOpen, viewMode } = useAppSwitcherContext();
   const { items } = useCartStore();
+
+  const renderSection = useCallback(({ item }: { item: HomeSectionKey }) => {
+    switch (item) {
+      case 'trending':
+        return <TrendingSection />;
+      case 'playlist':
+        return <PlaylistSection />;
+      case 'freeMusic':
+        return <FreeMusicSection />;
+      case 'artists':
+        return <ArtistsSection />;
+      case 'popularBeats':
+        return <PopularBeatsSection />;
+      default:
+        return null;
+    }
+  }, []);
 
   return (
     <View style={styles.container}>
@@ -91,17 +131,17 @@ export default function HomeScreen() {
         showMessages={true}
       />
 
-      <ScrollView
+      <FlatList
         style={styles.content}
+        data={HOME_SECTIONS}
+        keyExtractor={(item) => item}
+        renderItem={renderSection}
+        initialNumToRender={3}
+        windowSize={5}
+        removeClippedSubviews
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 100 }}
-      >
-        <TrendingSection />
-        <PlaylistSection />
-        <FreeMusicSection />
-        <ArtistsSection />
-        <PopularBeatsSection />
-      </ScrollView>
+        contentContainerStyle={styles.homeListContent}
+      />
     </View>
   );
 }
@@ -110,30 +150,42 @@ export default function HomeScreen() {
 function TrendingSection() {
   const setTrack = usePlaybackStore(state => state.setTrack);
   const songs = TRENDING_SONGS;
+  const COLORS = useMemo(() => ['#D9D9D9', '#C9A959', '#8B7355'], []);
 
-  const COLORS = ['#D9D9D9', '#C9A959', '#8B7355'];
+  const renderItem = useCallback(({ item, index }: { item: any; index: number }) => (
+    <TrendingCard
+      song={item}
+      bgColor={COLORS[index % COLORS.length]}
+      onPlay={() => setTrack({ id: item.id, title: item.title, artist: item.artist || item.uploaderName, url: item.audioUrl || item.url, uploaderId: item.uploaderId, artworkUrl: item.artworkUrl })}
+    />
+  ), [COLORS, setTrack]);
 
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>Trending Song</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
-        {songs.map((song, idx) => (
-          <TrendingCard
-            key={song.id}
-            song={song}
-            bgColor={COLORS[idx % COLORS.length]}
-            onPlay={() => setTrack({ id: song.id, title: song.title, artist: song.artist || song.uploaderName, url: song.audioUrl || song.url, uploaderId: song.uploaderId })}
-          />
-        ))}
-      </ScrollView>
+      <FlatList
+        horizontal
+        data={songs}
+        keyExtractor={(item) => item.id}
+        renderItem={renderItem}
+        initialNumToRender={2}
+        windowSize={3}
+        removeClippedSubviews
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.horizontalListContent}
+        ItemSeparatorComponent={() => <View style={styles.horizontalSpacer} />}
+      />
     </View>
   );
 }
 
-function TrendingCard({ song, bgColor, onPlay }: { song: any; bgColor: string; onPlay: () => void }) {
+const TrendingCard = React.memo(function TrendingCard({ song, bgColor, onPlay }: { song: any; bgColor: string; onPlay: () => void }) {
   const { isFav, toggle } = useLocalFavourite(song.id);
   return (
     <View style={[styles.trendingCard, { backgroundColor: bgColor }]}>
+      {song.artworkUrl ? (
+        <Image source={{ uri: song.artworkUrl }} style={styles.trendingArtwork} contentFit="cover" />
+      ) : null}
       <View style={styles.songInfoOverlay}>
         <View style={{ flex: 1 }}>
           <Text style={styles.songTitle}>{song.title}</Text>
@@ -154,11 +206,37 @@ function TrendingCard({ song, bgColor, onPlay }: { song: any; bgColor: string; o
       </View>
     </View>
   );
-}
+});
 
 function PlaylistSection() {
   const router = useRouter();
   const playlists = TOP_PLAYLISTS;
+
+  const renderItem = useCallback(({ item, index }: { item: any; index: number }) => (
+    <TouchableOpacity
+      key={item.id || index}
+      style={styles.playlistItem}
+      activeOpacity={0.85}
+      onPress={() => router.push({ pathname: '/listing/[id]', params: { id: item.id, uploaderId: item.uploaderId } })}
+    >
+      <View style={styles.playlistVisualContainer}>
+        {item.artworkUrl ? (
+          <Image source={{ uri: item.artworkUrl }} style={styles.playlistCoverImage} contentFit="cover" transition={200} />
+        ) : (
+          <>
+            <View style={[styles.playlistLayer, { backgroundColor: '#464646', transform: [{ rotate: '9.7deg' }] }]} />
+            <View style={[styles.playlistLayer, { backgroundColor: '#767676', transform: [{ rotate: '5.15deg' }], top: spacing.xs }]} />
+            <View style={[styles.playlistLayer, { backgroundColor: '#D9D9D9', top: spacing.md }]} />
+          </>
+        )}
+      </View>
+      <View style={{ marginTop: spacing.xl }}>
+        <Text style={styles.playlistTitle}>{item.title || 'Untitled'}</Text>
+        <Text style={styles.playlistSubtitle}>{item.genre || item.category || 'Track'}</Text>
+        {typeof item.price === 'number' ? <Text style={styles.playlistPrice}>{formatUsd(item.price)}</Text> : null}
+      </View>
+    </TouchableOpacity>
+  ), [router]);
 
   return (
     <View style={styles.section}>
@@ -166,31 +244,19 @@ function PlaylistSection() {
         <Text style={styles.sectionTitle}>Top Playlist</Text>
         <TouchableOpacity onPress={() => router.push('/(tabs)/search')}><Text style={styles.seeAllText}>See All</Text></TouchableOpacity>
       </View>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
-        {playlists.length === 0 ? (
-          <Text style={{ color: 'rgba(255,255,255,0.5)', fontFamily: 'Poppins-Regular' }}>No playlists yet.</Text>
-        ) : (
-          playlists.map((playlist, idx) => (
-            <TouchableOpacity
-              key={playlist.id || idx}
-              style={styles.playlistItem}
-              activeOpacity={0.85}
-              onPress={() => router.push({ pathname: '/listing/[id]', params: { id: playlist.id, uploaderId: playlist.uploaderId } })}
-            >
-              <View style={styles.playlistVisualContainer}>
-                <View style={[styles.playlistLayer, { backgroundColor: '#464646', transform: [{ rotate: '9.7deg' }] }]} />
-                <View style={[styles.playlistLayer, { backgroundColor: '#767676', transform: [{ rotate: '5.15deg' }], top: 3 }]} />
-                <View style={[styles.playlistLayer, { backgroundColor: '#D9D9D9', top: 12 }]} />
-              </View>
-              <View style={{ marginTop: 24 }}>
-                <Text style={styles.playlistTitle}>{playlist.title || 'Untitled'}</Text>
-                <Text style={styles.playlistSubtitle}>{playlist.genre || playlist.category || 'Track'}</Text>
-                {typeof playlist.price === 'number' ? <Text style={styles.playlistPrice}>{formatUsd(playlist.price)}</Text> : null}
-              </View>
-            </TouchableOpacity>
-          ))
-        )}
-      </ScrollView>
+      <FlatList
+        horizontal
+        data={playlists}
+        keyExtractor={(item, index) => item.id || `playlist-${index}`}
+        renderItem={renderItem}
+        initialNumToRender={3}
+        windowSize={3}
+        removeClippedSubviews
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.horizontalListContent}
+        ItemSeparatorComponent={() => <View style={styles.horizontalSpacer} />}
+        ListEmptyComponent={<Text style={styles.emptyText}>No playlists yet.</Text>}
+      />
     </View>
   );
 }
@@ -201,49 +267,76 @@ function FreeMusicSection() {
   const setTrack = usePlaybackStore(state => state.setTrack);
   const songs = FREE_MUSIC;
 
+  const renderItem = useCallback(({ item }: { item: any }) => (
+    <FreeMusicCard
+      song={item}
+      onPlay={() => setTrack({ id: item.id, title: item.title, artist: item.artist, url: item.audioUrl || item.url, uploaderId: item.uploaderId, artworkUrl: item.artworkUrl })}
+    />
+  ), [setTrack]);
+
   return (
     <View style={styles.section}>
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Free Music</Text>
         <TouchableOpacity onPress={() => router.push('/(tabs)/marketplace')}><Text style={styles.seeAllText}>See All</Text></TouchableOpacity>
       </View>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
-        {songs.map((song, idx) => (
-          <FreeMusicCard
-            key={song.id || idx}
-            song={song}
-            onPlay={() => setTrack({ id: song.id, title: song.title, artist: song.artist, url: song.audioUrl || song.url, uploaderId: song.uploaderId })}
-          />
-        ))}
-      </ScrollView>
+      <FlatList
+        horizontal
+        data={songs}
+        keyExtractor={(item, index) => item.id || `free-${index}`}
+        renderItem={renderItem}
+        initialNumToRender={3}
+        windowSize={3}
+        removeClippedSubviews
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.horizontalListContent}
+        ItemSeparatorComponent={() => <View style={styles.horizontalSpacer} />}
+      />
     </View>
   );
 }
 
-function FreeMusicCard({ song, onPlay }: { song: any; onPlay: () => void }) {
+const FreeMusicCard = React.memo(function FreeMusicCard({ song, onPlay }: { song: any; onPlay: () => void }) {
   const { isFav, toggle } = useLocalFavourite(song.id);
   const { addItem, items } = useCartStore();
   const inCart = items.some((i: any) => i.id === song.id);
   return (
     <TouchableOpacity style={styles.freeMusicItem} onPress={onPlay}>
-      <View style={styles.squarePlaceholder} />
-      <Text style={styles.itemTitle}>{song.title}</Text>
-      <Text style={styles.itemSubtitle}>{song.artist}</Text>
-      <View style={styles.itemActions}>
-        <TouchableOpacity onPress={(e) => { e.stopPropagation?.(); addItem({ id: song.id, title: song.title, artist: song.artist, price: song.price || 0, uploaderId: song.uploaderId || '' }); }}>
-          <ShoppingCart size={14} color={inCart ? '#4CAF50' : '#EC5C39'} />
-        </TouchableOpacity>
-        <TouchableOpacity onPress={(e) => { e.stopPropagation?.(); toggle(); }}>
-          <Heart size={12} color="#EC5C39" fill={isFav ? '#EC5C39' : 'transparent'} />
-        </TouchableOpacity>
+      {song.artworkUrl ? (
+        <Image source={{ uri: song.artworkUrl }} style={styles.squarePlaceholder} contentFit="cover" />
+      ) : (
+        <View style={styles.squarePlaceholder} />
+      )}
+      <View style={styles.freeMusicMeta}>
+        <Text style={styles.itemTitle}>{song.title}</Text>
+        <Text style={styles.itemSubtitle}>{song.artist}</Text>
+        <View style={styles.itemActionsSafe}>
+          <TouchableOpacity onPress={(e) => { e.stopPropagation?.(); addItem({ id: song.id, title: song.title, artist: song.artist, price: song.price || 0, uploaderId: song.uploaderId || '', coverUrl: song.artworkUrl }); }}>
+            <ShoppingCart size={14} color={inCart ? '#4CAF50' : '#EC5C39'} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={(e) => { e.stopPropagation?.(); toggle(); }}>
+            <Heart size={12} color="#EC5C39" fill={isFav ? '#EC5C39' : 'transparent'} />
+          </TouchableOpacity>
+        </View>
       </View>
     </TouchableOpacity>
   );
-}
+});
 
 function ArtistsSection() {
   const router = useRouter();
   const artists = ARTISTS;
+
+  const renderItem = useCallback(({ item, index }: { item: any; index: number }) => (
+    <TouchableOpacity key={item.id || index} style={styles.artistItem} onPress={() => router.push({ pathname: '/profile/[id]', params: { id: item.id } })}>
+      {item.avatarUrl ? (
+        <Image source={{ uri: item.avatarUrl }} style={styles.circlePlaceholder} contentFit="cover" transition={200} />
+      ) : (
+        <View style={styles.circlePlaceholder} />
+      )}
+      <Text style={styles.artistNameSmall}>{item.fullName || item.displayName || 'Artist'}</Text>
+    </TouchableOpacity>
+  ), [router]);
 
   return (
     <View style={styles.section}>
@@ -251,18 +344,19 @@ function ArtistsSection() {
         <Text style={styles.sectionTitle}>Favorite Artists</Text>
         <TouchableOpacity onPress={() => router.push('/(tabs)/search')}><Text style={styles.seeAllText}>See All</Text></TouchableOpacity>
       </View>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
-        {artists.length === 0 ? (
-          <Text style={{ color: 'rgba(255,255,255,0.5)', fontFamily: 'Poppins-Regular' }}>No artists yet.</Text>
-        ) : (
-          artists.map((artist, idx) => (
-            <TouchableOpacity key={artist.id || idx} style={styles.artistItem} onPress={() => router.push({ pathname: '/profile/[id]', params: { id: artist.id } })}>
-              <View style={styles.circlePlaceholder} />
-              <Text style={styles.artistNameSmall}>{artist.fullName || artist.displayName || 'Artist'}</Text>
-            </TouchableOpacity>
-          ))
-        )}
-      </ScrollView>
+      <FlatList
+        horizontal
+        data={artists}
+        keyExtractor={(item, index) => item.id || `artist-${index}`}
+        renderItem={renderItem}
+        initialNumToRender={4}
+        windowSize={3}
+        removeClippedSubviews
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.horizontalListContent}
+        ItemSeparatorComponent={() => <View style={styles.horizontalSpacer} />}
+        ListEmptyComponent={<Text style={styles.emptyText}>No artists yet.</Text>}
+      />
     </View>
   );
 }
@@ -272,31 +366,36 @@ function PopularBeatsSection() {
   const setTrack = usePlaybackStore(state => state.setTrack);
   const beats = POPULAR_BEATS;
 
+  const renderItem = useCallback(({ item, index }: { item: any; index: number }) => (
+    <BeatRow
+      beat={item}
+      isLast={index === beats.length - 1}
+      onPlay={() => setTrack({ id: item.id, title: item.title, artist: item.artist || item.uploaderName, url: item.audioUrl || item.url, uploaderId: item.uploaderId, artworkUrl: item.artworkUrl })}
+    />
+  ), [beats.length, setTrack]);
+
   return (
     <View style={styles.section}>
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Popular Beats</Text>
         <TouchableOpacity onPress={() => router.push('/(tabs)/marketplace')}><Text style={styles.seeAllText}>See All</Text></TouchableOpacity>
       </View>
-      <View style={styles.beatsList}>
-        {beats.length === 0 ? (
-          <Text style={{ color: 'rgba(255,255,255,0.5)', fontFamily: 'Poppins-Regular' }}>No beats available yet.</Text>
-        ) : (
-          beats.map((beat, idx) => (
-            <BeatRow
-              key={beat.id || idx}
-              beat={beat}
-              isLast={idx === beats.length - 1}
-              onPlay={() => setTrack({ id: beat.id, title: beat.title, artist: beat.artist || beat.uploaderName, url: beat.audioUrl || beat.url, uploaderId: beat.uploaderId })}
-            />
-          ))
-        )}
-      </View>
+      <FlatList
+        data={beats}
+        keyExtractor={(item, index) => item.id || `beat-${index}`}
+        renderItem={renderItem}
+        scrollEnabled={false}
+        removeClippedSubviews
+        initialNumToRender={4}
+        windowSize={5}
+        contentContainerStyle={styles.beatsList}
+        ListEmptyComponent={<Text style={styles.emptyText}>No beats available yet.</Text>}
+      />
     </View>
   );
 }
 
-function BeatRow({ beat, isLast, onPlay }: { beat: any; isLast: boolean; onPlay: () => void }) {
+const BeatRow = React.memo(function BeatRow({ beat, isLast, onPlay }: { beat: any; isLast: boolean; onPlay: () => void }) {
   const { isFav, toggle } = useLocalFavourite(beat.id);
   const { addItem, items } = useCartStore();
   const inCart = items.some((i: any) => i.id === beat.id);
@@ -304,14 +403,18 @@ function BeatRow({ beat, isLast, onPlay }: { beat: any; isLast: boolean; onPlay:
   return (
     <View style={styles.beatItem}>
       <TouchableOpacity style={styles.beatRow} onPress={onPlay}>
-        <View style={styles.beatImagePlaceholder} />
+        {beat.artworkUrl ? (
+          <Image source={{ uri: beat.artworkUrl }} style={styles.beatImagePlaceholder} contentFit="cover" />
+        ) : (
+          <View style={styles.beatImagePlaceholder} />
+        )}
         <View style={{ flex: 1 }}>
           <Text style={styles.itemTitle}>{beat.title}</Text>
           <Text style={styles.itemSubtitle}>{beat.artist || beat.uploaderName}</Text>
           <Text style={styles.itemSubtitle}>{priceDisplay}</Text>
         </View>
         <View style={styles.beatActions}>
-          <TouchableOpacity onPress={(e) => { e.stopPropagation?.(); addItem({ id: beat.id, title: beat.title, artist: beat.artist || beat.uploaderName, price: beat.price || 0, uploaderId: beat.uploaderId || '' }); }}>
+          <TouchableOpacity onPress={(e) => { e.stopPropagation?.(); addItem({ id: beat.id, title: beat.title, artist: beat.artist || beat.uploaderName, price: beat.price || 0, uploaderId: beat.uploaderId || '', coverUrl: beat.artworkUrl }); }}>
             <ShoppingCart size={14} color={inCart ? '#4CAF50' : '#EC5C39'} />
           </TouchableOpacity>
           <TouchableOpacity onPress={(e) => { e.stopPropagation?.(); toggle(); }}>
@@ -323,7 +426,7 @@ function BeatRow({ beat, isLast, onPlay }: { beat: any; isLast: boolean; onPlay:
       {!isLast && <View style={styles.beatDivider} />}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {
@@ -333,9 +436,12 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
   },
+  homeListContent: {
+    paddingBottom: 96,
+  },
   section: {
-    marginTop: 20,
-    paddingHorizontal: 20,
+    marginTop: spacing.xl,
+    paddingHorizontal: spacing.lg,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -353,24 +459,28 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'Poppins-Regular',
   },
-  horizontalScroll: {
-    marginHorizontal: -20,
-    paddingHorizontal: 20,
+  horizontalListContent: {
+    paddingHorizontal: spacing.lg,
+  },
+  horizontalSpacer: {
+    width: spacing.md,
   },
   trendingCard: {
-    width: 228,
-    height: 189,
-    borderRadius: 17,
-    marginRight: 11,
+    width: TRENDING_CARD_WIDTH,
+    height: TRENDING_CARD_HEIGHT,
+    borderRadius: spacing.lg,
     justifyContent: 'flex-end',
     overflow: 'hidden',
   },
+  trendingArtwork: {
+    ...StyleSheet.absoluteFillObject,
+  },
   songInfoOverlay: {
-    margin: 9,
-    marginBottom: 15,
+    margin: spacing.sm,
+    marginBottom: spacing.lg,
     backgroundColor: 'rgba(20, 15, 16, 0.81)',
-    borderRadius: 10,
-    padding: 8,
+    borderRadius: spacing.md,
+    padding: spacing.sm,
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -393,23 +503,28 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     backgroundColor: '#EC5C39',
-    borderRadius: 7,
+    borderRadius: spacing.sm,
     alignItems: 'center',
     justifyContent: 'center',
   },
   playlistItem: {
-    width: 129,
-    marginRight: 7,
+    width: PLAYLIST_CARD_WIDTH,
   },
   playlistVisualContainer: {
-    width: 103,
-    height: 110,
+    width: PLAYLIST_VISUAL_WIDTH,
+    height: PLAYLIST_VISUAL_HEIGHT,
     position: 'relative',
+    overflow: 'hidden',
   },
   playlistLayer: {
     position: 'absolute',
-    width: 100,
-    height: 110,
+    width: PLAYLIST_VISUAL_WIDTH,
+    height: PLAYLIST_VISUAL_HEIGHT,
+    borderRadius: 18,
+  },
+  playlistCoverImage: {
+    width: PLAYLIST_VISUAL_WIDTH,
+    height: PLAYLIST_VISUAL_HEIGHT,
     borderRadius: 18,
   },
   playlistTitle: {
@@ -428,15 +543,18 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins-Light',
   },
   freeMusicItem: {
-    width: 146,
-    marginRight: 11,
+    width: FREE_CARD_WIDTH,
   },
   squarePlaceholder: {
-    width: 146,
-    height: 145,
+    width: FREE_CARD_WIDTH,
+    height: FREE_CARD_WIDTH,
     backgroundColor: '#D9D9D9',
     borderRadius: 15,
     marginBottom: 4,
+    overflow: 'hidden',
+  },
+  freeMusicMeta: {
+    paddingBottom: spacing.sm,
   },
   itemTitle: {
     color: 'white',
@@ -448,23 +566,22 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontFamily: 'Poppins-Light',
   },
-  itemActions: {
-    position: 'absolute',
-    right: 0,
-    bottom: -15,
+  itemActionsSafe: {
+    marginTop: spacing.sm,
     flexDirection: 'row',
-    gap: 9,
+    gap: spacing.sm,
+    alignSelf: 'flex-end',
   },
   artistItem: {
-    width: 88,
-    marginRight: 17,
+    width: ARTIST_CARD_WIDTH,
     alignItems: 'center',
   },
   circlePlaceholder: {
-    width: 88,
-    height: 86,
+    width: ARTIST_CARD_WIDTH,
+    height: ARTIST_CARD_WIDTH,
     backgroundColor: '#D9D9D9',
-    borderRadius: 44,
+    borderRadius: ARTIST_CARD_WIDTH / 2,
+    overflow: 'hidden',
   },
   artistNameSmall: {
     color: 'white',
@@ -474,10 +591,14 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   beatsList: {
-    marginTop: 10,
+    marginTop: spacing.sm,
+  },
+  emptyText: {
+    color: 'rgba(255,255,255,0.5)',
+    fontFamily: 'Poppins-Regular',
   },
   beatItem: {
-    marginBottom: 13,
+    marginBottom: spacing.md,
   },
   beatRow: {
     flexDirection: 'row',
@@ -485,20 +606,21 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   beatImagePlaceholder: {
-    width: 63,
-    height: 58,
+    width: BEAT_IMAGE_WIDTH,
+    height: Math.round(BEAT_IMAGE_WIDTH * 0.92),
     backgroundColor: '#D9D9D9',
     borderRadius: 15,
+    overflow: 'hidden',
   },
   beatActions: {
     flexDirection: 'row',
-    gap: 9,
-    marginRight: 20,
+    gap: spacing.sm,
+    marginRight: spacing.lg,
   },
   beatDivider: {
     height: 1,
     backgroundColor: '#464646',
-    marginTop: 13,
+    marginTop: spacing.md,
   },
   modalOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -563,6 +685,6 @@ const styles = StyleSheet.create({
   },
   modalBtnText: {
     fontSize: 16,
-    fontFamily: 'Inter-Regular',
+    fontFamily: 'Poppins-Regular',
   },
 });
