@@ -21,6 +21,7 @@ const MODE_CONFIG: Record<ViewMode, { Icon: any; color: string }> = {
 const TIER_LABELS: Record<UserRole, string> = {
     vault: 'Vault',
     vault_pro: 'Vault Pro',
+    studio_free: 'Studio Free',
     studio: 'Studio',
     hybrid: 'Hybrid',
 };
@@ -28,7 +29,10 @@ const TIER_LABELS: Record<UserRole, string> = {
 export default function ModePillButton({ viewMode, role, isOpen, onPress }: ModePillButtonProps) {
     const chevronAnim = useRef(new Animated.Value(0)).current;
     const config = MODE_CONFIG[viewMode];
-    const tierLabel = TIER_LABELS[role as UserRole] ?? (viewMode === 'vault' ? 'Vault' : 'Studio');
+    const normalizedRole = (role || '').toLowerCase();
+    const tierLabel =
+        TIER_LABELS[role as UserRole]
+        || (normalizedRole.startsWith('hybrid') ? 'Hybrid' : normalizedRole.startsWith('studio') ? 'Studio' : 'Vault');
 
     useEffect(() => {
         Animated.spring(chevronAnim, {

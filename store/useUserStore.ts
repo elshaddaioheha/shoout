@@ -3,13 +3,13 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
 /** Canonical subscription tiers — same IDs as Cloud Functions + Firestore `subscription.tier`. */
-export type UserRole = 'vault' | 'vault_pro' | 'studio' | 'hybrid';
+export type UserRole = 'vault' | 'vault_pro' | 'studio' | 'studio_free' | 'hybrid';
 
 export type ViewMode = 'vault' | 'studio';
 
 interface UserState {
-    role: UserRole;        // Active/simulated role
-    actualRole: UserRole;  // Paid role
+    role: UserRole;        // Active/simulated role (can include studio_free)
+    actualRole: UserRole;  // Paid role from server
     name: string;
     isPremium: boolean;
     viewMode: ViewMode;
@@ -62,6 +62,13 @@ const getRoleCapabilities = (role: UserRole) => {
                 isPremium: true,
                 storageLimitGB: 1,
                 hasAdvancedAnalytics: true,
+            };
+        case 'studio_free':
+            return {
+                ...base,
+                viewMode: 'studio' as ViewMode,
+                storageLimitGB: 15,
+                canSell: true,
             };
         case 'studio':
             return {

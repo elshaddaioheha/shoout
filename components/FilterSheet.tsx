@@ -12,6 +12,7 @@
  *     onCategoryChange={setCategory}
  *   />
  */
+import { BlurView } from 'expo-blur';
 import React, { useEffect, useRef } from 'react';
 import {
     Animated,
@@ -48,13 +49,13 @@ export default function FilterSheet({
     useEffect(() => {
         if (visible) {
             Animated.parallel([
-                Animated.timing(slideAnim, { toValue: 0, duration: 300, useNativeDriver: true }),
-                Animated.timing(fadeAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
+                Animated.timing(slideAnim, { toValue: 0, duration: 240, useNativeDriver: true }),
+                Animated.timing(fadeAnim, { toValue: 1, duration: 240, useNativeDriver: true }),
             ]).start();
         } else {
             Animated.parallel([
-                Animated.timing(slideAnim, { toValue: 400, duration: 240, useNativeDriver: true }),
-                Animated.timing(fadeAnim, { toValue: 0, duration: 240, useNativeDriver: true }),
+                Animated.timing(slideAnim, { toValue: 400, duration: 200, useNativeDriver: true }),
+                Animated.timing(fadeAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
             ]).start();
         }
     }, [visible]);
@@ -62,7 +63,9 @@ export default function FilterSheet({
     return (
         <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
             <TouchableWithoutFeedback onPress={onClose}>
-                <Animated.View style={[styles.overlay, { opacity: fadeAnim }]} />
+                <Animated.View style={[styles.overlay, { opacity: fadeAnim }]}>
+                    <BlurView intensity={24} tint="dark" style={StyleSheet.absoluteFill} />
+                </Animated.View>
             </TouchableWithoutFeedback>
 
             <Animated.View style={[styles.sheet, { transform: [{ translateY: slideAnim }] }]}>

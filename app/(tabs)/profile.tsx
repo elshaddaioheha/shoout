@@ -41,11 +41,15 @@ const { width } = Dimensions.get('window');
 export default function ProfileScreen() {
     const router = useRouter();
     const { name, role, isPremium, reset } = useUserStore();
+    const { actualRole } = useAuthStore();
         const [followingCount, setFollowingCount] = React.useState(0);
         const [followersCount, setFollowersCount] = React.useState(0);
         const [playlistCount, setPlaylistCount] = React.useState(0);
 
+    const isStudioPaid = (actualRole?.startsWith('studio') || actualRole?.startsWith('hybrid')) ?? false;
+
     const fadeAnim = useRef(new Animated.Value(0)).current;
+    const scaleAnim = useRef(new Animated.Value(0.96)).current;
 
     const getRoleGradient = () => {
         if (role === 'vault_pro') return ['rgba(236, 92, 57, 0.15)', 'rgba(0,0,0,0)'];
@@ -55,11 +59,18 @@ export default function ProfileScreen() {
     };
 
     useEffect(() => {
-        Animated.timing(fadeAnim, {
-            toValue: 1,
-            duration: 600,
-            useNativeDriver: true,
-        }).start();
+        Animated.parallel([
+            Animated.timing(fadeAnim, {
+                toValue: 1,
+                duration: 220,
+                useNativeDriver: true,
+            }),
+            Animated.timing(scaleAnim, {
+                toValue: 1,
+                duration: 240,
+                useNativeDriver: true,
+            }),
+        ]).start();
     }, []);
 
     useEffect(() => {
@@ -178,7 +189,7 @@ export default function ProfileScreen() {
                 </View>
 
                 {/* Profile Card */}
-                <Animated.View style={[styles.profileCard, { opacity: fadeAnim, overflow: 'hidden' }]}>
+                <Animated.View style={[styles.profileCard, { opacity: fadeAnim, transform: [{ scale: scaleAnim }], overflow: 'hidden' }]}>
                     <LinearGradient
                         colors={getRoleGradient() as unknown as readonly [string, string, ...string[]]}
                         style={StyleSheet.absoluteFillObject}
@@ -249,12 +260,12 @@ export default function ProfileScreen() {
                         label="Artist Dashboard"
                         color="#9333EA"
                         onPress={() => {
-                            if (role.startsWith('studio') || role.startsWith('hybrid')) {
+                            if (isStudioPaid) {
                                 router.push('/studio/analytics' as any);
                             } else {
                                 Alert.alert(
                                     "Upgrade Required",
-                                    "You must be a Studio or Hybrid member to access the Artist Dashboard.",
+                                    "Studio Pro unlocks the Artist Dashboard. Upgrade to access analytics and payouts.",
                                     [
                                         { text: "Cancel", style: "cancel" },
                                         { text: "Upgrade", onPress: () => router.push('/settings/subscriptions' as any) }

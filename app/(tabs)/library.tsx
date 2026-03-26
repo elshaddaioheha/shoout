@@ -83,6 +83,7 @@ export default function LibraryScreen() {
   const isStudioUser = user.viewMode === 'studio' || activeRole?.startsWith('studio');
   const isHybridUser = activeRole?.startsWith('hybrid');
   const isCreatorSurface = isStudioUser || isHybridUser;
+  const isStudioPaid = (activeRole?.startsWith('studio') && activeRole !== 'studio_free') || activeRole?.startsWith('hybrid');
 
   useEffect(() => {
     if (!auth.currentUser) return;
@@ -285,7 +286,13 @@ export default function LibraryScreen() {
             <TouchableOpacity
               activeOpacity={0.8}
               style={styles.analyticsLinkWrap}
-              onPress={() => router.push('/studio/analytics')}
+              onPress={() => {
+                if (!isStudioPaid) {
+                  showToast('Upgrade to Studio Pro to unlock full analytics.', 'info');
+                  return;
+                }
+                router.push('/studio/analytics');
+              }}
             >
               <Text style={styles.analyticsLink}>See all Analytics</Text>
             </TouchableOpacity>

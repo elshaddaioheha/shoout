@@ -27,11 +27,11 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                     toValue: 0,
                     useNativeDriver: true,
                     bounciness: 0,
-                    speed: 18,
+                    speed: 24,
                 }),
                 Animated.timing(opacityAnim, {
                     toValue: 1,
-                    duration: 300,
+                    duration: 200,
                     useNativeDriver: true,
                 })
             ]).start();
@@ -41,11 +41,11 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                     toValue: width,
                     useNativeDriver: true,
                     bounciness: 0,
-                    speed: 18,
+                    speed: 24,
                 }),
                 Animated.timing(opacityAnim, {
                     toValue: 0,
-                    duration: 250,
+                    duration: 180,
                     useNativeDriver: true,
                 })
             ]).start(() => setRender(false));

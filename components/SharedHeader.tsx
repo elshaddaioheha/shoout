@@ -1,6 +1,6 @@
 import ModePillButton from '@/components/ModePillButton';
 import { useNotificationStore } from '@/store/useNotificationStore';
-import { ViewMode } from '@/store/useUserStore';
+import { ViewMode, useUserStore } from '@/store/useUserStore';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -29,15 +29,17 @@ export default function SharedHeader({
     showCart,
     cartCount,
     showMessages,
-    role = 'vault',
+    role,
 }: SharedHeaderProps) {
     const router = useRouter();
     const { unreadCount } = useNotificationStore();
+    const userRole = useUserStore((state) => state.role);
+    const effectiveRole = role ?? userRole;
 
     const getRoleGradient = (): readonly [string, string, ...string[]] => {
-        if (role === 'vault_pro') return ['rgba(236, 92, 57, 0.25)', 'rgba(20, 15, 16, 1)'];
-        if (role.startsWith('studio')) return ['rgba(76, 175, 80, 0.25)', 'rgba(20, 15, 16, 1)'];
-        if (role.startsWith('hybrid')) return ['rgba(255, 215, 0, 0.25)', 'rgba(20, 15, 16, 1)'];
+        if (effectiveRole === 'vault_pro') return ['rgba(236, 92, 57, 0.25)', 'rgba(20, 15, 16, 1)'];
+        if (String(effectiveRole).startsWith('studio')) return ['rgba(76, 175, 80, 0.25)', 'rgba(20, 15, 16, 1)'];
+        if (String(effectiveRole).startsWith('hybrid')) return ['rgba(255, 215, 0, 0.25)', 'rgba(20, 15, 16, 1)'];
         return ['#140F10', '#140F10'];
     };
 
@@ -61,7 +63,7 @@ export default function SharedHeader({
                 {/* Centre — Mode Pill */}
                 <ModePillButton
                     viewMode={viewMode}
-                    role={role}
+                    role={effectiveRole}
                     isOpen={isModeSheetOpen}
                     onPress={onModePillPress}
                 />

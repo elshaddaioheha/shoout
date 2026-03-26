@@ -7,8 +7,8 @@ import { Stack, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { onAuthStateChanged } from 'firebase/auth';
-import { useEffect, useRef, useState } from 'react';
-import { Platform } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Animated, Platform } from 'react-native';
 import 'react-native-reanimated';
 import { auth } from '../firebaseConfig';
 import { hydrateSubscriptionTier } from '@/utils/subscriptionVerification';
@@ -32,6 +32,8 @@ export default function RootLayout() {
   const { setVerifying } = useAuthStore();
   // Tracks whether this is the very first auth event (cold start vs re-auth)
   const isFirstAuthEvent = useRef(true);
+  const splashHidden = useRef(false);
+  const contentOpacity = useRef(new Animated.Value(0)).current;
 
   const [loaded, error] = useFonts({
     'Poppins-Regular': Poppins_400Regular,
@@ -75,7 +77,7 @@ export default function RootLayout() {
       } else {
         // No authenticated user — redirect to login on initial load only.
         if (isFirstAuthEvent.current) {
-          router.replace('/(auth)/login');
+          router.replace('/(auth)/onboarding');
         }
       }
 
@@ -90,7 +92,7 @@ export default function RootLayout() {
       setAuthResolved((prev) => {
         if (!prev) {
           console.warn('[layout] Auth timeout — forcing render. User may not be logged in.');
-          router.replace('/(auth)/login');
+          router.replace('/(auth)/onboarding');
         }
         return true;
       });
@@ -103,10 +105,6 @@ export default function RootLayout() {
   }, [router, setVerifying]);
 
   useEffect(() => {
-    if (loaded || error) {
-      SplashScreen.hideAsync();
-    }
-
     // Configure Google Sign-In (native only — web support requires a paid sponsor tier)
     if (Platform.OS !== 'web') {
       const googleWebClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID?.trim();
@@ -119,6 +117,18 @@ export default function RootLayout() {
     }
   }, [loaded, error]);
 
+  const onRootLayout = useCallback(async () => {
+    if (!loaded && !error) return;
+    if (splashHidden.current) return;
+    splashHidden.current = true;
+    await SplashScreen.hideAsync();
+    Animated.timing(contentOpacity, {
+      toValue: 1,
+      duration: 250,
+      useNativeDriver: true,
+    }).start();
+  }, [loaded, error, contentOpacity]);
+
   // Block render until fonts are ready — but do NOT block on authResolved.
   // The navigator must be mounted first so that router.replace() calls from
   // the auth listener (or the timeout) have a Stack to navigate into.
@@ -127,49 +137,51 @@ export default function RootLayout() {
   }
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack initialRouteName="index">
-        <Stack.Screen name="index" options={{ headerShown: false }} />
-        <Stack.Screen name="(auth)/role-selection" options={{ headerShown: false }} />
-        <Stack.Screen name="(auth)/onboarding" options={{ headerShown: false }} />
-        <Stack.Screen name="(auth)/login" options={{ headerShown: false }} />
-        <Stack.Screen name="(auth)/signup" options={{ headerShown: false }} />
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="admin" options={{ headerShown: false }} />
-        <Stack.Screen name="settings/payment-methods" options={{ headerShown: false }} />
-        <Stack.Screen name="settings/subscriptions" options={{ headerShown: false }} />
-        <Stack.Screen name="settings/notifications" options={{ headerShown: false }} />
-        <Stack.Screen name="settings/privacy" options={{ headerShown: false }} />
-        <Stack.Screen name="notifications" options={{ headerShown: false }} />
-        <Stack.Screen name="studio/analytics" options={{ headerShown: false }} />
-        <Stack.Screen name="studio/ads-intro" options={{ headerShown: false }} />
-        <Stack.Screen name="studio/ads-creation" options={{ headerShown: false }} />
-        <Stack.Screen name="studio/ads-success" options={{ headerShown: false }} />
-        <Stack.Screen name="studio/ads-example" options={{ headerShown: false }} />
-        <Stack.Screen name="studio/earnings" options={{ headerShown: false }} />
-        <Stack.Screen name="studio/upload" options={{ headerShown: false }} />
-        <Stack.Screen name="studio/withdraw" options={{ headerShown: false }} />
-        <Stack.Screen name="studio/messages" options={{ headerShown: false }} />
-        <Stack.Screen name="studio/message-thread" options={{ headerShown: false }} />
-        <Stack.Screen name="cart" options={{ headerShown: false }} />
-        <Stack.Screen name="chat/index" options={{ headerShown: false }} />
-        <Stack.Screen name="chat/[id]" options={{ headerShown: false }} />
-        <Stack.Screen name="merch/index" options={{ headerShown: false }} />
-        <Stack.Screen name="profile/[id]" options={{ headerShown: false }} />
-        <Stack.Screen
-          name="listing/[id]"
-          options={{
-            headerShown: false,
-            presentation: 'transparentModal',
-            animation: 'slide_from_bottom',
-            contentStyle: { backgroundColor: 'transparent' },
-          }}
-        />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-      </Stack>
-      <GlobalToast />
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    <Animated.View style={{ flex: 1, opacity: contentOpacity }} onLayout={onRootLayout}>
+      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+        <Stack initialRouteName="index">
+          <Stack.Screen name="index" options={{ headerShown: false }} />
+          <Stack.Screen name="(auth)/role-selection" options={{ headerShown: false }} />
+          <Stack.Screen name="(auth)/onboarding" options={{ headerShown: false }} />
+          <Stack.Screen name="(auth)/login" options={{ headerShown: false }} />
+          <Stack.Screen name="(auth)/signup" options={{ headerShown: false }} />
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="admin" options={{ headerShown: false }} />
+          <Stack.Screen name="settings/payment-methods" options={{ headerShown: false }} />
+          <Stack.Screen name="settings/subscriptions" options={{ headerShown: false }} />
+          <Stack.Screen name="settings/notifications" options={{ headerShown: false }} />
+          <Stack.Screen name="settings/privacy" options={{ headerShown: false }} />
+          <Stack.Screen name="notifications" options={{ headerShown: false }} />
+          <Stack.Screen name="studio/analytics" options={{ headerShown: false }} />
+          <Stack.Screen name="studio/ads-intro" options={{ headerShown: false }} />
+          <Stack.Screen name="studio/ads-creation" options={{ headerShown: false }} />
+          <Stack.Screen name="studio/ads-success" options={{ headerShown: false }} />
+          <Stack.Screen name="studio/ads-example" options={{ headerShown: false }} />
+          <Stack.Screen name="studio/earnings" options={{ headerShown: false }} />
+          <Stack.Screen name="studio/upload" options={{ headerShown: false }} />
+          <Stack.Screen name="studio/withdraw" options={{ headerShown: false }} />
+          <Stack.Screen name="studio/messages" options={{ headerShown: false }} />
+          <Stack.Screen name="studio/message-thread" options={{ headerShown: false }} />
+          <Stack.Screen name="cart" options={{ headerShown: false }} />
+          <Stack.Screen name="chat/index" options={{ headerShown: false }} />
+          <Stack.Screen name="chat/[id]" options={{ headerShown: false }} />
+          <Stack.Screen name="merch/index" options={{ headerShown: false }} />
+          <Stack.Screen name="profile/[id]" options={{ headerShown: false }} />
+          <Stack.Screen
+            name="listing/[id]"
+            options={{
+              headerShown: false,
+              presentation: 'transparentModal',
+              animation: 'slide_from_bottom',
+              contentStyle: { backgroundColor: 'transparent' },
+            }}
+          />
+          <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+        </Stack>
+        <GlobalToast />
+        <StatusBar style="auto" />
+      </ThemeProvider>
+    </Animated.View>
   );
 }
 

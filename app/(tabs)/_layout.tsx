@@ -14,6 +14,8 @@ interface AppSwitcherContextValue {
   openSheet: () => void;
   isModeSheetOpen: boolean;
   viewMode: 'vault' | 'studio';
+  studioAccessLevel: 'free' | 'pro';
+  isStudioPaid: boolean;
   overlayAnim: any;
   welcomeSlideAnim: any;
   welcomeOpacityAnim: any;
@@ -24,6 +26,8 @@ export const AppSwitcherContext = createContext<AppSwitcherContextValue>({
   openSheet: () => { },
   isModeSheetOpen: false,
   viewMode: 'vault',
+  studioAccessLevel: 'free',
+  isStudioPaid: false,
   overlayAnim: null,
   welcomeSlideAnim: null,
   welcomeOpacityAnim: null,
@@ -40,6 +44,7 @@ export default function TabLayout() {
     transitioning,
     viewMode,
     isModeAccessible,
+    transitionTargetMode,
     openSheet,
     closeSheet,
     switchMode,
@@ -47,12 +52,16 @@ export default function TabLayout() {
     welcomeSlideAnim,
     welcomeOpacityAnim,
     contentFadeAnim,
+    isStudioPaid,
+    studioAccessLevel,
   } = useAppSwitcher();
 
   const contextValue: AppSwitcherContextValue = {
     openSheet,
     isModeSheetOpen: sheetVisible,
     viewMode,
+    studioAccessLevel,
+    isStudioPaid,
     overlayAnim,
     welcomeSlideAnim,
     welcomeOpacityAnim,
@@ -110,6 +119,8 @@ export default function TabLayout() {
         visible={sheetVisible}
         currentMode={viewMode}
         isModeAccessible={isModeAccessible}
+        studioAccessLevel={studioAccessLevel}
+        isStudioPaid={isStudioPaid}
         onSelect={switchMode}
         onClose={closeSheet}
       />
@@ -117,7 +128,7 @@ export default function TabLayout() {
       {/* Full-screen transition overlay */}
       <ModeTransitionOverlay
         transitioning={transitioning}
-        newMode={viewMode}
+        newMode={transitionTargetMode}
         overlayAnim={overlayAnim}
         welcomeSlideAnim={welcomeSlideAnim}
         welcomeOpacityAnim={welcomeOpacityAnim}

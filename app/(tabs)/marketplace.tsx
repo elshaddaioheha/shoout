@@ -6,6 +6,7 @@ import { useCartStore } from '@/store/useCartStore';
 import { usePlaybackStore } from '@/store/usePlaybackStore';
 import { useToastStore } from '@/store/useToastStore';
 import { useUserStore } from '@/store/useUserStore';
+import { useAuthStore } from '@/store/useAuthStore';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { collectionGroup, getDocs, limit, orderBy, query, startAfter, where } from 'firebase/firestore';
@@ -35,6 +36,7 @@ const { width } = Dimensions.get('window');
 export default function MarketplaceScreen() {
     const router = useRouter();
     const { role, viewMode: storeViewMode } = useUserStore();
+    const { actualRole } = useAuthStore();
     const { showToast } = useToastStore();
     const cartItems = useCartStore(state => state.items);
     const { openSheet, isModeSheetOpen, viewMode } = useAppSwitcherContext();
@@ -128,6 +130,8 @@ export default function MarketplaceScreen() {
         );
     };
 
+    const isStudioPaid = (actualRole?.startsWith('studio') || actualRole?.startsWith('hybrid')) ?? false;
+
     const filteredTrending = filterItems(trending);
     const filteredSamples = filterItems(samples);
     const filteredArrivals = filterItems(arrivals);
@@ -210,7 +214,13 @@ export default function MarketplaceScreen() {
                                 </TouchableOpacity>
                                 <TouchableOpacity
                                     style={[styles.studioActionBtn, { backgroundColor: '#EC5C39' }]}
-                                    onPress={() => router.push('/studio/withdraw')}
+                                    onPress={() => {
+                                        if (!isStudioPaid) {
+                                            showToast('Upgrade to Studio Pro to access earnings.', 'info');
+                                            return;
+                                        }
+                                        router.push('/studio/withdraw');
+                                    }}
                                 >
                                     <DollarSign size={18} color="#FFF" />
                                     <Text style={styles.studioActionText}>Earnings</Text>

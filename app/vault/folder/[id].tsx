@@ -58,6 +58,7 @@ export default function FolderDetailScreen() {
     const [newTrackArtist, setNewTrackArtist] = useState('');
     const [adding, setAdding] = useState(false);
     const fadeAnim = useRef(new Animated.Value(0)).current;
+    const scaleAnim = useRef(new Animated.Value(0.96)).current;
 
     // Load folder tracks from Firestore
     useEffect(() => {
@@ -81,7 +82,10 @@ export default function FolderDetailScreen() {
             const list = snap.docs.map((d) => ({ id: d.id, ...d.data() })) as FolderTrack[];
             setTracks(list);
             setLoading(false);
-            Animated.timing(fadeAnim, { toValue: 1, duration: 300, useNativeDriver: true }).start();
+            Animated.parallel([
+                Animated.timing(fadeAnim, { toValue: 1, duration: 220, useNativeDriver: true }),
+                Animated.timing(scaleAnim, { toValue: 1, duration: 240, useNativeDriver: true }),
+            ]).start();
         }, (err) => {
             console.error('Folder tracks error:', err);
             setLoading(false);
@@ -226,7 +230,7 @@ export default function FolderDetailScreen() {
                         <ActivityIndicator color="#EC5C39" />
                     </View>
                 ) : (
-                    <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
+                    <Animated.View style={{ flex: 1, opacity: fadeAnim, transform: [{ scale: scaleAnim }] }}>
                         <ScrollView
                             showsVerticalScrollIndicator={false}
                             contentContainerStyle={tracks.length === 0 ? styles.emptyContainer : styles.listContent}

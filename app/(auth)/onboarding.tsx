@@ -1,11 +1,10 @@
 import { Image } from 'expo-image';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { ChevronRight } from 'lucide-react-native';
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
     Animated,
     Dimensions,
+    ScrollView,
     StatusBar,
     StyleSheet,
     Text,
@@ -13,7 +12,7 @@ import {
     View
 } from 'react-native';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
 const screens = [
     {
@@ -40,51 +39,72 @@ export default function OnboardingFlow() {
     const [currentScreen, setCurrentScreen] = useState(0);
     const fadeAnim = useRef(new Animated.Value(1)).current;
     const slideAnim = useRef(new Animated.Value(0)).current;
+    const scrollRef = useRef<ScrollView | null>(null);
+    const autoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const router = useRouter();
 
-    const handleNext = () => {
-        if (currentScreen < screens.length - 1) {
-            // Transition out
-            Animated.parallel([
-                Animated.timing(fadeAnim, {
-                    toValue: 0,
-                    duration: 300,
-                    useNativeDriver: true,
-                }),
-                Animated.timing(slideAnim, {
-                    toValue: 20,
-                    duration: 300,
-                    useNativeDriver: true,
-                })
-            ]).start(() => {
-                setCurrentScreen(prev => prev + 1);
-                // Reset and Transition in
-                slideAnim.setValue(-20);
-                Animated.parallel([
-                    Animated.timing(fadeAnim, {
-                        toValue: 1,
-                        duration: 300,
-                        useNativeDriver: true,
-                    }),
-                    Animated.timing(slideAnim, {
-                        toValue: 0,
-                        duration: 300,
-                        useNativeDriver: true,
-                    })
-                ]).start();
-            });
+    const handleComplete = React.useCallback(() => {
+        if (autoTimer.current) {
+            clearInterval(autoTimer.current);
+            autoTimer.current = null;
         }
+        router.replace('/(auth)/login');
+    }, [router]);
+
+    const animateContent = () => {
+        fadeAnim.setValue(0);
+        slideAnim.setValue(20);
+        Animated.parallel([
+            Animated.timing(fadeAnim, { toValue: 1, duration: 250, useNativeDriver: true }),
+            Animated.timing(slideAnim, { toValue: 0, duration: 250, useNativeDriver: true }),
+        ]).start();
     };
 
-    const handleGetStarted = () => {
-        router.push('/(tabs)');
+    useEffect(() => {
+        animateContent();
+    }, [currentScreen]);
+
+    useEffect(() => {
+        if (autoTimer.current) {
+            clearTimeout(autoTimer.current);
+            autoTimer.current = null;
+        }
+
+        autoTimer.current = setTimeout(() => {
+            if (currentScreen >= screens.length - 1) {
+                handleComplete();
+                return;
+            }
+            const next = currentScreen + 1;
+            setCurrentScreen(next);
+            scrollRef.current?.scrollTo({ x: next * width, animated: true });
+        }, 3000);
+
+        return () => {
+            if (autoTimer.current) {
+                clearTimeout(autoTimer.current);
+                autoTimer.current = null;
+            }
+        };
+    }, [currentScreen, handleComplete]);
+
+    const handleMomentumEnd = (event: any) => {
+        const offsetX = event.nativeEvent.contentOffset.x;
+        const index = Math.round(offsetX / width);
+        setCurrentScreen(index);
     };
 
-    const handleSignIn = () => {
-        router.push('/(auth)/login');
-    };
+    const handleSkip = () => handleComplete();
 
-    const currentScreenData = screens[currentScreen];
+    const handleNext = () => {
+        if (currentScreen === screens.length - 1) {
+            handleComplete();
+            return;
+        }
+        const next = currentScreen + 1;
+        setCurrentScreen(next);
+        scrollRef.current?.scrollTo({ x: next * width, animated: true });
+    };
 
     return (
         <View style={styles.container}>
@@ -98,101 +118,84 @@ export default function OnboardingFlow() {
                     transform: [{ translateX: slideAnim }]
                 }
             ]}>
+                <ScrollView
+                    ref={(ref) => (scrollRef.current = ref)}
+                    horizontal
+                    pagingEnabled
+                    showsHorizontalScrollIndicator={false}
+                    onMomentumScrollEnd={handleMomentumEnd}
+                    contentContainerStyle={{ alignItems: 'flex-start', height: '100%' }}
+                >
+                    {screens.map((screen, idx) => (
+                        <View key={screen.title} style={[styles.slide, { width }]}>                            
+                            <View style={styles.headerArea}>
+                                {idx === 2 && screen.subtitle && (
+                                    <Text style={styles.subtitle}>
+                                        {screen.subtitle}
+                                    </Text>
+                                )}
+                                <Text style={[styles.title, { color: screen.titleColor }]}>
+                                    {screen.title}
+                                </Text>
+                            </View>
 
-                {/* Header/Title Area */}
-                <View style={styles.headerArea}>
-                    {currentScreen === 2 && (
-                        <Text style={styles.subtitle}>
-                            {currentScreenData.subtitle}
-                        </Text>
-                    )}
-                    <Text style={[styles.title, { color: currentScreenData.titleColor }]}>
-                        {currentScreenData.title}
-                    </Text>
-                </View>
+                            {screen.description && (
+                                <Text style={styles.description}>
+                                    {screen.description}
+                                </Text>
+                            )}
 
-                {/* Description */}
-                {currentScreen < 2 && (
-                    <Text style={styles.description}>
-                        {currentScreenData.description}
-                    </Text>
-                )}
-
-                {/* Navigation Dots */}
-                <View style={styles.pagination}>
-                    {[0, 1, 2, 3].map((_, index) => (
-                        <View
-                            key={index}
-                            style={[
-                                styles.dot,
-                                currentScreen === index ? styles.activeDot : null,
-                                index === 3 && styles.inactiveDot
-                            ]}
-                        />
-                    ))}
-                </View>
-
-                {/* Action Button */}
-                <View style={styles.buttonContainer}>
-                    {currentScreen < screens.length - 1 ? (
-                        <TouchableOpacity
-                            onPress={handleNext}
-                            activeOpacity={0.8}
-                        >
-                            <LinearGradient
-                                colors={['#ED5639', '#C96F6F']}
-                                style={styles.nextButton}
-                            >
-                                <ChevronRight color="white" size={24} strokeWidth={2.5} />
-                            </LinearGradient>
-                        </TouchableOpacity>
-                    ) : (
-                        <View style={styles.finalActions}>
-                            <TouchableOpacity
-                                onPress={handleGetStarted}
-                                activeOpacity={0.8}
-                            >
-                                <LinearGradient
-                                    colors={['#ED5639', '#C96F6F']}
-                                    style={styles.getStartedButton}
-                                >
-                                    <Text style={styles.getStartedText}>Continue as Guest</Text>
-                                </LinearGradient>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity onPress={handleSignIn} activeOpacity={0.8}>
-                                <Text style={styles.signInText}>Sign in or Create account</Text>
-                            </TouchableOpacity>
+                            <View style={styles.illustrationContainer} pointerEvents="none">
+                                {idx === 0 && (
+                                    <Image
+                                        source={require('@/assets/images/welcome-1.png')}
+                                        style={styles.illustrationImage}
+                                        contentFit="contain"
+                                    />
+                                )}
+                                {idx === 1 && (
+                                    <Image
+                                        source={require('@/assets/images/welcome-2.png')}
+                                        style={styles.illustrationImage}
+                                        contentFit="contain"
+                                    />
+                                )}
+                                {idx === 2 && (
+                                    <Image
+                                        source={require('@/assets/images/welcome-3.png')}
+                                        style={styles.illustrationImage}
+                                        contentFit="contain"
+                                    />
+                                )}
+                            </View>
                         </View>
-                    )}
-                </View>
-
-                {/* Illustration Container */}
-                <View style={styles.illustrationContainer}>
-                    {currentScreen === 0 && (
-                        <Image
-                            source={require('@/assets/images/welcome-1.png')}
-                            style={styles.illustrationImage}
-                            contentFit="contain"
-                        />
-                    )}
-                    {currentScreen === 1 && (
-                        <Image
-                            source={require('@/assets/images/welcome-2.png')}
-                            style={styles.illustrationImage}
-                            contentFit="contain"
-                        />
-                    )}
-                    {currentScreen === 2 && (
-                        <Image
-                            source={require('@/assets/images/welcome-3.png')}
-                            style={styles.illustrationImage}
-                            contentFit="contain"
-                        />
-                    )}
-                </View>
-
+                    ))}
+                </ScrollView>
             </Animated.View>
+
+            <View style={styles.paginationRow}>
+                {screens.map((_, dotIdx) => (
+                    <View
+                        key={dotIdx}
+                        style={[
+                            styles.dot,
+                            currentScreen === dotIdx ? styles.activeDot : null,
+                        ]}
+                    />
+                ))}
+            </View>
+
+            <View style={styles.footerRow}>
+                <TouchableOpacity onPress={handleSkip} hitSlop={10}>
+                    <Text style={styles.skipText}>Skip</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={handleNext} activeOpacity={0.8} style={styles.nextButton}>
+                    <Text style={styles.nextText}>{currentScreen === screens.length - 1 ? 'Get Started' : 'Next'}</Text>
+                    <View style={styles.arrow} />
+                </TouchableOpacity>
+            </View>
+
+            <View style={styles.homeIndicator} />
         </View>
     );
 }
@@ -206,11 +209,22 @@ const styles = StyleSheet.create({
     },
     content: {
         flex: 1,
-        paddingHorizontal: 28,
-        paddingTop: 80,
+        paddingHorizontal: 20,
+        paddingTop: 72,
+    },
+    slide: {
+        flex: 1,
+    },
+    skipText: {
+        color: '#FFFFFF',
+        fontSize: 16,
+        fontFamily: 'Poppins-Medium',
+        letterSpacing: -0.5,
+        textDecorationLine: 'underline',
     },
     headerArea: {
-        marginBottom: 10,
+        marginBottom: 12,
+        gap: 8,
     },
     subtitle: {
         color: '#FFFFFF',
@@ -225,20 +239,26 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         lineHeight: 51,
         letterSpacing: -0.5,
+        maxWidth: 264,
     },
     description: {
         color: '#FFFFFF',
         fontSize: 13,
         fontFamily: 'Poppins-Regular',
         lineHeight: 25,
-        marginTop: 20,
-        maxWidth: 280,
+        marginTop: 8,
+        maxWidth: 286,
+        letterSpacing: -0.5,
     },
-    pagination: {
+    paginationRow: {
+        position: 'absolute',
+        left: 20,
+        top: 306,
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 5,
-        marginTop: 30,
+        gap: 6,
+        width: 90,
+        height: 4,
     },
     dot: {
         height: 4,
@@ -250,50 +270,62 @@ const styles = StyleSheet.create({
         width: 62,
         backgroundColor: '#F15A3B',
     },
-    inactiveDot: {
-        opacity: 0.5,
-    },
-    buttonContainer: {
-        marginTop: 40,
+    footerRow: {
+        position: 'absolute',
+        left: 20,
+        right: 20,
+        top: 709,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        height: 36,
     },
     nextButton: {
-        width: 45,
-        height: 44,
-        borderRadius: 22,
+        flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
+        paddingHorizontal: 20,
+        paddingVertical: 8,
+        backgroundColor: '#EC5C39',
+        borderRadius: 100,
+        gap: 8,
+        height: 36,
     },
-    getStartedButton: {
-        paddingHorizontal: 28,
-        paddingVertical: 12,
-        borderRadius: 30,
-        alignSelf: 'flex-start',
-    },
-    finalActions: {
-        gap: 14,
-        alignItems: 'flex-start',
-    },
-    getStartedText: {
-        color: 'white',
+    nextText: {
+        color: '#FFFFFF',
         fontSize: 16,
-        fontFamily: 'Poppins-SemiBold',
-        fontWeight: '600',
+        fontFamily: 'Poppins-Medium',
+        letterSpacing: -0.5,
     },
-    signInText: {
-        color: 'rgba(255,255,255,0.85)',
-        fontSize: 14,
-        fontFamily: 'Poppins-Regular',
+    arrow: {
+        width: 8,
+        height: 8,
+        borderRightWidth: 2,
+        borderBottomWidth: 2,
+        borderColor: '#FFFFFF',
+        transform: [{ rotate: '-45deg' }],
+    },
+    homeIndicator: {
+        position: 'absolute',
+        left: '50%',
+        bottom: 8,
+        width: 134,
+        height: 5,
+        backgroundColor: '#FFFFFF',
+        borderRadius: 100,
+        transform: [{ translateX: -67 }],
+        opacity: 0.9,
     },
     illustrationContainer: {
         position: 'absolute',
-        bottom: 80,
+        top: 340,
         left: 0,
         right: 0,
         alignItems: 'center',
         zIndex: -1,
     },
     illustrationImage: {
-        width: width * 0.8,
-        height: width * 0.8,
+        width: 352,
+        height: 329,
     }
 });

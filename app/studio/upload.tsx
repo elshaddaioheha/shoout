@@ -20,7 +20,7 @@ import {
     Upload as UploadIcon,
     X
 } from 'lucide-react-native';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     KeyboardAvoidingView,
@@ -28,6 +28,7 @@ import {
     ScrollView,
     Share,
     StyleSheet,
+    Animated,
     Text,
     TextInput,
     TouchableOpacity,
@@ -83,6 +84,8 @@ export default function UploadScreen() {
     const [existingTracks, setExistingTracks] = useState<Array<{ id: string; title: string }>>([]);
     const [selectedTrackIds, setSelectedTrackIds] = useState<string[]>([]);
     const [showTrackPicker, setShowTrackPicker] = useState(false);
+    const trackPickerSlide = useRef(new Animated.Value(40)).current;
+    const trackPickerFade = useRef(new Animated.Value(0)).current;
 
     const [title, setTitle] = useState('');
     const [genre, setGenre] = useState('');
@@ -112,6 +115,21 @@ export default function UploadScreen() {
         const unsub = auth.onAuthStateChanged((user) => setIsLoggedIn(!!user));
         return unsub;
     }, []);
+
+    // Animate track picker modal slide/fade
+    useEffect(() => {
+        if (showTrackPicker) {
+            Animated.parallel([
+                Animated.timing(trackPickerFade, { toValue: 1, duration: 160, useNativeDriver: true }),
+                Animated.spring(trackPickerSlide, { toValue: 0, useNativeDriver: true, speed: 20, bounciness: 4 }),
+            ]).start();
+        } else {
+            Animated.parallel([
+                Animated.timing(trackPickerFade, { toValue: 0, duration: 140, useNativeDriver: true }),
+                Animated.timing(trackPickerSlide, { toValue: 40, duration: 140, useNativeDriver: true }),
+            ]).start();
+        }
+    }, [showTrackPicker, trackPickerFade, trackPickerSlide]);
 
     if (!isLoggedIn) {
         return (
@@ -1023,12 +1041,13 @@ export default function UploadScreen() {
                 )}
 
                 {showTrackPicker && (
-                    <TouchableOpacity
-                        style={styles.modalOverlay}
-                        activeOpacity={1}
-                        onPress={() => setShowTrackPicker(false)}
-                    >
-                        <View style={styles.pickerContent}>
+                    <Animated.View style={[styles.modalOverlay, { opacity: trackPickerFade }]} pointerEvents="box-none">
+                        <TouchableOpacity
+                            style={StyleSheet.absoluteFill}
+                            activeOpacity={1}
+                            onPress={() => setShowTrackPicker(false)}
+                        />
+                        <Animated.View style={[styles.pickerContent, { transform: [{ translateY: trackPickerSlide }] }]}>
                             <View style={styles.pickerHeader}>
                                 <Text style={styles.pickerTitle}>Select Tracks</Text>
                                 <TouchableOpacity onPress={() => setShowTrackPicker(false)}>
@@ -1062,8 +1081,8 @@ export default function UploadScreen() {
                                     </TouchableOpacity>
                                 ))
                             )}
-                        </View>
-                    </TouchableOpacity>
+                        </Animated.View>
+                    </Animated.View>
                 )}
             </KeyboardAvoidingView>
         </SafeScreenWrapper>

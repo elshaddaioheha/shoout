@@ -1,24 +1,17 @@
 import { useAppSwitcherContext } from '@/app/(tabs)/_layout';
 import SharedHeader from '@/components/SharedHeader';
-import { auth, db } from '@/firebaseConfig';
 import { formatUsd } from '@/utils/pricing';
 import { useCartStore } from '@/store/useCartStore';
 import { usePlaybackStore } from '@/store/usePlaybackStore';
-import { BlurView } from 'expo-blur';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { collection, collectionGroup, deleteDoc, doc, getDocs, limit, onSnapshot, orderBy, query, setDoc, where } from 'firebase/firestore';
 import {
   Heart,
-  Mic2,
   MoreVertical,
-  Music,
   Play,
   ShoppingCart,
-  Sparkles,
   Users
 } from 'lucide-react-native';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   Dimensions,
   ScrollView,
@@ -31,75 +24,64 @@ import {
 
 const { width } = Dimensions.get('window');
 
-// ─── useFavourite hook ─────────────────────────────────────────────────────────
-function useFavourite(trackId: string) {
+// Mocked home data — keeps the home screen static and removes Firestore reads
+const TRENDING_SONGS = [
+  { id: 't1', title: 'Orbit', artist: 'Mara Jade', uploaderName: 'Mara Jade', audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3', uploaderId: 'u1' },
+  { id: 't2', title: 'Night Drive', artist: 'Luna', uploaderName: 'Luna', audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3', uploaderId: 'u2' },
+  { id: 't3', title: 'Glow', artist: 'Dusk', uploaderName: 'Dusk', audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3', uploaderId: 'u3' },
+];
+
+const TOP_PLAYLISTS = [
+  { id: 'p1', title: 'Studio Focus', genre: 'Lo-fi', price: 0 },
+  { id: 'p2', title: 'Creator Picks', genre: 'Indie', price: 12 },
+  { id: 'p3', title: 'Vault Vibes', genre: 'Alt R&B', price: 8 },
+  { id: 'p4', title: 'Sunset', genre: 'Afro-pop', price: 5 },
+  { id: 'p5', title: 'Midnight', genre: 'EDM', price: 10 },
+  { id: 'p6', title: 'Acoustic Gems', genre: 'Acoustic', price: 6 },
+];
+
+const FREE_MUSIC = [
+  { id: 'f1', title: 'Weightless', artist: 'Nova', audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3', uploaderId: 'u5', price: 0 },
+  { id: 'f2', title: 'Sundown', artist: 'Kai', audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3', uploaderId: 'u6', price: 0 },
+  { id: 'f3', title: 'Breeze', artist: 'Ola', audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3', uploaderId: 'u7', price: 0 },
+];
+
+const ARTISTS = [
+  { id: 'a1', fullName: 'Mara Jade' },
+  { id: 'a2', fullName: 'Luna' },
+  { id: 'a3', fullName: 'Dusk' },
+  { id: 'a4', fullName: 'Nova' },
+  { id: 'a5', fullName: 'Kai' },
+  { id: 'a6', fullName: 'Ola' },
+  { id: 'a7', fullName: 'Sage' },
+  { id: 'a8', fullName: 'Vela' },
+];
+
+const POPULAR_BEATS = [
+  { id: 'b1', title: 'Pulse', artist: 'Sage', uploaderName: 'Sage', price: 20, audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3', uploaderId: 'u8' },
+  { id: 'b2', title: 'Drift', artist: 'Vela', uploaderName: 'Vela', price: 18, audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3', uploaderId: 'u9' },
+  { id: 'b3', title: 'Slingshot', artist: 'Ro', uploaderName: 'Ro', price: 22, audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-9.mp3', uploaderId: 'u10' },
+  { id: 'b4', title: 'Orbit', artist: 'Mara Jade', uploaderName: 'Mara Jade', price: 16, audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-10.mp3', uploaderId: 'u1' },
+  { id: 'b5', title: 'Low Tide', artist: 'Kai', uploaderName: 'Kai', price: 14, audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-11.mp3', uploaderId: 'u6' },
+  { id: 'b6', title: 'Lanterns', artist: 'Nova', uploaderName: 'Nova', price: 12, audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-12.mp3', uploaderId: 'u5' },
+];
+
+// ─── Local favourite hook (no Firestore) ───────────────────────────────────────
+function useLocalFavourite(_trackId: string) {
   const [isFav, setIsFav] = useState(false);
-
-  useEffect(() => {
-    const uid = auth.currentUser?.uid;
-    if (!uid || !trackId) return;
-    const ref = doc(db, `users/${uid}/favourites`, trackId);
-    const unsub = onSnapshot(ref, (snap) => setIsFav(snap.exists()));
-    return unsub;
-  }, [trackId]);
-
-  const toggle = async (track: { id: string; title: string; artist: string; url: string; uploaderId: string }) => {
-    const uid = auth.currentUser?.uid;
-    if (!uid) return;
-    const ref = doc(db, `users/${uid}/favourites`, track.id);
-    if (isFav) {
-      await deleteDoc(ref);
-    } else {
-      await setDoc(ref, { ...track, addedAt: new Date().toISOString() });
-    }
-  };
-
+  const toggle = () => setIsFav((prev) => !prev);
   return { isFav, toggle };
 }
 
 export default function HomeScreen() {
   const router = useRouter();
-  const [showWelcomeModal, setShowWelcomeModal] = useState(true);
-  const [modalStep, setModalStep] = useState(0);
   const { openSheet, isModeSheetOpen, viewMode } = useAppSwitcherContext();
   const { items } = useCartStore();
-
-  const modals = [
-    {
-      icon: <Music size={80} color="#EC5C39" strokeWidth={1.5} />,
-      title: "Welcome to Shoouts",
-      description: "your space to Discover, Create, Sell, Buy and share Afro sounds like never before.",
-      buttons: [
-        { label: "Skip", variant: "outline", action: () => setShowWelcomeModal(false) },
-        { label: "Next", variant: "solid", action: () => setModalStep(1) }
-      ]
-    },
-    {
-      icon: <Mic2 size={80} color="#EC5C39" strokeWidth={1.5} />,
-      title: "For Artists",
-      description: "Upload your Music, Beats and Store and Share with fans",
-      buttons: [
-        { label: "Skip", variant: "outline", action: () => setShowWelcomeModal(false) },
-        { label: "Next", variant: "solid", action: () => setModalStep(2) }
-      ]
-    },
-    {
-      icon: <Sparkles size={80} color="#EC5C39" strokeWidth={1.5} />,
-      title: "For Fans & Everyone",
-      description: "Stream authentic Afro vibes, follow your favorite creators, and unlock exclusive content.",
-      buttons: [
-        { label: "Let's Get Started", variant: "solid", action: () => setShowWelcomeModal(false) }
-      ]
-    }
-  ];
-
-  const currentModal = modals[modalStep];
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
 
-      {/* Header */}
       <SharedHeader
         viewMode={viewMode}
         isModeSheetOpen={isModeSheetOpen}
@@ -109,7 +91,6 @@ export default function HomeScreen() {
         showMessages={true}
       />
 
-      {/* Main Content */}
       <ScrollView
         style={styles.content}
         showsVerticalScrollIndicator={false}
@@ -121,50 +102,6 @@ export default function HomeScreen() {
         <ArtistsSection />
         <PopularBeatsSection />
       </ScrollView>
-
-
-
-      {/* Welcome Modal Overlay */}
-      {showWelcomeModal && (
-        <View style={styles.modalOverlay}>
-          <BlurView intensity={20} style={StyleSheet.absoluteFill} />
-          <LinearGradient
-            colors={['rgba(0,0,0,0.4)', 'rgba(115,115,115,0.4)']}
-            style={StyleSheet.absoluteFill}
-          />
-          <View style={styles.modalContent}>
-            <View style={styles.modalInner}>
-              <View style={styles.modalIconContainer}>
-                {currentModal.icon}
-              </View>
-
-              <Text style={styles.modalTitle}>{currentModal.title}</Text>
-              <Text style={styles.modalDescription}>{currentModal.description}</Text>
-
-              <View style={styles.modalButtonsContainer}>
-                {currentModal.buttons.map((btn, idx) => (
-                  <TouchableOpacity
-                    key={idx}
-                    onPress={btn.action}
-                    style={[
-                      styles.modalBtn,
-                      btn.variant === 'solid' ? styles.modalBtnSolid : styles.modalBtnOutline,
-                      currentModal.buttons.length === 1 ? { width: 262 } : { width: 138 }
-                    ]}
-                  >
-                    <Text style={[
-                      styles.modalBtnText,
-                      btn.variant === 'solid' ? { color: 'white' } : { color: '#EC5C39' }
-                    ]}>
-                      {btn.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-          </View>
-        </View>
-      )}
     </View>
   );
 }
@@ -172,18 +109,7 @@ export default function HomeScreen() {
 // Sub-sections
 function TrendingSection() {
   const setTrack = usePlaybackStore(state => state.setTrack);
-  const [songs, setSongs] = useState<any[]>([]);
-
-  useEffect(() => {
-    const unsub = onSnapshot(doc(db, 'system', 'trending'), (snap) => {
-      if (snap.exists()) {
-        const items = (snap.data()?.items || []) as any[];
-        setSongs(items.slice(0, 3));
-      }
-    });
-
-    return unsub;
-  }, []);
+  const songs = TRENDING_SONGS;
 
   const COLORS = ['#D9D9D9', '#C9A959', '#8B7355'];
 
@@ -205,7 +131,7 @@ function TrendingSection() {
 }
 
 function TrendingCard({ song, bgColor, onPlay }: { song: any; bgColor: string; onPlay: () => void }) {
-  const { isFav, toggle } = useFavourite(song.id);
+  const { isFav, toggle } = useLocalFavourite(song.id);
   return (
     <View style={[styles.trendingCard, { backgroundColor: bgColor }]}>
       <View style={styles.songInfoOverlay}>
@@ -218,7 +144,7 @@ function TrendingCard({ song, bgColor, onPlay }: { song: any; bgColor: string; o
         </View>
         <TouchableOpacity
           style={{ paddingHorizontal: 8 }}
-          onPress={() => toggle({ id: song.id, title: song.title, artist: song.artist || song.uploaderName, url: song.audioUrl || song.url, uploaderId: song.uploaderId })}
+          onPress={() => toggle()}
         >
           <Heart size={18} color={isFav ? '#EC5C39' : 'white'} fill={isFav ? '#EC5C39' : 'transparent'} />
         </TouchableOpacity>
@@ -232,24 +158,7 @@ function TrendingCard({ song, bgColor, onPlay }: { song: any; bgColor: string; o
 
 function PlaylistSection() {
   const router = useRouter();
-  const [playlists, setPlaylists] = useState<any[]>([]);
-
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const q = query(
-          collectionGroup(db, 'uploads'),
-          orderBy('listenCount', 'desc'),
-          limit(6)
-        );
-        const snap = await getDocs(q);
-        setPlaylists(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-      } catch (e) {
-        console.warn('playlist load failed', e);
-      }
-    };
-    load();
-  }, []);
+  const playlists = TOP_PLAYLISTS;
 
   return (
     <View style={styles.section}>
@@ -290,41 +199,7 @@ function PlaylistSection() {
 function FreeMusicSection() {
   const router = useRouter();
   const setTrack = usePlaybackStore(state => state.setTrack);
-  const [songs, setSongs] = useState<any[]>([]);
-
-  useEffect(() => {
-    async function fetchFreeMusic() {
-      try {
-        // Fetch known artists from our seed and grab their free tracks
-        const artistsQuery = query(collection(db, 'users'), limit(5));
-        const artistsSnap = await getDocs(artistsQuery);
-
-        const allFreeTracks: any[] = [];
-
-        for (const doc of artistsSnap.docs) {
-          const uploadsQuery = query(collection(db, `users/${doc.id}/uploads`));
-          const uploadsSnap = await getDocs(uploadsQuery);
-
-          for (const uploadDoc of uploadsSnap.docs) {
-            const data = uploadDoc.data();
-            if (data.price === 0) {
-              allFreeTracks.push({
-                id: data.id,
-                title: data.title,
-                artist: doc.data().fullName,
-                url: data.url
-              });
-            }
-          }
-        }
-
-        setSongs(allFreeTracks.length ? allFreeTracks : []);
-      } catch (error) {
-        console.log("Error fetching dynamic seed music", error);
-      }
-    }
-    fetchFreeMusic();
-  }, []);
+  const songs = FREE_MUSIC;
 
   return (
     <View style={styles.section}>
@@ -346,7 +221,7 @@ function FreeMusicSection() {
 }
 
 function FreeMusicCard({ song, onPlay }: { song: any; onPlay: () => void }) {
-  const { isFav, toggle } = useFavourite(song.id);
+  const { isFav, toggle } = useLocalFavourite(song.id);
   const { addItem, items } = useCartStore();
   const inCart = items.some((i: any) => i.id === song.id);
   return (
@@ -358,9 +233,7 @@ function FreeMusicCard({ song, onPlay }: { song: any; onPlay: () => void }) {
         <TouchableOpacity onPress={(e) => { e.stopPropagation?.(); addItem({ id: song.id, title: song.title, artist: song.artist, price: song.price || 0, uploaderId: song.uploaderId || '' }); }}>
           <ShoppingCart size={14} color={inCart ? '#4CAF50' : '#EC5C39'} />
         </TouchableOpacity>
-        <TouchableOpacity
-          onPress={(e) => { e.stopPropagation?.(); toggle({ id: song.id, title: song.title, artist: song.artist, url: song.audioUrl || song.url, uploaderId: song.uploaderId }); }}
-        >
+        <TouchableOpacity onPress={(e) => { e.stopPropagation?.(); toggle(); }}>
           <Heart size={12} color="#EC5C39" fill={isFav ? '#EC5C39' : 'transparent'} />
         </TouchableOpacity>
       </View>
@@ -370,20 +243,7 @@ function FreeMusicCard({ song, onPlay }: { song: any; onPlay: () => void }) {
 
 function ArtistsSection() {
   const router = useRouter();
-  const [artists, setArtists] = useState<any[]>([]);
-
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const q = query(collection(db, 'users'), orderBy('followers', 'desc'), limit(8));
-        const snap = await getDocs(q);
-        setArtists(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-      } catch (e) {
-        console.warn('artists load failed', e);
-      }
-    };
-    load();
-  }, []);
+  const artists = ARTISTS;
 
   return (
     <View style={styles.section}>
@@ -410,20 +270,7 @@ function ArtistsSection() {
 function PopularBeatsSection() {
   const router = useRouter();
   const setTrack = usePlaybackStore(state => state.setTrack);
-  const [beats, setBeats] = useState<any[]>([]);
-
-  useEffect(() => {
-    const q = query(
-      collectionGroup(db, 'uploads'),
-      where('isbeat', '==', true),
-      orderBy('listenCount', 'desc'),
-      limit(6)
-    );
-    getDocs(q).then((snap) => {
-      if (!snap.empty) setBeats(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-      else setBeats([]);
-    }).catch(() => { setBeats([]); });
-  }, []);
+  const beats = POPULAR_BEATS;
 
   return (
     <View style={styles.section}>
@@ -450,7 +297,7 @@ function PopularBeatsSection() {
 }
 
 function BeatRow({ beat, isLast, onPlay }: { beat: any; isLast: boolean; onPlay: () => void }) {
-  const { isFav, toggle } = useFavourite(beat.id);
+  const { isFav, toggle } = useLocalFavourite(beat.id);
   const { addItem, items } = useCartStore();
   const inCart = items.some((i: any) => i.id === beat.id);
   const priceDisplay = beat.price && typeof beat.price === 'number' ? formatUsd(beat.price) : (beat.price || '');
@@ -467,9 +314,7 @@ function BeatRow({ beat, isLast, onPlay }: { beat: any; isLast: boolean; onPlay:
           <TouchableOpacity onPress={(e) => { e.stopPropagation?.(); addItem({ id: beat.id, title: beat.title, artist: beat.artist || beat.uploaderName, price: beat.price || 0, uploaderId: beat.uploaderId || '' }); }}>
             <ShoppingCart size={14} color={inCart ? '#4CAF50' : '#EC5C39'} />
           </TouchableOpacity>
-          <TouchableOpacity
-            onPress={(e) => { e.stopPropagation?.(); toggle({ id: beat.id, title: beat.title, artist: beat.artist || beat.uploaderName, url: beat.audioUrl || beat.url, uploaderId: beat.uploaderId }); }}
-          >
+          <TouchableOpacity onPress={(e) => { e.stopPropagation?.(); toggle(); }}>
             <Heart size={12} color="#EC5C39" fill={isFav ? '#EC5C39' : 'transparent'} />
           </TouchableOpacity>
         </View>

@@ -11,7 +11,7 @@ import {
     Mic2,
     Music,
 } from 'lucide-react-native';
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
     Animated,
     Modal,
@@ -52,6 +52,8 @@ interface ModeSelectorSheetProps {
     visible: boolean;
     currentMode: ViewMode;
     isModeAccessible: (mode: ViewMode) => boolean;
+    studioAccessLevel: 'free' | 'pro';
+    isStudioPaid: boolean;
     onSelect: (mode: ViewMode) => void;
     onClose: () => void;
 }
@@ -60,6 +62,8 @@ export default function ModeSelectorSheet({
     visible,
     currentMode,
     isModeAccessible,
+    studioAccessLevel,
+    isStudioPaid,
     onSelect,
     onClose,
 }: ModeSelectorSheetProps) {
@@ -67,6 +71,7 @@ export default function ModeSelectorSheet({
     const router = useRouter();
     const slideAnim = useRef(new Animated.Value(400)).current;
     const fadeAnim = useRef(new Animated.Value(0)).current;
+    const [showStudioPlans, setShowStudioPlans] = useState(false);
 
     useEffect(() => {
         if (visible) {
@@ -74,12 +79,12 @@ export default function ModeSelectorSheet({
                 Animated.spring(slideAnim, {
                     toValue: 0,
                     useNativeDriver: true,
-                    speed: 20,
-                    bounciness: 3,
+                    speed: 22,
+                    bounciness: 2,
                 }),
                 Animated.timing(fadeAnim, {
                     toValue: 1,
-                    duration: 200,
+                    duration: 240,
                     useNativeDriver: true,
                 }),
             ]).start();
@@ -87,7 +92,7 @@ export default function ModeSelectorSheet({
             Animated.parallel([
                 Animated.timing(slideAnim, {
                     toValue: 400,
-                    duration: 280,
+                    duration: 200,
                     useNativeDriver: true,
                 }),
                 Animated.timing(fadeAnim, {
@@ -98,6 +103,12 @@ export default function ModeSelectorSheet({
             ]).start();
         }
     }, [visible, slideAnim, fadeAnim]);
+
+    useEffect(() => {
+        if (!visible) {
+            setShowStudioPlans(false);
+        }
+    }, [visible]);
 
     return (
         <Modal
@@ -124,61 +135,127 @@ export default function ModeSelectorSheet({
                 {/* Handle */}
                 <View style={styles.handle} />
 
-                <Text style={styles.sheetTitle}>Switch Mode</Text>
-                <Text style={styles.sheetSubtitle}>Select how you want to experience Shoouts</Text>
+                {showStudioPlans ? (
+                    <>
+                        <Text style={styles.sheetTitle}>Choose your Studio tier</Text>
+                        <Text style={styles.sheetSubtitle}>Start free or go Pro for payouts & analytics</Text>
 
-                <View style={styles.modeList}>
-                    {VIEW_MODES.map((mode) => {
-                        const accessible = isModeAccessible(mode.id);
-                        const isActive = mode.id === currentMode;
-
-                        return (
+                        <View style={styles.planGrid}>
                             <TouchableOpacity
-                                key={mode.id}
-                                style={[
-                                    styles.modeRow,
-                                    isActive && { borderColor: mode.color + '55', backgroundColor: mode.color + '10' },
-                                    !accessible && { opacity: 0.6 },
-                                ]}
-                                onPress={() => accessible ? onSelect(mode.id) : undefined}
-                                activeOpacity={accessible ? 0.7 : 1}
+                                style={[styles.planCard, { borderColor: '#4CAF50' + '50' }]}
+                                activeOpacity={0.8}
+                                onPress={() => {
+                                    onSelect('studio');
+                                    setShowStudioPlans(false);
+                                }}
                             >
-                                {/* Icon */}
-                                <View style={[styles.modeIconBg, { backgroundColor: mode.color + '18' }]}>
-                                    <mode.Icon size={22} color={mode.color} />
+                                <View style={[styles.planBadge, { backgroundColor: '#4CAF50' + '22' }]}>
+                                    <Text style={[styles.planBadgeText, { color: '#4CAF50' }]}>Free</Text>
                                 </View>
-
-                                {/* Info */}
-                                <View style={styles.modeInfo}>
-                                    <Text style={styles.modeLabel}>{mode.label}</Text>
-                                    <Text style={styles.modeDesc}>{mode.description}</Text>
-                                </View>
-
-                                {/* Right indicator */}
-                                <View style={styles.modeRight}>
-                                    {isActive ? (
-                                        <CheckCircle2 size={22} color={mode.color} fill={mode.color} />
-                                    ) : !accessible ? (
-                                        <TouchableOpacity
-                                            style={[styles.unlockBtn, { borderColor: mode.color + '60' }]}
-                                            onPress={() => {
-                                                onClose();
-                                                router.push('/settings/subscriptions' as any);
-                                            }}
-                                        >
-                                            <Lock size={11} color={mode.color} />
-                                            <Text style={[styles.unlockText, { color: mode.color }]}>Upgrade</Text>
-                                        </TouchableOpacity>
-                                    ) : (
-                                        <View style={styles.radioOuter}>
-                                            <View style={styles.radioInner} />
-                                        </View>
-                                    )}
+                                <Text style={styles.planTitle}>Studio Free</Text>
+                                <Text style={styles.planDesc}>15GB uploads, sell beats, upgrade anytime.</Text>
+                                <View style={styles.planFootRow}>
+                                    <Text style={styles.planPrice}>$0</Text>
+                                    <CheckCircle2 size={18} color="#4CAF50" />
                                 </View>
                             </TouchableOpacity>
-                        );
-                    })}
-                </View>
+
+                            <TouchableOpacity
+                                style={[styles.planCard, { borderColor: '#EC5C39' + '60' }]}
+                                activeOpacity={0.8}
+                                onPress={() => {
+                                    onClose();
+                                    setShowStudioPlans(false);
+                                    router.push('/settings/subscriptions' as any);
+                                }}
+                            >
+                                <View style={[styles.planBadge, { backgroundColor: '#EC5C39' + '22' }]}>
+                                    <Text style={[styles.planBadgeText, { color: '#EC5C39' }]}>Pro</Text>
+                                </View>
+                                <Text style={styles.planTitle}>Studio Pro</Text>
+                                <Text style={styles.planDesc}>Analytics, payouts, lower fees, team tools.</Text>
+                                <View style={styles.planFootRow}>
+                                    <Text style={styles.planPrice}>Upgrade</Text>
+                                    <Lock size={16} color="#EC5C39" />
+                                </View>
+                            </TouchableOpacity>
+                        </View>
+
+                        <TouchableOpacity style={styles.backRow} onPress={() => setShowStudioPlans(false)}>
+                            <Text style={styles.backText}>‹ Back to modes</Text>
+                        </TouchableOpacity>
+                    </>
+                ) : (
+                    <>
+                        <Text style={styles.sheetTitle}>Switch Mode</Text>
+                        <Text style={styles.sheetSubtitle}>Select how you want to experience Shoouts</Text>
+
+                        <View style={styles.modeList}>
+                            {VIEW_MODES.map((mode) => {
+                                const accessible = isModeAccessible(mode.id);
+                                const isActive = mode.id === currentMode;
+                                const showFreeTag = mode.id === 'studio' && !isStudioPaid;
+
+                                return (
+                                    <TouchableOpacity
+                                        key={mode.id}
+                                        style={[
+                                            styles.modeRow,
+                                            isActive && { borderColor: mode.color + '55', backgroundColor: mode.color + '10' },
+                                            !accessible && { opacity: 0.6 },
+                                        ]}
+                                        onPress={() => {
+                                            if (!accessible) return;
+                                            if (mode.id === 'studio' && !isStudioPaid) {
+                                                setShowStudioPlans(true);
+                                                return;
+                                            }
+                                            onSelect(mode.id);
+                                        }}
+                                        activeOpacity={accessible ? 0.7 : 1}
+                                    >
+                                        {/* Icon */}
+                                        <View style={[styles.modeIconBg, { backgroundColor: mode.color + '18' }]}>
+                                            <mode.Icon size={22} color={mode.color} />
+                                        </View>
+
+                                        {/* Info */}
+                                        <View style={styles.modeInfo}>
+                                            <Text style={styles.modeLabel}>{mode.label}</Text>
+                                            <Text style={styles.modeDesc}>
+                                                {mode.id === 'studio' && showFreeTag
+                                                    ? 'Free tier available • Upgrade for payouts & analytics'
+                                                    : mode.description}
+                                            </Text>
+                                        </View>
+
+                                        {/* Right indicator */}
+                                        <View style={styles.modeRight}>
+                                            {isActive ? (
+                                                <CheckCircle2 size={22} color={mode.color} fill={mode.color} />
+                                            ) : showFreeTag ? (
+                                                <TouchableOpacity
+                                                    style={[styles.unlockBtn, { borderColor: mode.color + '60' }]}
+                                                    onPress={() => {
+                                                        onClose();
+                                                        router.push('/settings/subscriptions' as any);
+                                                    }}
+                                                >
+                                                    <Lock size={11} color={mode.color} />
+                                                    <Text style={[styles.unlockText, { color: mode.color }]}>Upgrade</Text>
+                                                </TouchableOpacity>
+                                            ) : (
+                                                <View style={styles.radioOuter}>
+                                                    <View style={styles.radioInner} />
+                                                </View>
+                                            )}
+                                        </View>
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </View>
+                    </>
+                )}
             </Animated.View>
         </Modal>
     );
@@ -224,6 +301,58 @@ const styles = StyleSheet.create({
     },
     modeList: {
         gap: 12,
+    },
+    planGrid: {
+        flexDirection: 'row',
+        gap: 12,
+    },
+    planCard: {
+        flex: 1,
+        backgroundColor: 'rgba(255,255,255,0.04)',
+        borderRadius: 18,
+        padding: 16,
+        borderWidth: 1,
+        gap: 10,
+    },
+    planBadge: {
+        alignSelf: 'flex-start',
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 20,
+    },
+    planBadgeText: {
+        fontSize: 11,
+        fontFamily: 'Poppins-SemiBold',
+    },
+    planTitle: {
+        color: '#FFF',
+        fontSize: 16,
+        fontFamily: 'Poppins-SemiBold',
+    },
+    planDesc: {
+        color: 'rgba(255,255,255,0.55)',
+        fontSize: 12,
+        fontFamily: 'Poppins-Regular',
+        lineHeight: 17,
+    },
+    planFootRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    planPrice: {
+        color: '#FFF',
+        fontSize: 14,
+        fontFamily: 'Poppins-Bold',
+    },
+    backRow: {
+        marginTop: 16,
+        alignSelf: 'flex-start',
+    },
+    backText: {
+        color: 'rgba(255,255,255,0.7)',
+        fontSize: 13,
+        fontFamily: 'Poppins-SemiBold',
     },
     modeRow: {
         flexDirection: 'row',
