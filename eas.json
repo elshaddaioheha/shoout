@@ -15,8 +15,7 @@
             "channel": "preview",
             "autoIncrement": true,
             "android": {
-                "buildType": "apk",
-                "googleServicesFile": "./google-services.json"
+                "buildType": "apk"
             }
         },
         "production": {

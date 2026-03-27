@@ -39,14 +39,11 @@ extensions/*.env
 
 # typescript
 *.tsbuildinfo
+GoogleService-Info.plist
+serviceAccountKey.json
 
 app-example
 
 # generated native folders
 /ios
 /android
-
-# Firebase native config (download from Firebase Console / EAS secrets locally)
-google-services.json
-GoogleService-Info.plist
-serviceAccountKey.json
