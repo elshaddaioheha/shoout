@@ -1,11 +1,11 @@
 {
   "expo": {
     "name": "Shoouts",
-    "slug": "shouuts",
+    "slug": "shoouts",
     "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "shouuts",
+    "scheme": "shoouts",
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true
@@ -18,7 +18,7 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "versionCode": 5
+      "versionCode": 6
     },
     "web": {
       "output": "static",
@@ -48,7 +48,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "536db878-94a0-4cff-9221-dd105ed01d48"
+        "projectId": "292d90b7-83ca-4c1b-a9cc-304fd713db4b"
       }
     },
     "runtimeVersion": {
