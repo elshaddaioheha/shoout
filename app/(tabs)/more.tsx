@@ -5,19 +5,21 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { useCartStore } from '@/store/useCartStore';
 import { useNotificationStore } from '@/store/useNotificationStore';
 import { usePlaybackStore } from '@/store/usePlaybackStore';
+import { useToastStore } from '@/store/useToastStore';
 import { useUserStore } from '@/store/useUserStore';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { onAuthStateChanged } from 'firebase/auth';
-import { Bell, ChevronRight, CreditCard, Crown, DollarSign, Library, LogOut, Shield, ShoppingCart, Sparkles, TrendingUp, User } from 'lucide-react-native';
+import { Banknote, Bell, ChevronRight, CircleHelp, CreditCard, History, Library, Link2, LogOut, Share2, Shield, ShoppingCart, Sparkles, User } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { auth } from '../../firebaseConfig';
 
 export default function MoreScreen() {
     const router = useRouter();
-    const { role, reset } = useUserStore();
+    const { role, name, reset } = useUserStore();
+    const { showToast } = useToastStore();
     const { openSheet, isModeSheetOpen, viewMode } = useAppSwitcherContext();
     const [isLoggedIn, setIsLoggedIn] = useState(!!auth.currentUser);
 
@@ -93,56 +95,30 @@ export default function MoreScreen() {
     return (
         <SafeScreenWrapper>
             <View style={styles.container}>
-                <SharedHeader viewMode={viewMode} isModeSheetOpen={isModeSheetOpen} onModePillPress={openSheet} />
-
                 <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
-                    {/* Role Specific Section */}
-                    {isStudioOrHybrid && (
-                        <View style={styles.section}>
-                            <Text style={styles.sectionTitle}>Business</Text>
-                            <View style={styles.menuContainer}>
-                                <MenuItem icon={DollarSign} label="Earnings" color="#10B981" />
-                                <MenuItem icon={TrendingUp} label="Analytics" color="#3B82F6" />
-                            </View>
+                    <View style={styles.greetingRow}>
+                        <View style={styles.avatarBubble}>
+                            <Text style={styles.avatarBubbleText}>{getInitials(name)}</Text>
                         </View>
-                    )}
-
-                    <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Profile & Updates</Text>
-                        <View style={styles.menuContainer}>
-                            <MenuItem icon={User} label="Profile" color="#EC5C39" onPress={() => router.push('/(tabs)/profile' as any)} />
-                            <MenuItem icon={Bell} label="Notifications" color="#3B82F6" onPress={() => router.push('/notifications' as any)} />
-                            <MenuItem icon={Sparkles} label="Updates" color="#C084FC" onPress={() => router.push('/updates' as any)} />
-                        </View>
+                        <Text style={styles.greetingText}>Hi, {name || 'Creator'}</Text>
                     </View>
 
-                    <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Library</Text>
-                        <View style={styles.menuContainer}>
-                            <MenuItem icon={ShoppingCart} label="Cart" color="#EC5C39" onPress={() => router.push('/cart' as any)} />
-                            <MenuItem icon={Library} label="My Storage" color="#3B82F6" onPress={() => router.push('/(tabs)/library' as any)} />
-                        </View>
+                    <View style={styles.menuContainer}>
+                        <MenuItem icon={Library} label="Library" color="#EC5C39" onPress={() => router.push('/(tabs)/library' as any)} />
+                        <MenuItem icon={ShoppingCart} label="My Cart" color="#EC5C39" onPress={() => router.push('/cart' as any)} />
+                        <MenuItem icon={History} label="History" color="#EC5C39" onPress={() => showToast('Coming soon', 'info')} />
+                        <MenuItem icon={Bell} label="Updates" color="#EC5C39" onPress={() => router.push('/updates' as any)} />
                     </View>
 
-                    <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Account</Text>
-                        <View style={styles.menuContainer}>
-                            <MenuItem icon={Crown} label="Subscription" value={role.replace('_', ' ').toUpperCase()} color="#FFD700" onPress={() => router.push('/settings/subscriptions' as any)} />
-                            <MenuItem icon={CreditCard} label="Payment Methods" color="#EC5C39" onPress={() => router.push('/settings/payment-methods' as any)} />
-                        </View>
-                    </View>
-
-                    <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Settings</Text>
-                        <View style={styles.menuContainer}>
-                            <MenuItem icon={Shield} label="Privacy & Security" color="#64748B" onPress={() => router.push('/settings/privacy' as any)} />
-                        </View>
-                    </View>
-
-                    <View style={styles.section}>
-                        <View style={styles.menuContainer}>
-                            <MenuItem icon={LogOut} label="Log Out" color="#EF4444" onPress={handleLogout} hideChevron />
-                        </View>
+                    <View style={styles.menuContainer}>
+                        <MenuItem icon={User} label="Account" color="#EC5C39" onPress={() => router.push('/(tabs)/profile' as any)} />
+                        <MenuItem icon={CreditCard} label="Payment Methods" color="#EC5C39" onPress={() => router.push('/settings/payment-methods' as any)} />
+                        <MenuItem icon={Banknote} label="Subscription" value={role.replace('_', ' ').toUpperCase()} color="#EC5C39" onPress={() => router.push('/settings/subscriptions' as any)} />
+                        <MenuItem icon={Share2} label="Share" color="#EC5C39" onPress={() => showToast('Coming soon', 'info')} />
+                        <MenuItem icon={CircleHelp} label="Support" color="#EC5C39" onPress={() => showToast('Support coming soon', 'info')} />
+                        <MenuItem icon={Shield} label="Privacy & Security" color="#EC5C39" onPress={() => router.push('/settings/privacy' as any)} />
+                        <MenuItem icon={Link2} label="Notifications" color="#EC5C39" onPress={() => router.push('/notifications' as any)} />
+                        <MenuItem icon={LogOut} label="Log Out" color="#EF4444" onPress={handleLogout} hideChevron />
                     </View>
 
                     {!isStudioOrHybrid && (
@@ -170,6 +146,17 @@ export default function MoreScreen() {
     );
 }
 
+function getInitials(name: string) {
+    const initials = String(name || 'Creator')
+        .split(' ')
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part[0])
+        .join('')
+        .toUpperCase();
+    return initials || 'C';
+}
+
 function MenuItem({ icon: Icon, label, value, color, onPress, hideChevron }: any) {
     return (
         <TouchableOpacity style={styles.menuItem} onPress={onPress}>
@@ -187,22 +174,51 @@ function MenuItem({ icon: Icon, label, value, color, onPress, hideChevron }: any
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#140F10' },
-    content: { padding: 24, paddingTop: 12 },
-    section: { marginBottom: 32 },
-    sectionTitle: { fontSize: 13, fontFamily: 'Poppins-Bold', color: 'rgba(255,255,255,0.3)', marginBottom: 16, textTransform: 'uppercase', letterSpacing: 1 },
+    content: { padding: 20, paddingTop: 12, gap: 20 },
+    greetingRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        marginBottom: 4,
+    },
+    avatarBubble: {
+        width: 33,
+        height: 35,
+        borderRadius: 17,
+        backgroundColor: '#EC5C39',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    avatarBubbleText: {
+        color: '#FFFFFF',
+        fontFamily: 'Poppins-SemiBold',
+        fontSize: 14,
+    },
+    greetingText: {
+        color: '#FFFFFF',
+        fontFamily: 'Poppins-Medium',
+        fontSize: 16,
+        lineHeight: 20,
+        letterSpacing: -0.5,
+    },
     menuContainer: {
-        backgroundColor: 'rgba(255,255,255,0.03)',
-        borderRadius: 24,
+        backgroundColor: '#1A1A1B',
+        borderRadius: 10,
         overflow: 'hidden',
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.05)',
+        borderColor: 'rgba(255,255,255,0.06)',
     },
-    menuItem: { flexDirection: 'row', alignItems: 'center', padding: 16 },
+    menuItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 12,
+        paddingVertical: 12,
+    },
     menuIconContainer: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
     menuTextContainer: { flex: 1, marginLeft: 16 },
-    menuLabel: { fontSize: 15, fontFamily: 'Poppins-Medium', color: '#FFF' },
+    menuLabel: { fontSize: 12, lineHeight: 14, fontFamily: 'Poppins-Medium', color: 'rgba(255,255,255,0.88)' },
     menuValue: { fontSize: 12, fontFamily: 'Poppins-Regular', color: 'rgba(255,255,255,0.4)', marginTop: 1 },
-    upgradeCard: { borderRadius: 24, overflow: 'hidden', marginTop: 8 },
+    upgradeCard: { borderRadius: 24, overflow: 'hidden' },
     upgradeGradient: { flexDirection: 'row', alignItems: 'center', padding: 20, gap: 16 },
     upgradeTextContainer: { flex: 1 },
     upgradeTitle: { color: '#FFF', fontSize: 18, fontFamily: 'Poppins-Bold' },

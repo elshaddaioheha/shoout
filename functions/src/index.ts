@@ -142,6 +142,34 @@ async function resolveCheckoutLine(raw: CheckoutItem): Promise<CheckoutItem> {
 
 const FREE_SUBSCRIPTION_PLANS = new Set(['vault']);
 const EMAIL_COLLECTION = process.env.FIREBASE_TRIGGER_EMAIL_COLLECTION || 'mail';
+const OTP_CHALLENGE_COLLECTION = 'emailOtpChallenges';
+const OTP_TOKEN_COLLECTION = 'emailOtpTokens';
+const OTP_EXPIRY_MS = 10 * 60 * 1000;
+const OTP_TOKEN_EXPIRY_MS = 15 * 60 * 1000;
+const OTP_RESEND_INTERVAL_MS = 60 * 1000;
+const OTP_MAX_ATTEMPTS = 5;
+const OTP_PURPOSES = new Set(['signup', 'password_reset']);
+
+function normalizeEmail(email: string): string {
+  return String(email || '').trim().toLowerCase();
+}
+
+function isValidEmail(email: string): boolean {
+  return /^\S+@\S+\.\S+$/.test(email);
+}
+
+function challengeDocId(purpose: string, emailLower: string): string {
+  return crypto.createHash('sha256').update(`${purpose}:${emailLower}`).digest('hex').slice(0, 40);
+}
+
+function generateOtpCode(): string {
+  return crypto.randomInt(0, 1000000).toString().padStart(6, '0');
+}
+
+function hashOtp(code: string): string {
+  const salt = process.env.OTP_HASH_SALT || 'shoouts-otp';
+  return crypto.createHash('sha256').update(`${salt}:${code}`).digest('hex');
+}
 
 function expectedAmountInNgn(totalUsd: number): number {
   return Math.round(totalUsd * NAIRA_RATE);
@@ -274,6 +302,208 @@ async function queueEmail(params: {
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
   });
 }
+
+export const sendEmailOtp = functions.https.onCall(async (data: any) => {
+  const purpose = String(data?.purpose || '').trim().toLowerCase();
+  const emailLower = normalizeEmail(String(data?.email || ''));
+
+  if (!OTP_PURPOSES.has(purpose)) {
+    throw new functions.https.HttpsError('invalid-argument', 'Invalid OTP purpose');
+  }
+
+  if (!isValidEmail(emailLower)) {
+    throw new functions.https.HttpsError('invalid-argument', 'Invalid email address');
+  }
+
+  if (purpose === 'signup') {
+    const exists = await admin
+      .auth()
+      .getUserByEmail(emailLower)
+      .then(() => true)
+      .catch(() => false);
+    if (exists) {
+      throw new functions.https.HttpsError('already-exists', 'Email is already registered');
+    }
+  }
+
+  if (purpose === 'password_reset') {
+    const exists = await admin
+      .auth()
+      .getUserByEmail(emailLower)
+      .then(() => true)
+      .catch(() => false);
+    if (!exists) {
+      throw new functions.https.HttpsError('not-found', 'No account found for this email');
+    }
+  }
+
+  const challengeRef = db.collection(OTP_CHALLENGE_COLLECTION).doc(challengeDocId(purpose, emailLower));
+  const challengeSnap = await challengeRef.get();
+  const nowMs = Date.now();
+
+  if (challengeSnap.exists) {
+    const existing = challengeSnap.data() as Record<string, any>;
+    const resendAfterMs = existing?.resendAfter?.toMillis?.() || 0;
+    if (resendAfterMs > nowMs) {
+      const waitSeconds = Math.max(1, Math.ceil((resendAfterMs - nowMs) / 1000));
+      throw new functions.https.HttpsError('resource-exhausted', `Please wait ${waitSeconds}s before requesting another code`);
+    }
+  }
+
+  const code = generateOtpCode();
+  const expiresAt = admin.firestore.Timestamp.fromMillis(nowMs + OTP_EXPIRY_MS);
+  const resendAfter = admin.firestore.Timestamp.fromMillis(nowMs + OTP_RESEND_INTERVAL_MS);
+
+  await challengeRef.set(
+    {
+      purpose,
+      email: emailLower,
+      codeHash: hashOtp(code),
+      attempts: 0,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      expiresAt,
+      resendAfter,
+      consumedAt: null,
+    },
+    { merge: true }
+  );
+
+  const isSignup = purpose === 'signup';
+  const subject = isSignup ? 'ShooutS Email Verification Code' : 'ShooutS Password Reset Code';
+  const text = isSignup
+    ? `Your ShooutS signup verification code is ${code}. It expires in 10 minutes.`
+    : `Your ShooutS password reset code is ${code}. It expires in 10 minutes.`;
+  const html = isSignup
+    ? `<p>Your ShooutS signup verification code is <strong>${code}</strong>.</p><p>This code expires in 10 minutes.</p>`
+    : `<p>Your ShooutS password reset code is <strong>${code}</strong>.</p><p>This code expires in 10 minutes.</p>`;
+
+  await queueEmail({ to: emailLower, subject, text, html });
+
+  return {
+    ok: true,
+    expiresInSeconds: Math.floor(OTP_EXPIRY_MS / 1000),
+    resendInSeconds: Math.floor(OTP_RESEND_INTERVAL_MS / 1000),
+  };
+});
+
+export const verifyEmailOtp = functions.https.onCall(async (data: any) => {
+  const purpose = String(data?.purpose || '').trim().toLowerCase();
+  const emailLower = normalizeEmail(String(data?.email || ''));
+  const code = String(data?.code || '').trim();
+
+  if (!OTP_PURPOSES.has(purpose)) {
+    throw new functions.https.HttpsError('invalid-argument', 'Invalid OTP purpose');
+  }
+
+  if (!isValidEmail(emailLower) || !/^\d{6}$/.test(code)) {
+    throw new functions.https.HttpsError('invalid-argument', 'Invalid verification code input');
+  }
+
+  const challengeRef = db.collection(OTP_CHALLENGE_COLLECTION).doc(challengeDocId(purpose, emailLower));
+  const challengeSnap = await challengeRef.get();
+  if (!challengeSnap.exists) {
+    throw new functions.https.HttpsError('not-found', 'Verification code not found');
+  }
+
+  const challenge = challengeSnap.data() as Record<string, any>;
+  const nowMs = Date.now();
+  const expiresAtMs = challenge?.expiresAt?.toMillis?.() || 0;
+  const consumedAtMs = challenge?.consumedAt?.toMillis?.() || 0;
+  const attempts = Number(challenge?.attempts || 0);
+
+  if (consumedAtMs > 0) {
+    throw new functions.https.HttpsError('failed-precondition', 'Verification code already used');
+  }
+
+  if (expiresAtMs <= nowMs) {
+    throw new functions.https.HttpsError('deadline-exceeded', 'Verification code expired');
+  }
+
+  if (attempts >= OTP_MAX_ATTEMPTS) {
+    throw new functions.https.HttpsError('resource-exhausted', 'Too many invalid attempts');
+  }
+
+  if (hashOtp(code) !== String(challenge?.codeHash || '')) {
+    await challengeRef.set(
+      {
+        attempts: attempts + 1,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    );
+    throw new functions.https.HttpsError('permission-denied', 'Invalid verification code');
+  }
+
+  const verificationToken = crypto.randomBytes(32).toString('hex');
+  await db.collection(OTP_TOKEN_COLLECTION).doc(verificationToken).set({
+    purpose,
+    email: emailLower,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    expiresAt: admin.firestore.Timestamp.fromMillis(nowMs + OTP_TOKEN_EXPIRY_MS),
+    usedAt: null,
+  });
+
+  await challengeRef.set(
+    {
+      consumedAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    },
+    { merge: true }
+  );
+
+  return {
+    ok: true,
+    verificationToken,
+    expiresInSeconds: Math.floor(OTP_TOKEN_EXPIRY_MS / 1000),
+  };
+});
+
+export const completePasswordResetWithOtp = functions.https.onCall(async (data: any) => {
+  const emailLower = normalizeEmail(String(data?.email || ''));
+  const verificationToken = String(data?.verificationToken || '').trim();
+  const newPassword = String(data?.newPassword || '');
+
+  if (!isValidEmail(emailLower) || verificationToken.length < 32 || newPassword.length < 6) {
+    throw new functions.https.HttpsError('invalid-argument', 'Invalid reset password payload');
+  }
+
+  const tokenRef = db.collection(OTP_TOKEN_COLLECTION).doc(verificationToken);
+  const tokenSnap = await tokenRef.get();
+  if (!tokenSnap.exists) {
+    throw new functions.https.HttpsError('not-found', 'Reset session not found');
+  }
+
+  const tokenData = tokenSnap.data() as Record<string, any>;
+  const tokenPurpose = String(tokenData?.purpose || '');
+  const tokenEmail = normalizeEmail(String(tokenData?.email || ''));
+  const usedAtMs = tokenData?.usedAt?.toMillis?.() || 0;
+  const expiresAtMs = tokenData?.expiresAt?.toMillis?.() || 0;
+  const nowMs = Date.now();
+
+  if (tokenPurpose !== 'password_reset' || tokenEmail !== emailLower) {
+    throw new functions.https.HttpsError('permission-denied', 'Reset session does not match this email');
+  }
+
+  if (usedAtMs > 0 || expiresAtMs <= nowMs) {
+    throw new functions.https.HttpsError('deadline-exceeded', 'Reset session expired');
+  }
+
+  const userRecord = await admin.auth().getUserByEmail(emailLower).catch(() => null);
+  if (!userRecord) {
+    throw new functions.https.HttpsError('not-found', 'No account found for this email');
+  }
+
+  await admin.auth().updateUser(userRecord.uid, { password: newPassword });
+  await tokenRef.set(
+    {
+      usedAt: admin.firestore.FieldValue.serverTimestamp(),
+    },
+    { merge: true }
+  );
+
+  return { ok: true };
+});
 
 export const activateSubscriptionTier = functions.https.onRequest(async (req, res) => {
   if (req.method !== 'POST') {

@@ -12,6 +12,7 @@
  *   />
  */
 import React, { useEffect, useRef } from 'react';
+import { BlurView } from 'expo-blur';
 import {
     Animated,
     Dimensions,
@@ -60,7 +61,10 @@ export default function ActionSheet({ visible, onClose, title, options }: Props)
     return (
         <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
             <TouchableWithoutFeedback onPress={onClose}>
-                <Animated.View style={[styles.overlay, { opacity: fadeAnim }]} />
+                <Animated.View style={[styles.overlay, { opacity: fadeAnim }]}>
+                    <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
+                    <View style={styles.overlayDim} />
+                </Animated.View>
             </TouchableWithoutFeedback>
 
             <Animated.View style={[styles.sheet, { transform: [{ translateY: slideAnim }] }]}>
@@ -97,7 +101,10 @@ export default function ActionSheet({ visible, onClose, title, options }: Props)
 const styles = StyleSheet.create({
     overlay: {
         ...StyleSheet.absoluteFillObject,
-        backgroundColor: 'rgba(0,0,0,0.6)',
+    },
+    overlayDim: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(10,10,16,0.44)',
     },
     sheet: {
         position: 'absolute',

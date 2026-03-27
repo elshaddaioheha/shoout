@@ -1,7 +1,7 @@
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { GoogleAuthProvider, OAuthProvider, sendPasswordResetEmail, signInWithCredential, signInWithEmailAndPassword } from 'firebase/auth';
+import { GoogleAuthProvider, OAuthProvider, signInWithCredential, signInWithEmailAndPassword } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { Eye, EyeOff } from 'lucide-react-native';
 import React, { useState } from 'react';
@@ -35,7 +35,6 @@ export default function LoginScreen() {
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const { showToast } = useToastStore();
-    const [resetLoading, setResetLoading] = useState(false);
 
     const getPostAuthRoute = () => {
         if (typeof redirectTo === 'string' && redirectTo.trim().length > 0) {
@@ -48,20 +47,13 @@ export default function LoginScreen() {
         router.replace('/(tabs)');
     };
 
-    const handleForgotPassword = async () => {
-        if (!email.trim()) {
-            showToast('Please enter your email address to reset password.', 'error');
+    const handleForgotPassword = () => {
+        const trimmed = email.trim();
+        if (trimmed.length > 0) {
+            router.push({ pathname: '/(auth)/forgot-password', params: { email: trimmed } });
             return;
         }
-        setResetLoading(true);
-        try {
-            await sendPasswordResetEmail(auth, email.trim());
-            showToast(`A password reset link has been sent to ${email.trim()}.`, 'success');
-        } catch (e: any) {
-            showToast(getFriendlyErrorMessage(e), 'error');
-        } finally {
-            setResetLoading(false);
-        }
+        router.push('/(auth)/forgot-password');
     };
 
     const handleLogin = async () => {
@@ -266,7 +258,7 @@ export default function LoginScreen() {
 
                     {/* Forgot Password & Login */}
                     <View style={styles.actionContainer}>
-                        <TouchableOpacity onPress={handleForgotPassword} disabled={resetLoading}>
+                        <TouchableOpacity onPress={handleForgotPassword}>
                             <Text style={styles.forgotPasswordText}>Forgot Password ?</Text>
                         </TouchableOpacity>
 

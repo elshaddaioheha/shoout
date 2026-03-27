@@ -1,10 +1,16 @@
 import { useAppSwitcherContext } from '@/app/(tabs)/_layout';
+import ActionSheet from '@/components/ActionSheet';
 import SharedHeader from '@/components/SharedHeader';
+import { ARTISTS, FREE_MUSIC, HOME_SECTIONS, POPULAR_BEATS, TOP_PLAYLISTS, TRENDING_SONGS, type HomeSectionKey } from '@/constants/homeFeed';
+import { auth, db } from '@/firebaseConfig';
 import { formatUsd } from '@/utils/pricing';
+import { toggleArtistFollow } from '@/utils/followArtist';
 import { useCartStore } from '@/store/useCartStore';
 import { usePlaybackStore } from '@/store/usePlaybackStore';
+import { useToastStore } from '@/store/useToastStore';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
+import { doc, onSnapshot } from 'firebase/firestore';
 import {
   Heart,
   MoreVertical,
@@ -12,7 +18,7 @@ import {
   ShoppingCart,
   Users
 } from 'lucide-react-native';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Dimensions,
   FlatList,
@@ -41,54 +47,9 @@ const spacing = {
   sm: 8,
   md: 12,
   lg: 16,
-  xl: 24,
+  xl: 28,
   xxl: 32,
 } as const;
-
-// Mocked home data with CDN assets — keeps the home screen static and removes Firestore reads
-const TRENDING_SONGS = [
-  { id: 't1', title: 'Orbit', artist: 'Mara Jade', uploaderName: 'Mara Jade', audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3', uploaderId: 'u1', artworkUrl: 'https://picsum.photos/seed/t1/400/400?random=1' },
-  { id: 't2', title: 'Night Drive', artist: 'Luna', uploaderName: 'Luna', audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3', uploaderId: 'u2', artworkUrl: 'https://picsum.photos/seed/t2/400/400?random=2' },
-  { id: 't3', title: 'Glow', artist: 'Dusk', uploaderName: 'Dusk', audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3', uploaderId: 'u3', artworkUrl: 'https://picsum.photos/seed/t3/400/400?random=3' },
-];
-
-const TOP_PLAYLISTS = [
-  { id: 'p1', title: 'Studio Focus', genre: 'Lo-fi', price: 0, artworkUrl: 'https://picsum.photos/seed/p1/300/300' },
-  { id: 'p2', title: 'Creator Picks', genre: 'Indie', price: 12, artworkUrl: 'https://picsum.photos/seed/p2/300/300' },
-  { id: 'p3', title: 'Vault Vibes', genre: 'Alt R&B', price: 8, artworkUrl: 'https://picsum.photos/seed/p3/300/300' },
-  { id: 'p4', title: 'Sunset', genre: 'Afro-pop', price: 5, artworkUrl: 'https://picsum.photos/seed/p4/300/300' },
-  { id: 'p5', title: 'Midnight', genre: 'EDM', price: 10, artworkUrl: 'https://picsum.photos/seed/p5/300/300' },
-  { id: 'p6', title: 'Acoustic Gems', genre: 'Acoustic', price: 6, artworkUrl: 'https://picsum.photos/seed/p6/300/300' },
-];
-
-const FREE_MUSIC = [
-  { id: 'f1', title: 'Weightless', artist: 'Nova', audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3', uploaderId: 'u5', price: 0, artworkUrl: 'https://picsum.photos/seed/f1/300/300' },
-  { id: 'f2', title: 'Sundown', artist: 'Kai', audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3', uploaderId: 'u6', price: 0, artworkUrl: 'https://picsum.photos/seed/f2/300/300' },
-  { id: 'f3', title: 'Breeze', artist: 'Ola', audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3', uploaderId: 'u7', price: 0, artworkUrl: 'https://picsum.photos/seed/f3/300/300' },
-];
-
-const ARTISTS = [
-  { id: 'a1', fullName: 'Mara Jade', avatarUrl: 'https://i.pravatar.cc/150?u=a1' },
-  { id: 'a2', fullName: 'Luna', avatarUrl: 'https://i.pravatar.cc/150?u=a2' },
-  { id: 'a3', fullName: 'Dusk', avatarUrl: 'https://i.pravatar.cc/150?u=a3' },
-  { id: 'a4', fullName: 'Nova', avatarUrl: 'https://i.pravatar.cc/150?u=a4' },
-  { id: 'a5', fullName: 'Kai', avatarUrl: 'https://i.pravatar.cc/150?u=a5' },
-  { id: 'a6', fullName: 'Ola', avatarUrl: 'https://i.pravatar.cc/150?u=a6' },
-  { id: 'a7', fullName: 'Sage', avatarUrl: 'https://i.pravatar.cc/150?u=a7' },
-  { id: 'a8', fullName: 'Vela', avatarUrl: 'https://i.pravatar.cc/150?u=a8' },
-];
-
-const POPULAR_BEATS = [
-  { id: 'b1', title: 'Pulse', artist: 'Sage', uploaderName: 'Sage', price: 20, audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3', uploaderId: 'u8', artworkUrl: 'https://picsum.photos/seed/b1/200/200' },
-  { id: 'b2', title: 'Drift', artist: 'Vela', uploaderName: 'Vela', price: 18, audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3', uploaderId: 'u9', artworkUrl: 'https://picsum.photos/seed/b2/200/200' },
-  { id: 'b3', title: 'Slingshot', artist: 'Ro', uploaderName: 'Ro', price: 22, audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-9.mp3', uploaderId: 'u10', artworkUrl: 'https://picsum.photos/seed/b3/200/200' },
-  { id: 'b4', title: 'Orbit', artist: 'Mara Jade', uploaderName: 'Mara Jade', price: 16, audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-10.mp3', uploaderId: 'u1', artworkUrl: 'https://picsum.photos/seed/b4/200/200' },
-  { id: 'b5', title: 'Low Tide', artist: 'Kai', uploaderName: 'Kai', price: 14, audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-11.mp3', uploaderId: 'u6', artworkUrl: 'https://picsum.photos/seed/b5/200/200' },
-  { id: 'b6', title: 'Lanterns', artist: 'Nova', uploaderName: 'Nova', price: 12, audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-12.mp3', uploaderId: 'u5', artworkUrl: 'https://picsum.photos/seed/b6/200/200' },
-];
-
-type HomeSectionKey = 'trending' | 'playlist' | 'freeMusic' | 'artists' | 'popularBeats';
-const HOME_SECTIONS: HomeSectionKey[] = ['trending', 'playlist', 'freeMusic', 'artists', 'popularBeats'];
 
 // ─── Local favourite hook (no Firestore) ───────────────────────────────────────
 function useLocalFavourite(_trackId: string) {
@@ -162,7 +123,7 @@ function TrendingSection() {
 
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Trending Song</Text>
+      <Text style={[styles.sectionTitle, styles.trendingSectionTitle]}>Trending Song</Text>
       <FlatList
         horizontal
         data={songs}
@@ -364,24 +325,126 @@ function ArtistsSection() {
 function PopularBeatsSection() {
   const router = useRouter();
   const setTrack = usePlaybackStore(state => state.setTrack);
+  const { addItem, items } = useCartStore();
+  const { showToast } = useToastStore();
+  const [isFollowPending, setIsFollowPending] = useState(false);
+  const [followingArtistIds, setFollowingArtistIds] = useState<Record<string, boolean>>({});
+  const [hiddenBeatIds, setHiddenBeatIds] = useState<string[]>([]);
+  const [selectedBeat, setSelectedBeat] = useState<any | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
   const beats = POPULAR_BEATS;
+
+  useEffect(() => {
+    const uid = auth.currentUser?.uid;
+    if (!uid) {
+      setFollowingArtistIds({});
+      return;
+    }
+
+    const unsub = onSnapshot(doc(db, 'users', uid), (snapshot) => {
+      const row = snapshot.data() as any;
+      const following = Array.isArray(row?.following) ? row.following : [];
+      const map: Record<string, boolean> = {};
+      following.forEach((id: string) => {
+        map[id] = true;
+      });
+      setFollowingArtistIds(map);
+    });
+
+    return unsub;
+  }, []);
+
+  const visibleBeats = useMemo(
+    () => beats.filter((beat) => !hiddenBeatIds.includes(beat.id)),
+    [beats, hiddenBeatIds]
+  );
+
+  const openBeatMenu = useCallback((beat: any) => {
+    setSelectedBeat(beat);
+    setMenuOpen(true);
+  }, []);
+
+  const hideFromSuggestions = useCallback((beatId: string) => {
+    setHiddenBeatIds((prev) => (prev.includes(beatId) ? prev : [...prev, beatId]));
+    showToast('Removed from Home suggestions.', 'info');
+  }, [showToast]);
+
+  const addSelectedBeatToCart = useCallback(() => {
+    if (!selectedBeat) return;
+    const inCart = items.some((item: any) => item.id === selectedBeat.id);
+    if (inCart) {
+      showToast('Track already in cart.', 'info');
+      return;
+    }
+    addItem({
+      id: selectedBeat.id,
+      title: selectedBeat.title,
+      artist: selectedBeat.artist || selectedBeat.uploaderName,
+      price: selectedBeat.price || 0,
+      uploaderId: selectedBeat.uploaderId || '',
+      coverUrl: selectedBeat.artworkUrl,
+    });
+    showToast(`${selectedBeat.title} added to cart.`, 'success');
+  }, [addItem, items, selectedBeat, showToast]);
+
+  const handleFollowSelectedArtist = useCallback(async () => {
+    if (!selectedBeat) return;
+
+    const artistId = selectedBeat.uploaderId;
+    if (!artistId) {
+      showToast('Artist id is missing for this beat.', 'error');
+      return;
+    }
+
+    const uid = auth.currentUser?.uid;
+    if (!uid) {
+      showToast('Log in to follow artists.', 'error');
+      return;
+    }
+
+    if (isFollowPending) return;
+    setIsFollowPending(true);
+
+    try {
+      const result = await toggleArtistFollow({
+        artistId,
+        currentUserId: uid,
+        isCurrentlyFollowing: !!followingArtistIds[artistId],
+      });
+
+      showToast(
+        result.isFollowing
+          ? `You are now following ${selectedBeat.artist || selectedBeat.uploaderName}.`
+          : `You unfollowed ${selectedBeat.artist || selectedBeat.uploaderName}.`,
+        'success'
+      );
+    } catch (error) {
+      console.error('Follow artist from home failed:', error);
+      showToast('Unable to update follow state right now.', 'error');
+    } finally {
+      setIsFollowPending(false);
+    }
+  }, [followingArtistIds, isFollowPending, selectedBeat, showToast]);
 
   const renderItem = useCallback(({ item, index }: { item: any; index: number }) => (
     <BeatRow
       beat={item}
-      isLast={index === beats.length - 1}
+      isLast={index === visibleBeats.length - 1}
       onPlay={() => setTrack({ id: item.id, title: item.title, artist: item.artist || item.uploaderName, url: item.audioUrl || item.url, uploaderId: item.uploaderId, artworkUrl: item.artworkUrl })}
+      onMorePress={() => openBeatMenu(item)}
     />
-  ), [beats.length, setTrack]);
+  ), [openBeatMenu, setTrack, visibleBeats.length]);
 
   return (
     <View style={styles.section}>
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Popular Beats</Text>
-        <TouchableOpacity onPress={() => router.push('/(tabs)/marketplace')}><Text style={styles.seeAllText}>See All</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => router.push({ pathname: '/(tabs)/marketplace', params: { source: 'popular-beats' } } as any)}>
+          <Text style={styles.seeAllText}>See All</Text>
+        </TouchableOpacity>
       </View>
       <FlatList
-        data={beats}
+        data={visibleBeats}
         keyExtractor={(item, index) => item.id || `beat-${index}`}
         renderItem={renderItem}
         scrollEnabled={false}
@@ -389,40 +452,127 @@ function PopularBeatsSection() {
         initialNumToRender={4}
         windowSize={5}
         contentContainerStyle={styles.beatsList}
-        ListEmptyComponent={<Text style={styles.emptyText}>No beats available yet.</Text>}
+        ListEmptyComponent={<Text style={styles.emptyText}>No beats available in Home right now.</Text>}
+      />
+
+      <ActionSheet
+        visible={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        title={selectedBeat?.title || 'Track options'}
+        options={[
+          {
+            label: 'Buy',
+            onPress: () => {
+              if (!selectedBeat) return;
+              router.push({ pathname: '/listing/[id]', params: { id: selectedBeat.id, uploaderId: selectedBeat.uploaderId } } as any);
+            },
+          },
+          {
+            label: 'Add to my library',
+            onPress: () => {
+              if (!selectedBeat) return;
+              showToast(`${selectedBeat.title} saved to your library.`, 'success');
+            },
+          },
+          {
+            label: 'Add to playlist',
+            onPress: () => {
+              if (!selectedBeat) return;
+              showToast(`${selectedBeat.title} added to playlist.`, 'success');
+            },
+          },
+          {
+            label: isFollowPending
+              ? 'Updating follow...'
+              : (selectedBeat?.uploaderId && followingArtistIds[selectedBeat.uploaderId] ? 'Unfollow artist' : 'Follow artist'),
+            onPress: handleFollowSelectedArtist,
+          },
+          {
+            label: 'Add to cart',
+            onPress: addSelectedBeatToCart,
+          },
+          {
+            label: 'Do not suggest',
+            destructive: true,
+            onPress: () => {
+              if (!selectedBeat?.id) return;
+              hideFromSuggestions(selectedBeat.id);
+            },
+          },
+        ]}
       />
     </View>
   );
 }
 
-const BeatRow = React.memo(function BeatRow({ beat, isLast, onPlay }: { beat: any; isLast: boolean; onPlay: () => void }) {
+const BeatRow = React.memo(function BeatRow({
+  beat,
+  isLast,
+  onPlay,
+  onMorePress,
+}: {
+  beat: any;
+  isLast: boolean;
+  onPlay: () => void;
+  onMorePress: () => void;
+}) {
   const { isFav, toggle } = useLocalFavourite(beat.id);
   const { addItem, items } = useCartStore();
+  const { showToast } = useToastStore();
   const inCart = items.some((i: any) => i.id === beat.id);
   const priceDisplay = beat.price && typeof beat.price === 'number' ? formatUsd(beat.price) : (beat.price || '');
+
+  const handleAddToCart = useCallback(() => {
+    if (inCart) {
+      showToast('Track already in cart.', 'info');
+      return;
+    }
+    addItem({ id: beat.id, title: beat.title, artist: beat.artist || beat.uploaderName, price: beat.price || 0, uploaderId: beat.uploaderId || '', coverUrl: beat.artworkUrl });
+    showToast(`${beat.title} added to cart.`, 'success');
+  }, [addItem, beat, inCart, showToast]);
+
+  const handleToggleFavorite = useCallback(() => {
+    toggle();
+    showToast(isFav ? 'Removed from favourites.' : 'Added to favourites.', 'info');
+  }, [isFav, showToast, toggle]);
+
   return (
     <View style={styles.beatItem}>
-      <TouchableOpacity style={styles.beatRow} onPress={onPlay}>
-        {beat.artworkUrl ? (
-          <Image source={{ uri: beat.artworkUrl }} style={styles.beatImagePlaceholder} contentFit="cover" />
-        ) : (
-          <View style={styles.beatImagePlaceholder} />
-        )}
-        <View style={{ flex: 1 }}>
-          <Text style={styles.itemTitle}>{beat.title}</Text>
-          <Text style={styles.itemSubtitle}>{beat.artist || beat.uploaderName}</Text>
-          <Text style={styles.itemSubtitle}>{priceDisplay}</Text>
-        </View>
+      <View style={styles.beatRow}>
+        <TouchableOpacity style={styles.beatMainTap} onPress={onPlay} activeOpacity={0.75}>
+          {beat.artworkUrl ? (
+            <Image source={{ uri: beat.artworkUrl }} style={styles.beatImagePlaceholder} contentFit="cover" />
+          ) : (
+            <View style={styles.beatImagePlaceholder} />
+          )}
+          <View style={{ flex: 1 }}>
+            <Text style={styles.itemTitle}>{beat.title}</Text>
+            <TouchableOpacity
+              activeOpacity={0.75}
+              onPress={(event) => {
+                event.stopPropagation?.();
+                onMorePress();
+              }}
+            >
+              <Text style={styles.itemSubtitle}>{beat.artist || beat.uploaderName}</Text>
+              <Text style={styles.beatPriceText}>{priceDisplay}</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+
         <View style={styles.beatActions}>
-          <TouchableOpacity onPress={(e) => { e.stopPropagation?.(); addItem({ id: beat.id, title: beat.title, artist: beat.artist || beat.uploaderName, price: beat.price || 0, uploaderId: beat.uploaderId || '', coverUrl: beat.artworkUrl }); }}>
-            <ShoppingCart size={14} color={inCart ? '#4CAF50' : '#EC5C39'} />
+          <TouchableOpacity style={styles.beatActionIconButton} onPress={handleAddToCart} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <ShoppingCart size={18} color={inCart ? '#4CAF50' : '#EC5C39'} />
           </TouchableOpacity>
-          <TouchableOpacity onPress={(e) => { e.stopPropagation?.(); toggle(); }}>
-            <Heart size={12} color="#EC5C39" fill={isFav ? '#EC5C39' : 'transparent'} />
+          <TouchableOpacity style={styles.beatActionIconButton} onPress={handleToggleFavorite} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Heart size={18} color="#EC5C39" fill={isFav ? '#EC5C39' : 'transparent'} />
           </TouchableOpacity>
         </View>
-        <TouchableOpacity onPress={(e) => e.stopPropagation?.()}><MoreVertical size={24} color="white" /></TouchableOpacity>
-      </TouchableOpacity>
+
+        <TouchableOpacity onPress={onMorePress} style={styles.moreActionButton} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <MoreVertical size={24} color="white" />
+        </TouchableOpacity>
+      </View>
       {!isLast && <View style={styles.beatDivider} />}
     </View>
   );
@@ -437,6 +587,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   homeListContent: {
+    paddingTop: spacing.xs,
     paddingBottom: 96,
   },
   section: {
@@ -447,20 +598,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: spacing.md,
   },
   sectionTitle: {
     color: 'white',
-    fontSize: 14,
+    fontSize: 17,
+    lineHeight: 22,
+    letterSpacing: 0.2,
     fontFamily: 'Poppins-SemiBold',
+  },
+  trendingSectionTitle: {
+    marginBottom: spacing.md,
   },
   seeAllText: {
     color: '#EC5C39',
-    fontSize: 14,
-    fontFamily: 'Poppins-Regular',
+    fontSize: 13,
+    lineHeight: 18,
+    fontFamily: 'Poppins-Medium',
   },
   horizontalListContent: {
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: 0,
   },
   horizontalSpacer: {
     width: spacing.md,
@@ -486,7 +643,8 @@ const styles = StyleSheet.create({
   },
   songTitle: {
     color: 'white',
-    fontSize: 14,
+    fontSize: 15,
+    lineHeight: 20,
     fontFamily: 'Poppins-Bold',
   },
   artistRow: {
@@ -495,15 +653,16 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   artistName: {
-    color: 'white',
-    fontSize: 11,
+    color: 'rgba(255,255,255,0.86)',
+    fontSize: 12,
+    lineHeight: 16,
     fontFamily: 'Poppins-Regular',
   },
   playButton: {
-    width: 36,
-    height: 36,
+    width: 40,
+    height: 40,
     backgroundColor: '#EC5C39',
-    borderRadius: spacing.sm,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -529,18 +688,21 @@ const styles = StyleSheet.create({
   },
   playlistTitle: {
     color: 'white',
-    fontSize: 12,
-    fontFamily: 'Poppins-Regular',
+    fontSize: 13,
+    lineHeight: 18,
+    fontFamily: 'Poppins-SemiBold',
   },
   playlistSubtitle: {
-    color: 'white',
-    fontSize: 10,
-    fontFamily: 'Poppins-Light',
+    color: 'rgba(255,255,255,0.78)',
+    fontSize: 11,
+    lineHeight: 16,
+    fontFamily: 'Poppins-Regular',
   },
   playlistPrice: {
-    color: 'white',
-    fontSize: 8,
-    fontFamily: 'Poppins-Light',
+    color: '#F8B6A7',
+    fontSize: 11,
+    lineHeight: 16,
+    fontFamily: 'Poppins-Medium',
   },
   freeMusicItem: {
     width: FREE_CARD_WIDTH,
@@ -549,8 +711,8 @@ const styles = StyleSheet.create({
     width: FREE_CARD_WIDTH,
     height: FREE_CARD_WIDTH,
     backgroundColor: '#D9D9D9',
-    borderRadius: 15,
-    marginBottom: 4,
+    borderRadius: 14,
+    marginBottom: spacing.sm,
     overflow: 'hidden',
   },
   freeMusicMeta: {
@@ -558,18 +720,20 @@ const styles = StyleSheet.create({
   },
   itemTitle: {
     color: 'white',
-    fontSize: 12,
+    fontSize: 13,
+    lineHeight: 18,
     fontFamily: 'Poppins-SemiBold',
   },
   itemSubtitle: {
-    color: 'white',
-    fontSize: 10,
-    fontFamily: 'Poppins-Light',
+    color: 'rgba(255,255,255,0.9)',
+    fontSize: 12,
+    lineHeight: 17,
+    fontFamily: 'Poppins-Regular',
   },
   itemActionsSafe: {
-    marginTop: spacing.sm,
+    marginTop: 6,
     flexDirection: 'row',
-    gap: spacing.sm,
+    gap: spacing.md,
     alignSelf: 'flex-end',
   },
   artistItem: {
@@ -585,10 +749,11 @@ const styles = StyleSheet.create({
   },
   artistNameSmall: {
     color: 'white',
-    fontSize: 12,
+    fontSize: 11,
+    lineHeight: 15,
     fontFamily: 'Poppins-Regular',
     textAlign: 'center',
-    marginTop: 4,
+    marginTop: spacing.sm,
   },
   beatsList: {
     marginTop: spacing.sm,
@@ -603,7 +768,13 @@ const styles = StyleSheet.create({
   beatRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: spacing.md,
+  },
+  beatMainTap: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
   },
   beatImagePlaceholder: {
     width: BEAT_IMAGE_WIDTH,
@@ -614,13 +785,29 @@ const styles = StyleSheet.create({
   },
   beatActions: {
     flexDirection: 'row',
-    gap: spacing.sm,
-    marginRight: spacing.lg,
+    gap: spacing.xs,
+    marginRight: spacing.md,
+  },
+  beatActionIconButton: {
+    width: 30,
+    height: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  moreActionButton: {
+    paddingLeft: spacing.xs,
+  },
+  beatPriceText: {
+    color: '#F8B6A7',
+    fontSize: 12,
+    lineHeight: 18,
+    fontFamily: 'Poppins-Medium',
+    marginTop: 1,
   },
   beatDivider: {
     height: 1,
     backgroundColor: '#464646',
-    marginTop: spacing.md,
+    marginTop: 10,
   },
   modalOverlay: {
     ...StyleSheet.absoluteFillObject,

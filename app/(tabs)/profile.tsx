@@ -8,9 +8,10 @@ import { useUserStore } from '@/store/useUserStore';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { collection, doc, getDoc, getDocs } from 'firebase/firestore';
+import { collection, doc, getDocs, onSnapshot } from 'firebase/firestore';
 import {
     Bell,
+    ChevronLeft,
     ChevronRight,
     CreditCard,
     Crown,
@@ -80,38 +81,52 @@ export default function ProfileScreen() {
             const uid = auth.currentUser.uid;
 
             try {
-                const userSnap = await getDoc(doc(db, 'users', uid));
-                const userData = userSnap.data() || {};
+                const unsubUser = onSnapshot(doc(db, 'users', uid), (userSnap) => {
+                    const userData = userSnap.data() || {};
 
-                const nextFollowers = Array.isArray(userData.followers)
-                    ? userData.followers.length
-                    : Number(userData.followers) || 0;
-                const nextFollowing = Array.isArray(userData.following)
-                    ? userData.following.length
-                    : Number(userData.following) || 0;
+                    const nextFollowers = Array.isArray(userData.followers)
+                        ? userData.followers.length
+                        : Number(userData.followers) || 0;
+                    const nextFollowing = Array.isArray(userData.following)
+                        ? userData.following.length
+                        : Number(userData.following) || 0;
 
-                setFollowersCount(nextFollowers);
-                setFollowingCount(nextFollowing);
+                    setFollowersCount(nextFollowers);
+                    setFollowingCount(nextFollowing);
+
+                    if (playlistCount === 0) {
+                        setPlaylistCount(Number(userData.playlists) || 0);
+                    }
+                });
 
                 const playlistsSnap = await getDocs(collection(db, 'users', uid, 'playlists'));
                 if (!playlistsSnap.empty) {
                     setPlaylistCount(playlistsSnap.size);
-                    return;
+                    return unsubUser;
                 }
 
                 const uploadsSnap = await getDocs(collection(db, 'users', uid, 'uploads'));
                 if (!uploadsSnap.empty) {
                     setPlaylistCount(uploadsSnap.size);
-                    return;
+                    return unsubUser;
                 }
 
-                setPlaylistCount(Number(userData.playlists) || 0);
+                return unsubUser;
             } catch (error) {
                 console.error('Failed to load profile stats', error);
             }
         };
 
-        loadProfileStats();
+        let unsub: undefined | (() => void);
+        loadProfileStats().then((cleanup) => {
+            unsub = cleanup;
+        });
+
+        return () => {
+            if (typeof unsub === 'function') {
+                unsub();
+            }
+        };
     }, []);
 
     const handleShare = async () => {
@@ -182,6 +197,9 @@ export default function ProfileScreen() {
             >
                 {/* Header */}
                 <View style={styles.header}>
+                    <TouchableOpacity style={styles.iconButton} onPress={() => router.back()}>
+                        <ChevronLeft size={22} color="#FFF" />
+                    </TouchableOpacity>
                     <Text style={styles.headerTitle}>Profile</Text>
                     <TouchableOpacity style={styles.iconButton} onPress={handleShare}>
                         <Share2 size={22} color="#FFF" />

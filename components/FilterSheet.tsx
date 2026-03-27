@@ -73,7 +73,8 @@ export default function FilterSheet({
         <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
             <TouchableWithoutFeedback onPress={onClose}>
                 <Animated.View style={[styles.overlay, overlayAnimatedStyle]}>
-                    <BlurView intensity={24} tint="dark" style={StyleSheet.absoluteFill} />
+                    <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
+                    <View style={styles.overlayDim} />
                 </Animated.View>
             </TouchableWithoutFeedback>
 
@@ -145,7 +146,10 @@ export default function FilterSheet({
 const styles = StyleSheet.create({
     overlay: {
         ...StyleSheet.absoluteFillObject,
-        backgroundColor: 'rgba(0,0,0,0.6)',
+    },
+    overlayDim: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(10,10,16,0.44)',
     },
     sheet: {
         position: 'absolute',

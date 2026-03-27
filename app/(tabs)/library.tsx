@@ -1,19 +1,22 @@
 import { useUserStore } from '@/store/useUserStore';
 import { useAuthStore } from '@/store/useAuthStore';
+import { usePlaybackStore } from '@/store/usePlaybackStore';
 import { formatUsd } from '@/utils/pricing';
 import { useToastStore } from '@/store/useToastStore';
 import { auth, db } from '@/firebaseConfig';
 import { useRouter } from 'expo-router';
-import { addDoc, collection, doc, onSnapshot, orderBy, query, serverTimestamp, where } from 'firebase/firestore';
+import { addDoc, collection, deleteDoc, doc, onSnapshot, orderBy, query, serverTimestamp, where } from 'firebase/firestore';
 import {
   Archive,
   Check,
   Filter,
   FolderPlus,
+  Heart,
   Link2,
   Megaphone,
   MessageSquare,
   Music,
+  Play,
   Plus,
   Upload,
   X,
@@ -63,6 +66,17 @@ type SellerTransaction = {
   trackTitle?: string;
 };
 
+type FavouriteTrack = {
+  id: string;
+  title?: string;
+  artist?: string;
+  uploaderId?: string;
+  url?: string;
+  artworkUrl?: string;
+  coverUrl?: string;
+  addedAt?: string;
+};
+
 export default function LibraryScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -72,7 +86,9 @@ export default function LibraryScreen() {
   const [uploads, setUploads] = useState<UploadItem[]>([]);
   const [folders, setFolders] = useState<VaultFolder[]>([]);
   const [transactions, setTransactions] = useState<SellerTransaction[]>([]);
+  const [favouriteTracks, setFavouriteTracks] = useState<FavouriteTrack[]>([]);
   const [followersCount, setFollowersCount] = useState(0);
+  const setTrack = usePlaybackStore((state) => state.setTrack);
 
   const [showCreateSheet, setShowCreateSheet] = useState(false);
   const [showCreateFolderSheet, setShowCreateFolderSheet] = useState(false);
@@ -126,11 +142,26 @@ export default function LibraryScreen() {
       setFollowersCount(followers);
     });
 
+    const favouritesRef = collection(db, `users/${auth.currentUser.uid}/favourites`);
+    const unsubFavourites = onSnapshot(favouritesRef, (snapshot) => {
+      const rows = snapshot.docs
+        .map((item) => ({ id: item.id, ...item.data() })) as FavouriteTrack[];
+
+      rows.sort((a, b) => {
+        const aTime = new Date(a.addedAt || 0).getTime();
+        const bTime = new Date(b.addedAt || 0).getTime();
+        return bTime - aTime;
+      });
+
+      setFavouriteTracks(rows);
+    });
+
     return () => {
       unsubUploads();
       unsubFolders();
       unsubTransactions();
       unsubUser();
+      unsubFavourites();
     };
   }, []);
 
@@ -239,6 +270,38 @@ export default function LibraryScreen() {
       return;
     }
     router.push('/studio/upload');
+  };
+
+  const openFavourite = (track: FavouriteTrack) => {
+    if (track.url) {
+      setTrack({
+        id: track.id,
+        title: track.title || 'Untitled Track',
+        artist: track.artist || 'Creator',
+        url: track.url,
+        uploaderId: track.uploaderId || '',
+        artworkUrl: track.artworkUrl || track.coverUrl || '',
+      });
+      return;
+    }
+
+    if (track.id && track.uploaderId) {
+      router.push({ pathname: '/listing/[id]', params: { id: track.id, uploaderId: track.uploaderId } } as any);
+      return;
+    }
+
+    showToast('Track details are not available yet.', 'info');
+  };
+
+  const removeFavourite = async (trackId: string) => {
+    if (!auth.currentUser?.uid || !trackId) return;
+    try {
+      await deleteDoc(doc(db, `users/${auth.currentUser.uid}/favourites`, trackId));
+      showToast('Removed from favourites.', 'info');
+    } catch (error) {
+      console.error('Failed to remove favourite:', error);
+      showToast('Could not remove this favourite right now.', 'error');
+    }
   };
 
   return (
@@ -404,6 +467,70 @@ export default function LibraryScreen() {
           </>
         ) : (
           <>
+            <View style={styles.listingsHeader}>
+              <Text style={styles.listingsTitle}>Liked Music</Text>
+              <Text style={styles.likedCount}>{favouriteTracks.length} tracks</Text>
+            </View>
+
+            {favouriteTracks.length === 0 ? (
+              <View style={styles.favouritesEmptyWrap}>
+                <Heart size={52} color="rgba(255,255,255,0.24)" strokeWidth={1.7} />
+                <Text style={styles.favouritesEmptyTitle}>No liked tracks yet</Text>
+                <Text style={styles.favouritesEmptySubtitle}>Tap the heart icon while playing songs to save them here.</Text>
+                <TouchableOpacity
+                  style={styles.findSongsBtn}
+                  activeOpacity={0.85}
+                  onPress={() => router.push('/(tabs)/search' as any)}
+                >
+                  <Text style={styles.findSongsBtnText}>Find Songs</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={styles.favouritesList}>
+                {favouriteTracks.map((track) => {
+                  const art = track.artworkUrl || track.coverUrl;
+                  return (
+                    <View key={track.id} style={styles.favouriteRow}>
+                      <TouchableOpacity
+                        style={styles.favouriteMain}
+                        activeOpacity={0.8}
+                        onPress={() => openFavourite(track)}
+                      >
+                        <View style={styles.favouriteArtWrap}>
+                          {art ? (
+                            <Image source={{ uri: art }} style={styles.favouriteArt} />
+                          ) : (
+                            <Music size={18} color="rgba(255,255,255,0.5)" />
+                          )}
+                        </View>
+                        <View style={styles.favouriteInfo}>
+                          <Text style={styles.favouriteTitle} numberOfLines={1}>{track.title || 'Untitled Track'}</Text>
+                          <Text style={styles.favouriteArtist} numberOfLines={1}>{track.artist || 'Creator'}</Text>
+                        </View>
+                      </TouchableOpacity>
+
+                      <View style={styles.favouriteActions}>
+                        <TouchableOpacity
+                          style={styles.favouriteActionBtn}
+                          activeOpacity={0.8}
+                          onPress={() => openFavourite(track)}
+                        >
+                          <Play size={16} color="#FFFFFF" fill="#FFFFFF" />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={styles.favouriteActionBtn}
+                          activeOpacity={0.8}
+                          onPress={() => removeFavourite(track.id)}
+                        >
+                          <Heart size={16} color="#EC5C39" fill="#EC5C39" />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+
             <View style={styles.actionsRow}>
               <TouchableOpacity style={styles.filterButton} activeOpacity={0.8} onPress={() => showToast('Coming soon', 'info')}>
                 <Filter size={18} color="#FFFFFF" />
@@ -1072,6 +1199,117 @@ const styles = StyleSheet.create({
     lineHeight: 15,
     letterSpacing: -0.5,
     textDecorationLine: 'underline',
+  },
+  likedCount: {
+    color: 'rgba(255,255,255,0.72)',
+    fontFamily: 'Poppins-Regular',
+    fontSize: 12,
+    lineHeight: 15,
+  },
+  favouritesEmptyWrap: {
+    width: '100%',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: '#1A1A1B',
+    alignItems: 'center',
+    paddingVertical: 28,
+    paddingHorizontal: 16,
+    gap: 10,
+  },
+  favouritesEmptyTitle: {
+    color: 'rgba(255,255,255,0.85)',
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: 15,
+    lineHeight: 20,
+  },
+  favouritesEmptySubtitle: {
+    color: 'rgba(255,255,255,0.6)',
+    fontFamily: 'Poppins-Regular',
+    fontSize: 12,
+    lineHeight: 17,
+    textAlign: 'center',
+  },
+  findSongsBtn: {
+    marginTop: 4,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#EC5C39',
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  findSongsBtnText: {
+    color: '#FFFFFF',
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  favouritesList: {
+    width: '100%',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: '#1A1A1B',
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    gap: 6,
+  },
+  favouriteRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 6,
+  },
+  favouriteMain: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginRight: 8,
+  },
+  favouriteArtWrap: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  favouriteArt: {
+    width: '100%',
+    height: '100%',
+  },
+  favouriteInfo: {
+    flex: 1,
+  },
+  favouriteTitle: {
+    color: '#FFFFFF',
+    fontFamily: 'Poppins-Medium',
+    fontSize: 12,
+    lineHeight: 16,
+    letterSpacing: -0.3,
+  },
+  favouriteArtist: {
+    color: 'rgba(255,255,255,0.68)',
+    fontFamily: 'Poppins-Regular',
+    fontSize: 10,
+    lineHeight: 14,
+    letterSpacing: -0.3,
+  },
+  favouriteActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  favouriteActionBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(236,92,57,0.22)',
   },
   listingsCard: {
     width: '100%',

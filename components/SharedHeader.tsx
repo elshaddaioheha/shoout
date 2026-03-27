@@ -1,7 +1,6 @@
 import ModePillButton from '@/components/ModePillButton';
 import { useNotificationStore } from '@/store/useNotificationStore';
 import { ViewMode, useUserStore } from '@/store/useUserStore';
-import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { Bell, MessageSquare, ShoppingCart } from 'lucide-react-native';
@@ -47,26 +46,14 @@ export default function SharedHeader({
         <SafeAreaView style={styles.safeArea}>
             <LinearGradient colors={getRoleGradient()} style={StyleSheet.absoluteFillObject} />
             <View style={styles.header}>
-                {/* Left — Logo */}
-                <TouchableOpacity
-                    style={styles.logoWrapper}
-                    onPress={() => router.push('/profile')}
-                    activeOpacity={0.7}
-                >
-                    <Image
-                        source={require('@/assets/images/logo-rings.png')}
-                        style={styles.logoImage}
-                        contentFit="contain"
-                    />
-                </TouchableOpacity>
-
-                {/* Centre — Mode Pill */}
+                {/* Left — Embedded logo + mode switcher pill */}
                 <ModePillButton
                     viewMode={viewMode}
-                    role={effectiveRole}
                     isOpen={isModeSheetOpen}
                     onPress={onModePillPress}
                 />
+
+                <View style={styles.headerSpacer} />
 
                 {/* Right — Actions */}
                 <View style={styles.headerRight}>
@@ -111,17 +98,12 @@ const styles = StyleSheet.create({
     },
     header: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
         alignItems: 'center',
         paddingHorizontal: 16,
         height: 60,
     },
-    logoWrapper: {
-        paddingVertical: 10,
-    },
-    logoImage: {
-        width: 55,
-        height: 28,
+    headerSpacer: {
+        flex: 1,
     },
     headerRight: {
         flexDirection: 'row',

@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, useWindowDimensions } from 'r
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Home, Library, MoreHorizontal, Search, ShoppingCart } from 'lucide-react-native';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
+import { BlurView } from 'expo-blur';
 import { colors } from '@/constants/colors';
 import { useUserStore } from '@/store/useUserStore';
 
@@ -46,6 +47,7 @@ export default function ResponsiveBottomTabBar(props: BottomTabBarProps) {
     return (
         <View style={[styles.container, { paddingBottom: bottomPadding }]}>
             <View style={[styles.tabBar, { width: barWidth }]}>
+                <BlurView intensity={34} tint="dark" style={styles.tabBarBlur} />
                 {tabs.map((tab) => {
                     if (!tab || !tab.name) return null;
 
@@ -123,12 +125,18 @@ const styles = StyleSheet.create({
         paddingHorizontal: 10,
         height: 60,
         borderRadius: 40,
-        backgroundColor: colors.background,
-        shadowColor: '#FFFFFF',
+        overflow: 'hidden',
+        backgroundColor: 'rgba(20, 15, 16, 0.46)',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.18)',
+        shadowColor: '#000000',
         shadowOffset: { width: 2, height: 2 },
-        shadowOpacity: 0.2,
-        shadowRadius: 4,
-        elevation: 2,
+        shadowOpacity: 0.25,
+        shadowRadius: 10,
+        elevation: 6,
+    },
+    tabBarBlur: {
+        ...StyleSheet.absoluteFillObject,
     },
     tab: {
         height: 36,

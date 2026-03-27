@@ -130,6 +130,14 @@ export default function RoleSelectionScreen() {
     const handleContinue = async () => {
         if (!selectedRole) return;
 
+        if (selectedRole === 'studio' || selectedRole === 'hybrid') {
+            router.push({
+                pathname: '/(auth)/studio-creation',
+                params: { role: selectedRole },
+            });
+            return;
+        }
+
         if (auth.currentUser) {
             await setDoc(
                 doc(db, 'users', auth.currentUser.uid, 'subscription', 'current'),

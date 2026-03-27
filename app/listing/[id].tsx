@@ -1,6 +1,10 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
+import { auth, db } from '@/firebaseConfig';
 import { useCartStore } from '@/store/useCartStore';
 import { useToastStore } from '@/store/useToastStore';
+import { formatUsd } from '@/utils/pricing';
+import { BlurView } from 'expo-blur';
+import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
     collectionGroup,
@@ -12,6 +16,8 @@ import {
     query,
     where,
 } from 'firebase/firestore';
+import { getFunctions, httpsCallable } from 'firebase/functions';
+import { PayWithFlutterwave } from 'flutterwave-react-native';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
     ActivityIndicator,
@@ -21,69 +27,44 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-import { auth, db } from '../../firebaseConfig';
 
-type LicenseOption = {
+type ListingData = {
     id: string;
-    title: string;
-    formats: string;
-    price: number | null;
-    perks?: string[];
+    title?: string;
+    uploaderName?: string;
+    artist?: string;
+    price?: number;
+    audioUrl?: string;
+    coverUrl?: string;
+    artworkUrl?: string;
+    category?: string;
+    userId?: string;
+    _resolvedUploaderId?: string;
 };
-
-const LICENSE_OPTIONS: LicenseOption[] = [
-    {
-        id: 'mp3_tagged',
-        title: 'MP3',
-        formats: 'MP3_TAGGED',
-        price: 4.95,
-        perks: [
-            'Used for Music Recording',
-            'Distribute up to 2,000 copies',
-            '500,000 Online Audio Streams',
-            '1 Music Video',
-        ],
-    },
-    {
-        id: 'wav_2_free',
-        title: 'WAV (+2 FREE)',
-        formats: 'MP3, WAV',
-        price: 24.99,
-    },
-    {
-        id: 'unlimited_wav_4_free',
-        title: 'UNLIMITED WAV (+4 FREE)',
-        formats: 'MP3, WAV',
-        price: 32.99,
-    },
-    {
-        id: 'unlimited_stems_9_free',
-        title: 'UNLIMITED STEMS (+9 FREE)',
-        formats: 'STEMS, MP3, WAV',
-        price: 51.99,
-    },
-    {
-        id: 'exclusive_license',
-        title: 'Exclusive License',
-        formats: 'STEMS, MP3, WAV',
-        price: null,
-    },
-];
 
 export default function ListingLicenseModal() {
     const { id, uploaderId } = useLocalSearchParams();
     const router = useRouter();
-    const { addItem } = useCartStore();
+    const { items, addItem } = useCartStore();
     const { showToast } = useToastStore();
 
-    const [listing, setListing] = useState<any>(null);
+    const [listing, setListing] = useState<ListingData | null>(null);
     const [loading, setLoading] = useState(true);
-    const [selectedLicenseId, setSelectedLicenseId] = useState(LICENSE_OPTIONS[0].id);
+    const [checkingOut, setCheckingOut] = useState(false);
+    const [showFWButton, setShowFWButton] = useState(false);
+    const [checkoutTxRef, setCheckoutTxRef] = useState<string | null>(null);
+    const [checkoutAmountNgn, setCheckoutAmountNgn] = useState(0);
+    const [showSuccessPopup, setShowSuccessPopup] = useState(false);
 
-    const selectedLicense = useMemo(
-        () => LICENSE_OPTIONS.find((option) => option.id === selectedLicenseId) ?? LICENSE_OPTIONS[0],
-        [selectedLicenseId]
-    );
+    const trackPriceUsd = useMemo(() => {
+        const parsed = Number(listing?.price ?? 0);
+        if (!Number.isFinite(parsed) || parsed < 0) return 0;
+        return Math.round(parsed * 100) / 100;
+    }, [listing?.price]);
+
+    const trackTitle = listing?.title || 'Untitled Track';
+    const trackArtist = listing?.uploaderName || listing?.artist || 'Creator';
+    const trackArtwork = listing?.artworkUrl || listing?.coverUrl || '';
 
     useEffect(() => {
         const fetchListing = async () => {
@@ -97,26 +78,31 @@ export default function ListingLicenseModal() {
                     const docRef = doc(db, 'users', uploaderId, 'uploads', id);
                     const docSnap = await getDoc(docRef);
                     if (docSnap.exists()) {
-                        setListing({ id: docSnap.id, ...docSnap.data() });
+                        setListing({ id: docSnap.id, ...docSnap.data(), _resolvedUploaderId: uploaderId });
                         return;
                     }
                 }
 
                 const q = query(
                     collectionGroup(db, 'uploads'),
-                    where(documentId(), '==', id as string),
+                    where(documentId(), '==', id),
                     limit(1)
                 );
                 const snapshot = await getDocs(q);
                 const foundDoc = snapshot.docs[0];
 
                 if (foundDoc) {
-                    setListing({ id: foundDoc.id, ...foundDoc.data() });
+                    setListing({
+                        id: foundDoc.id,
+                        ...foundDoc.data(),
+                        _resolvedUploaderId: foundDoc.ref.parent.parent?.id,
+                    });
                 } else {
                     setListing(null);
                 }
-            } catch (err) {
-                console.error('Error fetching listing for modal:', err);
+            } catch (error) {
+                console.error('Error fetching listing for purchase modal:', error);
+                setListing(null);
             } finally {
                 setLoading(false);
             }
@@ -125,29 +111,88 @@ export default function ListingLicenseModal() {
         fetchListing();
     }, [id, uploaderId]);
 
-    const handleAddToCart = () => {
-        if (!id || typeof id !== 'string') {
-            showToast('Unable to add this listing to cart.', 'error');
-            return;
-        }
+    const checkoutItem = useMemo(() => {
+        if (!id || typeof id !== 'string') return null;
 
-        if (selectedLicense.price == null) {
-            showToast('Exclusive license requires a direct offer.', 'error');
-            return;
-        }
+        const resolvedUploaderId =
+            listing?._resolvedUploaderId
+            || listing?.userId
+            || (typeof uploaderId === 'string' ? uploaderId : '');
 
-        addItem({
-            id: `${id}_${selectedLicense.id}`,
-            title: listing?.title || 'Listing',
-            artist: listing?.uploaderName || 'Creator',
-            price: selectedLicense.price,
+        if (!resolvedUploaderId) return null;
+
+        return {
+            id,
+            title: trackTitle,
+            artist: trackArtist,
+            price: trackPriceUsd,
             audioUrl: listing?.audioUrl || '',
-            uploaderId: listing?.userId || (uploaderId as string) || '',
-            category: listing?.category || 'License',
-        });
+            coverUrl: trackArtwork,
+            uploaderId: resolvedUploaderId,
+            category: listing?.category || 'Track',
+        };
+    }, [id, listing, trackArtist, trackArtwork, trackPriceUsd, trackTitle, uploaderId]);
 
-        showToast(`${selectedLicense.title} added to cart.`, 'success');
+    const handleAddToCart = () => {
+        if (!checkoutItem) {
+            showToast('Unable to add this track to cart.', 'error');
+            return;
+        }
+
+        if (items.some((item) => item.id === checkoutItem.id)) {
+            showToast('Track already in your cart.', 'info');
+            return;
+        }
+
+        addItem(checkoutItem);
+        showToast('Track added to cart.', 'success');
         router.back();
+    };
+
+    const handlePaymentSuccess = async (flutterwaveData: any) => {
+        const txRef = flutterwaveData?.tx_ref || checkoutTxRef;
+        if (!txRef) {
+            showToast('Payment completed but transaction reference is missing.', 'error');
+            return;
+        }
+
+        setCheckingOut(true);
+        try {
+            const functions = getFunctions();
+            const getCheckoutStatus = httpsCallable(functions, 'getCheckoutStatus');
+            let completed = false;
+
+            for (let i = 0; i < 12; i += 1) {
+                const statusResult = await getCheckoutStatus({ txRef });
+                const status = (statusResult.data as { status?: string }).status;
+                if (status === 'completed') {
+                    completed = true;
+                    break;
+                }
+                if (status === 'failed' || status === 'amount_mismatch') {
+                    throw new Error(`Payment processing failed with status: ${status}`);
+                }
+                await new Promise((resolve) => setTimeout(resolve, 1800));
+            }
+
+            if (!completed) {
+                showToast('Payment received. Delivery is still being confirmed. Check Library shortly.', 'info');
+                return;
+            }
+
+            setCheckoutTxRef(null);
+            setCheckoutAmountNgn(0);
+            setShowSuccessPopup(true);
+            await new Promise((resolve) => setTimeout(resolve, 900));
+            setShowSuccessPopup(false);
+            showToast('Purchase confirmed. Track is now in your library.', 'success');
+            router.replace('/(tabs)/library');
+        } catch (error) {
+            console.error('Payment verification error:', error);
+            showToast('Payment succeeded but verification is pending. Check Library shortly.', 'error');
+        } finally {
+            setCheckingOut(false);
+        }
     };
 
     const handleBuyNow = async () => {
@@ -157,46 +202,58 @@ export default function ListingLicenseModal() {
             return;
         }
 
-        if (!id || typeof id !== 'string') {
-            showToast('Invalid listing.', 'error');
+        if (!auth.currentUser.email) {
+            showToast('Email is required to complete payment. Update your account and try again.', 'error');
             return;
         }
 
-        if (selectedLicense.price == null) {
-            showToast('Exclusive license is offer-only. Please contact the creator.', 'error');
+        if (!checkoutItem) {
+            showToast('This track is missing required purchase details.', 'error');
             return;
         }
 
-        // TODO: Integrate Flutterwave payment for direct "Buy Now" flow
-        // This should:
-        // 1. Trigger Flutterwave payment modal
-        // 2. On success, call backend Cloud Function with payment reference
-        // 3. Backend verifies payment and creates transaction + purchase documents
-        // For now, redirect to cart which has the secure payment flow
-        
-        addItem({
-            id: `${id}_${selectedLicense.id}`,
-            title: listing?.title || 'Listing',
-            artist: listing?.uploaderName || 'Creator',
-            price: selectedLicense.price,
-            audioUrl: listing?.audioUrl || '',
-            uploaderId: listing?.userId || (typeof uploaderId === 'string' ? uploaderId : ''),
-            category: listing?.category || 'License',
-        });
+        if (trackPriceUsd <= 0) {
+            showToast('This track is currently not available for paid purchase.', 'error');
+            return;
+        }
 
-        showToast(`${selectedLicense.title} added to cart. Complete your purchase in the cart.`, 'info');
-        router.back();
-        router.push('/cart');
+        setCheckingOut(true);
+        try {
+            await auth.currentUser.getIdToken(true);
+            const functions = getFunctions();
+            const createCheckoutSession = httpsCallable(functions, 'createCheckoutSession');
+            const result = await createCheckoutSession({
+                items: [checkoutItem],
+                totalAmountUsd: trackPriceUsd,
+            });
+
+            const data = result.data as { txRef: string; amountNgn: number };
+            if (!data?.txRef || !data?.amountNgn) {
+                throw new Error('Invalid checkout response from backend');
+            }
+
+            setCheckoutTxRef(data.txRef);
+            setCheckoutAmountNgn(data.amountNgn);
+            setShowFWButton(true);
+        } catch (error) {
+            console.error('Checkout init failed:', error);
+            showToast('Unable to start payment right now. Please try again.', 'error');
+        } finally {
+            setCheckingOut(false);
+        }
     };
 
     return (
         <SafeScreenWrapper>
             <View style={styles.screen}>
-                <Pressable style={styles.backdrop} onPress={() => router.back()} />
+                <Pressable style={styles.backdrop} onPress={() => router.back()}>
+                    <BlurView intensity={34} tint="dark" style={StyleSheet.absoluteFill} />
+                    <View style={styles.backdropDim} />
+                </Pressable>
 
                 <View style={styles.sheet}>
                     <View style={styles.sheetHeader}>
-                        <Text style={styles.sheetTitle}>Choose license</Text>
+                        <Text style={styles.sheetTitle}>Track purchase</Text>
                         <TouchableOpacity onPress={() => router.back()}>
                             <Text style={styles.cancelText}>Cancel</Text>
                         </TouchableOpacity>
@@ -206,50 +263,85 @@ export default function ListingLicenseModal() {
                         <View style={styles.loadingContainer}>
                             <ActivityIndicator size="small" color="#EC5C39" />
                         </View>
+                    ) : (
+                        <>
+                            <View style={styles.trackCard}>
+                                <View style={styles.artworkWrap}>
+                                    {trackArtwork ? (
+                                        <Image source={{ uri: trackArtwork }} style={styles.artwork} contentFit="cover" />
+                                    ) : (
+                                        <View style={styles.artworkFallback}>
+                                            <Text style={styles.artworkFallbackText}>♫</Text>
+                                        </View>
+                                    )}
+                                </View>
+                                <View style={styles.trackMeta}>
+                                    <Text style={styles.trackTitle} numberOfLines={1}>{trackTitle}</Text>
+                                    <Text style={styles.trackArtist} numberOfLines={1}>{trackArtist}</Text>
+                                    <Text style={styles.trackCategory}>{listing?.category || 'Track'}</Text>
+                                </View>
+                            </View>
+
+                            <View style={styles.priceCard}>
+                                <View>
+                                    <Text style={styles.priceLabel}>Track Price</Text>
+                                    <Text style={styles.priceSubLabel}>Single purchase license</Text>
+                                </View>
+                                <Text style={styles.priceValue}>{formatUsd(trackPriceUsd)}</Text>
+                            </View>
+
+                            <View style={styles.actionsWrap}>
+                                <TouchableOpacity
+                                    style={[styles.primaryAction, checkingOut && styles.disabledAction]}
+                                    onPress={handleBuyNow}
+                                    disabled={checkingOut || trackPriceUsd <= 0}
+                                >
+                                    <Text style={styles.primaryActionText}>{checkingOut ? 'Starting payment...' : 'Buy now'}</Text>
+                                </TouchableOpacity>
+
+                                <TouchableOpacity style={styles.secondaryAction} onPress={handleAddToCart}>
+                                    <Text style={styles.secondaryActionText}>Add to cart</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </>
+                    )}
+
+                    {showFWButton && auth.currentUser && checkoutTxRef && checkoutAmountNgn > 0 ? (
+                        <PayWithFlutterwave
+                            onRedirect={(data) => {
+                                setShowFWButton(false);
+                                if (data.status === 'successful') {
+                                    handlePaymentSuccess(data);
+                                } else {
+                                    showToast('Your payment was not completed.', 'error');
+                                }
+                            }}
+                            options={{
+                                tx_ref: checkoutTxRef,
+                                authorization: process.env.EXPO_PUBLIC_FLUTTERWAVE_PUBLIC_KEY || '',
+                                customer: { email: auth.currentUser.email! },
+                                amount: checkoutAmountNgn,
+                                currency: 'NGN',
+                                payment_options: 'card,banktransfer',
+                            }}
+                            customButton={(props) => {
+                                setTimeout(() => {
+                                    if (!props.disabled) props.onPress();
+                                }, 80);
+                                return <View />;
+                            }}
+                        />
                     ) : null}
 
-                    <View style={styles.optionsWrap}>
-                        {LICENSE_OPTIONS.map((option) => {
-                            const selected = selectedLicenseId === option.id;
-                            const priceText = option.price == null ? 'Offer only' : `$${option.price.toFixed(2)}`;
-                            return (
-                                <TouchableOpacity
-                                    key={option.id}
-                                    style={[styles.optionCard, selected && styles.optionCardSelected]}
-                                    onPress={() => setSelectedLicenseId(option.id)}
-                                >
-                                    <View style={styles.optionTopRow}>
-                                        <View>
-                                            <Text style={styles.optionTitle}>{option.title}</Text>
-                                            <Text style={styles.optionFormats}>{option.formats}</Text>
-                                        </View>
-                                        <Text style={styles.optionPrice}>{priceText}</Text>
-                                    </View>
-
-                                    {selected && option.perks?.length ? (
-                                        <View style={styles.perksWrap}>
-                                            {option.perks.map((perk) => (
-                                                <Text key={perk} style={styles.perkText}> {perk}</Text>
-                                            ))}
-                                        </View>
-                                    ) : null}
-                                </TouchableOpacity>
-                            );
-                        })}
-                    </View>
-
-                    <View style={styles.actionsWrap}>
-                        <TouchableOpacity
-                            style={styles.primaryAction}
-                            onPress={handleBuyNow}
-                        >
-                            <Text style={styles.primaryActionText}>Buy now</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity style={styles.secondaryAction} onPress={handleAddToCart}>
-                            <Text style={styles.secondaryActionText}>Add to cart</Text>
-                        </TouchableOpacity>
-                    </View>
+                    {showSuccessPopup ? (
+                        <View style={styles.successPopupWrap} pointerEvents="none">
+                            <View style={styles.successPopupCard}>
+                                <Text style={styles.successPopupIcon}>✓</Text>
+                                <Text style={styles.successPopupTitle}>Payment confirmed</Text>
+                                <Text style={styles.successPopupSubtitle}>Opening your Library...</Text>
+                            </View>
+                        </View>
+                    ) : null}
                 </View>
             </View>
         </SafeScreenWrapper>
@@ -260,85 +352,127 @@ const styles = StyleSheet.create({
     screen: {
         flex: 1,
         justifyContent: 'flex-end',
-        backgroundColor: 'rgba(0,0,0,0.45)',
     },
     backdrop: {
         ...StyleSheet.absoluteFillObject,
     },
+    backdropDim: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(8,8,12,0.42)',
+    },
     sheet: {
-        backgroundColor: '#0A0A0A',
-        borderTopLeftRadius: 22,
-        borderTopRightRadius: 22,
-        paddingHorizontal: 16,
-        paddingTop: 18,
-        paddingBottom: 20,
-        maxHeight: '92%',
+        backgroundColor: '#140F10',
+        borderTopLeftRadius: 26,
+        borderTopRightRadius: 26,
+        borderTopWidth: 1,
+        borderColor: 'rgba(255,255,255,0.08)',
+        paddingHorizontal: 20,
+        paddingTop: 16,
+        paddingBottom: 24,
+        maxHeight: '86%',
     },
     sheetHeader: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        marginBottom: 14,
+        marginBottom: 16,
     },
     sheetTitle: {
         color: '#FFF',
-        fontSize: 34,
-        fontFamily: 'Poppins-Bold',
-    },
-    cancelText: {
-        color: '#FFF',
-        fontSize: 22,
+        fontSize: 28,
+        lineHeight: 34,
         fontFamily: 'Poppins-SemiBold',
     },
+    cancelText: {
+        color: 'rgba(255,255,255,0.78)',
+        fontSize: 20,
+        fontFamily: 'Poppins-Medium',
+    },
     loadingContainer: {
-        paddingVertical: 8,
+        minHeight: 90,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
-    optionsWrap: {
-        gap: 10,
-    },
-    optionCard: {
-        backgroundColor: '#17181B',
-        borderRadius: 14,
+    trackCard: {
+        borderRadius: 16,
         borderWidth: 1,
-        borderColor: 'transparent',
-        padding: 14,
+        borderColor: 'rgba(236,92,57,0.35)',
+        backgroundColor: 'rgba(255,255,255,0.03)',
+        padding: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 12,
     },
-    optionCardSelected: {
-        backgroundColor: '#0F2A5A',
-        borderColor: '#0A84FF',
+    artworkWrap: {
+        width: 74,
+        height: 74,
+        borderRadius: 14,
+        overflow: 'hidden',
+        backgroundColor: 'rgba(255,255,255,0.08)',
     },
-    optionTopRow: {
+    artwork: {
+        width: '100%',
+        height: '100%',
+    },
+    artworkFallback: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    artworkFallbackText: {
+        color: '#FFF',
+        fontSize: 24,
+        fontFamily: 'Poppins-SemiBold',
+    },
+    trackMeta: {
+        flex: 1,
+        marginLeft: 12,
+    },
+    trackTitle: {
+        color: '#FFF',
+        fontSize: 17,
+        lineHeight: 22,
+        fontFamily: 'Poppins-SemiBold',
+    },
+    trackArtist: {
+        color: 'rgba(255,255,255,0.6)',
+        fontSize: 12,
+        fontFamily: 'Poppins-Regular',
+        marginTop: 3,
+    },
+    trackCategory: {
+        color: '#EC5C39',
+        fontSize: 11,
+        fontFamily: 'Poppins-Medium',
+        marginTop: 6,
+    },
+    priceCard: {
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.08)',
+        backgroundColor: 'rgba(255,255,255,0.04)',
+        paddingHorizontal: 14,
+        paddingVertical: 14,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
     },
-    optionTitle: {
+    priceLabel: {
         color: '#FFF',
-        fontSize: 18,
-        fontFamily: 'Poppins-Bold',
+        fontSize: 16,
+        fontFamily: 'Poppins-SemiBold',
     },
-    optionFormats: {
-        color: 'rgba(255,255,255,0.6)',
+    priceSubLabel: {
+        color: 'rgba(255,255,255,0.56)',
         fontSize: 12,
         fontFamily: 'Poppins-Regular',
         marginTop: 2,
     },
-    optionPrice: {
-        color: '#FFF',
-        fontSize: 18,
-        fontFamily: 'Poppins-SemiBold',
-    },
-    perksWrap: {
-        borderTopWidth: 1,
-        borderTopColor: 'rgba(255,255,255,0.08)',
-        marginTop: 12,
-        paddingTop: 12,
-        gap: 8,
-    },
-    perkText: {
-        color: '#E8E8E8',
-        fontSize: 13,
-        fontFamily: 'Poppins-Regular',
+    priceValue: {
+        color: '#EC5C39',
+        fontSize: 22,
+        lineHeight: 28,
+        fontFamily: 'Poppins-Bold',
     },
     actionsWrap: {
         marginTop: 14,
@@ -346,29 +480,63 @@ const styles = StyleSheet.create({
     },
     primaryAction: {
         height: 56,
-        borderRadius: 10,
-        backgroundColor: '#0A84FF',
+        borderRadius: 12,
+        backgroundColor: '#EC5C39',
         alignItems: 'center',
         justifyContent: 'center',
     },
     disabledAction: {
-        opacity: 0.7,
+        opacity: 0.6,
     },
     primaryActionText: {
         color: '#FFF',
-        fontSize: 18,
-        fontFamily: 'Poppins-Bold',
+        fontSize: 20,
+        fontFamily: 'Poppins-SemiBold',
     },
     secondaryAction: {
         height: 56,
-        borderRadius: 10,
-        backgroundColor: '#25272C',
+        borderRadius: 12,
+        backgroundColor: 'rgba(255,255,255,0.08)',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.08)',
         alignItems: 'center',
         justifyContent: 'center',
     },
     secondaryActionText: {
         color: '#FFF',
-        fontSize: 18,
+        fontSize: 20,
         fontFamily: 'Poppins-SemiBold',
+    },
+    successPopupWrap: {
+        ...StyleSheet.absoluteFillObject,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    successPopupCard: {
+        minWidth: 190,
+        borderRadius: 14,
+        paddingHorizontal: 16,
+        paddingVertical: 14,
+        borderWidth: 1,
+        borderColor: 'rgba(76,175,80,0.55)',
+        backgroundColor: 'rgba(18, 30, 22, 0.92)',
+        alignItems: 'center',
+    },
+    successPopupIcon: {
+        color: '#4CAF50',
+        fontSize: 18,
+        fontFamily: 'Poppins-Bold',
+    },
+    successPopupTitle: {
+        color: '#FFFFFF',
+        fontSize: 14,
+        fontFamily: 'Poppins-SemiBold',
+        marginTop: 6,
+    },
+    successPopupSubtitle: {
+        color: 'rgba(255,255,255,0.76)',
+        fontSize: 11,
+        fontFamily: 'Poppins-Regular',
+        marginTop: 2,
     },
 });

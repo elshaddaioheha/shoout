@@ -1,8 +1,9 @@
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import * as AppleAuthentication from 'expo-apple-authentication';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { createUserWithEmailAndPassword, GoogleAuthProvider, OAuthProvider, signInWithCredential, updateProfile } from 'firebase/auth';
+import { GoogleAuthProvider, OAuthProvider, signInWithCredential } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import React from 'react';
 import { Animated, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -10,10 +11,13 @@ import Svg, { Path } from 'react-native-svg';
 import { auth, db } from '../../firebaseConfig';
 import { authNavigationHandled } from '../_layout';
 import { useToastStore } from '../../store/useToastStore';
+import { sendEmailOtp } from '../../utils/emailOtp';
 import { hydrateSubscriptionTier } from '../../utils/subscriptionVerification';
 import { getFriendlyErrorMessage } from '../../utils/errorHandler';
 
 type SignupSubscriptionTier = 'vault' | 'vault_pro' | 'studio' | 'hybrid';
+
+const PENDING_SIGNUP_KEY = 'pendingSignupPayload';
 
 export default function SignupScreen() {
     const router = useRouter();
@@ -70,25 +74,23 @@ export default function SignupScreen() {
 
         setLoading(true);
         try {
-            // 1. Create secure Auth account
-            const userCred = await createUserWithEmailAndPassword(auth, email, password);
-            if (userCred.user) {
-                await updateProfile(userCred.user, { displayName: fullName });
+            const trimmedEmail = email.trim().toLowerCase();
+            const trimmedName = fullName.trim();
+            await sendEmailOtp('signup', trimmedEmail);
 
-                // 2. Save physical user metadata to Firestore Database
-                await setDoc(doc(db, "users", userCred.user.uid), {
-                    fullName,
-                    email,
-                    createdAt: new Date().toISOString()
-                });
+            await AsyncStorage.setItem(
+                PENDING_SIGNUP_KEY,
+                JSON.stringify({
+                    fullName: trimmedName,
+                    email: trimmedEmail,
+                    password,
+                    redirectTo,
+                    createdAt: Date.now(),
+                })
+            );
 
-                await writeSubscriptionDoc(userCred.user.uid, 'vault');
-                await hydrateSubscriptionTier();
-
-                // Signal to onAuthStateChanged that we are handling navigation.
-                authNavigationHandled.current = true;
-                router.replace('/(auth)/role-selection');
-            }
+            showToast('Verification code sent to your email.', 'success');
+            router.push('/(auth)/signup-otp');
         } catch (error: any) {
             authNavigationHandled.current = false;
             console.error('Signup error:', error.message);
@@ -303,8 +305,8 @@ const styles = StyleSheet.create({
         backgroundColor: '#140F10',
     },
     content: {
-        paddingHorizontal: 28,
-        paddingVertical: 60,
+        paddingHorizontal: 20,
+        paddingVertical: 48,
     },
     guestRow: {
         width: '100%',
@@ -317,43 +319,55 @@ const styles = StyleSheet.create({
         fontFamily: 'Poppins-Regular',
     },
     title: {
-        fontSize: 32,
-        fontFamily: 'Poppins-Bold',
-        color: '#FFFFFF',
+        color: '#D9D9D9',
+        fontSize: 22,
+        lineHeight: 28,
+        letterSpacing: -0.35,
+        fontFamily: 'Poppins-SemiBold',
         marginBottom: 8,
     },
     subtitle: {
-        fontSize: 16,
+        fontSize: 12,
+        lineHeight: 16,
+        letterSpacing: -0.41,
         fontFamily: 'Poppins-Regular',
-        color: '#A0A0A0',
-        marginBottom: 40,
+        color: '#4B4B4B',
+        marginBottom: 24,
     },
     form: {
-        gap: 16,
+        gap: 13,
     },
     input: {
-        backgroundColor: '#1E1A1B',
-        borderRadius: 12,
-        padding: 16,
+        width: '100%',
+        height: 42,
+        borderRadius: 10,
+        borderWidth: 1.5,
+        borderColor: '#464646',
+        backgroundColor: 'transparent',
+        paddingHorizontal: 14,
         color: '#FFFFFF',
-        fontSize: 16,
+        fontSize: 15,
+        lineHeight: 20,
         fontFamily: 'Poppins-Regular',
     },
     button: {
-        borderRadius: 12,
-        padding: 16,
+        height: 50,
+        borderRadius: 10,
         alignItems: 'center',
-        marginTop: 24,
+        justifyContent: 'center',
+        marginTop: 14,
     },
     buttonText: {
         color: '#FFFFFF',
-        fontSize: 18,
+        fontSize: 17,
+        lineHeight: 22,
+        letterSpacing: -0.41,
         fontFamily: 'Poppins-SemiBold',
     },
     footer: {
         flexDirection: 'row',
         justifyContent: 'center',
-        marginTop: 40,
+        marginTop: 24,
     },
     footerText: {
         color: '#A0A0A0',
@@ -368,12 +382,12 @@ const styles = StyleSheet.create({
     socialContainer: {
         width: '100%',
         gap: 12,
-        marginBottom: 17,
-        marginTop: -15, // Bring closer to title headers
+        marginBottom: 16,
+        marginTop: 0,
     },
     socialButton: {
         width: '100%',
-        height: 56,
+        height: 50,
         borderWidth: 1.5,
         borderColor: '#464646',
         borderRadius: 10,
@@ -393,7 +407,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 1,
-        marginBottom: 16,
+        marginBottom: 14,
     },
     dividerLine: {
         flex: 1,

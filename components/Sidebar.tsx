@@ -71,7 +71,8 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         <View style={[StyleSheet.absoluteFill, { zIndex: 9999, elevation: 9999 }]}>
             <Animated.View style={[StyleSheet.absoluteFill, { opacity: opacityAnim }]}>
                 <Pressable style={styles.overlay} onPress={onClose}>
-                    <BlurView intensity={20} style={StyleSheet.absoluteFill} tint="dark" />
+                    <BlurView intensity={28} style={StyleSheet.absoluteFill} tint="dark" />
+                    <View style={styles.overlayDim} />
                 </Pressable>
             </Animated.View>
 
@@ -158,7 +159,8 @@ function ModeItem({ icon: Icon, label, active, onPress, disabled }: any) {
 }
 
 const styles = StyleSheet.create({
-    overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' },
+    overlay: { flex: 1 },
+    overlayDim: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(8,8,12,0.42)' },
     sidebar: {
         position: 'absolute',
         right: 0,

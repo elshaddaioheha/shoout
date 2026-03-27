@@ -1,17 +1,15 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import { auth, db } from '@/firebaseConfig';
 import { useToastStore } from '@/store/useToastStore';
+import { toggleArtistFollow } from '@/utils/followArtist';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
-    arrayRemove,
-    arrayUnion,
     collection,
     doc,
-    getDoc,
     getDocs,
+    onSnapshot,
     query,
-    updateDoc,
     where
 } from 'firebase/firestore';
 import {
@@ -42,34 +40,63 @@ export default function ArtistProfileScreen() {
     const [loading, setLoading] = useState(true);
     const [isFollowing, setIsFollowing] = useState(false);
     const [followersCount, setFollowersCount] = useState(0);
+    const [isFollowPending, setIsFollowPending] = useState(false);
     const { showToast } = useToastStore();
 
     useEffect(() => {
         if (!artistId) return;
 
-        // Fetch Artist Profile
-        const fetchArtist = async () => {
-            const docRef = doc(db, 'users', artistId as string);
-            const docSnap = await getDoc(docRef);
-            if (docSnap.exists()) {
-                const data = docSnap.data();
-                setArtist(data);
-                setFollowersCount(data.followers?.length || 0);
-                setIsFollowing(data.followers?.includes(auth.currentUser?.uid));
+        let artistResolved = false;
+        let tracksResolved = false;
+
+        const markLoaded = () => {
+            if (artistResolved && tracksResolved) {
+                setLoading(false);
             }
         };
 
+        const artistRef = doc(db, 'users', artistId as string);
+        const unsubArtist = onSnapshot(
+            artistRef,
+            (docSnap) => {
+                if (docSnap.exists()) {
+                    const data = docSnap.data() as any;
+                    setArtist(data);
+                    const followers = Array.isArray(data.followers)
+                        ? data.followers
+                        : [];
+                    setFollowersCount(followers.length);
+                    setIsFollowing(!!auth.currentUser?.uid && followers.includes(auth.currentUser.uid));
+                }
+                artistResolved = true;
+                markLoaded();
+            },
+            () => {
+                artistResolved = true;
+                markLoaded();
+            }
+        );
+
         // Fetch Artist Tracks
         const fetchTracks = async () => {
-            const q = query(
-                collection(db, 'users', artistId as string, 'uploads'),
-                where('isPublic', '==', true)
-            );
-            const snapshot = await getDocs(q);
-            setTracks(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+            try {
+                const q = query(
+                    collection(db, 'users', artistId as string, 'uploads'),
+                    where('isPublic', '==', true)
+                );
+                const snapshot = await getDocs(q);
+                setTracks(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+            } finally {
+                tracksResolved = true;
+                markLoaded();
+            }
         };
 
-        Promise.all([fetchArtist(), fetchTracks()]).finally(() => setLoading(false));
+        fetchTracks();
+
+        return () => {
+            unsubArtist();
+        };
     }, [artistId]);
 
     const handleFollow = async () => {
@@ -80,23 +107,24 @@ export default function ArtistProfileScreen() {
 
         if (auth.currentUser.uid === artistId) return;
 
-        const artistRef = doc(db, 'users', artistId as string);
-        const userRef = doc(db, 'users', auth.currentUser.uid);
+        if (isFollowPending) return;
+        setIsFollowPending(true);
 
         try {
-            if (isFollowing) {
-                await updateDoc(artistRef, { followers: arrayRemove(auth.currentUser.uid) });
-                await updateDoc(userRef, { following: arrayRemove(artistId) });
-                setIsFollowing(false);
-                setFollowersCount(prev => prev - 1);
-            } else {
-                await updateDoc(artistRef, { followers: arrayUnion(auth.currentUser.uid) });
-                await updateDoc(userRef, { following: arrayUnion(artistId) });
-                setIsFollowing(true);
-                setFollowersCount(prev => prev + 1);
-            }
+            const result = await toggleArtistFollow({
+                artistId: artistId as string,
+                currentUserId: auth.currentUser.uid,
+                isCurrentlyFollowing: isFollowing,
+            });
+
+            setIsFollowing(result.isFollowing);
+            setFollowersCount((prev) => Math.max(0, prev + result.followersDelta));
+            showToast(result.isFollowing ? 'Artist followed.' : 'Artist unfollowed.', 'success');
         } catch (err) {
             console.error("Follow error:", err);
+            showToast('Unable to update follow state right now.', 'error');
+        } finally {
+            setIsFollowPending(false);
         }
     };
 
@@ -156,10 +184,11 @@ export default function ArtistProfileScreen() {
 
                     <View style={styles.actionRow}>
                         <TouchableOpacity
-                            style={[styles.followBtn, isFollowing && styles.followingBtn]}
+                            style={[styles.followBtn, isFollowing && styles.followingBtn, isFollowPending && styles.followBtnDisabled]}
                             onPress={handleFollow}
+                            disabled={isFollowPending}
                         >
-                            <Text style={styles.followBtnText}>{isFollowing ? 'Following' : 'Follow'}</Text>
+                            <Text style={styles.followBtnText}>{isFollowPending ? 'Please wait...' : (isFollowing ? 'Following' : 'Follow')}</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
                             style={styles.msgBtn}
@@ -221,6 +250,7 @@ const styles = StyleSheet.create({
     actionRow: { flexDirection: 'row', marginTop: 25, gap: 15, width: '100%' },
     followBtn: { flex: 1, height: 50, borderRadius: 15, backgroundColor: '#EC5C39', alignItems: 'center', justifyContent: 'center' },
     followingBtn: { backgroundColor: 'transparent', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
+    followBtnDisabled: { opacity: 0.6 },
     followBtnText: { color: '#FFF', fontSize: 16, fontFamily: 'Poppins-Bold' },
     msgBtn: { width: 50, height: 50, borderRadius: 15, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
     tracksSection: { padding: 24, marginTop: 10 },

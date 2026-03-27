@@ -1,11 +1,10 @@
 // This screen is intentionally hidden (href: null in _layout.tsx).
-// Kept as a placeholder for future Explore/Discovery features.
 import { StyleSheet, Text, View } from 'react-native';
 
 export default function ExploreScreen() {
   return (
     <View style={styles.container}>
-      <Text style={styles.text}>Explore – Coming Soon</Text>
+      <Text style={styles.text}>Explore placeholder</Text>
     </View>
   );
 }
