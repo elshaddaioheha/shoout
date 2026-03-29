@@ -279,6 +279,22 @@ function MarketplaceSection({ title, items }: any) {
     const setTrack = usePlaybackStore(state => state.setTrack);
     const router = useRouter();
 
+    const resolveScheduledMs = (item: any): number | null => {
+        const raw = item?.scheduledReleaseAtMs;
+        if (typeof raw === 'number' && Number.isFinite(raw)) return raw;
+        if (typeof raw === 'string') {
+            const parsed = Number(raw);
+            if (Number.isFinite(parsed)) return parsed;
+        }
+        return null;
+    };
+
+    const getUpcomingState = (item: any) => {
+        const scheduledMs = resolveScheduledMs(item);
+        const isUpcoming = item?.lifecycleStatus === 'upcoming' && (!scheduledMs || scheduledMs > Date.now());
+        return { isUpcoming, scheduledMs };
+    };
+
     if (items.length === 0) return null;
 
     return (
@@ -289,6 +305,9 @@ function MarketplaceSection({ title, items }: any) {
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
                 {items.map((item: any, idx: number) => (
+                    (() => {
+                        const { isUpcoming, scheduledMs } = getUpcomingState(item);
+                        return (
                     <TouchableOpacity
                         key={item.id || idx}
                         style={styles.marketCard}
@@ -303,8 +322,15 @@ function MarketplaceSection({ title, items }: any) {
                             ) : null}
                             <Music size={32} color="rgba(255,255,255,0.1)" />
                             <View style={styles.priceBadge}>
-                                <Text style={styles.priceText}>${item.price?.toFixed(2) || '0.00'}</Text>
+                                <Text style={styles.priceText}>
+                                    {isUpcoming ? 'Pre-order ' : ''}${item.price?.toFixed(2) || '0.00'}
+                                </Text>
                             </View>
+                            {isUpcoming && (
+                                <View style={styles.upcomingBadge}>
+                                    <Text style={styles.upcomingBadgeText}>Upcoming</Text>
+                                </View>
+                            )}
                             {/* Play Preview Fast Action */}
                             <TouchableOpacity
                                 style={styles.previewPlay}
@@ -329,8 +355,13 @@ function MarketplaceSection({ title, items }: any) {
                             </TouchableOpacity>
                         </View>
                         <Text style={styles.itemTitle} numberOfLines={1}>{item.title}</Text>
-                        <Text style={styles.itemArtist}>{item.uploaderName || 'Shoouter'}</Text>
+                        <Text style={styles.itemArtist}>
+                            {item.uploaderName || 'Shoouter'}
+                            {isUpcoming && scheduledMs ? ` • ${new Date(scheduledMs).toLocaleDateString()}` : ''}
+                        </Text>
                     </TouchableOpacity>
+                        );
+                    })()
                 ))}
             </ScrollView>
         </View>
@@ -381,6 +412,23 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.3,
         shadowRadius: 4,
+    },
+    upcomingBadge: {
+        position: 'absolute',
+        top: 12,
+        right: 12,
+        backgroundColor: 'rgba(20,15,16,0.88)',
+        borderWidth: 1,
+        borderColor: 'rgba(236,92,57,0.7)',
+        borderRadius: 10,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+    },
+    upcomingBadgeText: {
+        color: '#FCD2C5',
+        fontSize: 10,
+        fontFamily: 'Poppins-Bold',
+        letterSpacing: 0.4,
     },
     merchBanner: {
         marginHorizontal: 20,

@@ -21,7 +21,9 @@
     "dev:seed:royalty-free-admin": "node ./scripts/seed-royalty-free-admin.mjs",
     "dev:seed:media": "node ./scripts/seed-media.mjs",
     "dev:seed:storage-sample": "node ./scripts/seed-storage-sample.mjs",
-    "dev:seed:auth-admin": "node ./scripts/seed-auth-users-admin.mjs"
+    "dev:seed:auth-admin": "node ./scripts/seed-auth-users-admin.mjs",
+    "dev:backfill:publish-snapshot": "node ./scripts/backfill-publish-snapshot.mjs",
+    "dev:backfill:publish-snapshot:apply": "node ./scripts/backfill-publish-snapshot.mjs --apply"
   },
   "dependencies": {
     "@expo-google-fonts/poppins": "^0.4.1",

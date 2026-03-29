@@ -43,6 +43,21 @@ export default function ArtistProfileScreen() {
     const [isFollowPending, setIsFollowPending] = useState(false);
     const { showToast } = useToastStore();
 
+    const resolveScheduledMs = (track: any): number | null => {
+        const raw = track?.scheduledReleaseAtMs;
+        if (typeof raw === 'number' && Number.isFinite(raw)) return raw;
+        if (typeof raw === 'string') {
+            const parsed = Number(raw);
+            if (Number.isFinite(parsed)) return parsed;
+        }
+        return null;
+    };
+
+    const isTrackUpcoming = (track: any) => {
+        const scheduledMs = resolveScheduledMs(track);
+        return track?.lifecycleStatus === 'upcoming' && (!scheduledMs || scheduledMs > Date.now());
+    };
+
     useEffect(() => {
         if (!artistId) return;
 
@@ -206,6 +221,10 @@ export default function ArtistProfileScreen() {
                         <Text style={styles.emptyText}>No public tracks listed yet.</Text>
                     ) : (
                         tracks.map(track => (
+                            (() => {
+                                const isUpcoming = isTrackUpcoming(track);
+                                const scheduledMs = resolveScheduledMs(track);
+                                return (
                             <TouchableOpacity
                                 key={track.id}
                                 style={styles.trackCard}
@@ -216,10 +235,22 @@ export default function ArtistProfileScreen() {
                                 </View>
                                 <View style={styles.trackInfo}>
                                     <Text style={styles.trackTitle}>{track.title}</Text>
-                                    <Text style={styles.trackMeta}>{track.genre} • {track.bpm} BPM</Text>
+                                    <Text style={styles.trackMeta}>
+                                        {track.genre} • {track.bpm} BPM
+                                        {isUpcoming && scheduledMs ? ` • ${new Date(scheduledMs).toLocaleDateString()}` : ''}
+                                    </Text>
                                 </View>
-                                <Text style={styles.trackPrice}>${track.price}</Text>
+                                <View style={styles.trackRightCol}>
+                                    {isUpcoming && (
+                                        <View style={styles.upcomingPill}>
+                                            <Text style={styles.upcomingPillText}>Upcoming</Text>
+                                        </View>
+                                    )}
+                                    <Text style={styles.trackPrice}>{isUpcoming ? 'Pre-order ' : ''}${track.price}</Text>
+                                </View>
                             </TouchableOpacity>
+                                );
+                            })()
                         ))
                     )}
                 </View>
@@ -260,6 +291,21 @@ const styles = StyleSheet.create({
     trackInfo: { flex: 1, marginLeft: 12 },
     trackTitle: { fontSize: 15, fontFamily: 'Poppins-Bold', color: '#FFF' },
     trackMeta: { fontSize: 12, fontFamily: 'Poppins-Regular', color: 'rgba(255,255,255,0.4)', marginTop: 2 },
+    trackRightCol: { alignItems: 'flex-end', gap: 6 },
     trackPrice: { fontSize: 15, fontFamily: 'Poppins-Bold', color: '#EC5C39' },
+    upcomingPill: {
+        backgroundColor: 'rgba(236,92,57,0.15)',
+        borderRadius: 999,
+        borderWidth: 1,
+        borderColor: 'rgba(236,92,57,0.6)',
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+    },
+    upcomingPillText: {
+        color: '#FCD2C5',
+        fontSize: 10,
+        fontFamily: 'Poppins-Bold',
+        letterSpacing: 0.3,
+    },
     emptyText: { color: 'rgba(255,255,255,0.3)', textAlign: 'center', marginTop: 20 }
 });

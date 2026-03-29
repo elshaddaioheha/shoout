@@ -1,11 +1,12 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import SettingsHeader from '@/components/settings/SettingsHeader';
+import { useAuthStore } from '@/store/useAuthStore';
 import { useToastStore } from '@/store/useToastStore';
 import * as DocumentPicker from 'expo-document-picker';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { addDoc, collection, doc, getDoc, getDocs, limit, orderBy, query, serverTimestamp, setDoc } from 'firebase/firestore';
+import { addDoc, collection, doc, getDoc, getDocs, limit, orderBy, query, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getDownloadURL, ref, uploadBytesResumable } from 'firebase/storage';
 import {
@@ -43,6 +44,7 @@ const PRICE_PRESETS = [9.99, 19.99, 29.99];
 
 type AssetType = typeof ASSET_TYPES[number];
 type FlowStep = 'menu' | 'createFolder' | 'uploadSource' | 'publish';
+type UploadAction = 'saveDraft' | 'publish';
 
 type PublisherProfile = {
     stageName: string;
@@ -57,6 +59,8 @@ type PublisherProfile = {
 
 export default function UploadScreen() {
     const router = useRouter();
+    const authRole = useAuthStore((state) => state.actualRole);
+    const authTier = useAuthStore((state) => state.subscriptionTier);
     const [isLoggedIn, setIsLoggedIn] = useState(!!auth.currentUser);
     const [flowStep, setFlowStep] = useState<FlowStep>('menu');
     const [sourceChoice, setSourceChoice] = useState<'storage' | 'local' | null>(null);
@@ -95,8 +99,11 @@ export default function UploadScreen() {
     const [description, setDescription] = useState('');
     const [subscriberOnly, setSubscriberOnly] = useState(false);
     const [useExistingCover, setUseExistingCover] = useState(false);
+    const [scheduleRelease, setScheduleRelease] = useState(false);
+    const [scheduledReleaseInput, setScheduledReleaseInput] = useState('');
 
     const [uploading, setUploading] = useState(false);
+    const [activeUploadAction, setActiveUploadAction] = useState<UploadAction | null>(null);
     const [showGenrePicker, setShowGenrePicker] = useState(false);
     const [showAssetTypePicker, setShowAssetTypePicker] = useState(false);
 
@@ -110,6 +117,39 @@ export default function UploadScreen() {
     const [artworkPreviewUri, setArtworkPreviewUri] = useState<string | null>(null);
 
     const { showToast } = useToastStore();
+    const effectiveRole = String(authRole || authTier || 'vault').toLowerCase();
+    const canMonetize = effectiveRole.startsWith('studio') || effectiveRole.startsWith('hybrid');
+
+    const parseScheduledRelease = () => {
+        const raw = String(scheduledReleaseInput || '').trim();
+        if (!raw) return null;
+        const normalized = raw.includes('T') ? raw : raw.replace(' ', 'T');
+        const date = new Date(normalized);
+        if (Number.isNaN(date.getTime())) return null;
+        return {
+            atMs: date.getTime(),
+            atIsoUtc: date.toISOString(),
+        };
+    };
+
+    const buildPublishSnapshot = (data: Record<string, any>) => ({
+        title: String(data.title || ''),
+        genre: String(data.genre || ''),
+        assetType: String(data.assetType || data.trackType || ''),
+        trackType: String(data.trackType || data.assetType || ''),
+        bpm: Number(data.bpm || 0),
+        price: Number(data.price || 0),
+        description: String(data.description || ''),
+        audioUrl: String(data.audioUrl || ''),
+        coverUrl: String(data.coverUrl || data.artworkUrl || ''),
+        isPublic: data.isPublic === true,
+        subscriberOnly: data.subscriberOnly === true,
+        userId: String(data.userId || auth.currentUser?.uid || ''),
+        uploaderName: String(data.uploaderName || auth.currentUser?.displayName || 'Shoouter'),
+        snapshotVersion: 1,
+        capturedAtMs: Date.now(),
+        capturedAtIso: new Date().toISOString(),
+    });
 
     useEffect(() => {
         const unsub = auth.onAuthStateChanged((user) => setIsLoggedIn(!!user));
@@ -335,7 +375,29 @@ export default function UploadScreen() {
         });
     };
 
-    const handleUpload = async () => {
+    const upsertFolderTrackReference = async (trackId: string, trackData: {
+        title?: string;
+        artist?: string;
+        artworkUrl?: string;
+        audioUrl?: string;
+    }) => {
+        if (!auth.currentUser || !selectedFolderId) return;
+        await setDoc(doc(db, `users/${auth.currentUser.uid}/folders/${selectedFolderId}/tracks/${trackId}`), {
+            uploadId: trackId,
+            uploaderId: auth.currentUser.uid,
+            title: trackData.title || 'Untitled',
+            artist: trackData.artist || auth.currentUser.displayName || 'Unknown Artist',
+            artworkUrl: trackData.artworkUrl || null,
+            audioUrl: trackData.audioUrl || null,
+            addedAt: serverTimestamp(),
+            source: 'upload-flow-reference',
+        }, { merge: true });
+        await setDoc(doc(db, `users/${auth.currentUser.uid}/folders/${selectedFolderId}`), {
+            updatedAt: serverTimestamp(),
+        }, { merge: true });
+    };
+
+    const handleUpload = async (action: UploadAction) => {
         if (!auth.currentUser) {
             showToast("Session expired — please log in again", "error");
             return;
@@ -352,29 +414,45 @@ export default function UploadScreen() {
             }
         }
 
-        if (!title) {
-            showToast("Please enter a title", "error");
-            return;
-        }
-        if (!genre) {
-            showToast("Please select a genre", "error");
-            return;
-        }
-        if (!assetType) {
-            showToast("Please select an asset type", "error");
-            return;
-        }
-        if (!audioFile) {
-            showToast("Please select an audio file to upload", "error");
-            return;
+        const isStorageSource = sourceChoice === 'storage';
+        if (isStorageSource) {
+            if (selectedTrackIds.length === 0) {
+                showToast('Select at least one existing track from Vault storage.', 'error');
+                return;
+            }
+        } else {
+            if (!title) {
+                showToast("Please enter a title", "error");
+                return;
+            }
+            if (!genre) {
+                showToast("Please select a genre", "error");
+                return;
+            }
+            if (!assetType) {
+                showToast("Please select an asset type", "error");
+                return;
+            }
+            if (!audioFile) {
+                showToast("Please select an audio file to upload", "error");
+                return;
+            }
         }
 
-        if (sourceChoice === 'storage' && selectedTrackIds.length === 0 && !audioFile) {
-            showToast('Select at least one existing track or upload a file.', 'error');
-            return;
+        const scheduled = scheduleRelease && canMonetize ? parseScheduledRelease() : null;
+        if (action === 'publish' && scheduleRelease && canMonetize) {
+            if (!scheduled) {
+                showToast('Enter a valid schedule date/time (YYYY-MM-DD HH:mm).', 'error');
+                return;
+            }
+            if (scheduled.atMs <= Date.now()) {
+                showToast('Scheduled release time must be in the future.', 'error');
+                return;
+            }
         }
 
         setUploading(true);
+        setActiveUploadAction(action);
         try {
             // Validate storage limit via Cloud Function.
             // Pass the Firebase app instance explicitly so getFunctions() attaches
@@ -398,6 +476,67 @@ export default function UploadScreen() {
                     // Non-fatal: if CF is unreachable, proceed with upload
                     console.warn('validateStorageLimit skipped:', cfError?.message);
                 }
+            }
+
+            if (isStorageSource) {
+                const publishNow = action === 'publish' && !(scheduleRelease && canMonetize && !!scheduled);
+                const lifecycleStatus =
+                    action === 'publish'
+                        ? (publishNow ? 'published' : 'upcoming')
+                        : 'draft';
+                const storageUpdatesBase = {
+                    folderId: selectedFolderId || null,
+                    sourceChoice: 'storage',
+                    updatedAt: serverTimestamp(),
+                    lifecycleStatus,
+                    published: publishNow,
+                    isPublic: action === 'publish',
+                    publishedAt: publishNow ? serverTimestamp() : null,
+                    scheduledReleaseAtMs: scheduled ? scheduled.atMs : null,
+                    scheduledReleaseAtIso: scheduled ? scheduled.atIsoUtc : null,
+                };
+
+                for (const trackId of selectedTrackIds) {
+                    const trackRef = doc(db, `users/${auth.currentUser.uid}/uploads/${trackId}`);
+                    const trackSnap = await getDoc(trackRef);
+                    const trackData = (trackSnap.data() || {}) as any;
+
+                    const storageUpdates = {
+                        ...storageUpdatesBase,
+                        publishSnapshot: publishNow
+                            ? buildPublishSnapshot({
+                                ...trackData,
+                                isPublic: true,
+                                published: true,
+                                lifecycleStatus: 'published',
+                                userId: trackData.userId || auth.currentUser.uid,
+                                uploaderName: trackData.uploaderName || auth.currentUser.displayName || 'Shoouter',
+                            })
+                            : null,
+                    };
+
+                    await updateDoc(trackRef, storageUpdates);
+
+                    if (selectedFolderId) {
+                        await upsertFolderTrackReference(trackId, {
+                            title: String(trackData.title || 'Untitled'),
+                            artist: String(trackData.artist || trackData.uploaderName || auth.currentUser.displayName || 'Unknown Artist'),
+                            artworkUrl: String(trackData.coverUrl || trackData.artworkUrl || ''),
+                            audioUrl: String(trackData.audioUrl || ''),
+                        });
+                    }
+                }
+
+                showToast(
+                    action === 'publish'
+                        ? (publishNow
+                            ? `${selectedTrackIds.length} track${selectedTrackIds.length > 1 ? 's' : ''} published.`
+                            : `${selectedTrackIds.length} track${selectedTrackIds.length > 1 ? 's' : ''} scheduled as Upcoming.`)
+                        : `${selectedTrackIds.length} track${selectedTrackIds.length > 1 ? 's' : ''} saved as draft.`,
+                    'success'
+                );
+                router.back();
+                return;
             }
 
             let downloadUrl = '';
@@ -431,15 +570,20 @@ export default function UploadScreen() {
                 coverUrl = await getDownloadURL(artTask.ref);
             }
 
+            const normalizedPrice = canMonetize ? (parseFloat(price) || 0) : 0;
+            const publishNow = action === 'publish' && !(scheduleRelease && canMonetize && !!scheduled);
+            const lifecycleStatus = action === 'publish'
+                ? (publishNow ? 'published' : 'upcoming')
+                : 'draft';
+
             // 5. Save the metadata pointer natively into Firestore Collections
-            // 🔒 SECURITY: Firestore rules will block pricing if user lacks canSell permission
             const uploadDoc = await addDoc(collection(db, `users/${auth.currentUser.uid}/uploads`), {
                 title,
                 genre: genre || "Unknown",
                 assetType: assetType || 'Single',
                 trackType: assetType || 'Single',
                 bpm: parseInt(bpm) || 0,
-                price: parseFloat(price) || 0,
+                price: normalizedPrice,
                 description,
                 audioUrl: downloadUrl,
                 coverUrl,
@@ -449,21 +593,59 @@ export default function UploadScreen() {
                 sourceChoice: sourceChoice || 'local',
                 useExistingCover,
                 selectedTrackIds,
-                subscriberOnly,
+                subscriberOnly: canMonetize ? subscriberOnly : false,
                 listenCount: 0,
                 salesCount: 0,
                 createdAt: serverTimestamp(),
-                publishedAt: serverTimestamp(),
-                published: true,
-                isPublic: true,
+                updatedAt: serverTimestamp(),
+                publishedAt: publishNow ? serverTimestamp() : null,
+                published: publishNow,
+                isPublic: action === 'publish',
+                lifecycleStatus,
+                scheduledReleaseAtMs: scheduled ? scheduled.atMs : null,
+                scheduledReleaseAtIso: scheduled ? scheduled.atIsoUtc : null,
+                publishSnapshot: publishNow
+                    ? buildPublishSnapshot({
+                        title,
+                        genre,
+                        assetType,
+                        trackType: assetType,
+                        bpm: parseInt(bpm) || 0,
+                        price: normalizedPrice,
+                        description,
+                        audioUrl: downloadUrl,
+                        coverUrl,
+                        isPublic: true,
+                        subscriberOnly: canMonetize ? subscriberOnly : false,
+                        userId: auth.currentUser.uid,
+                        uploaderName: auth.currentUser.displayName || 'Shoouter',
+                    })
+                    : null,
                 userId: auth.currentUser.uid,
                 uploaderName: auth.currentUser.displayName || "Shoouter",
             });
 
-            showToast("Track uploaded successfully!", "success");
-            setUploadedTrackId(uploadDoc.id);
-            setUploadedTitle(title);
-            setUploadSuccess(true);
+            if (selectedFolderId) {
+                await upsertFolderTrackReference(uploadDoc.id, {
+                    title,
+                    artist: auth.currentUser.displayName || 'Unknown Artist',
+                    artworkUrl: coverUrl,
+                    audioUrl: downloadUrl,
+                });
+            }
+
+            if (action === 'publish' && publishNow) {
+                showToast("Track published successfully!", "success");
+                setUploadedTrackId(uploadDoc.id);
+                setUploadedTitle(title);
+                setUploadSuccess(true);
+            } else if (action === 'publish' && !publishNow) {
+                showToast('Track scheduled as Upcoming.', 'success');
+                router.back();
+            } else {
+                showToast("Draft saved to Vault.", "success");
+                router.back();
+            }
         } catch (error: any) {
             console.error("Upload error: ", error);
             if (error.code === 'resource-exhausted') {
@@ -473,6 +655,7 @@ export default function UploadScreen() {
             }
         } finally {
             setUploading(false);
+            setActiveUploadAction(null);
         }
     };
 
@@ -878,6 +1061,41 @@ export default function UploadScreen() {
                                         </TouchableOpacity>
                                     </View>
 
+                                    {canMonetize && (
+                                        <View style={styles.scheduleCard}>
+                                            <View style={styles.toggleRow}>
+                                                <Text style={styles.inlineLinkText}>Schedule as Upcoming</Text>
+                                                <TouchableOpacity
+                                                    onPress={() => {
+                                                        const next = !scheduleRelease;
+                                                        setScheduleRelease(next);
+                                                        if (!next) setScheduledReleaseInput('');
+                                                    }}
+                                                    style={[styles.checkbox, scheduleRelease && styles.checkboxActive]}
+                                                >
+                                                    {scheduleRelease && <Check size={12} color="#FFF" />}
+                                                </TouchableOpacity>
+                                            </View>
+
+                                            {scheduleRelease && (
+                                                <View style={styles.inputGroup}>
+                                                    <Text style={styles.label}>Release Date & Time (Local)</Text>
+                                                    <TextInput
+                                                        style={styles.input}
+                                                        placeholder="YYYY-MM-DD HH:mm"
+                                                        placeholderTextColor="rgba(255,255,255,0.3)"
+                                                        value={scheduledReleaseInput}
+                                                        onChangeText={setScheduledReleaseInput}
+                                                        autoCapitalize="none"
+                                                    />
+                                                    <Text style={styles.scheduleHint}>
+                                                        Stored in UTC and shown as Upcoming until release.
+                                                    </Text>
+                                                </View>
+                                            )}
+                                        </View>
+                                    )}
+
                                     <View style={styles.inputGroup}>
                                         <Text style={styles.label}>Folder</Text>
                                         <TouchableOpacity
@@ -894,25 +1112,39 @@ export default function UploadScreen() {
                                     </View>
                                 </View>
 
-                                <TouchableOpacity
-                                    style={styles.publishButton}
-                                    onPress={handleUpload}
-                                    disabled={uploading}
-                                >
-                                    <LinearGradient
-                                        colors={['#EC5C39', '#863420']}
-                                        style={styles.publishGradient}
+                                <View style={styles.publishActionsRow}>
+                                    <TouchableOpacity
+                                        style={styles.secondaryActionButton}
+                                        onPress={() => handleUpload('saveDraft')}
+                                        disabled={uploading}
                                     >
-                                        {uploading ? (
+                                        {uploading && activeUploadAction === 'saveDraft' ? (
                                             <ActivityIndicator color="#FFF" />
                                         ) : (
-                                            <View style={styles.buttonContent}>
-                                                <UploadIcon size={18} color="#FFF" style={{ marginRight: 8 }} />
-                                                <Text style={styles.publishText}>Upload Track</Text>
-                                            </View>
+                                            <Text style={styles.secondaryActionText}>Save Draft</Text>
                                         )}
-                                    </LinearGradient>
-                                </TouchableOpacity>
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity
+                                        style={[styles.publishButton, { marginTop: 0 }]}
+                                        onPress={() => handleUpload('publish')}
+                                        disabled={uploading}
+                                    >
+                                        <LinearGradient
+                                            colors={['#EC5C39', '#863420']}
+                                            style={styles.publishGradient}
+                                        >
+                                            {uploading && activeUploadAction === 'publish' ? (
+                                                <ActivityIndicator color="#FFF" />
+                                            ) : (
+                                                <View style={styles.buttonContent}>
+                                                    <UploadIcon size={18} color="#FFF" style={{ marginRight: 8 }} />
+                                                    <Text style={styles.publishText}>Publish Track</Text>
+                                                </View>
+                                            )}
+                                        </LinearGradient>
+                                    </TouchableOpacity>
+                                </View>
                             </>
                         )}
 
@@ -1206,6 +1438,21 @@ const styles = StyleSheet.create({
         fontSize: 12,
         textDecorationLine: 'underline',
     },
+    scheduleCard: {
+        backgroundColor: 'rgba(255,255,255,0.03)',
+        borderRadius: 14,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.08)',
+        paddingHorizontal: 12,
+        paddingTop: 12,
+        paddingBottom: 10,
+    },
+    scheduleHint: {
+        color: 'rgba(255,255,255,0.52)',
+        fontSize: 12,
+        fontFamily: 'Poppins-Regular',
+        marginTop: 4,
+    },
     artworkUpload: {
         width: '100%',
         aspectRatio: 1.2,
@@ -1346,6 +1593,28 @@ const styles = StyleSheet.create({
         height: 56,
         borderRadius: 16,
         overflow: 'hidden',
+        flex: 1,
+    },
+    publishActionsRow: {
+        marginTop: 40,
+        flexDirection: 'row',
+        gap: 12,
+        alignItems: 'center',
+    },
+    secondaryActionButton: {
+        flex: 1,
+        height: 56,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.14)',
+        backgroundColor: 'rgba(255,255,255,0.06)',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    secondaryActionText: {
+        color: '#FFFFFF',
+        fontFamily: 'Poppins-SemiBold',
+        fontSize: 15,
     },
     publishGradient: {
         flex: 1,

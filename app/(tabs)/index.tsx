@@ -10,7 +10,7 @@ import { usePlaybackStore } from '@/store/usePlaybackStore';
 import { useToastStore } from '@/store/useToastStore';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { addDoc, collection, doc, getDoc, getDocs, limit, onSnapshot, query, serverTimestamp, setDoc, where } from 'firebase/firestore';
 import {
   Heart,
   MoreVertical,
@@ -387,6 +387,75 @@ function PopularBeatsSection() {
     showToast(`${selectedBeat.title} added to cart.`, 'success');
   }, [addItem, items, selectedBeat, showToast]);
 
+  const addSelectedBeatToPlaylist = useCallback(async () => {
+    if (!selectedBeat?.id || !selectedBeat?.uploaderId) {
+      showToast('Track reference is missing.', 'error');
+      return;
+    }
+
+    const uid = auth.currentUser?.uid;
+    if (!uid) {
+      showToast('Log in to add tracks to playlists.', 'error');
+      router.push({ pathname: '/(auth)/login', params: { redirectTo: '/(tabs)/index' } });
+      return;
+    }
+
+    try {
+      // Only published tracks are allowed in playlists.
+      const uploadRef = doc(db, `users/${selectedBeat.uploaderId}/uploads/${selectedBeat.id}`);
+      const uploadSnap = await getDoc(uploadRef);
+      if (!uploadSnap.exists()) {
+        showToast('Track is not available for playlist use.', 'error');
+        return;
+      }
+
+      const uploadData = uploadSnap.data() as any;
+      if (uploadData.published !== true || uploadData.isPublic !== true) {
+        showToast('Only published tracks can be added to playlists.', 'info');
+        return;
+      }
+
+      const playlistQ = query(
+        collection(db, 'globalPlaylists'),
+        where('ownerId', '==', uid),
+        limit(1)
+      );
+      const playlistSnap = await getDocs(playlistQ);
+
+      let playlistId = '';
+      if (playlistSnap.empty) {
+        const created = await addDoc(collection(db, 'globalPlaylists'), {
+          ownerId: uid,
+          name: 'My Playlist',
+          isPublic: false,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+        playlistId = created.id;
+      } else {
+        playlistId = playlistSnap.docs[0].id;
+        await setDoc(doc(db, `globalPlaylists/${playlistId}`), {
+          updatedAt: serverTimestamp(),
+        }, { merge: true });
+      }
+
+      const trackRefId = `${selectedBeat.id}_${selectedBeat.uploaderId}`;
+      await setDoc(doc(db, `globalPlaylists/${playlistId}/tracks/${trackRefId}`), {
+        uploadId: selectedBeat.id,
+        uploaderId: selectedBeat.uploaderId,
+        titleSnapshot: selectedBeat.title,
+        artistSnapshot: selectedBeat.artist || selectedBeat.uploaderName,
+        artworkSnapshot: selectedBeat.artworkUrl || null,
+        addedAt: serverTimestamp(),
+      }, { merge: true });
+
+      showToast(`${selectedBeat.title} added to your playlist.`, 'success');
+    } catch (error) {
+      console.error('Add to playlist failed:', error);
+      showToast('Could not add track to playlist right now.', 'error');
+    }
+  }, [router, selectedBeat, showToast]);
+
   const handleFollowSelectedArtist = useCallback(async () => {
     if (!selectedBeat) return;
 
@@ -477,8 +546,7 @@ function PopularBeatsSection() {
           {
             label: 'Add to playlist',
             onPress: () => {
-              if (!selectedBeat) return;
-              showToast(`${selectedBeat.title} added to playlist.`, 'success');
+              addSelectedBeatToPlaylist();
             },
           },
           {
