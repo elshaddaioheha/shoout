@@ -1,59 +1,118 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import SettingsHeader from '@/components/settings/SettingsHeader';
+import { db } from '@/firebaseConfig';
 import { usePlaybackStore } from '@/store/usePlaybackStore';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Heart, MoreVertical, Play, ShoppingCart, Shuffle } from 'lucide-react-native';
-import React, { useMemo } from 'react';
-import { Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { collection, doc, getDoc, getDocs, orderBy, query } from 'firebase/firestore';
 
-// Template-only screen for playlist detail. Pass real data via route params or wire to store later.
+type PlaylistTrackRef = {
+  id: string;
+  uploadId: string;
+  uploaderId: string;
+  titleSnapshot?: string;
+  artistSnapshot?: string;
+  artworkSnapshot?: string;
+};
+
+type PlaylistTrack = {
+  id: string;
+  title: string;
+  artist: string;
+  duration: string;
+  price?: number;
+  url: string;
+  artworkUrl?: string;
+  uploaderId: string;
+};
+
 export default function PlaylistScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const initializePlaylist = usePlaybackStore(state => state.initializePlaylist);
 
-  const meta = {
-    id: (params.id as string) || 'playlist',
-    title: (params.title as string) || 'Playlist Title',
-    subtitle: (params.subtitle as string) || 'Curated selection',
-    price: (params.price as string) || '',
-    cover: (params.cover as string) || '',
-  };
+  const playlistId = String(params.id || '');
+  const [loading, setLoading] = useState(true);
+  const [playlistName, setPlaylistName] = useState(String(params.title || 'Playlist'));
+  const [playlistSubtitle, setPlaylistSubtitle] = useState('Curated selection');
+  const [tracks, setTracks] = useState<PlaylistTrack[]>([]);
 
-  const tracks = useMemo(() => {
-    if (typeof params.tracks === 'string') {
-      try {
-        const parsed = JSON.parse(params.tracks);
-        if (Array.isArray(parsed)) return parsed.slice(0, 20);
-      } catch (e) {
-        // ignore parse errors, fall back to template placeholders
+  useEffect(() => {
+    const loadPlaylist = async () => {
+      if (!playlistId) {
+        setLoading(false);
+        return;
       }
-    }
-    return Array.from({ length: 6 }).map((_, idx) => ({
-      id: `placeholder-${idx}`,
-      title: 'Track title',
-      artist: 'Artist name',
-      duration: '3:10',
-      price: meta.price,
-      url: '', // Placeholder tracks won't have URLs
-    }));
-  }, [params.tracks, meta.price]);
+
+      try {
+        const playlistSnap = await getDoc(doc(db, `globalPlaylists/${playlistId}`));
+        if (playlistSnap.exists()) {
+          const data = playlistSnap.data() as any;
+          setPlaylistName(String(data.name || params.title || 'Playlist'));
+          setPlaylistSubtitle(data.isPublic ? 'Public playlist' : 'Private playlist');
+        }
+
+        const refsQuery = query(
+          collection(db, `globalPlaylists/${playlistId}/tracks`),
+          orderBy('addedAt', 'desc')
+        );
+        const refsSnap = await getDocs(refsQuery);
+        const refs = refsSnap.docs.map((d) => ({ id: d.id, ...d.data() })) as PlaylistTrackRef[];
+
+        const resolved = await Promise.all(refs.map(async (refRow): Promise<PlaylistTrack | null> => {
+          if (!refRow.uploadId || !refRow.uploaderId) return null;
+
+          const uploadSnap = await getDoc(doc(db, `users/${refRow.uploaderId}/uploads/${refRow.uploadId}`));
+          if (!uploadSnap.exists()) return null;
+
+          const upload = uploadSnap.data() as any;
+          const audioUrl = String(upload.audioUrl || '');
+          if (!audioUrl) return null;
+
+          return {
+            id: refRow.uploadId,
+            title: String(upload.title || refRow.titleSnapshot || 'Untitled'),
+            artist: String(upload.uploaderName || upload.artist || refRow.artistSnapshot || 'Artist'),
+            duration: '3:10',
+            price: Number(upload.price || 0),
+            url: audioUrl,
+            artworkUrl: String(upload.coverUrl || upload.artworkUrl || refRow.artworkSnapshot || ''),
+            uploaderId: refRow.uploaderId,
+          };
+        }));
+
+        setTracks(resolved.filter(Boolean) as PlaylistTrack[]);
+      } catch (error) {
+        console.error('Failed to load playlist detail:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadPlaylist();
+  }, [params.title, playlistId]);
+
+  const coverUri = useMemo(() => tracks.find((track) => !!track.artworkUrl)?.artworkUrl || '', [tracks]);
+
+  const mapForPlayback = (rows: PlaylistTrack[]) => rows.map((track) => ({
+    id: track.id,
+    title: track.title,
+    artist: track.artist,
+    url: track.url,
+    artworkUrl: track.artworkUrl,
+    uploaderId: track.uploaderId,
+  }));
 
   const onPlay = async () => {
     if (tracks.length === 0) {
-      Alert.alert('Error', 'No tracks in this playlist');
-      return;
-    }
-
-    // Filter out tracks without URLs (placeholders)
-    const playableTracks = tracks.filter(t => t.url);
-    if (playableTracks.length === 0) {
       Alert.alert('Error', 'No playable tracks in this playlist');
       return;
     }
 
     try {
-      await initializePlaylist(playableTracks, 0, false);
+      await initializePlaylist(mapForPlayback(tracks), 0, false);
     } catch (error) {
       console.error('Failed to start playlist:', error);
       Alert.alert('Error', 'Failed to start playback');
@@ -62,19 +121,12 @@ export default function PlaylistScreen() {
 
   const onShuffle = async () => {
     if (tracks.length === 0) {
-      Alert.alert('Error', 'No tracks in this playlist');
-      return;
-    }
-
-    // Filter out tracks without URLs (placeholders)
-    const playableTracks = tracks.filter(t => t.url);
-    if (playableTracks.length === 0) {
       Alert.alert('Error', 'No playable tracks in this playlist');
       return;
     }
 
     try {
-      await initializePlaylist(playableTracks, 0, true);
+      await initializePlaylist(mapForPlayback(tracks), 0, true);
     } catch (error) {
       console.error('Failed to start shuffled playlist:', error);
       Alert.alert('Error', 'Failed to start playback');
@@ -85,7 +137,7 @@ export default function PlaylistScreen() {
     <SafeScreenWrapper>
       <View style={styles.container}>
         <SettingsHeader
-          title={meta.title}
+          title={playlistName}
           onBack={() => router.back()}
           rightElement={
             <TouchableOpacity style={styles.iconButton} onPress={() => Alert.alert('Coming Soon')}>
@@ -94,78 +146,84 @@ export default function PlaylistScreen() {
           }
           style={{ paddingHorizontal: 0, paddingVertical: 0, marginBottom: 2 }}
         />
-        {meta.subtitle ? <Text style={styles.headerSubtitle}>{meta.subtitle}</Text> : null}
+        {playlistSubtitle ? <Text style={styles.headerSubtitle}>{playlistSubtitle}</Text> : null}
 
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
-          <View style={styles.coverWrap}>
-            {meta.cover ? (
-              <Image source={{ uri: meta.cover }} style={styles.coverImage} />
-            ) : (
-              <View style={styles.coverPlaceholder}>
-                <Text style={styles.coverInitials}>{meta.title.slice(0, 2).toUpperCase()}</Text>
-              </View>
-            )}
+        {loading ? (
+          <View style={styles.loadingWrap}>
+            <ActivityIndicator color="#EC5C39" />
           </View>
-
-          <Text style={styles.title}>{meta.title}</Text>
-          <Text style={styles.subtitle}>{meta.subtitle}</Text>
-          {meta.price ? <Text style={styles.price}>{meta.price}</Text> : null}
-
-          <View style={styles.actionsRow}>
-            <TouchableOpacity style={[styles.cta, styles.ctaGhost]} activeOpacity={0.9} onPress={onShuffle}>
-              <Shuffle size={18} color="#EC5C39" />
-              <Text style={[styles.ctaText, styles.ctaGhostText]}>Shuffle</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.cta, styles.ctaSolid]} activeOpacity={0.9} onPress={onPlay}>
-              <Play size={18} color="#140F10" />
-              <Text style={[styles.ctaText, styles.ctaSolidText]}>Play</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.metaRow}>
-            <Text style={styles.metaText}>Template playlist · {tracks.length} tracks</Text>
-            {meta.price ? <Text style={styles.metaText}>{meta.price}</Text> : null}
-          </View>
-
-          <View style={styles.trackList}>
-            {tracks.map((t, idx) => (
-              <TouchableOpacity
-                key={t.id || idx}
-                style={styles.trackRow}
-                onPress={() => {
-                  if (!t.url) {
-                    Alert.alert('Error', 'This track cannot be played');
-                    return;
-                  }
-                  const playableTracks = tracks.filter(track => track.url);
-                  const trackIndex = playableTracks.findIndex(track => track.id === t.id);
-                  initializePlaylist(playableTracks, trackIndex, false).catch(err => {
-                    console.error('Failed to play track:', err);
-                    Alert.alert('Error', 'Failed to play this track');
-                  });
-                }}
-                activeOpacity={0.7}
-              >
-                <View style={styles.trackInfo}>
-                  <View style={styles.trackThumb} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.trackTitle}>{t.title}</Text>
-                    <Text style={styles.trackArtist}>{t.artist}</Text>
-                  </View>
+        ) : (
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+            <View style={styles.coverWrap}>
+              {coverUri ? (
+                <Image source={{ uri: coverUri }} style={styles.coverImage} />
+              ) : (
+                <View style={styles.coverPlaceholder}>
+                  <Text style={styles.coverInitials}>{playlistName.slice(0, 2).toUpperCase()}</Text>
                 </View>
-                <View style={styles.trackActions}>
-                  {t.price ? <Text style={styles.trackPrice}>{t.price}</Text> : <Text style={styles.trackDuration}>{t.duration}</Text>}
-                  <TouchableOpacity style={styles.smallIcon} onPress={() => Alert.alert('Coming Soon')}>
-                    <ShoppingCart size={16} color="#EC5C39" />
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.smallIcon} onPress={() => Alert.alert('Coming Soon')}>
-                    <Heart size={16} color="#EC5C39" />
-                  </TouchableOpacity>
-                </View>
+              )}
+            </View>
+
+            <Text style={styles.title}>{playlistName}</Text>
+            <Text style={styles.subtitle}>{playlistSubtitle}</Text>
+
+            <View style={styles.actionsRow}>
+              <TouchableOpacity style={[styles.cta, styles.ctaGhost]} activeOpacity={0.9} onPress={onShuffle}>
+                <Shuffle size={18} color="#EC5C39" />
+                <Text style={[styles.ctaText, styles.ctaGhostText]}>Shuffle</Text>
               </TouchableOpacity>
-            ))}
-          </View>
-        </ScrollView>
+              <TouchableOpacity style={[styles.cta, styles.ctaSolid]} activeOpacity={0.9} onPress={onPlay}>
+                <Play size={18} color="#140F10" />
+                <Text style={[styles.ctaText, styles.ctaSolidText]}>Play</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.metaRow}>
+              <Text style={styles.metaText}>{tracks.length} track{tracks.length === 1 ? '' : 's'}</Text>
+            </View>
+
+            <View style={styles.trackList}>
+              {tracks.length === 0 ? (
+                <Text style={styles.metaText}>No tracks in this playlist yet.</Text>
+              ) : (
+                tracks.map((track, idx) => (
+                  <TouchableOpacity
+                    key={`${track.id}-${idx}`}
+                    style={styles.trackRow}
+                    onPress={() => {
+                      initializePlaylist(mapForPlayback(tracks), idx, false).catch((error) => {
+                        console.error('Failed to play playlist track:', error);
+                        Alert.alert('Error', 'Failed to play this track');
+                      });
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.trackInfo}>
+                      <View style={styles.trackThumb}>
+                        {track.artworkUrl ? (
+                          <Image source={{ uri: track.artworkUrl }} style={styles.trackArtImage} />
+                        ) : null}
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.trackTitle}>{track.title}</Text>
+                        <Text style={styles.trackArtist}>{track.artist}</Text>
+                      </View>
+                    </View>
+                    <View style={styles.trackActions}>
+                      <Text style={styles.trackDuration}>{track.duration}</Text>
+                      <TouchableOpacity style={styles.smallIcon} onPress={() => Alert.alert('Coming Soon')}>
+                        <ShoppingCart size={16} color="#EC5C39" />
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.smallIcon} onPress={() => Alert.alert('Coming Soon')}>
+                        <Heart size={16} color="#EC5C39" />
+                      </TouchableOpacity>
+                    </View>
+                  </TouchableOpacity>
+                ))
+              )}
+            </View>
+          </ScrollView>
+        )}
       </View>
     </SafeScreenWrapper>
   );
@@ -173,13 +231,6 @@ export default function PlaylistScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#140F10' },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 8,
-  },
   iconButton: {
     width: 40,
     height: 40,
@@ -188,7 +239,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  headerTitle: { color: '#FFF', fontFamily: 'Poppins-Bold', fontSize: 16 },
+  loadingWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   headerSubtitle: { color: 'rgba(255,255,255,0.6)', fontFamily: 'Poppins-Regular', fontSize: 12 },
   content: { padding: 20, paddingBottom: 60 },
   coverWrap: { alignItems: 'center', marginBottom: 18 },
@@ -206,7 +261,6 @@ const styles = StyleSheet.create({
   coverInitials: { color: '#EC5C39', fontFamily: 'Poppins-Bold', fontSize: 42, letterSpacing: 1 },
   title: { color: '#FFF', fontFamily: 'Poppins-Bold', fontSize: 22, textAlign: 'center' },
   subtitle: { color: 'rgba(255,255,255,0.7)', fontFamily: 'Poppins-Regular', fontSize: 14, textAlign: 'center', marginTop: 6 },
-  price: { color: '#EC5C39', fontFamily: 'Poppins-Medium', fontSize: 14, textAlign: 'center', marginTop: 4 },
   actionsRow: { flexDirection: 'row', gap: 12, marginTop: 18, marginBottom: 8 },
   cta: {
     flex: 1,
@@ -242,12 +296,16 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.06)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.05)',
+    overflow: 'hidden',
+  },
+  trackArtImage: {
+    width: '100%',
+    height: '100%',
   },
   trackTitle: { color: '#FFF', fontFamily: 'Poppins-Medium', fontSize: 14 },
   trackArtist: { color: 'rgba(255,255,255,0.6)', fontFamily: 'Poppins-Regular', fontSize: 12 },
   trackActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   trackDuration: { color: 'rgba(255,255,255,0.6)', fontFamily: 'Poppins-Regular', fontSize: 12 },
-  trackPrice: { color: '#EC5C39', fontFamily: 'Poppins-Bold', fontSize: 12 },
   smallIcon: {
     width: 32,
     height: 32,

@@ -3,13 +3,15 @@ import SettingsHeader from '@/components/settings/SettingsHeader';
 import { auth, db } from '@/firebaseConfig';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import {
-    addDoc,
     collection,
     doc,
+    getDocs,
+    limit,
     onSnapshot,
     orderBy,
     query,
     serverTimestamp,
+    setDoc,
     updateDoc,
 } from 'firebase/firestore';
 import {
@@ -31,19 +33,32 @@ import {
     ScrollView,
     StyleSheet,
     Text,
-    TextInput,
     TouchableOpacity,
     View,
 } from 'react-native';
 
 type FolderTrack = {
     id: string;
+    uploadId?: string;
+    uploaderId?: string;
     title?: string;
     artist?: string;
     artworkUrl?: string;
     audioUrl?: string;
     duration?: string;
     addedAt?: any;
+};
+
+type AvailableUpload = {
+    id: string;
+    title?: string;
+    artist?: string;
+    uploaderName?: string;
+    coverUrl?: string;
+    artworkUrl?: string;
+    audioUrl?: string;
+    lifecycleStatus?: string;
+    published?: boolean;
 };
 
 export default function FolderDetailScreen() {
@@ -54,8 +69,9 @@ export default function FolderDetailScreen() {
     const [tracks, setTracks] = useState<FolderTrack[]>([]);
     const [loading, setLoading] = useState(true);
     const [showAddModal, setShowAddModal] = useState(false);
-    const [newTrackTitle, setNewTrackTitle] = useState('');
-    const [newTrackArtist, setNewTrackArtist] = useState('');
+    const [availableUploads, setAvailableUploads] = useState<AvailableUpload[]>([]);
+    const [selectedUploadIds, setSelectedUploadIds] = useState<string[]>([]);
+    const [loadingAvailable, setLoadingAvailable] = useState(false);
     const [adding, setAdding] = useState(false);
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const scaleAnim = useRef(new Animated.Value(0.96)).current;
@@ -97,31 +113,86 @@ export default function FolderDetailScreen() {
         };
     }, [id]);
 
+    const loadAvailableUploads = async () => {
+        if (!auth.currentUser) return;
+
+        setLoadingAvailable(true);
+        try {
+            const snap = await getDocs(
+                query(
+                    collection(db, `users/${auth.currentUser.uid}/uploads`),
+                    orderBy('createdAt', 'desc'),
+                    limit(120)
+                )
+            );
+
+            const existingIds = new Set(tracks.map((track) => String(track.uploadId || track.id)));
+            const rows = snap.docs
+                .map((row) => ({ id: row.id, ...(row.data() as any) } as AvailableUpload))
+                .filter((row) => !!row.id && !existingIds.has(String(row.id)));
+            setAvailableUploads(rows);
+        } catch (err) {
+            console.error('Load uploads for folder failed:', err);
+            Alert.alert('Error', 'Could not load available uploads.');
+        } finally {
+            setLoadingAvailable(false);
+        }
+    };
+
+    const openAddTrackModal = async () => {
+        setShowAddModal(true);
+        setSelectedUploadIds([]);
+        await loadAvailableUploads();
+    };
+
+    const toggleUploadSelection = (uploadId: string) => {
+        setSelectedUploadIds((prev) => {
+            if (prev.includes(uploadId)) return prev.filter((id) => id !== uploadId);
+            return [...prev, uploadId];
+        });
+    };
+
     const handleAddTrack = async () => {
         if (!auth.currentUser || !id) return;
-        const title = newTrackTitle.trim();
-        if (!title) {
-            Alert.alert('Track title required', 'Please enter a track title to add to this folder.');
+
+        if (selectedUploadIds.length === 0) {
+            Alert.alert('Select tracks', 'Choose at least one existing upload to add.');
             return;
         }
+
         try {
             setAdding(true);
-            await addDoc(
-                collection(db, `users/${auth.currentUser.uid}/folders/${id}/tracks`),
-                {
-                    title,
-                    artist: newTrackArtist.trim() || auth.currentUser.displayName || 'Unknown Artist',
-                    addedAt: serverTimestamp(),
-                    audioUrl: null,
-                    artworkUrl: null,
-                }
-            );
+
+            const byId: Record<string, AvailableUpload> = {};
+            availableUploads.forEach((row) => {
+                byId[row.id] = row;
+            });
+
+            for (const uploadId of selectedUploadIds) {
+                const row = byId[uploadId];
+                if (!row) continue;
+
+                await setDoc(
+                    doc(db, `users/${auth.currentUser.uid}/folders/${id}/tracks/${uploadId}`),
+                    {
+                        uploadId,
+                        uploaderId: auth.currentUser.uid,
+                        title: row.title || 'Untitled',
+                        artist: row.artist || row.uploaderName || auth.currentUser.displayName || 'Unknown Artist',
+                        artworkUrl: row.coverUrl || row.artworkUrl || null,
+                        audioUrl: row.audioUrl || null,
+                        lifecycleStatus: row.lifecycleStatus || (row.published ? 'published' : 'draft'),
+                        addedAt: serverTimestamp(),
+                    },
+                    { merge: true }
+                );
+            }
+
             // Update folder item count
             const folderRef = doc(db, `users/${auth.currentUser.uid}/folders/${id}`);
-            await updateDoc(folderRef, { itemCount: tracks.length + 1 });
+            await updateDoc(folderRef, { itemCount: tracks.length + selectedUploadIds.length, updatedAt: serverTimestamp() });
 
-            setNewTrackTitle('');
-            setNewTrackArtist('');
+            setSelectedUploadIds([]);
             setShowAddModal(false);
         } catch (err: any) {
             Alert.alert('Error', err?.message || 'Could not add track.');
@@ -166,7 +237,12 @@ export default function FolderDetailScreen() {
                         if (!auth.currentUser) return;
                         try {
                             const { deleteDoc } = await import('firebase/firestore');
-                            await deleteDoc(doc(db, `users/${auth.currentUser.uid}/folders/${id}/tracks/${track.id}`));
+                            const folderTrackId = String(track.uploadId || track.id);
+                            await deleteDoc(doc(db, `users/${auth.currentUser.uid}/folders/${id}/tracks/${folderTrackId}`));
+                            await updateDoc(doc(db, `users/${auth.currentUser.uid}/folders/${id}`), {
+                                itemCount: Math.max(0, tracks.length - 1),
+                                updatedAt: serverTimestamp(),
+                            });
                         } catch (e: any) {
                             Alert.alert('Error', e?.message || 'Could not remove track.');
                         }
@@ -210,7 +286,7 @@ export default function FolderDetailScreen() {
                 <View style={styles.actionsRow}>
                     <TouchableOpacity
                         style={styles.actionBtn}
-                        onPress={() => setShowAddModal(true)}
+                        onPress={openAddTrackModal}
                     >
                         <Plus size={16} color="#140F10" />
                         <Text style={styles.actionBtnText}>Add Track</Text>
@@ -242,7 +318,7 @@ export default function FolderDetailScreen() {
                                     <Text style={styles.emptySub}>
                                         Tap "Add Track" to add existing tracks, or "Upload" to record a new one.
                                     </Text>
-                                    <TouchableOpacity style={styles.emptyBtn} onPress={() => setShowAddModal(true)}>
+                                    <TouchableOpacity style={styles.emptyBtn} onPress={openAddTrackModal}>
                                         <Plus size={16} color="#FFF" />
                                         <Text style={styles.emptyBtnText}>Add First Track</Text>
                                     </TouchableOpacity>
@@ -284,35 +360,44 @@ export default function FolderDetailScreen() {
                     <View style={styles.modalCard}>
                         <View style={styles.modalHandle} />
                         <Text style={styles.modalTitle}>Add Track to Folder</Text>
-                        <Text style={styles.modalSub}>Enter track details to add to "{folderName}"</Text>
+                        <Text style={styles.modalSub}>Select existing uploads to add to "{folderName}"</Text>
 
-                        <View style={styles.inputWrap}>
-                            <Text style={styles.inputLabel}>Track Title *</Text>
-                            <TextInput
-                                style={styles.input}
-                                placeholder="e.g. My First Song"
-                                placeholderTextColor="rgba(255,255,255,0.3)"
-                                value={newTrackTitle}
-                                onChangeText={setNewTrackTitle}
-                                autoFocus
-                            />
-                        </View>
-
-                        <View style={styles.inputWrap}>
-                            <Text style={styles.inputLabel}>Artist Name</Text>
-                            <TextInput
-                                style={styles.input}
-                                placeholder="e.g. Your Name"
-                                placeholderTextColor="rgba(255,255,255,0.3)"
-                                value={newTrackArtist}
-                                onChangeText={setNewTrackArtist}
-                            />
+                        <View style={styles.availableListWrap}>
+                            {loadingAvailable ? (
+                                <View style={styles.availableLoadingWrap}>
+                                    <ActivityIndicator color="#EC5C39" />
+                                </View>
+                            ) : availableUploads.length === 0 ? (
+                                <Text style={styles.availableEmptyText}>No available uploads left to add.</Text>
+                            ) : (
+                                <ScrollView showsVerticalScrollIndicator={false}>
+                                    {availableUploads.map((row) => {
+                                        const selected = selectedUploadIds.includes(row.id);
+                                        return (
+                                            <TouchableOpacity
+                                                key={row.id}
+                                                style={[styles.availableRow, selected && styles.availableRowSelected]}
+                                                onPress={() => toggleUploadSelection(row.id)}
+                                                activeOpacity={0.85}
+                                            >
+                                                <View style={styles.availableMeta}>
+                                                    <Text style={styles.availableTitle} numberOfLines={1}>{row.title || 'Untitled'}</Text>
+                                                    <Text style={styles.availableSub} numberOfLines={1}>
+                                                        {(row.artist || row.uploaderName || 'Unknown Artist')} · {(row.lifecycleStatus || (row.published ? 'published' : 'draft'))}
+                                                    </Text>
+                                                </View>
+                                                <View style={[styles.selectDot, selected && styles.selectDotActive]} />
+                                            </TouchableOpacity>
+                                        );
+                                    })}
+                                </ScrollView>
+                            )}
                         </View>
 
                         <View style={styles.modalActions}>
                             <TouchableOpacity
                                 style={styles.cancelBtn}
-                                onPress={() => { setShowAddModal(false); setNewTrackTitle(''); setNewTrackArtist(''); }}
+                                onPress={() => { setShowAddModal(false); setSelectedUploadIds([]); }}
                             >
                                 <Text style={styles.cancelBtnText}>Cancel</Text>
                             </TouchableOpacity>
@@ -321,7 +406,7 @@ export default function FolderDetailScreen() {
                                 onPress={handleAddTrack}
                                 disabled={adding}
                             >
-                                {adding ? <ActivityIndicator color="#140F10" size="small" /> : <Text style={styles.confirmBtnText}>Add Track</Text>}
+                                {adding ? <ActivityIndicator color="#140F10" size="small" /> : <Text style={styles.confirmBtnText}>Add Selected</Text>}
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -432,13 +517,64 @@ const styles = StyleSheet.create({
     },
     modalTitle: { color: '#FFF', fontFamily: 'Poppins-Bold', fontSize: 18, marginBottom: 4 },
     modalSub: { color: 'rgba(255,255,255,0.5)', fontFamily: 'Poppins-Regular', fontSize: 13, marginBottom: 24 },
-    inputWrap: { marginBottom: 16 },
-    inputLabel: { color: 'rgba(255,255,255,0.5)', fontFamily: 'Poppins-Regular', fontSize: 12, marginBottom: 8 },
-    input: {
-        backgroundColor: 'rgba(255,255,255,0.06)',
-        borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
-        borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14,
-        color: '#FFF', fontFamily: 'Poppins-Regular', fontSize: 15,
+    availableListWrap: {
+        maxHeight: 240,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.08)',
+        backgroundColor: 'rgba(255,255,255,0.03)',
+        marginBottom: 14,
+        paddingHorizontal: 10,
+        paddingVertical: 8,
+    },
+    availableLoadingWrap: {
+        minHeight: 120,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    availableEmptyText: {
+        color: 'rgba(255,255,255,0.45)',
+        fontFamily: 'Poppins-Regular',
+        fontSize: 13,
+        textAlign: 'center',
+        paddingVertical: 28,
+    },
+    availableRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingVertical: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(255,255,255,0.05)',
+    },
+    availableRowSelected: {
+        backgroundColor: 'rgba(236,92,57,0.12)',
+    },
+    availableMeta: {
+        flex: 1,
+        paddingRight: 8,
+    },
+    availableTitle: {
+        color: '#FFFFFF',
+        fontFamily: 'Poppins-Medium',
+        fontSize: 14,
+    },
+    availableSub: {
+        color: 'rgba(255,255,255,0.55)',
+        fontFamily: 'Poppins-Regular',
+        fontSize: 12,
+        marginTop: 2,
+    },
+    selectDot: {
+        width: 16,
+        height: 16,
+        borderRadius: 8,
+        borderWidth: 2,
+        borderColor: 'rgba(255,255,255,0.35)',
+    },
+    selectDotActive: {
+        borderColor: '#EC5C39',
+        backgroundColor: '#EC5C39',
     },
     modalActions: { flexDirection: 'row', gap: 12, marginTop: 8 },
     cancelBtn: {

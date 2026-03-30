@@ -108,25 +108,45 @@ service cloud.firestore {
       // ── Uploads (Vault / Studio) ──────────────────────────────────────────
       // Any authenticated user can READ uploads (for marketplace discovery).
       // Only the owner can write (upload, edit, delete).
-      // 🔒 Free vault uploads (price == 0): owner-only, no external reads needed.
-      // 🔒 Paid sales uploads (price > 0): owner + active studio/hybrid sub required.
+      // Draft-first model:
+      // - Drafts are private (`published != true` and `isPublic != true`) and always allowed for owner.
+      // - Public publish with price > 0 requires active studio/hybrid subscription.
+      // - Vault users can still publish free tracks.
       match /uploads/{uploadId} {
         allow read: if isAuthenticated();
 
-        // Free upload — no subscription check (no get() calls, avoids any stream issue)
         allow create: if isOwner(uid)
           && isValidString(request.resource.data.title)
-          && request.resource.data.price == 0;
+          && (
+            // Draft/private create
+            (
+              request.resource.data.published != true
+              && request.resource.data.isPublic != true
+            )
+            // Public free publish
+            || request.resource.data.price == 0
+            // Public paid publish (studio/hybrid only)
+            || (
+              request.resource.data.price > 0
+              && canUserSell(uid)
+            )
+          );
 
-        // Paid upload — requires active selling subscription
-        allow create: if isOwner(uid)
-          && isValidString(request.resource.data.title)
-          && request.resource.data.price > 0
-          && canUserSell(uid);
-
-        // Update: same split — free edits vs paid price changes
         allow update: if isOwner(uid)
-          && (request.resource.data.price == 0 || canUserSell(uid));
+          && (
+            // Private draft updates
+            (
+              request.resource.data.published != true
+              && request.resource.data.isPublic != true
+            )
+            // Public free updates
+            || request.resource.data.price == 0
+            // Public paid updates
+            || (
+              request.resource.data.price > 0
+              && canUserSell(uid)
+            )
+          );
 
         allow delete: if isOwner(uid);
       }
@@ -224,6 +244,30 @@ service cloud.firestore {
           && isValidString(request.resource.data.adType);
         allow update: if isOwner(uid);
         allow delete: if isOwner(uid);
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Global Playlists
+    // Shared playlist surface backed by owner-controlled writes and public reads.
+    // Tracks are stored by reference (uploadId + uploaderId).
+    // ─────────────────────────────────────────────────────────────────────────
+    match /globalPlaylists/{playlistId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated()
+        && request.resource.data.ownerId == request.auth.uid
+        && isValidString(request.resource.data.name);
+      allow update, delete: if isAuthenticated()
+        && resource.data.ownerId == request.auth.uid;
+
+      match /tracks/{trackRefId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated()
+          && get(/databases/$(database)/documents/globalPlaylists/$(playlistId)).data.ownerId == request.auth.uid
+          && isValidString(request.resource.data.uploadId)
+          && isValidString(request.resource.data.uploaderId);
+        allow update, delete: if isAuthenticated()
+          && get(/databases/$(database)/documents/globalPlaylists/$(playlistId)).data.ownerId == request.auth.uid;
       }
     }
 
