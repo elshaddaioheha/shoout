@@ -6,14 +6,15 @@ import { useAppSwitcher } from '@/hooks/useAppSwitcher';
 import { Tabs } from 'expo-router';
 import React from 'react';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-
-// Export the switcher context so child screens can open the sheet
 import { createContext, useContext } from 'react';
+
+type SwitcherMode = 'shoout' | 'vault' | 'vault_pro' | 'studio' | 'hybrid';
 
 interface AppSwitcherContextValue {
   openSheet: () => void;
   isModeSheetOpen: boolean;
-  viewMode: 'vault' | 'studio';
+  viewMode: SwitcherMode;
+  currentPlan: SwitcherMode;
   studioAccessLevel: 'free' | 'pro';
   isStudioPaid: boolean;
   overlayAnim: any;
@@ -25,7 +26,8 @@ interface AppSwitcherContextValue {
 export const AppSwitcherContext = createContext<AppSwitcherContextValue>({
   openSheet: () => { },
   isModeSheetOpen: false,
-  viewMode: 'vault',
+  viewMode: 'shoout',
+  currentPlan: 'vault',
   studioAccessLevel: 'free',
   isStudioPaid: false,
   overlayAnim: null,
@@ -43,6 +45,7 @@ export default function TabLayout() {
     sheetVisible,
     transitioning,
     viewMode,
+    currentPlan,
     isModeAccessible,
     transitionTargetMode,
     openSheet,
@@ -60,6 +63,7 @@ export default function TabLayout() {
     openSheet,
     isModeSheetOpen: sheetVisible,
     viewMode,
+    currentPlan,
     studioAccessLevel,
     isStudioPaid,
     overlayAnim,
@@ -106,18 +110,16 @@ export default function TabLayout() {
             title: 'More',
           }}
         />
-        {/* Hidden screens */}
         <Tabs.Screen name="profile" options={{ href: null }} />
         <Tabs.Screen name="explore" options={{ href: null }} />
       </Tabs>
 
-      {/* Mini player floats above tab bar */}
       <MiniPlayer />
 
-      {/* Mode selection bottom sheet */}
       <ModeSelectorSheet
         visible={sheetVisible}
         currentMode={viewMode}
+        currentPlan={currentPlan}
         isModeAccessible={isModeAccessible}
         studioAccessLevel={studioAccessLevel}
         isStudioPaid={isStudioPaid}
@@ -125,7 +127,6 @@ export default function TabLayout() {
         onClose={closeSheet}
       />
 
-      {/* Full-screen transition overlay */}
       <ModeTransitionOverlay
         transitioning={transitioning}
         newMode={transitionTargetMode}

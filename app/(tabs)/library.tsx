@@ -1,3 +1,4 @@
+import VaultHomeScreen from '@/components/vault/VaultHomeScreen';
 import { useUserStore } from '@/store/useUserStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { usePlaybackStore } from '@/store/usePlaybackStore';
@@ -95,11 +96,16 @@ export default function LibraryScreen() {
   const [folderName, setFolderName] = useState('');
   const [folderCreated, setFolderCreated] = useState(false);
   const [creatingFolder, setCreatingFolder] = useState(false);
+
+  if (user.activeAppMode === 'vault' || user.activeAppMode === 'vault_pro') {
+    return <VaultHomeScreen />;
+  }
+
   const activeRole = authState.actualRole || user.actualRole || user.role;
-  const isStudioUser = user.viewMode === 'studio' || activeRole?.startsWith('studio');
+  const isStudioUser = user.activeAppMode === 'studio' || user.activeAppMode === 'hybrid' || activeRole?.startsWith('studio');
   const isHybridUser = activeRole?.startsWith('hybrid');
   const isCreatorSurface = isStudioUser || isHybridUser;
-  const isStudioPaid = (activeRole?.startsWith('studio') && activeRole !== 'studio_free') || activeRole?.startsWith('hybrid');
+  const isStudioPaid = activeRole?.startsWith('studio') || activeRole?.startsWith('hybrid');
 
   useEffect(() => {
     if (!auth.currentUser) return;
@@ -1552,3 +1558,4 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
 });
+

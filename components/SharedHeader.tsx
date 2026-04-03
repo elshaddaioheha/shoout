@@ -8,16 +8,12 @@ import React from 'react';
 import { Platform, SafeAreaView, StatusBar, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 interface SharedHeaderProps {
-    /** Current active view mode — drives pill button display */
     viewMode: ViewMode;
-    /** Whether the mode sheet is open (animates chevron) */
     isModeSheetOpen: boolean;
-    /** Called when the mode pill is tapped */
     onModePillPress: () => void;
     showCart?: boolean;
     cartCount?: number;
     showMessages?: boolean;
-    /** role for gradient tinting */
     role?: string;
 }
 
@@ -34,11 +30,15 @@ export default function SharedHeader({
     const { unreadCount } = useNotificationStore();
     const userRole = useUserStore((state) => state.role);
     const effectiveRole = role ?? userRole;
+    const isVaultMode = viewMode === 'vault' || viewMode === 'vault_pro';
+    const shouldShowCart = Boolean(showCart) && !isVaultMode;
+    const shouldShowMessages = Boolean(showMessages) && !isVaultMode;
 
     const getRoleGradient = (): readonly [string, string, ...string[]] => {
+        if (effectiveRole === 'shoout') return ['rgba(106, 167, 255, 0.2)', 'rgba(20, 15, 16, 1)'];
         if (effectiveRole === 'vault_pro') return ['rgba(236, 92, 57, 0.25)', 'rgba(20, 15, 16, 1)'];
-        if (String(effectiveRole).startsWith('studio')) return ['rgba(76, 175, 80, 0.25)', 'rgba(20, 15, 16, 1)'];
-        if (String(effectiveRole).startsWith('hybrid')) return ['rgba(255, 215, 0, 0.25)', 'rgba(20, 15, 16, 1)'];
+        if (effectiveRole === 'studio') return ['rgba(76, 175, 80, 0.25)', 'rgba(20, 15, 16, 1)'];
+        if (effectiveRole === 'hybrid') return ['rgba(255, 215, 0, 0.25)', 'rgba(20, 15, 16, 1)'];
         return ['#140F10', '#140F10'];
     };
 
@@ -46,7 +46,6 @@ export default function SharedHeader({
         <SafeAreaView style={styles.safeArea}>
             <LinearGradient colors={getRoleGradient()} style={StyleSheet.absoluteFillObject} />
             <View style={styles.header}>
-                {/* Left — Embedded logo + mode switcher pill */}
                 <ModePillButton
                     viewMode={viewMode}
                     isOpen={isModeSheetOpen}
@@ -55,9 +54,8 @@ export default function SharedHeader({
 
                 <View style={styles.headerSpacer} />
 
-                {/* Right — Actions */}
                 <View style={styles.headerRight}>
-                    {showMessages && (
+                    {shouldShowMessages && (
                         <TouchableOpacity
                             style={[styles.iconButton, { marginRight: 8 }]}
                             onPress={() => router.push('/chat' as any)}
@@ -65,7 +63,7 @@ export default function SharedHeader({
                             <MessageSquare size={18} color="white" />
                         </TouchableOpacity>
                     )}
-                    {showCart && (
+                    {shouldShowCart && (
                         <TouchableOpacity
                             style={[styles.iconButton, { marginRight: 8 }]}
                             onPress={() => router.push('/cart' as any)}

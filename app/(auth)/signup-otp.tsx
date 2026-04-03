@@ -107,7 +107,7 @@ export default function SignupOtpScreen() {
       await AsyncStorage.removeItem(PENDING_SIGNUP_KEY);
 
       authNavigationHandled.current = true;
-      router.replace('/(auth)/role-selection');
+      router.replace('/(tabs)');
     } catch (error: any) {
       authNavigationHandled.current = false;
       showToast(getFriendlyErrorMessage(error), 'error');
@@ -286,3 +286,4 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins-Regular',
   },
 });
+

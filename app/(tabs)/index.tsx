@@ -1,6 +1,8 @@
 import { useAppSwitcherContext } from '@/app/(tabs)/_layout';
 import ActionSheet from '@/components/ActionSheet';
 import SharedHeader from '@/components/SharedHeader';
+import StudioDashboardScreen from '@/components/studio/StudioDashboardScreen';
+import VaultHomeScreen from '@/components/vault/VaultHomeScreen';
 import { ARTISTS, FREE_MUSIC, HOME_SECTIONS, POPULAR_BEATS, TOP_PLAYLISTS, TRENDING_SONGS, type HomeSectionKey } from '@/constants/homeFeed';
 import { auth, db } from '@/firebaseConfig';
 import { formatUsd } from '@/utils/pricing';
@@ -8,6 +10,7 @@ import { toggleArtistFollow } from '@/utils/followArtist';
 import { useCartStore } from '@/store/useCartStore';
 import { usePlaybackStore } from '@/store/usePlaybackStore';
 import { useToastStore } from '@/store/useToastStore';
+import { useUserStore } from '@/store/useUserStore';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { addDoc, collection, doc, getDoc, getDocs, limit, onSnapshot, query, serverTimestamp, setDoc, where } from 'firebase/firestore';
@@ -61,6 +64,7 @@ function useLocalFavourite(_trackId: string) {
 export default function HomeScreen() {
   const { openSheet, isModeSheetOpen, viewMode } = useAppSwitcherContext();
   const { items } = useCartStore();
+  const activeAppMode = useUserStore((state) => state.activeAppMode);
 
   const renderSection = useCallback(({ item }: { item: HomeSectionKey }) => {
     switch (item) {
@@ -78,6 +82,14 @@ export default function HomeScreen() {
         return null;
     }
   }, []);
+
+  if (activeAppMode === 'vault' || activeAppMode === 'vault_pro') {
+    return <VaultHomeScreen />;
+  }
+
+  if (activeAppMode === 'studio') {
+    return <StudioDashboardScreen />;
+  }
 
   return (
     <View style={styles.container}>

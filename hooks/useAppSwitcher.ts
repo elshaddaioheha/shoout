@@ -1,42 +1,37 @@
-import { ViewMode, useUserStore, UserRole } from '@/store/useUserStore';
+import { ViewMode, useUserStore } from '@/store/useUserStore';
 import { useAuthStore } from '@/store/useAuthStore';
+import { canAccessAppMode, canUseStudioServices, formatPlanLabel, getDefaultAppModeForPlan, getEffectivePlan } from '@/utils/subscriptions';
 import { useRouter } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
 import { Animated } from 'react-native';
 
 export function useAppSwitcher() {
-    // SECURITY: Use server-verified role from useAuthStore, never the local role
     const { actualRole: serverVerifiedRole, isVerifyingRole } = useAuthStore();
-    const { viewMode, setViewMode, setRole } = useUserStore();
+    const { activeAppMode, setActiveAppMode } = useUserStore();
     const router = useRouter();
 
     const [sheetVisible, setSheetVisible] = useState(false);
     const [transitioning, setTransitioning] = useState(false);
-    const [transitionTargetMode, setTransitionTargetMode] = useState<ViewMode>(viewMode);
+    const [transitionTargetMode, setTransitionTargetMode] = useState<ViewMode>(activeAppMode);
 
-    // Animation values
-    const overlayAnim = useRef(new Animated.Value(0)).current;        // dims screen
-    const welcomeSlideAnim = useRef(new Animated.Value(40)).current;  // card slides up
-    const welcomeOpacityAnim = useRef(new Animated.Value(0)).current; // card fades
-    const contentFadeAnim = useRef(new Animated.Value(1)).current;    // content fades in
+    const overlayAnim = useRef(new Animated.Value(0)).current;
+    const welcomeSlideAnim = useRef(new Animated.Value(40)).current;
+    const welcomeOpacityAnim = useRef(new Animated.Value(0)).current;
+    const contentFadeAnim = useRef(new Animated.Value(1)).current;
 
     const openSheet = useCallback(() => setSheetVisible(true), []);
     const closeSheet = useCallback(() => setSheetVisible(false), []);
 
-    // Vault is accessible to everyone — studio users already have all vault benefits.
-    // Studio requires a studio or hybrid subscription (VERIFIED ON SERVER).
-    const isStudioPaid = (serverVerifiedRole?.startsWith('studio') || serverVerifiedRole?.startsWith('hybrid')) ?? false;
+    const currentPlan = getEffectivePlan(serverVerifiedRole);
+    const isStudioPaid = canUseStudioServices(currentPlan);
     const studioAccessLevel: 'free' | 'pro' = isStudioPaid ? 'pro' : 'free';
 
     const isModeAccessible = useCallback((targetViewMode: ViewMode): boolean => {
-        // Vault always accessible. Studio accessible with free tier; paid perks checked elsewhere.
-        if (targetViewMode === 'vault') return true;
-        if (targetViewMode === 'studio') return true;
-        return false;
-    }, []);
+        return canAccessAppMode(currentPlan, targetViewMode);
+    }, [currentPlan]);
 
     const switchMode = useCallback(async (targetViewMode: ViewMode) => {
-        if (targetViewMode === viewMode) {
+        if (targetViewMode === activeAppMode) {
             setSheetVisible(false);
             return;
         }
@@ -50,12 +45,10 @@ export function useAppSwitcher() {
         setTransitionTargetMode(targetViewMode);
         setTransitioning(true);
 
-        // Reset card animations
         welcomeSlideAnim.setValue(40);
         welcomeOpacityAnim.setValue(0);
         contentFadeAnim.setValue(1);
 
-        // Step 1 — Fade overlay IN + slide welcome card up
         await new Promise<void>((resolve) => {
             Animated.parallel([
                 Animated.timing(overlayAnim, { toValue: 1, duration: 240, useNativeDriver: true }),
@@ -63,28 +56,14 @@ export function useAppSwitcher() {
             ]).start(() => resolve());
         });
 
-        // Step 2 — Welcome card appears
         Animated.parallel([
             Animated.spring(welcomeSlideAnim, { toValue: 0, useNativeDriver: true, speed: 16, bounciness: 4 }),
             Animated.timing(welcomeOpacityAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
         ]).start();
 
-        // Step 3 — Hold briefly
         await new Promise<void>((r) => setTimeout(r, 700));
+        setActiveAppMode(targetViewMode);
 
-        // Step 4 — Apply the mode change (React re-render)
-        if (targetViewMode === 'studio') {
-            if (isStudioPaid) {
-                setRole((serverVerifiedRole as UserRole) || 'studio');
-            } else {
-                setRole('studio_free');
-            }
-        } else {
-            setRole((serverVerifiedRole as UserRole) || 'vault');
-        }
-        setViewMode(targetViewMode);
-
-        // Step 5 — Fade out overlay, fade in new content
         await new Promise<void>((resolve) => {
             Animated.parallel([
                 Animated.timing(overlayAnim, { toValue: 0, duration: 240, useNativeDriver: true }),
@@ -95,21 +74,23 @@ export function useAppSwitcher() {
 
         setTransitioning(false);
         setTransitionTargetMode(targetViewMode);
-    }, [viewMode, isModeAccessible, setViewMode, overlayAnim, welcomeSlideAnim, welcomeOpacityAnim, contentFadeAnim, router, setTransitionTargetMode, isStudioPaid, serverVerifiedRole, setRole]);
+    }, [activeAppMode, isModeAccessible, setActiveAppMode, overlayAnim, contentFadeAnim, router, welcomeOpacityAnim, welcomeSlideAnim]);
 
     return {
         sheetVisible,
         transitioning,
         transitionTargetMode,
-        viewMode,
+        viewMode: activeAppMode,
+        currentPlan,
+        currentPlanLabel: formatPlanLabel(currentPlan),
+        defaultModeForPlan: getDefaultAppModeForPlan(currentPlan),
         isModeAccessible,
         isStudioPaid,
         studioAccessLevel,
-        isVerifyingRole, // Expose verification state in case UI needs to show loading
+        isVerifyingRole,
         openSheet,
         closeSheet,
         switchMode,
-        // Animation values exposed for overlay rendering
         overlayAnim,
         welcomeSlideAnim,
         welcomeOpacityAnim,

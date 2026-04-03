@@ -95,7 +95,7 @@ export default function OnboardingFlow() {
             {/* Content Section */}
             <View style={styles.content}>
                 <ScrollView
-                    ref={(ref) => (scrollRef.current = ref)}
+                    ref={(ref) => { scrollRef.current = ref; }}
                     horizontal
                     pagingEnabled
                     showsHorizontalScrollIndicator={false}
@@ -311,3 +311,4 @@ const styles = StyleSheet.create({
         height: 329,
     }
 });
+

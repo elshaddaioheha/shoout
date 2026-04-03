@@ -1,12 +1,14 @@
 import { useAppSwitcherContext } from '@/app/(tabs)/_layout';
 import FilterSheet from '@/components/FilterSheet';
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
+import StudioPromoteScreen from '@/components/studio/StudioPromoteScreen';
 import SharedHeader from '@/components/SharedHeader';
 import { useCartStore } from '@/store/useCartStore';
 import { usePlaybackStore } from '@/store/usePlaybackStore';
 import { useToastStore } from '@/store/useToastStore';
 import { useUserStore } from '@/store/useUserStore';
 import { useAuthStore } from '@/store/useAuthStore';
+import { getEffectivePlan } from '@/utils/subscriptions';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { collectionGroup, getDocs, limit, orderBy, query, startAfter, where } from 'firebase/firestore';
@@ -36,7 +38,7 @@ const { width } = Dimensions.get('window');
 
 export default function MarketplaceScreen() {
     const router = useRouter();
-    const { role, viewMode: storeViewMode } = useUserStore();
+    const { role, activeAppMode } = useUserStore();
     const { actualRole } = useAuthStore();
     const { showToast } = useToastStore();
     const cartItems = useCartStore(state => state.items);
@@ -120,7 +122,11 @@ export default function MarketplaceScreen() {
     const [sortBy, setSortBy] = useState('Newest');
     const [filterCategory, setFilterCategory] = useState('All');
 
-    const isStudioMode = storeViewMode === 'studio';
+    const isStudioMode = activeAppMode === 'studio' || activeAppMode === 'hybrid';
+
+    if (activeAppMode === 'studio') {
+        return <StudioPromoteScreen />;
+    }
 
     const filterItems = (items: any[]) => {
         if (!searchQuery) return items;
@@ -131,7 +137,8 @@ export default function MarketplaceScreen() {
         );
     };
 
-    const isStudioPaid = (actualRole?.startsWith('studio') || actualRole?.startsWith('hybrid')) ?? false;
+    const currentPlan = getEffectivePlan(actualRole || role);
+    const isStudioPaid = currentPlan === 'studio' || currentPlan === 'hybrid';
 
     const filteredTrending = filterItems(trending);
     const filteredSamples = filterItems(samples);
@@ -480,3 +487,4 @@ const styles = StyleSheet.create({
         fontSize: 13,
     },
 });
+

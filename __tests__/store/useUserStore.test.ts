@@ -1,8 +1,5 @@
 /**
- * User Role Capabilities Tests
- *
- * useUserStore is a Zustand store hook.
- * Strategy: render/select store state, call actions, and assert capabilities.
+ * User plan capability tests.
  */
 
 jest.mock('@react-native-async-storage/async-storage', () =>
@@ -19,18 +16,15 @@ beforeEach(() => {
     });
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Default state
-// ─────────────────────────────────────────────────────────────────────────────
-describe('useUserStore › default state', () => {
+describe('useUserStore default state', () => {
     it('starts with vault role', () => {
         const { result } = renderHook(() => useUserStore());
         expect(result.current.role).toBe('vault');
     });
 
-    it('defaults to vault view mode', () => {
+    it('defaults to shoout app mode', () => {
         const { result } = renderHook(() => useUserStore());
-        expect(result.current.viewMode).toBe('vault');
+        expect(result.current.activeAppMode).toBe('shoout');
     });
 
     it('cannot sell on vault plan', () => {
@@ -49,40 +43,45 @@ describe('useUserStore › default state', () => {
     });
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Vault plans
-// ─────────────────────────────────────────────────────────────────────────────
-describe('useUserStore › vault_pro', () => {
-    it('vault_pro: 1GB storage, advanced analytics, premium', () => {
+describe('useUserStore shoout', () => {
+    it('shoout is buyer-first with no storage or selling', () => {
+        const { result } = renderHook(() => useUserStore());
+        act(() => result.current.setRole('shoout'));
+        expect(result.current.canSell).toBe(false);
+        expect(result.current.storageLimitGB).toBe(0);
+        expect(result.current.maxVaultUploads).toBe(0);
+        expect(result.current.canAccessVaultWorkspace).toBe(false);
+        expect(result.current.isPremium).toBe(false);
+    });
+});
+
+describe('useUserStore vault_pro', () => {
+    it('vault_pro has 5GB storage, higher upload limits, and premium state', () => {
         const { result } = renderHook(() => useUserStore());
         act(() => result.current.setRole('vault_pro'));
         expect(result.current.isPremium).toBe(true);
-        expect(result.current.storageLimitGB).toBe(1);
-        expect(result.current.hasAdvancedAnalytics).toBe(true);
+        expect(result.current.storageLimitGB).toBe(5);
+        expect(result.current.maxVaultUploads).toBe(500);
+        expect(result.current.canAccessVaultWorkspace).toBe(true);
+        expect(result.current.canUploadToVault).toBe(true);
+        expect(result.current.hasAdvancedAnalytics).toBe(false);
         expect(result.current.canSell).toBe(false);
     });
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Studio
-// ─────────────────────────────────────────────────────────────────────────────
-describe('useUserStore › studio', () => {
-    it('studio: can sell, premium, studio view mode, 2GB', () => {
+describe('useUserStore studio', () => {
+    it('studio can sell and has creator analytics', () => {
         const { result } = renderHook(() => useUserStore());
         act(() => result.current.setRole('studio'));
         expect(result.current.canSell).toBe(true);
         expect(result.current.isPremium).toBe(true);
-        expect(result.current.viewMode).toBe('studio');
         expect(result.current.storageLimitGB).toBe(2);
         expect(result.current.hasAdvancedAnalytics).toBe(true);
     });
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Hybrid
-// ─────────────────────────────────────────────────────────────────────────────
-describe('useUserStore › hybrid', () => {
-    it('hybrid: can sell, 10GB, team access, analytics', () => {
+describe('useUserStore hybrid', () => {
+    it('hybrid can sell, has 10GB storage, team access, and analytics', () => {
         const { result } = renderHook(() => useUserStore());
         act(() => result.current.setRole('hybrid'));
         expect(result.current.canSell).toBe(true);
@@ -93,30 +92,24 @@ describe('useUserStore › hybrid', () => {
     });
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Sidebar / badge role hints (string prefix checks used in UI)
-// ─────────────────────────────────────────────────────────────────────────────
-describe('useUserStore › hybrid detection helpers', () => {
+describe('useUserStore hybrid detection helpers', () => {
     const hybridRoles: UserRole[] = ['hybrid'];
-    const nonHybridRoles: UserRole[] = ['vault', 'vault_pro', 'studio'];
+    const nonHybridRoles: UserRole[] = ['shoout', 'vault', 'vault_pro', 'studio'];
 
     hybridRoles.forEach(role => {
-        it(`role "${role}" is detected as hybrid via startsWith`, () => {
+        it(`role "${role}" is detected as hybrid`, () => {
             expect(role.startsWith('hybrid')).toBe(true);
         });
     });
 
     nonHybridRoles.forEach(role => {
-        it(`role "${role}" is NOT detected as hybrid`, () => {
+        it(`role "${role}" is not detected as hybrid`, () => {
             expect(role.startsWith('hybrid')).toBe(false);
         });
     });
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// setName / setViewMode / reset
-// ─────────────────────────────────────────────────────────────────────────────
-describe('useUserStore › actions', () => {
+describe('useUserStore actions', () => {
     it('setName updates the user name', () => {
         act(() => {
             useUserStore.getState().setName('Ade Osei');
@@ -124,18 +117,18 @@ describe('useUserStore › actions', () => {
         expect(useUserStore.getState().name).toBe('Ade Osei');
     });
 
-    it('setViewMode toggles between vault and studio', () => {
+    it('setViewMode toggles across app modes', () => {
         act(() => {
-            useUserStore.getState().setViewMode('studio');
+            useUserStore.getState().setViewMode('hybrid');
         });
-        expect(useUserStore.getState().viewMode).toBe('studio');
+        expect(useUserStore.getState().activeAppMode).toBe('hybrid');
         act(() => {
-            useUserStore.getState().setViewMode('vault');
+            useUserStore.getState().setViewMode('shoout');
         });
-        expect(useUserStore.getState().viewMode).toBe('vault');
+        expect(useUserStore.getState().activeAppMode).toBe('shoout');
     });
 
-    it('reset returns to default vault state', () => {
+    it('reset returns to default state', () => {
         act(() => {
             useUserStore.getState().setRole('hybrid');
             useUserStore.getState().setName('Big Boss');
@@ -144,5 +137,6 @@ describe('useUserStore › actions', () => {
         expect(useUserStore.getState().role).toBe('vault');
         expect(useUserStore.getState().name).toBe('User');
         expect(useUserStore.getState().isPremium).toBe(false);
+        expect(useUserStore.getState().activeAppMode).toBe('shoout');
     });
 });

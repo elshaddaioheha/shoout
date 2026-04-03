@@ -1,39 +1,66 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Home, Library, MoreHorizontal, Search, ShoppingCart } from 'lucide-react-native';
+import { Home, Library, Megaphone, MoreHorizontal, Search, ShoppingCart, Upload } from 'lucide-react-native';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { BlurView } from 'expo-blur';
+import { usePathname, useRouter } from 'expo-router';
 import { colors } from '@/constants/colors';
 import { useUserStore } from '@/store/useUserStore';
 
 interface TabConfig {
-    name: string;
+    key: string;
+    name?: string;
+    routePath?: string;
     icon: React.ComponentType<any>;
     label: string;
 }
 
 export default function ResponsiveBottomTabBar(props: BottomTabBarProps) {
     const { state, navigation } = props;
+    const router = useRouter();
+    const pathname = usePathname();
     const insets = useSafeAreaInsets();
     const { width } = useWindowDimensions();
-    const viewMode = useUserStore((s) => s.viewMode);
+    const activeAppMode = useUserStore((s) => s.activeAppMode);
     const role = useUserStore((s) => s.role);
     const bottomPadding = insets.bottom > 0 ? insets.bottom : 10;
+    const isVaultMode = activeAppMode === 'vault' || activeAppMode === 'vault_pro';
 
-    const creatorLabel = viewMode === 'studio' || role.startsWith('studio') || role.startsWith('hybrid')
-        ? 'Studio'
-        : 'Vault';
+    const creatorLabel = activeAppMode === 'shoout'
+        ? 'Shoout'
+        : (activeAppMode === 'studio' || activeAppMode === 'hybrid' || role === 'studio' || role === 'hybrid'
+            ? 'Studio'
+            : 'Vault');
 
-    const tabs: TabConfig[] = [
-        { name: 'index', icon: Home, label: 'Home' },
-        { name: 'search', icon: Search, label: 'Explore' },
-        { name: 'marketplace', icon: ShoppingCart, label: 'Market Place' },
-        { name: 'library', icon: Library, label: creatorLabel },
-        { name: 'more', icon: MoreHorizontal, label: 'More' },
-    ];
+    const tabs: TabConfig[] = activeAppMode === 'studio'
+        ? [
+            { key: 'index', name: 'index', icon: Home, label: 'Home' },
+            { key: 'search', name: 'search', icon: UploadCloudIcon, label: 'Publish' },
+            { key: 'marketplace', name: 'marketplace', icon: MegaphoneIcon, label: 'Promote' },
+            { key: 'more', name: 'more', icon: MoreHorizontal, label: 'More' },
+        ]
+        : (activeAppMode === 'vault' || activeAppMode === 'vault_pro')
+        ? [
+            { key: 'index', name: 'index', icon: Home, label: 'Home' },
+            { key: 'more', name: 'more', icon: MoreHorizontal, label: 'More' },
+        ]
+        : activeAppMode === 'shoout'
+        ? [
+            { key: 'index', name: 'index', icon: Home, label: 'Home' },
+            { key: 'search', name: 'search', icon: Search, label: 'Search' },
+            { key: 'cart', routePath: '/cart', icon: ShoppingCart, label: 'Cart' },
+            { key: 'more', name: 'more', icon: MoreHorizontal, label: 'More' },
+        ]
+        : [
+            { key: 'index', name: 'index', icon: Home, label: 'Home' },
+            { key: 'search', name: 'search', icon: Search, label: 'Explore' },
+            { key: 'marketplace', name: 'marketplace', icon: ShoppingCart, label: 'Market Place' },
+            { key: 'library', name: 'library', icon: Library, label: creatorLabel },
+            { key: 'more', name: 'more', icon: MoreHorizontal, label: 'More' },
+        ];
 
-    const barWidth = Math.min(335, width - 28);
+    const barWidth = isVaultMode ? Math.min(210, width - 80) : Math.min(335, width - 28);
 
     const getRouteIndex = (tabName: string) => {
         if (!state || !state.routes) return -1;
@@ -46,16 +73,23 @@ export default function ResponsiveBottomTabBar(props: BottomTabBarProps) {
 
     return (
         <View style={[styles.container, { paddingBottom: bottomPadding }]}>
-            <View style={[styles.tabBar, { width: barWidth }]}>
+            <View style={[styles.tabBar, isVaultMode && styles.vaultTabBar, { width: barWidth }]}>
                 <BlurView intensity={34} tint="dark" style={styles.tabBarBlur} />
                 {tabs.map((tab) => {
-                    if (!tab || !tab.name) return null;
-
-                    const routeIndex = getRouteIndex(tab.name);
-                    const isFocused = routeIndex !== -1 && state && state.index === routeIndex;
                     const Icon = tab.icon;
+                    const routeIndex = tab.name ? getRouteIndex(tab.name) : -1;
+                    const isFocused = tab.routePath
+                        ? pathname === tab.routePath
+                        : (routeIndex !== -1 && state && state.index === routeIndex);
 
                     const onPress = () => {
+                        if (tab.routePath) {
+                            router.push(tab.routePath as any);
+                            return;
+                        }
+
+                        if (!tab.name) return;
+
                         const targetIndex = getRouteIndex(tab.name);
                         if (targetIndex === -1) {
                             navigation.navigate(tab.name as any);
@@ -75,11 +109,12 @@ export default function ResponsiveBottomTabBar(props: BottomTabBarProps) {
 
                     return (
                         <TabButton
-                            key={tab.name}
+                            key={tab.key}
                             Icon={Icon}
                             label={tab.label}
                             isFocused={isFocused}
-                            tabName={tab.name}
+                            tabKey={tab.key}
+                            isCompact={isVaultMode}
                             onPress={onPress}
                         />
                     );
@@ -89,24 +124,37 @@ export default function ResponsiveBottomTabBar(props: BottomTabBarProps) {
     );
 }
 
-function TabButton({ Icon, label, isFocused, tabName, onPress }: any) {
-    const activeColor = colors.primary;
+function TabButton({ Icon, label, isFocused, tabKey, isCompact, onPress }: any) {
     const inactiveColor = 'rgba(255, 255, 255, 0.65)';
 
     return (
         <TouchableOpacity
-            style={[styles.tab, isFocused ? styles.activeTab : styles.inactiveTab]}
+            style={[
+                styles.tab,
+                isCompact && styles.compactTab,
+                isFocused ? styles.activeTab : styles.inactiveTab,
+                isCompact && isFocused && styles.compactActiveTab,
+                isCompact && !isFocused && styles.compactInactiveTab,
+            ]}
             onPress={onPress}
             activeOpacity={0.7}
         >
             <Icon
-                size={21}
+                size={isCompact ? 18 : 21}
                 color={isFocused ? '#FFFFFF' : inactiveColor}
-                fill={isFocused && tabName === 'index' ? '#FFFFFF' : 'none'}
+                fill={isFocused && tabKey === 'index' ? '#FFFFFF' : 'none'}
             />
-            {isFocused ? <Text style={styles.labelActive}>{label}</Text> : null}
+            {isFocused ? <Text style={[styles.labelActive, isCompact && styles.compactLabelActive]}>{label}</Text> : null}
         </TouchableOpacity>
     );
+}
+
+function UploadCloudIcon(props: any) {
+    return <Upload {...props} />;
+}
+
+function MegaphoneIcon(props: any) {
+    return <Megaphone {...props} />;
 }
 
 const styles = StyleSheet.create({
@@ -135,6 +183,11 @@ const styles = StyleSheet.create({
         shadowRadius: 10,
         elevation: 6,
     },
+    vaultTabBar: {
+        height: 48,
+        paddingHorizontal: 8,
+        borderRadius: 28,
+    },
     tabBarBlur: {
         ...StyleSheet.absoluteFillObject,
     },
@@ -148,17 +201,32 @@ const styles = StyleSheet.create({
         paddingHorizontal: 6,
         paddingVertical: 2,
     },
+    compactTab: {
+        height: 30,
+        gap: 4,
+        paddingHorizontal: 8,
+    },
     activeTab: {
         minWidth: 83,
         backgroundColor: colors.primary,
     },
+    compactActiveTab: {
+        minWidth: 74,
+    },
     inactiveTab: {
         width: 36,
+    },
+    compactInactiveTab: {
+        width: 30,
     },
     labelActive: {
         color: '#FFFFFF',
         fontFamily: 'Poppins-Medium',
         fontSize: 12,
         lineHeight: 12,
+    },
+    compactLabelActive: {
+        fontSize: 11,
+        lineHeight: 11,
     },
 });

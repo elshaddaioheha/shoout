@@ -1,5 +1,5 @@
 /**
- * ModePillButton — top-left app switcher pill with embedded rings logo.
+ * ModePillButton - top-left app switcher pill with embedded rings logo.
  */
 import { ViewMode } from '@/store/useUserStore';
 import { Image } from 'expo-image';
@@ -14,20 +14,38 @@ interface ModePillButtonProps {
 }
 
 const MODE_LABELS: Record<ViewMode, string> = {
+    shoout: 'Shoout',
     vault: 'Vault',
+    vault_pro: 'Vault Pro',
     studio: 'Studio',
+    hybrid: 'Hybrid',
 };
 
 const MODE_COLORS: Record<ViewMode, { border: string; text: string; arrowBg: string }> = {
+    shoout: {
+        border: 'rgba(106, 167, 255, 0.35)',
+        text: '#E6F0FF',
+        arrowBg: 'rgba(106, 167, 255, 0.2)',
+    },
     vault: {
         border: 'rgba(236, 92, 57, 0.35)',
         text: '#F8E5DF',
         arrowBg: 'rgba(236, 92, 57, 0.2)',
     },
+    vault_pro: {
+        border: 'rgba(236, 92, 57, 0.5)',
+        text: '#FFF0EA',
+        arrowBg: 'rgba(236, 92, 57, 0.25)',
+    },
     studio: {
         border: 'rgba(76, 175, 80, 0.35)',
         text: '#E4F5E4',
         arrowBg: 'rgba(76, 175, 80, 0.2)',
+    },
+    hybrid: {
+        border: 'rgba(255, 215, 0, 0.35)',
+        text: '#FFF6C4',
+        arrowBg: 'rgba(255, 215, 0, 0.2)',
     },
 };
 

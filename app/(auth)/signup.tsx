@@ -128,7 +128,7 @@ export default function SignupScreen() {
                 await writeSubscriptionDoc(userCred.user.uid, 'vault');
                 await hydrateSubscriptionTier();
                 authNavigationHandled.current = true;
-                router.replace('/(auth)/role-selection');
+                router.replace('/(tabs)');
             } else {
                 await hydrateSubscriptionTier();
                 authNavigationHandled.current = true;
@@ -189,7 +189,7 @@ export default function SignupScreen() {
                 await writeSubscriptionDoc(userCred.user.uid, 'vault');
                 await hydrateSubscriptionTier();
                 authNavigationHandled.current = true;
-                router.replace('/(auth)/role-selection');
+                router.replace('/(tabs)');
             } else {
                 await hydrateSubscriptionTier();
                 authNavigationHandled.current = true;
@@ -452,3 +452,4 @@ function GoogleIcon() {
         </Svg>
     );
 }
+

@@ -109,7 +109,7 @@ export default function LoginScreen() {
                 // New user — navigate to role selection.
                 // Flag prevents onAuthStateChanged from firing a second redirect.
                 authNavigationHandled.current = true;
-                router.replace('/(auth)/role-selection');
+                router.replace(getPostAuthRoute() as any);
             } else {
                 await hydrateSubscriptionTier();
                 // Existing user — honour redirectTo param if present.
@@ -171,7 +171,7 @@ export default function LoginScreen() {
                 await ensureDefaultSubscriptionDoc(userCred.user.uid);
                 await hydrateSubscriptionTier();
                 authNavigationHandled.current = true;
-                router.replace('/(auth)/role-selection');
+                router.replace(getPostAuthRoute() as any);
             } else {
                 await hydrateSubscriptionTier();
                 authNavigationHandled.current = true;
@@ -646,3 +646,4 @@ const styles = StyleSheet.create({
         marginBottom: 10,
     },
 });
+

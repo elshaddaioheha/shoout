@@ -1,0 +1,153 @@
+import { useAppSwitcherContext } from '@/app/(tabs)/_layout';
+import SharedHeader from '@/components/SharedHeader';
+import { useStudioWorkspaceData } from '@/hooks/useStudioWorkspaceData';
+import { useAuthStore } from '@/store/useAuthStore';
+import { formatUsd } from '@/utils/pricing';
+import { canUseStudioServices, getEffectivePlan } from '@/utils/subscriptions';
+import { useRouter } from 'expo-router';
+import { CircleDollarSign, FilePenLine, Music4, UploadCloud } from 'lucide-react-native';
+import React from 'react';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+export default function StudioPublishScreen() {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const { openSheet, isModeSheetOpen, viewMode } = useAppSwitcherContext();
+  const currentPlan = getEffectivePlan(useAuthStore((state) => state.actualRole));
+  const canUseServices = canUseStudioServices(currentPlan);
+  const { tracks, drafts, publishedTracks, recentTransactions, loading } = useStudioWorkspaceData();
+
+  const requireStudioSubscription = () => {
+    if (canUseServices) return false;
+    router.push('/settings/subscriptions' as any);
+    return true;
+  };
+
+  return (
+    <View style={styles.screen}>
+      <SharedHeader
+        viewMode={viewMode}
+        isModeSheetOpen={isModeSheetOpen}
+        onModePillPress={openSheet}
+        showCart={false}
+        showMessages={true}
+      />
+
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 120 }]}>
+        <View style={styles.heroCard}>
+          <Text style={styles.heroEyebrow}>Publish</Text>
+          <Text style={styles.heroTitle}>Upload tracks, manage releases, and keep royalties visible.</Text>
+          <TouchableOpacity style={styles.heroButton} onPress={() => {
+            if (requireStudioSubscription()) return;
+            router.push('/studio/upload' as any);
+          }} activeOpacity={0.9}>
+            <UploadCloud size={18} color="#FFF" />
+            <Text style={styles.heroButtonText}>Upload New Track</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.summaryRow}>
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryValue}>{tracks.length}</Text>
+            <Text style={styles.summaryLabel}>All uploads</Text>
+          </View>
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryValue}>{publishedTracks.length}</Text>
+            <Text style={styles.summaryLabel}>Published</Text>
+          </View>
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryValue}>{drafts.length}</Text>
+            <Text style={styles.summaryLabel}>Drafts</Text>
+          </View>
+        </View>
+
+        <View style={styles.panel}>
+          <View style={styles.panelHeader}>
+            <Text style={styles.panelTitle}>Track Manager</Text>
+            <TouchableOpacity onPress={() => {
+              if (requireStudioSubscription()) return;
+              router.push('/studio/upload' as any);
+            }} activeOpacity={0.8}>
+              <Text style={styles.panelLink}>Open upload flow</Text>
+            </TouchableOpacity>
+          </View>
+          {loading ? <Text style={styles.placeholder}>Loading uploads...</Text> : null}
+          {!loading && tracks.length === 0 ? <Text style={styles.placeholder}>No tracks uploaded yet. Start with your next release.</Text> : null}
+          {!loading && tracks.slice(0, 8).map((track) => (
+            <View key={track.id} style={styles.trackRow}>
+              <View style={styles.trackIcon}>
+                <Music4 size={18} color="#4CAF50" />
+              </View>
+              <View style={styles.trackInfo}>
+                <Text style={styles.trackTitle} numberOfLines={1}>{track.title || 'Untitled Track'}</Text>
+                <Text style={styles.trackMeta}>
+                  {track.published === true || track.lifecycleStatus === 'published' ? 'Published' : 'Draft'} · {formatUsd(Number(track.price || 0))}
+                </Text>
+              </View>
+              <TouchableOpacity style={styles.inlineAction} onPress={() => {
+                if (requireStudioSubscription()) return;
+                router.push('/studio/upload' as any);
+              }} activeOpacity={0.8}>
+                <FilePenLine size={16} color="#4CAF50" />
+              </TouchableOpacity>
+            </View>
+          ))}
+        </View>
+
+        <View style={styles.panel}>
+          <View style={styles.panelHeader}>
+            <Text style={styles.panelTitle}>Royalties</Text>
+            <TouchableOpacity onPress={() => {
+              if (requireStudioSubscription()) return;
+              router.push('/studio/earnings' as any);
+            }} activeOpacity={0.8}>
+              <Text style={styles.panelLink}>Open earnings</Text>
+            </TouchableOpacity>
+          </View>
+          {recentTransactions.length === 0 ? <Text style={styles.placeholder}>Royalty-related sales will show here as customers purchase your releases.</Text> : null}
+          {recentTransactions.map((tx) => (
+            <View key={tx.id} style={styles.trackRow}>
+              <View style={styles.trackIcon}>
+                <CircleDollarSign size={18} color="#4CAF50" />
+              </View>
+              <View style={styles.trackInfo}>
+                <Text style={styles.trackTitle} numberOfLines={1}>{tx.trackTitle || 'Track purchased'}</Text>
+                <Text style={styles.trackMeta}>Royalty event</Text>
+              </View>
+              <Text style={styles.amountText}>{formatUsd(Number(tx.amount || 0))}</Text>
+            </View>
+          ))}
+        </View>
+      </ScrollView>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: '#140F10' },
+  content: { paddingHorizontal: 20, gap: 18 },
+  heroCard: {
+    marginTop: 10, backgroundColor: '#1A1A1B', borderRadius: 24, padding: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', gap: 12,
+  },
+  heroEyebrow: { color: '#4CAF50', fontFamily: 'Poppins-SemiBold', fontSize: 12 },
+  heroTitle: { color: '#FFF', fontFamily: 'Poppins-Bold', fontSize: 22, lineHeight: 30 },
+  heroButton: { height: 48, borderRadius: 16, backgroundColor: '#4CAF50', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8, marginTop: 4 },
+  heroButtonText: { color: '#FFF', fontFamily: 'Poppins-SemiBold', fontSize: 14 },
+  summaryRow: { flexDirection: 'row', gap: 12 },
+  summaryCard: { flex: 1, backgroundColor: '#1A1A1B', borderRadius: 18, padding: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', gap: 4 },
+  summaryValue: { color: '#FFF', fontFamily: 'Poppins-Bold', fontSize: 20, textAlign: 'center' },
+  summaryLabel: { color: 'rgba(255,255,255,0.56)', fontFamily: 'Poppins-Regular', fontSize: 12, textAlign: 'center' },
+  panel: { backgroundColor: '#1A1A1B', borderRadius: 22, padding: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', gap: 12 },
+  panelHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
+  panelTitle: { color: '#FFF', fontFamily: 'Poppins-SemiBold', fontSize: 17 },
+  panelLink: { color: '#4CAF50', fontFamily: 'Poppins-Medium', fontSize: 13 },
+  placeholder: { color: 'rgba(255,255,255,0.5)', fontFamily: 'Poppins-Regular', fontSize: 13, lineHeight: 20 },
+  trackRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8 },
+  trackIcon: { width: 38, height: 38, borderRadius: 12, backgroundColor: 'rgba(76,175,80,0.12)', alignItems: 'center', justifyContent: 'center' },
+  trackInfo: { flex: 1 },
+  trackTitle: { color: '#FFF', fontFamily: 'Poppins-SemiBold', fontSize: 13 },
+  trackMeta: { color: 'rgba(255,255,255,0.55)', fontFamily: 'Poppins-Regular', fontSize: 11, marginTop: 2 },
+  inlineAction: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(76,175,80,0.08)' },
+  amountText: { color: '#FFF', fontFamily: 'Poppins-SemiBold', fontSize: 12 },
+});

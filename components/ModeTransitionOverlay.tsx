@@ -1,9 +1,8 @@
 /**
- * ModeTransitionOverlay — full-screen dimming overlay with "Welcome to [Mode]" card.
- * Rendered globally in the tab layout so it covers everything including the tab bar.
+ * ModeTransitionOverlay - full-screen dimming overlay with "Welcome to [Mode]" card.
  */
 import { ViewMode } from '@/store/useUserStore';
-import { Mic2, Music } from 'lucide-react-native';
+import { Disc3, FolderLock, Layers3, Mic2, Music } from 'lucide-react-native';
 import React from 'react';
 import { Animated, Dimensions, StyleSheet, Text, View } from 'react-native';
 
@@ -17,9 +16,12 @@ interface ModeTransitionOverlayProps {
     welcomeOpacityAnim: Animated.Value;
 }
 
-const MODE_CONFIG = {
+const MODE_CONFIG: Record<ViewMode, { label: string; Icon: any; color: string; subtitle: string }> = {
+    shoout: { label: 'Shoout', Icon: Disc3, color: '#6AA7FF', subtitle: 'Marketplace mode for discovery and buying' },
     vault: { label: 'Vault', Icon: Music, color: '#EC5C39', subtitle: 'Your personal music universe' },
-    studio: { label: 'Studio', Icon: Mic2, color: '#4CAF50', subtitle: 'Create, upload & sell your music' },
+    vault_pro: { label: 'Vault Pro', Icon: FolderLock, color: '#EC5C39', subtitle: 'The same private Vault workflow with much higher limits' },
+    studio: { label: 'Studio', Icon: Mic2, color: '#4CAF50', subtitle: 'Create, upload and sell your music' },
+    hybrid: { label: 'Hybrid', Icon: Layers3, color: '#FFD700', subtitle: 'Combined creator workspace across Vault and Studio' },
 };
 
 export default function ModeTransitionOverlay({
@@ -42,7 +44,6 @@ export default function ModeTransitionOverlay({
             ]}
             pointerEvents="none"
         >
-            {/* Welcome Card animates from bottom-left */}
             <Animated.View
                 style={[
                     styles.welcomeCard,

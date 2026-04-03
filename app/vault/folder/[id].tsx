@@ -181,7 +181,7 @@ export default function FolderDetailScreen() {
                         artist: row.artist || row.uploaderName || auth.currentUser.displayName || 'Unknown Artist',
                         artworkUrl: row.coverUrl || row.artworkUrl || null,
                         audioUrl: row.audioUrl || null,
-                        lifecycleStatus: row.lifecycleStatus || (row.published ? 'published' : 'draft'),
+                        lifecycleStatus: row.lifecycleStatus || (row.published ? 'published' : 'vault_private'),
                         addedAt: serverTimestamp(),
                     },
                     { merge: true }
@@ -262,7 +262,7 @@ export default function FolderDetailScreen() {
                     rightElement={
                         <TouchableOpacity
                             style={styles.iconBtn}
-                            onPress={() => router.push('/studio/upload' as any)}
+                            onPress={() => router.push('/vault/upload' as any)}
                         >
                             <Upload size={20} color="#EC5C39" />
                         </TouchableOpacity>
@@ -293,7 +293,7 @@ export default function FolderDetailScreen() {
                     </TouchableOpacity>
                     <TouchableOpacity
                         style={[styles.actionBtn, styles.actionBtnOutline]}
-                        onPress={() => router.push('/studio/upload' as any)}
+                        onPress={() => router.push('/vault/upload' as any)}
                     >
                         <Upload size={16} color="#EC5C39" />
                         <Text style={[styles.actionBtnText, { color: '#EC5C39' }]}>Upload</Text>
@@ -316,7 +316,7 @@ export default function FolderDetailScreen() {
                                     <Music size={64} color="rgba(255,255,255,0.12)" strokeWidth={1.5} />
                                     <Text style={styles.emptyTitle}>No tracks yet</Text>
                                     <Text style={styles.emptySub}>
-                                        Tap "Add Track" to add existing tracks, or "Upload" to record a new one.
+                                        Add existing private uploads to this folder or upload a new track into Vault.
                                     </Text>
                                     <TouchableOpacity style={styles.emptyBtn} onPress={openAddTrackModal}>
                                         <Plus size={16} color="#FFF" />
@@ -383,7 +383,7 @@ export default function FolderDetailScreen() {
                                                 <View style={styles.availableMeta}>
                                                     <Text style={styles.availableTitle} numberOfLines={1}>{row.title || 'Untitled'}</Text>
                                                     <Text style={styles.availableSub} numberOfLines={1}>
-                                                        {(row.artist || row.uploaderName || 'Unknown Artist')} · {(row.lifecycleStatus || (row.published ? 'published' : 'draft'))}
+                                                        {(row.artist || row.uploaderName || 'Unknown Artist')} | {(row.lifecycleStatus || (row.published ? 'published' : 'vault private'))}
                                                     </Text>
                                                 </View>
                                                 <View style={[styles.selectDot, selected && styles.selectDotActive]} />
@@ -590,3 +590,4 @@ const styles = StyleSheet.create({
     },
     confirmBtnText: { color: '#140F10', fontFamily: 'Poppins-Bold', fontSize: 15 },
 });
+

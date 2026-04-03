@@ -14,13 +14,8 @@ import { auth } from '../firebaseConfig';
 import { hydrateSubscriptionTier } from '@/utils/subscriptionVerification';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useUserStore } from '@/store/useUserStore';
+import { getDefaultAppModeForPlan } from '@/utils/subscriptions';
 
-/**
- * Shared flag — set to true by login/signup/social screens immediately before
- * calling router.replace() so that the onAuthStateChanged listener below
- * knows navigation has already been handled and won't fire a second redirect.
- * Reset to false once the listener has read it.
- */
 export const authNavigationHandled = { current: false };
 
 SplashScreen.preventAutoHideAsync();
@@ -28,9 +23,8 @@ SplashScreen.preventAutoHideAsync();
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const router = useRouter();
-  const [authResolved, setAuthResolved] = useState(false);
+  const [, setAuthResolved] = useState(false);
   const { setVerifying } = useAuthStore();
-  // Tracks whether this is the very first auth event (cold start vs re-auth)
   const isFirstAuthEvent = useRef(true);
   const splashHidden = useRef(false);
   const contentOpacity = useRef(new Animated.Value(0)).current;
@@ -43,19 +37,15 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
-    // Do not start auth-driven navigation until fonts are ready and
-    // the root navigator can mount safely.
     if (!loaded && !error) return;
 
     const unsub = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        // User is authenticated — fetch and verify their subscription tier from server
         try {
           setVerifying(true);
           await hydrateSubscriptionTier();
-        } catch (error) {
-          console.error('Failed to verify subscription tier:', error);
-          // Even if verification fails, allow user to proceed with free tier
+        } catch (verifyError) {
+          console.error('Failed to verify subscription tier:', verifyError);
           useAuthStore.getState().setActualRole('vault');
           useAuthStore.getState().setSubscriptionData({
             tier: 'vault',
@@ -64,22 +54,24 @@ export default function RootLayout() {
           });
           useUserStore.getState().setActualRole('vault');
           useUserStore.getState().setRole('vault');
+          useUserStore.getState().setActiveAppMode('shoout');
         } finally {
           setVerifying(false);
         }
 
-        // Populate name from Firebase Auth so every screen shows the real name,
-        // not the default 'User' hardcoded in the store.
+        const verifiedPlan = useAuthStore.getState().actualRole || 'vault';
+        const currentMode = useUserStore.getState().activeAppMode;
+        const preferredMode = currentMode === 'shoout' ? currentMode : getDefaultAppModeForPlan(verifiedPlan);
+        useUserStore.getState().setActiveAppMode(preferredMode);
+
         const displayName = user.displayName?.trim() || 'User';
         useUserStore.getState().setName(displayName);
 
-        // Only navigate if the auth screen hasn't already redirected.
         if (!authNavigationHandled.current) {
           router.replace('/(tabs)');
         }
         authNavigationHandled.current = false;
       } else {
-        // No authenticated user — redirect to login on initial load only.
         if (isFirstAuthEvent.current) {
           router.replace('/(auth)/onboarding');
         }
@@ -89,13 +81,10 @@ export default function RootLayout() {
       setAuthResolved(true);
     });
 
-    // Safety timeout: if Firebase auth doesn't respond within 5 seconds
-    // (common on web due to network/CORS issues), force the app to render
-    // so the user isn't stuck on a blank screen.
     const authTimeout = setTimeout(() => {
       setAuthResolved((prev) => {
         if (!prev) {
-          console.warn('[layout] Auth timeout — forcing render. User may not be logged in.');
+          console.warn('[layout] Auth timeout - forcing render. User may not be logged in.');
           router.replace('/(auth)/onboarding');
         }
         return true;
@@ -109,7 +98,6 @@ export default function RootLayout() {
   }, [loaded, error, router, setVerifying]);
 
   useEffect(() => {
-    // Configure Google Sign-In (native only — web support requires a paid sponsor tier)
     if (Platform.OS !== 'web') {
       const googleWebClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID?.trim();
       if (!googleWebClientId) {
@@ -133,9 +121,6 @@ export default function RootLayout() {
     }).start();
   }, [loaded, error, contentOpacity]);
 
-  // Block render until fonts are ready — but do NOT block on authResolved.
-  // The navigator must be mounted first so that router.replace() calls from
-  // the auth listener (or the timeout) have a Stack to navigate into.
   if (!loaded && !error) {
     return null;
   }
@@ -145,7 +130,6 @@ export default function RootLayout() {
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
         <Stack initialRouteName="index">
           <Stack.Screen name="index" options={{ headerShown: false }} />
-          <Stack.Screen name="(auth)/role-selection" options={{ headerShown: false }} />
           <Stack.Screen name="(auth)/onboarding" options={{ headerShown: false }} />
           <Stack.Screen name="(auth)/login" options={{ headerShown: false }} />
           <Stack.Screen name="(auth)/signup" options={{ headerShown: false }} />
@@ -171,6 +155,12 @@ export default function RootLayout() {
           <Stack.Screen name="studio/withdraw" options={{ headerShown: false }} />
           <Stack.Screen name="studio/messages" options={{ headerShown: false }} />
           <Stack.Screen name="studio/message-thread" options={{ headerShown: false }} />
+          <Stack.Screen name="studio/settings" options={{ headerShown: false }} />
+          <Stack.Screen name="vault/upload" options={{ headerShown: false }} />
+          <Stack.Screen name="vault/links" options={{ headerShown: false }} />
+          <Stack.Screen name="vault/updates" options={{ headerShown: false }} />
+          <Stack.Screen name="vault/folder/[id]" options={{ headerShown: false }} />
+          <Stack.Screen name="vault/track/[id]" options={{ headerShown: false }} />
           <Stack.Screen name="cart" options={{ headerShown: false }} />
           <Stack.Screen name="chat/index" options={{ headerShown: false }} />
           <Stack.Screen name="chat/[id]" options={{ headerShown: false }} />
@@ -193,4 +183,3 @@ export default function RootLayout() {
     </Animated.View>
   );
 }
-

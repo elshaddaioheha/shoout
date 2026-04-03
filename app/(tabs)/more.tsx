@@ -7,18 +7,20 @@ import { useNotificationStore } from '@/store/useNotificationStore';
 import { usePlaybackStore } from '@/store/usePlaybackStore';
 import { useToastStore } from '@/store/useToastStore';
 import { useUserStore } from '@/store/useUserStore';
+import { canUseHybridServices, canUseStudioServices, getEffectivePlan } from '@/utils/subscriptions';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { onAuthStateChanged } from 'firebase/auth';
-import { Banknote, Bell, ChevronRight, CircleHelp, CreditCard, History, Library, Link2, LogOut, Share2, Shield, ShoppingCart, Sparkles, User } from 'lucide-react-native';
+import { Banknote, Bell, ChevronRight, CircleHelp, CreditCard, History, Library, Link2, LogOut, Share2, Shield, ShoppingCart, Sparkles, UploadCloud, User } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { auth } from '../../firebaseConfig';
 
 export default function MoreScreen() {
     const router = useRouter();
-    const { role, name, reset } = useUserStore();
+    const { role, name, reset, activeAppMode } = useUserStore();
+    const currentPlan = getEffectivePlan(useAuthStore((state) => state.actualRole || state.subscriptionTier || role));
     const { showToast } = useToastStore();
     const { openSheet, isModeSheetOpen, viewMode } = useAppSwitcherContext();
     const [isLoggedIn, setIsLoggedIn] = useState(!!auth.currentUser);
@@ -29,6 +31,14 @@ export default function MoreScreen() {
     }, []);
 
     const isStudioOrHybrid = role?.startsWith('studio') || role?.startsWith('hybrid');
+    const isVaultMode = activeAppMode === 'vault' || activeAppMode === 'vault_pro';
+    const isShooutMode = activeAppMode === 'shoout';
+    const isStudioMode = activeAppMode === 'studio';
+    const isHybridMode = activeAppMode === 'hybrid';
+    const canUseStudioTools = canUseStudioServices(currentPlan);
+    const canUseHybridTools = canUseHybridServices(currentPlan);
+
+    const pushSubscriptions = () => router.push('/settings/subscriptions' as any);
 
     const performLogout = async () => {
         useNotificationStore.getState().stopListening();
@@ -95,6 +105,12 @@ export default function MoreScreen() {
     return (
         <SafeScreenWrapper>
             <View style={styles.container}>
+                <SharedHeader
+                    viewMode={viewMode}
+                    isModeSheetOpen={isModeSheetOpen}
+                    onModePillPress={openSheet}
+                    showCart={isShooutMode}
+                />
                 <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
                     <View style={styles.greetingRow}>
                         <View style={styles.avatarBubble}>
@@ -104,16 +120,44 @@ export default function MoreScreen() {
                     </View>
 
                     <View style={styles.menuContainer}>
-                        <MenuItem icon={Library} label="Library" color="#EC5C39" onPress={() => router.push('/(tabs)/library' as any)} />
-                        <MenuItem icon={ShoppingCart} label="My Cart" color="#EC5C39" onPress={() => router.push('/cart' as any)} />
-                        <MenuItem icon={History} label="History" color="#EC5C39" onPress={() => showToast('Coming soon', 'info')} />
-                        <MenuItem icon={Bell} label="Updates" color="#EC5C39" onPress={() => router.push('/updates' as any)} />
+                        {isVaultMode ? (
+                            <>
+                                <MenuItem icon={Library} label="Vault Home" color="#EC5C39" onPress={() => router.push('/(tabs)/index' as any)} />
+                                <MenuItem icon={UploadCloud} label="Upload Track" color="#EC5C39" onPress={() => router.push('/vault/upload' as any)} />
+                                <MenuItem icon={Link2} label="Shared Links" color="#EC5C39" onPress={() => router.push('/vault/links' as any)} />
+                                <MenuItem icon={Bell} label="Vault Updates" color="#EC5C39" onPress={() => router.push('/vault/updates' as any)} />
+                            </>
+                        ) : isStudioMode ? (
+                            <>
+                                <MenuItem icon={Library} label="Studio Home" color="#4CAF50" onPress={() => router.push('/(tabs)/index' as any)} />
+                                <MenuItem icon={UploadCloud} label="Publish" color="#4CAF50" onPress={() => canUseStudioTools ? router.push('/(tabs)/search' as any) : pushSubscriptions()} />
+                                <MenuItem icon={Banknote} label="Royalties & Earnings" color="#4CAF50" onPress={() => canUseStudioTools ? router.push('/studio/earnings' as any) : pushSubscriptions()} />
+                                <MenuItem icon={Bell} label="Promote & Ads" color="#4CAF50" onPress={() => canUseStudioTools ? router.push('/(tabs)/marketplace' as any) : pushSubscriptions()} />
+                            </>
+                        ) : isHybridMode ? (
+                            <>
+                                <MenuItem icon={Library} label="Hybrid Home" color="#FFD700" onPress={() => router.push('/(tabs)/index' as any)} />
+                                <MenuItem icon={UploadCloud} label="Vault Uploads" color="#FFD700" onPress={() => canUseHybridTools ? router.push('/vault/upload' as any) : pushSubscriptions()} />
+                                <MenuItem icon={Banknote} label="Creator Earnings" color="#FFD700" onPress={() => canUseHybridTools ? router.push('/studio/earnings' as any) : pushSubscriptions()} />
+                                <MenuItem icon={Bell} label="Promotions" color="#FFD700" onPress={() => canUseHybridTools ? router.push('/studio/ads-intro' as any) : pushSubscriptions()} />
+                            </>
+                        ) : (
+                            <>
+                                <MenuItem icon={Library} label="Library" color="#EC5C39" onPress={() => router.push('/(tabs)/library' as any)} />
+                                <MenuItem icon={ShoppingCart} label="My Cart" color="#EC5C39" onPress={() => router.push('/cart' as any)} />
+                                <MenuItem icon={History} label="History" color="#EC5C39" onPress={() => showToast('Coming soon', 'info')} />
+                                <MenuItem icon={Bell} label="Updates" color="#EC5C39" onPress={() => router.push('/updates' as any)} />
+                            </>
+                        )}
                     </View>
 
                     <View style={styles.menuContainer}>
                         <MenuItem icon={User} label="Account" color="#EC5C39" onPress={() => router.push('/(tabs)/profile' as any)} />
-                        <MenuItem icon={CreditCard} label="Payment Methods" color="#EC5C39" onPress={() => router.push('/settings/payment-methods' as any)} />
+                        {!isVaultMode && <MenuItem icon={CreditCard} label="Payment Methods" color="#EC5C39" onPress={() => router.push('/settings/payment-methods' as any)} />}
                         <MenuItem icon={Banknote} label="Subscription" value={role.replace('_', ' ').toUpperCase()} color="#EC5C39" onPress={() => router.push('/settings/subscriptions' as any)} />
+                        {isStudioMode && <MenuItem icon={Sparkles} label="Studio Analytics" color="#4CAF50" onPress={() => canUseStudioTools ? router.push('/studio/analytics' as any) : pushSubscriptions()} />}
+                        {isStudioMode && <MenuItem icon={CircleHelp} label="Studio Settings" color="#4CAF50" onPress={() => canUseStudioTools ? router.push('/studio/settings' as any) : pushSubscriptions()} />}
+                        {isHybridMode && <MenuItem icon={Sparkles} label="Hybrid Analytics" color="#FFD700" onPress={() => canUseHybridTools ? router.push('/studio/analytics' as any) : pushSubscriptions()} />}
                         <MenuItem icon={Share2} label="Share" color="#EC5C39" onPress={() => showToast('Coming soon', 'info')} />
                         <MenuItem icon={CircleHelp} label="Support" color="#EC5C39" onPress={() => showToast('Support coming soon', 'info')} />
                         <MenuItem icon={Shield} label="Privacy & Security" color="#EC5C39" onPress={() => router.push('/settings/privacy' as any)} />
@@ -130,7 +174,7 @@ export default function MoreScreen() {
                                 <Sparkles size={24} color="#FFF" />
                                 <View style={styles.upgradeTextContainer}>
                                     <Text style={styles.upgradeTitle}>Upgrade Your Plan</Text>
-                                    <Text style={styles.upgradeSubtitle}>Unlock uploads & marketplace access</Text>
+                                    <Text style={styles.upgradeSubtitle}>{isVaultMode ? 'Unlock more Vault storage and higher upload limits' : 'Unlock uploads and richer creator access'}</Text>
                                 </View>
                                 <ChevronRight size={20} color="#FFF" />
                             </LinearGradient>
