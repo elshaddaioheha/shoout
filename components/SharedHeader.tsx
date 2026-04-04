@@ -15,6 +15,7 @@ interface SharedHeaderProps {
     cartCount?: number;
     showMessages?: boolean;
     role?: string;
+    customRightContent?: React.ReactNode;
 }
 
 export default function SharedHeader({
@@ -25,6 +26,7 @@ export default function SharedHeader({
     cartCount,
     showMessages,
     role,
+    customRightContent,
 }: SharedHeaderProps) {
     const router = useRouter();
     const { unreadCount } = useNotificationStore();
@@ -55,34 +57,38 @@ export default function SharedHeader({
                 <View style={styles.headerSpacer} />
 
                 <View style={styles.headerRight}>
-                    {shouldShowMessages && (
-                        <TouchableOpacity
-                            style={[styles.iconButton, { marginRight: 8 }]}
-                            onPress={() => router.push('/chat' as any)}
-                        >
-                            <MessageSquare size={18} color="white" />
-                        </TouchableOpacity>
-                    )}
-                    {shouldShowCart && (
-                        <TouchableOpacity
-                            style={[styles.iconButton, { marginRight: 8 }]}
-                            onPress={() => router.push('/cart' as any)}
-                        >
-                            <ShoppingCart size={18} color="white" />
-                            {cartCount != null && cartCount > 0 && (
-                                <View style={styles.badge} />
+                    {customRightContent ?? (
+                        <>
+                            {shouldShowMessages && (
+                                <TouchableOpacity
+                                    style={[styles.iconButton, { marginRight: 8 }]}
+                                    onPress={() => router.push('/chat' as any)}
+                                >
+                                    <MessageSquare size={18} color="white" />
+                                </TouchableOpacity>
                             )}
-                        </TouchableOpacity>
+                            {shouldShowCart && (
+                                <TouchableOpacity
+                                    style={[styles.iconButton, { marginRight: 8 }]}
+                                    onPress={() => router.push('/cart' as any)}
+                                >
+                                    <ShoppingCart size={18} color="white" />
+                                    {cartCount != null && cartCount > 0 && (
+                                        <View style={styles.badge} />
+                                    )}
+                                </TouchableOpacity>
+                            )}
+                            <TouchableOpacity
+                                style={styles.iconButton}
+                                onPress={() => router.push('/notifications' as any)}
+                            >
+                                <Bell size={18} color="white" />
+                                {unreadCount > 0 && (
+                                    <View style={styles.badge} />
+                                )}
+                            </TouchableOpacity>
+                        </>
                     )}
-                    <TouchableOpacity
-                        style={styles.iconButton}
-                        onPress={() => router.push('/notifications' as any)}
-                    >
-                        <Bell size={18} color="white" />
-                        {unreadCount > 0 && (
-                            <View style={styles.badge} />
-                        )}
-                    </TouchableOpacity>
                 </View>
             </View>
         </SafeAreaView>

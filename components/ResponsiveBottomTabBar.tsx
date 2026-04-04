@@ -27,6 +27,10 @@ export default function ResponsiveBottomTabBar(props: BottomTabBarProps) {
     const bottomPadding = insets.bottom > 0 ? insets.bottom : 10;
     const isVaultMode = activeAppMode === 'vault' || activeAppMode === 'vault_pro';
 
+    if (isVaultMode) {
+        return null;
+    }
+
     const tabs: TabConfig[] = activeAppMode === 'studio'
         ? [
             { key: 'index', name: 'index', icon: Home, label: 'Home' },
@@ -62,7 +66,7 @@ export default function ResponsiveBottomTabBar(props: BottomTabBarProps) {
             { key: 'more', name: 'more', icon: MoreHorizontal, label: 'More' },
         ];
 
-    const barWidth = isVaultMode ? Math.min(210, width - 80) : Math.min(335, width - 28);
+    const barWidth = Math.min(335, width - 28);
 
     const getRouteIndex = (tabName: string) => {
         if (!state || !state.routes) return -1;

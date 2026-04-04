@@ -43,6 +43,14 @@ export default function ArtistProfileScreen() {
     const [isFollowPending, setIsFollowPending] = useState(false);
     const { showToast } = useToastStore();
 
+    const handleBack = () => {
+        if (router.canGoBack()) {
+            router.back();
+            return;
+        }
+        router.replace('/(tabs)/more');
+    };
+
     const resolveScheduledMs = (track: any): number | null => {
         const raw = track?.scheduledReleaseAtMs;
         if (typeof raw === 'number' && Number.isFinite(raw)) return raw;
@@ -162,7 +170,7 @@ export default function ArtistProfileScreen() {
                         colors={['#EC5C39', '#140F10']}
                         style={styles.backdrop}
                     />
-                    <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+                    <TouchableOpacity onPress={handleBack} style={styles.backBtn}>
                         <ChevronLeft size={24} color="#FFF" />
                     </TouchableOpacity>
                     <TouchableOpacity style={styles.shareBtn}>

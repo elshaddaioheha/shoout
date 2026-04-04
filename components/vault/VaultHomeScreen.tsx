@@ -1,14 +1,15 @@
 import { useAppSwitcherContext } from '@/app/(tabs)/_layout';
 import SharedHeader from '@/components/SharedHeader';
+import VaultFloatingActionMenu from '@/components/vault/VaultFloatingActionMenu';
 import { useVaultWorkspaceData } from '@/hooks/useVaultWorkspaceData';
 import { useToastStore } from '@/store/useToastStore';
 import { useUserStore } from '@/store/useUserStore';
 import { formatPlanLabel } from '@/utils/subscriptions';
 import { useRouter } from 'expo-router';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
-import { Archive, FolderPlus, Link2, Music4, RefreshCw, Share2, UploadCloud } from 'lucide-react-native';
-import React, { useMemo, useState } from 'react';
-import { Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Archive, Bell, FolderPlus, Link2, Music4, RefreshCw, Search, User } from 'lucide-react-native';
+import React, { useMemo, useRef, useState } from 'react';
+import { Animated, Dimensions, Easing, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { auth, db } from '@/firebaseConfig';
 
@@ -27,6 +28,8 @@ function formatRelative(createdAtMs: number) {
   return `${diffDays}d ago`;
 }
 
+const SEARCH_SHEET_OFFSET = Math.round(Dimensions.get('window').width * 0.18);
+
 export default function VaultHomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -38,12 +41,16 @@ export default function VaultHomeScreen() {
     storageLimitGB,
     maxVaultUploads,
     canUploadToVault,
-    canShareVaultLinks,
   } = useUserStore((state) => state);
   const { uploads, folders, shareLinks, recentActivities, usedStorageGB, loading } = useVaultWorkspaceData();
   const [showCreateFolderSheet, setShowCreateFolderSheet] = useState(false);
+  const [showSearchSheet, setShowSearchSheet] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [folderName, setFolderName] = useState('');
   const [creatingFolder, setCreatingFolder] = useState(false);
+  const searchOverlayOpacity = useRef(new Animated.Value(0)).current;
+  const searchSheetOpacity = useRef(new Animated.Value(0)).current;
+  const searchSheetTranslateX = useRef(new Animated.Value(SEARCH_SHEET_OFFSET)).current;
 
   const currentPlanLabel = formatPlanLabel(actualRole || role);
   const storageSummary = `${formatStorage(usedStorageGB)} / ${formatStorage(storageLimitGB)}`;
@@ -52,11 +59,65 @@ export default function VaultHomeScreen() {
   const storageLimitReached = storageLimitGB > 0 && usedStorageGB >= storageLimitGB;
   const vaultIsEmpty = uploads.length === 0 && folders.length === 0 && shareLinks.length === 0;
 
+  const openSearchSheet = () => {
+    searchOverlayOpacity.setValue(0);
+    searchSheetOpacity.setValue(0);
+    searchSheetTranslateX.setValue(SEARCH_SHEET_OFFSET);
+    setShowSearchSheet(true);
+
+    Animated.parallel([
+      Animated.timing(searchOverlayOpacity, {
+        toValue: 1,
+        duration: 170,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }),
+      Animated.timing(searchSheetOpacity, {
+        toValue: 1,
+        duration: 190,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }),
+      Animated.timing(searchSheetTranslateX, {
+        toValue: 0,
+        duration: 220,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
+  const closeSearchSheet = (onClosed?: () => void) => {
+    Animated.parallel([
+      Animated.timing(searchOverlayOpacity, {
+        toValue: 0,
+        duration: 150,
+        easing: Easing.in(Easing.quad),
+        useNativeDriver: true,
+      }),
+      Animated.timing(searchSheetOpacity, {
+        toValue: 0,
+        duration: 150,
+        easing: Easing.in(Easing.quad),
+        useNativeDriver: true,
+      }),
+      Animated.timing(searchSheetTranslateX, {
+        toValue: -SEARCH_SHEET_OFFSET,
+        duration: 190,
+        easing: Easing.in(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start(({ finished }) => {
+      if (!finished) return;
+      setShowSearchSheet(false);
+      if (onClosed) onClosed();
+    });
+  };
+
   const quickActions = useMemo(() => ([
     {
-      key: 'upload',
-      label: 'Upload Track',
-      icon: UploadCloud,
+      key: 'import',
+      label: 'Import',
       onPress: () => {
         if (!canUploadToVault) {
           showToast('Upgrade your plan to upload into Vault.', 'info');
@@ -77,31 +138,73 @@ export default function VaultHomeScreen() {
       },
     },
     {
+      key: 'convert',
+      label: 'Convert',
+      onPress: () => showToast('Audio convert tools are coming soon.', 'info'),
+    },
+    {
+      key: 'project',
+      label: 'Project',
+      onPress: () => showToast('Projects are coming soon.', 'info'),
+    },
+    {
       key: 'folder',
-      label: 'Create Folder',
-      icon: FolderPlus,
+      label: 'Folder',
       onPress: () => setShowCreateFolderSheet(true),
     },
-    {
-      key: 'links',
-      label: 'Share Link',
-      icon: Share2,
-      onPress: () => {
-        if (!canShareVaultLinks) {
-          showToast('Upgrade your plan to share Vault links.', 'info');
-          router.push('/settings/subscriptions' as any);
-          return;
-        }
-        router.push('/vault/links' as any);
-      },
-    },
-    {
-      key: 'updates',
-      label: 'Updates',
-      icon: RefreshCw,
-      onPress: () => router.push('/vault/updates' as any),
-    },
-  ]), [canShareVaultLinks, canUploadToVault, router, showToast, storageLimitReached, uploadLimitReached]);
+  ]), [canUploadToVault, router, showToast, storageLimitReached, uploadLimitReached]);
+
+  const searchResults = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return [];
+
+    const uploadMatches = uploads
+      .filter((upload) =>
+        String(upload.title || '').toLowerCase().includes(query) ||
+        String(upload.artist || upload.uploaderName || '').toLowerCase().includes(query)
+      )
+      .slice(0, 4)
+      .map((upload) => ({
+        id: `upload-${upload.id}`,
+        title: upload.title || 'Untitled Track',
+        subtitle: upload.artist || upload.uploaderName || 'Private vault track',
+        onPress: () => {
+          closeSearchSheet(() => {
+            router.push({ pathname: '/vault/track/[id]', params: { id: upload.id } } as any);
+          });
+        },
+      }));
+
+    const folderMatches = folders
+      .filter((folder) => String(folder.name || '').toLowerCase().includes(query))
+      .slice(0, 4)
+      .map((folder) => ({
+        id: `folder-${folder.id}`,
+        title: folder.name,
+        subtitle: 'Folder',
+        onPress: () => {
+          closeSearchSheet(() => {
+            router.push({ pathname: '/vault/folder/[id]', params: { id: folder.id, name: folder.name } } as any);
+          });
+        },
+      }));
+
+    const linkMatches = shareLinks
+      .filter((link) => String(link.title || '').toLowerCase().includes(query))
+      .slice(0, 3)
+      .map((link) => ({
+        id: `link-${link.id}`,
+        title: link.title || 'Private link',
+        subtitle: link.type === 'folder' ? 'Folder link' : 'Track link',
+        onPress: () => {
+          closeSearchSheet(() => {
+            router.push('/vault/links' as any);
+          });
+        },
+      }));
+
+    return [...uploadMatches, ...folderMatches, ...linkMatches].slice(0, 8);
+  }, [folders, router, searchQuery, shareLinks, uploads]);
 
   const createFolder = async () => {
     const cleanName = folderName.trim();
@@ -143,11 +246,36 @@ export default function VaultHomeScreen() {
         onModePillPress={openSheet}
         showMessages={false}
         showCart={false}
+        customRightContent={(
+          <View style={styles.vaultHeaderActions}>
+            <TouchableOpacity
+              style={styles.vaultHeaderButton}
+              onPress={() => router.push('/vault/updates' as any)}
+              activeOpacity={0.8}
+            >
+              <Bell size={17} color="#FFFFFF" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.vaultHeaderButton}
+              onPress={openSearchSheet}
+              activeOpacity={0.8}
+            >
+              <Search size={17} color="#FFFFFF" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.vaultHeaderButton, styles.profileButton]}
+              onPress={() => router.push('/(tabs)/more' as any)}
+              activeOpacity={0.8}
+            >
+              <User size={17} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+        )}
       />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 120 }]}
+        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 168 }]}
       >
         <View style={styles.heroCard}>
           <View style={styles.heroHeaderRow}>
@@ -175,17 +303,6 @@ export default function VaultHomeScreen() {
               {uploadLimitReached ? 'Upload limit reached.' : 'Storage limit reached.'} Upgrade to Vault Pro for more room.
             </Text>
           ) : null}
-        </View>
-
-        <View style={styles.actionGrid}>
-          {quickActions.map((action) => (
-            <TouchableOpacity key={action.key} style={styles.actionCard} onPress={action.onPress} activeOpacity={0.85}>
-              <View style={styles.actionIconWrap}>
-                <action.icon size={20} color="#EC5C39" />
-              </View>
-              <Text style={styles.actionLabel}>{action.label}</Text>
-            </TouchableOpacity>
-          ))}
         </View>
 
         {vaultIsEmpty ? (
@@ -283,6 +400,8 @@ export default function VaultHomeScreen() {
         </View>
       </ScrollView>
 
+      <VaultFloatingActionMenu actions={quickActions} />
+
       <Modal visible={showCreateFolderSheet} transparent animationType="slide" onRequestClose={() => setShowCreateFolderSheet(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
@@ -304,6 +423,54 @@ export default function VaultHomeScreen() {
               </TouchableOpacity>
             </View>
           </View>
+        </View>
+      </Modal>
+
+      <Modal visible={showSearchSheet} transparent animationType="none" onRequestClose={() => closeSearchSheet()}>
+        <View style={styles.searchModalRoot}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => closeSearchSheet()}>
+            <Animated.View style={[styles.searchBackdrop, { opacity: searchOverlayOpacity }]} />
+          </Pressable>
+          <Animated.View
+            style={[
+              styles.searchCard,
+              {
+                opacity: searchSheetOpacity,
+                transform: [{ translateX: searchSheetTranslateX }],
+              },
+            ]}
+          >
+            <Text style={styles.modalTitle}>Search Vault</Text>
+            <Text style={styles.modalSubtitle}>Find tracks, folders, and private links inside your Vault.</Text>
+            <TextInput
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Search uploads, folders, links..."
+              placeholderTextColor="rgba(255,255,255,0.35)"
+              style={styles.input}
+              autoFocus
+            />
+            <View style={styles.searchResultsWrap}>
+              {!searchQuery.trim() ? <Text style={styles.placeholderText}>Start typing to search your Vault.</Text> : null}
+              {searchQuery.trim() && searchResults.length === 0 ? <Text style={styles.placeholderText}>No matching items found.</Text> : null}
+              {searchResults.map((result) => (
+                <TouchableOpacity key={result.id} style={styles.searchResultRow} onPress={result.onPress} activeOpacity={0.85}>
+                  <View style={styles.rowIconWrap}>
+                    <Search size={16} color="#EC5C39" />
+                  </View>
+                  <View style={styles.rowInfo}>
+                    <Text style={styles.rowTitle} numberOfLines={1}>{result.title}</Text>
+                    <Text style={styles.rowSubtitle} numberOfLines={1}>{result.subtitle}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={styles.modalSecondaryButton} onPress={() => closeSearchSheet()} activeOpacity={0.85}>
+                <Text style={styles.modalSecondaryText}>Close</Text>
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
         </View>
       </Modal>
     </View>
@@ -331,6 +498,24 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 20,
     gap: 18,
+  },
+  vaultHeaderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  vaultHeaderButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  profileButton: {
+    backgroundColor: 'rgba(255,255,255,0.1)',
   },
   heroCard: {
     marginTop: 10,
@@ -406,34 +591,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins-Regular',
     fontSize: 12,
     lineHeight: 18,
-  },
-  actionGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  actionCard: {
-    width: '47%',
-    backgroundColor: '#1A1A1B',
-    borderRadius: 18,
-    paddingHorizontal: 16,
-    paddingVertical: 18,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
-    gap: 12,
-  },
-  actionIconWrap: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    backgroundColor: 'rgba(236,92,57,0.13)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  actionLabel: {
-    color: '#FFFFFF',
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 15,
   },
   emptyState: {
     backgroundColor: '#1A1A1B',
@@ -549,12 +706,47 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     backgroundColor: 'rgba(0,0,0,0.6)',
   },
+  searchModalRoot: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  searchBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.62)',
+  },
   modalCard: {
     backgroundColor: '#1A1516',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     padding: 24,
     gap: 12,
+  },
+  searchCard: {
+    backgroundColor: '#1A1516',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    padding: 24,
+    gap: 12,
+    minHeight: 420,
+    marginTop: 'auto',
+  },
+  searchResultsWrap: {
+    minHeight: 180,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+    overflow: 'hidden',
+    paddingVertical: 6,
+  },
+  searchResultRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.04)',
   },
   modalTitle: {
     color: '#FFFFFF',

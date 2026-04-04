@@ -188,6 +188,14 @@ export default function ProfileScreen() {
         );
     };
 
+    const handleBack = () => {
+        if (router.canGoBack()) {
+            router.back();
+            return;
+        }
+        router.replace('/(tabs)/more');
+    };
+
     return (
         <SafeScreenWrapper>
             <ScrollView
@@ -197,7 +205,7 @@ export default function ProfileScreen() {
             >
                 {/* Header */}
                 <View style={styles.header}>
-                    <TouchableOpacity style={styles.iconButton} onPress={() => router.back()}>
+                    <TouchableOpacity style={styles.iconButton} onPress={handleBack}>
                         <ChevronLeft size={22} color="#FFF" />
                     </TouchableOpacity>
                     <Text style={styles.headerTitle}>Profile</Text>

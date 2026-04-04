@@ -90,6 +90,14 @@ export default function UpdatesScreen() {
   const router = useRouter();
   const [feed, setFeed] = useState<UpdateGroup[]>(fallbackFeed);
 
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace('/(tabs)/more');
+  };
+
   useEffect(() => {
     const loadUpdates = async () => {
       try {
@@ -135,7 +143,7 @@ export default function UpdatesScreen() {
     <SafeScreenWrapper>
       <View style={styles.container}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <TouchableOpacity onPress={handleBack} style={styles.backBtn}>
             <ChevronLeft size={22} color="#FFF" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Updates</Text>

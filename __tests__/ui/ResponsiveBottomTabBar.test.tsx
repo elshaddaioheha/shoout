@@ -75,7 +75,7 @@ describe('ResponsiveBottomTabBar', () => {
     expect(UNSAFE_getAllByType(TouchableOpacity)).toHaveLength(4);
   });
 
-  it('renders only home and more for vault mode', () => {
+  it('hides the bottom tab bar for vault mode', () => {
     useUserStore.mockImplementation((selector: any) =>
       selector({ activeAppMode: 'vault', role: 'vault' })
     );
@@ -85,13 +85,13 @@ describe('ResponsiveBottomTabBar', () => {
       state: { ...baseProps.state, index: 4 },
     };
 
-    const { getByText, queryByText, UNSAFE_getAllByType } = render(<ResponsiveBottomTabBar {...vaultProps} />);
+    const { queryByText, toJSON } = render(<ResponsiveBottomTabBar {...vaultProps} />);
 
-    expect(getByText('More')).toBeTruthy();
+    expect(queryByText('More')).toBeNull();
     expect(queryByText('Search')).toBeNull();
     expect(queryByText('Cart')).toBeNull();
     expect(queryByText('Explore')).toBeNull();
-    expect(UNSAFE_getAllByType(TouchableOpacity)).toHaveLength(2);
+    expect(toJSON()).toBeNull();
   });
 
   it('renders a creator tab set for studio mode', () => {

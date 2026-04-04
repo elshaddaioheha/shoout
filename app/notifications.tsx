@@ -9,6 +9,14 @@ export default function NotificationsFeedScreen() {
     const router = useRouter();
     const { notifications, unreadCount, markAsRead, markAllAsRead, startListening } = useNotificationStore();
 
+    const handleBack = () => {
+        if (router.canGoBack()) {
+            router.back();
+            return;
+        }
+        router.replace('/(tabs)/more');
+    };
+
     useEffect(() => {
         startListening();
     }, [startListening]);
@@ -71,7 +79,7 @@ export default function NotificationsFeedScreen() {
             <View style={styles.container}>
                 {/* Header */}
                 <View style={styles.header}>
-                    <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+                    <TouchableOpacity onPress={handleBack} style={styles.backBtn}>
                         <ChevronLeft size={24} color="#FFF" />
                     </TouchableOpacity>
                     <Text style={styles.headerTitle}>Notifications</Text>

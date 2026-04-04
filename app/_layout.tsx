@@ -128,44 +128,52 @@ export default function RootLayout() {
   return (
     <Animated.View style={{ flex: 1, opacity: contentOpacity }} onLayout={onRootLayout}>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <Stack initialRouteName="index">
-          <Stack.Screen name="index" options={{ headerShown: false }} />
-          <Stack.Screen name="(auth)/onboarding" options={{ headerShown: false }} />
-          <Stack.Screen name="(auth)/login" options={{ headerShown: false }} />
-          <Stack.Screen name="(auth)/signup" options={{ headerShown: false }} />
-          <Stack.Screen name="(auth)/studio-creation" options={{ headerShown: false }} />
-          <Stack.Screen name="(auth)/forgot-password" options={{ headerShown: false }} />
-          <Stack.Screen name="(auth)/forgot-password-code" options={{ headerShown: false }} />
-          <Stack.Screen name="(auth)/reset-password" options={{ headerShown: false }} />
-          <Stack.Screen name="(auth)/signup-otp" options={{ headerShown: false }} />
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="admin" options={{ headerShown: false }} />
-          <Stack.Screen name="settings/payment-methods" options={{ headerShown: false }} />
-          <Stack.Screen name="settings/subscriptions" options={{ headerShown: false }} />
-          <Stack.Screen name="settings/notifications" options={{ headerShown: false }} />
-          <Stack.Screen name="settings/privacy" options={{ headerShown: false }} />
-          <Stack.Screen name="notifications" options={{ headerShown: false }} />
-          <Stack.Screen name="studio/analytics" options={{ headerShown: false }} />
-          <Stack.Screen name="studio/ads-intro" options={{ headerShown: false }} />
-          <Stack.Screen name="studio/ads-creation" options={{ headerShown: false }} />
-          <Stack.Screen name="studio/ads-success" options={{ headerShown: false }} />
-          <Stack.Screen name="studio/ads-example" options={{ headerShown: false }} />
-          <Stack.Screen name="studio/earnings" options={{ headerShown: false }} />
-          <Stack.Screen name="studio/upload" options={{ headerShown: false }} />
-          <Stack.Screen name="studio/withdraw" options={{ headerShown: false }} />
-          <Stack.Screen name="studio/messages" options={{ headerShown: false }} />
-          <Stack.Screen name="studio/message-thread" options={{ headerShown: false }} />
-          <Stack.Screen name="studio/settings" options={{ headerShown: false }} />
-          <Stack.Screen name="vault/upload" options={{ headerShown: false }} />
-          <Stack.Screen name="vault/links" options={{ headerShown: false }} />
-          <Stack.Screen name="vault/updates" options={{ headerShown: false }} />
-          <Stack.Screen name="vault/folder/[id]" options={{ headerShown: false }} />
-          <Stack.Screen name="vault/track/[id]" options={{ headerShown: false }} />
-          <Stack.Screen name="cart" options={{ headerShown: false }} />
-          <Stack.Screen name="chat/index" options={{ headerShown: false }} />
-          <Stack.Screen name="chat/[id]" options={{ headerShown: false }} />
-          <Stack.Screen name="merch/index" options={{ headerShown: false }} />
-          <Stack.Screen name="profile/[id]" options={{ headerShown: false }} />
+        <Stack
+          initialRouteName="index"
+          screenOptions={{
+            headerShown: false,
+            animation: 'slide_from_right',
+            gestureEnabled: true,
+            fullScreenGestureEnabled: true,
+          }}
+        >
+          <Stack.Screen name="index" />
+          <Stack.Screen name="(auth)/onboarding" />
+          <Stack.Screen name="(auth)/login" />
+          <Stack.Screen name="(auth)/signup" />
+          <Stack.Screen name="(auth)/studio-creation" />
+          <Stack.Screen name="(auth)/forgot-password" />
+          <Stack.Screen name="(auth)/forgot-password-code" />
+          <Stack.Screen name="(auth)/reset-password" />
+          <Stack.Screen name="(auth)/signup-otp" />
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="admin" />
+          <Stack.Screen name="settings/payment-methods" />
+          <Stack.Screen name="settings/subscriptions" />
+          <Stack.Screen name="settings/notifications" />
+          <Stack.Screen name="settings/privacy" />
+          <Stack.Screen name="notifications" />
+          <Stack.Screen name="studio/analytics" />
+          <Stack.Screen name="studio/ads-intro" />
+          <Stack.Screen name="studio/ads-creation" />
+          <Stack.Screen name="studio/ads-success" />
+          <Stack.Screen name="studio/ads-example" />
+          <Stack.Screen name="studio/earnings" />
+          <Stack.Screen name="studio/upload" />
+          <Stack.Screen name="studio/withdraw" />
+          <Stack.Screen name="studio/messages" />
+          <Stack.Screen name="studio/message-thread" />
+          <Stack.Screen name="studio/settings" />
+          <Stack.Screen name="vault/upload" />
+          <Stack.Screen name="vault/links" />
+          <Stack.Screen name="vault/updates" />
+          <Stack.Screen name="vault/folder/[id]" />
+          <Stack.Screen name="vault/track/[id]" />
+          <Stack.Screen name="cart" />
+          <Stack.Screen name="chat/index" />
+          <Stack.Screen name="chat/[id]" />
+          <Stack.Screen name="merch/index" />
+          <Stack.Screen name="profile/[id]" />
           <Stack.Screen
             name="listing/[id]"
             options={{
