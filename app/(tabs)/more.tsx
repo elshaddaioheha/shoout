@@ -137,9 +137,12 @@ export default function MoreScreen() {
                         ) : isHybridMode ? (
                             <>
                                 <MenuItem icon={Library} label="Hybrid Home" color="#FFD700" onPress={() => router.push('/(tabs)/index' as any)} />
-                                <MenuItem icon={UploadCloud} label="Vault Uploads" color="#FFD700" onPress={() => canUseHybridTools ? router.push('/vault/upload' as any) : pushSubscriptions()} />
+                                <MenuItem icon={UploadCloud} label="Publish" color="#FFD700" onPress={() => canUseHybridTools ? router.push('/(tabs)/search' as any) : pushSubscriptions()} />
                                 <MenuItem icon={Banknote} label="Creator Earnings" color="#FFD700" onPress={() => canUseHybridTools ? router.push('/studio/earnings' as any) : pushSubscriptions()} />
-                                <MenuItem icon={Bell} label="Promotions" color="#FFD700" onPress={() => canUseHybridTools ? router.push('/studio/ads-intro' as any) : pushSubscriptions()} />
+                                <MenuItem icon={Bell} label="Promote & Ads" color="#FFD700" onPress={() => canUseHybridTools ? router.push('/(tabs)/marketplace' as any) : pushSubscriptions()} />
+                                <MenuItem icon={UploadCloud} label="Vault Workspace" color="#FFD700" onPress={() => router.push('/(tabs)/library' as any)} />
+                                <MenuItem icon={Link2} label="Vault Links" color="#FFD700" onPress={() => canUseHybridTools ? router.push('/vault/links' as any) : pushSubscriptions()} />
+                                <MenuItem icon={Bell} label="Vault Updates" color="#FFD700" onPress={() => canUseHybridTools ? router.push('/vault/updates' as any) : pushSubscriptions()} />
                             </>
                         ) : (
                             <>
@@ -158,6 +161,7 @@ export default function MoreScreen() {
                         {isStudioMode && <MenuItem icon={Sparkles} label="Studio Analytics" color="#4CAF50" onPress={() => canUseStudioTools ? router.push('/studio/analytics' as any) : pushSubscriptions()} />}
                         {isStudioMode && <MenuItem icon={CircleHelp} label="Studio Settings" color="#4CAF50" onPress={() => canUseStudioTools ? router.push('/studio/settings' as any) : pushSubscriptions()} />}
                         {isHybridMode && <MenuItem icon={Sparkles} label="Hybrid Analytics" color="#FFD700" onPress={() => canUseHybridTools ? router.push('/studio/analytics' as any) : pushSubscriptions()} />}
+                        {isHybridMode && <MenuItem icon={CircleHelp} label="Studio Settings" color="#FFD700" onPress={() => canUseHybridTools ? router.push('/studio/settings' as any) : pushSubscriptions()} />}
                         <MenuItem icon={Share2} label="Share" color="#EC5C39" onPress={() => showToast('Coming soon', 'info')} />
                         <MenuItem icon={CircleHelp} label="Support" color="#EC5C39" onPress={() => showToast('Support coming soon', 'info')} />
                         <MenuItem icon={Shield} label="Privacy & Security" color="#EC5C39" onPress={() => router.push('/settings/privacy' as any)} />

@@ -1,5 +1,6 @@
 import { useAppSwitcherContext } from '@/app/(tabs)/_layout';
 import ActionSheet from '@/components/ActionSheet';
+import HybridDashboardScreen from '@/components/studio/HybridDashboardScreen';
 import SharedHeader from '@/components/SharedHeader';
 import StudioDashboardScreen from '@/components/studio/StudioDashboardScreen';
 import VaultHomeScreen from '@/components/vault/VaultHomeScreen';
@@ -89,6 +90,10 @@ export default function HomeScreen() {
 
   if (activeAppMode === 'studio') {
     return <StudioDashboardScreen />;
+  }
+
+  if (activeAppMode === 'hybrid') {
+    return <HybridDashboardScreen />;
   }
 
   return (

@@ -5,7 +5,7 @@ import ExploreScreen from './explore';
 export default function SearchScreen() {
     const activeAppMode = useUserStore((state) => state.activeAppMode);
 
-    if (activeAppMode === 'studio') {
+    if (activeAppMode === 'studio' || activeAppMode === 'hybrid') {
         return <StudioPublishScreen />;
     }
 

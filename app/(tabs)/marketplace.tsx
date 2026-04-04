@@ -124,7 +124,7 @@ export default function MarketplaceScreen() {
 
     const isStudioMode = activeAppMode === 'studio' || activeAppMode === 'hybrid';
 
-    if (activeAppMode === 'studio') {
+    if (activeAppMode === 'studio' || activeAppMode === 'hybrid') {
         return <StudioPromoteScreen />;
     }
 

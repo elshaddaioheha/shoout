@@ -97,7 +97,7 @@ export default function LibraryScreen() {
   const [folderCreated, setFolderCreated] = useState(false);
   const [creatingFolder, setCreatingFolder] = useState(false);
 
-  if (user.activeAppMode === 'vault' || user.activeAppMode === 'vault_pro') {
+  if (user.activeAppMode === 'vault' || user.activeAppMode === 'vault_pro' || user.activeAppMode === 'hybrid') {
     return <VaultHomeScreen />;
   }
 

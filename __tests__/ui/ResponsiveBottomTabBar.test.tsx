@@ -119,12 +119,12 @@ describe('ResponsiveBottomTabBar', () => {
 
     const hybridProps = {
       ...baseProps,
-      state: { ...baseProps.state, index: 3 },
+      state: { ...baseProps.state, index: 2 },
     };
 
     const { getByText, queryByText, UNSAFE_getAllByType } = render(<ResponsiveBottomTabBar {...hybridProps} />);
 
-    expect(getByText('Studio')).toBeTruthy();
+    expect(getByText('Promote')).toBeTruthy();
     expect(queryByText('Cart')).toBeNull();
     expect(UNSAFE_getAllByType(TouchableOpacity)).toHaveLength(5);
   });

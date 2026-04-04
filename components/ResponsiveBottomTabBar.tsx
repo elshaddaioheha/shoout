@@ -27,17 +27,19 @@ export default function ResponsiveBottomTabBar(props: BottomTabBarProps) {
     const bottomPadding = insets.bottom > 0 ? insets.bottom : 10;
     const isVaultMode = activeAppMode === 'vault' || activeAppMode === 'vault_pro';
 
-    const creatorLabel = activeAppMode === 'shoout'
-        ? 'Shoout'
-        : (activeAppMode === 'studio' || activeAppMode === 'hybrid' || role === 'studio' || role === 'hybrid'
-            ? 'Studio'
-            : 'Vault');
-
     const tabs: TabConfig[] = activeAppMode === 'studio'
         ? [
             { key: 'index', name: 'index', icon: Home, label: 'Home' },
             { key: 'search', name: 'search', icon: UploadCloudIcon, label: 'Publish' },
             { key: 'marketplace', name: 'marketplace', icon: MegaphoneIcon, label: 'Promote' },
+            { key: 'more', name: 'more', icon: MoreHorizontal, label: 'More' },
+        ]
+        : activeAppMode === 'hybrid'
+        ? [
+            { key: 'index', name: 'index', icon: Home, label: 'Home' },
+            { key: 'search', name: 'search', icon: UploadCloudIcon, label: 'Publish' },
+            { key: 'marketplace', name: 'marketplace', icon: MegaphoneIcon, label: 'Promote' },
+            { key: 'library', name: 'library', icon: Library, label: 'Vault' },
             { key: 'more', name: 'more', icon: MoreHorizontal, label: 'More' },
         ]
         : (activeAppMode === 'vault' || activeAppMode === 'vault_pro')
@@ -56,7 +58,7 @@ export default function ResponsiveBottomTabBar(props: BottomTabBarProps) {
             { key: 'index', name: 'index', icon: Home, label: 'Home' },
             { key: 'search', name: 'search', icon: Search, label: 'Explore' },
             { key: 'marketplace', name: 'marketplace', icon: ShoppingCart, label: 'Market Place' },
-            { key: 'library', name: 'library', icon: Library, label: creatorLabel },
+            { key: 'library', name: 'library', icon: Library, label: role === 'studio' || role === 'hybrid' ? 'Studio' : 'Vault' },
             { key: 'more', name: 'more', icon: MoreHorizontal, label: 'More' },
         ];
 
