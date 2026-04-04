@@ -147,72 +147,75 @@ export default function ModeSelectorSheet({
                     { paddingBottom: insets.bottom + 24, transform: [{ translateY: slideAnim }] },
                 ]}
             >
-                <View style={styles.handle} />
+                <BlurView intensity={28} tint="dark" style={styles.sheetBlur}>
+                    <View style={styles.sheetChrome} />
+                    <View style={styles.handle} />
 
-                <Text style={styles.sheetTitle}>Switch Experience</Text>
-                <Text style={styles.sheetSubtitle}>Current subscription: {formatPlanLabel(currentPlan)}</Text>
+                    <Text style={styles.sheetTitle}>Switch Experience</Text>
+                    <Text style={styles.sheetSubtitle}>Current subscription: {formatPlanLabel(currentPlan)}</Text>
 
-                <View style={styles.modeList}>
-                    {VIEW_MODES.map((mode) => {
-                        const accessible = isModeAccessible(mode.id);
-                        const isActive = mode.id === currentMode;
-                        const plan = getSubscriptionPlan(mode.id);
+                    <View style={styles.modeList}>
+                        {VIEW_MODES.map((mode) => {
+                            const accessible = isModeAccessible(mode.id);
+                            const isActive = mode.id === currentMode;
+                            const plan = getSubscriptionPlan(mode.id);
 
-                        return (
-                            <TouchableOpacity
-                                key={mode.id}
-                                style={[
-                                    styles.modeRow,
-                                    isActive && { borderColor: mode.color + '55', backgroundColor: mode.color + '10' },
-                                    !accessible && { opacity: 0.72 },
-                                ]}
-                                onPress={() => {
-                                    if (!accessible) {
-                                        onClose();
-                                        router.push('/settings/subscriptions' as any);
-                                        return;
-                                    }
-                                    onSelect(mode.id);
-                                }}
-                                activeOpacity={0.7}
-                            >
-                                <View style={[styles.modeIconBg, { backgroundColor: mode.color + '18' }]}>
-                                    <mode.Icon size={22} color={mode.color} />
-                                </View>
-
-                                <View style={styles.modeInfo}>
-                                    <View style={styles.modeLabelRow}>
-                                        <Text style={styles.modeLabel}>{mode.label}</Text>
-                                        {!accessible ? (
-                                            <View style={[styles.planBadge, { backgroundColor: mode.color + '22' }]}>
-                                                <Text style={[styles.planBadgeText, { color: mode.color }]}>Locked</Text>
-                                            </View>
-                                        ) : null}
+                            return (
+                                <TouchableOpacity
+                                    key={mode.id}
+                                    style={[
+                                        styles.modeRow,
+                                        isActive && { borderColor: mode.color + '55', backgroundColor: mode.color + '10' },
+                                        !accessible && { opacity: 0.72 },
+                                    ]}
+                                    onPress={() => {
+                                        if (!accessible) {
+                                            onClose();
+                                            router.push('/settings/subscriptions' as any);
+                                            return;
+                                        }
+                                        onSelect(mode.id);
+                                    }}
+                                    activeOpacity={0.7}
+                                >
+                                    <View style={[styles.modeIconBg, { backgroundColor: mode.color + '18' }]}>
+                                        <mode.Icon size={22} color={mode.color} />
                                     </View>
-                                    <Text style={styles.modeDesc}>{mode.description}</Text>
-                                    <Text style={styles.modePrice}>
-                                        {plan.monthlyPriceUsd === 0 ? 'Free' : `$${plan.monthlyPriceUsd.toFixed(2)}/mo`}
-                                    </Text>
-                                </View>
 
-                                <View style={styles.modeRight}>
-                                    {isActive ? (
-                                        <CheckCircle2 size={22} color={mode.color} fill={mode.color} />
-                                    ) : !accessible ? (
-                                        <View style={[styles.unlockBtn, { borderColor: mode.color + '60' }]}>
-                                            <Lock size={11} color={mode.color} />
-                                            <Text style={[styles.unlockText, { color: mode.color }]}>Unlock</Text>
+                                    <View style={styles.modeInfo}>
+                                        <View style={styles.modeLabelRow}>
+                                            <Text style={styles.modeLabel}>{mode.label}</Text>
+                                            {!accessible ? (
+                                                <View style={[styles.planBadge, { backgroundColor: mode.color + '22' }]}>
+                                                    <Text style={[styles.planBadgeText, { color: mode.color }]}>Locked</Text>
+                                                </View>
+                                            ) : null}
                                         </View>
-                                    ) : (
-                                        <View style={styles.radioOuter}>
-                                            <View style={styles.radioInner} />
-                                        </View>
-                                    )}
-                                </View>
-                            </TouchableOpacity>
-                        );
-                    })}
-                </View>
+                                        <Text style={styles.modeDesc}>{mode.description}</Text>
+                                        <Text style={styles.modePrice}>
+                                            {plan.monthlyPriceUsd === 0 ? 'Free' : `$${plan.monthlyPriceUsd.toFixed(2)}/mo`}
+                                        </Text>
+                                    </View>
+
+                                    <View style={styles.modeRight}>
+                                        {isActive ? (
+                                            <CheckCircle2 size={22} color={mode.color} fill={mode.color} />
+                                        ) : !accessible ? (
+                                            <View style={[styles.unlockBtn, { borderColor: mode.color + '60' }]}>
+                                                <Lock size={11} color={mode.color} />
+                                                <Text style={[styles.unlockText, { color: mode.color }]}>Unlock</Text>
+                                            </View>
+                                        ) : (
+                                            <View style={styles.radioOuter}>
+                                                <View style={styles.radioInner} />
+                                            </View>
+                                        )}
+                                    </View>
+                                </TouchableOpacity>
+                            );
+                        })}
+                    </View>
+                </BlurView>
             </Animated.View>
         </Modal>
     );
@@ -228,13 +231,20 @@ const styles = StyleSheet.create({
         bottom: 0,
         left: 0,
         right: 0,
-        backgroundColor: '#1A1516',
         borderTopLeftRadius: 28,
         borderTopRightRadius: 28,
-        paddingTop: 12,
-        paddingHorizontal: 20,
         borderTopWidth: 1,
         borderColor: 'rgba(255,255,255,0.07)',
+        overflow: 'hidden',
+    },
+    sheetBlur: {
+        paddingTop: 12,
+        paddingHorizontal: 20,
+        backgroundColor: 'rgba(26, 21, 22, 0.78)',
+    },
+    sheetChrome: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(255,255,255,0.03)',
     },
     handle: {
         width: 40,

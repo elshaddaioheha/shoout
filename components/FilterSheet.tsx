@@ -79,65 +79,65 @@ export default function FilterSheet({
             </TouchableWithoutFeedback>
 
             <Animated.View style={[styles.sheet, sheetAnimatedStyle]}>
-                <View style={styles.handle} />
+                <BlurView intensity={28} tint="dark" style={styles.sheetBlur}>
+                    <View style={styles.sheetChrome} />
+                    <View style={styles.handle} />
 
-                <View style={styles.sheetHeader}>
-                    <Text style={styles.sheetTitle}>Filter & Sort</Text>
-                    {onReset && (
-                        <TouchableOpacity onPress={onReset}>
-                            <Text style={styles.resetText}>Reset</Text>
-                        </TouchableOpacity>
-                    )}
-                </View>
+                    <View style={styles.sheetHeader}>
+                        <Text style={styles.sheetTitle}>Filter & Sort</Text>
+                        {onReset && (
+                            <TouchableOpacity onPress={onReset}>
+                                <Text style={styles.resetText}>Reset</Text>
+                            </TouchableOpacity>
+                        )}
+                    </View>
 
-                <ScrollView showsVerticalScrollIndicator={false}>
-                    {/* Sort */}
-                    {sortOptions && sortOptions.length > 0 && (
-                        <>
-                            <Text style={styles.sectionLabel}>Sort By</Text>
-                            <View style={styles.chipRow}>
-                                {sortOptions.map((opt) => (
-                                    <TouchableOpacity
-                                        key={opt}
-                                        style={[styles.chip, selectedSort === opt && styles.chipActive]}
-                                        onPress={() => onSortChange?.(opt)}
-                                    >
-                                        <Text style={[styles.chipText, selectedSort === opt && styles.chipTextActive]}>
-                                            {opt}
-                                        </Text>
-                                    </TouchableOpacity>
-                                ))}
-                            </View>
-                        </>
-                    )}
+                    <ScrollView showsVerticalScrollIndicator={false}>
+                        {sortOptions && sortOptions.length > 0 && (
+                            <>
+                                <Text style={styles.sectionLabel}>Sort By</Text>
+                                <View style={styles.chipRow}>
+                                    {sortOptions.map((opt) => (
+                                        <TouchableOpacity
+                                            key={opt}
+                                            style={[styles.chip, selectedSort === opt && styles.chipActive]}
+                                            onPress={() => onSortChange?.(opt)}
+                                        >
+                                            <Text style={[styles.chipText, selectedSort === opt && styles.chipTextActive]}>
+                                                {opt}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+                            </>
+                        )}
 
-                    {/* Categories */}
-                    {categories && categories.length > 0 && (
-                        <>
-                            <Text style={styles.sectionLabel}>Category</Text>
-                            <View style={styles.chipRow}>
-                                {categories.map((cat) => (
-                                    <TouchableOpacity
-                                        key={cat}
-                                        style={[styles.chip, selectedCategory === cat && styles.chipActive]}
-                                        onPress={() => onCategoryChange?.(cat)}
-                                    >
-                                        <Text style={[styles.chipText, selectedCategory === cat && styles.chipTextActive]}>
-                                            {cat}
-                                        </Text>
-                                    </TouchableOpacity>
-                                ))}
-                            </View>
-                        </>
-                    )}
+                        {categories && categories.length > 0 && (
+                            <>
+                                <Text style={styles.sectionLabel}>Category</Text>
+                                <View style={styles.chipRow}>
+                                    {categories.map((cat) => (
+                                        <TouchableOpacity
+                                            key={cat}
+                                            style={[styles.chip, selectedCategory === cat && styles.chipActive]}
+                                            onPress={() => onCategoryChange?.(cat)}
+                                        >
+                                            <Text style={[styles.chipText, selectedCategory === cat && styles.chipTextActive]}>
+                                                {cat}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+                            </>
+                        )}
 
-                    <View style={{ height: 20 }} />
-                </ScrollView>
+                        <View style={{ height: 20 }} />
+                    </ScrollView>
 
-                {/* Apply */}
-                <TouchableOpacity style={styles.applyButton} onPress={onClose}>
-                    <Text style={styles.applyText}>Apply Filters</Text>
-                </TouchableOpacity>
+                    <TouchableOpacity style={styles.applyButton} onPress={onClose}>
+                        <Text style={styles.applyText}>Apply Filters</Text>
+                    </TouchableOpacity>
+                </BlurView>
             </Animated.View>
         </Modal>
     );
@@ -156,13 +156,21 @@ const styles = StyleSheet.create({
         bottom: 0,
         left: 0,
         right: 0,
-        backgroundColor: '#1E1A1B',
         borderTopLeftRadius: 28,
         borderTopRightRadius: 28,
+        maxHeight: '70%',
+        overflow: 'hidden',
+    },
+    sheetBlur: {
         paddingBottom: 34,
         paddingHorizontal: 20,
         paddingTop: 12,
         maxHeight: '70%',
+        backgroundColor: 'rgba(30, 26, 27, 0.76)',
+    },
+    sheetChrome: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(255,255,255,0.03)',
     },
     handle: {
         width: 40,

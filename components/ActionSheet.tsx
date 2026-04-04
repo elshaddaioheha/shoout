@@ -68,31 +68,30 @@ export default function ActionSheet({ visible, onClose, title, options }: Props)
             </TouchableWithoutFeedback>
 
             <Animated.View style={[styles.sheet, { transform: [{ translateY: slideAnim }] }]}>
-                {/* Handle */}
-                <View style={styles.handle} />
+                <BlurView intensity={28} tint="dark" style={styles.sheetBlur}>
+                    <View style={styles.sheetChrome} />
+                    <View style={styles.handle} />
 
-                {/* Title */}
-                {title && <Text style={styles.title}>{title}</Text>}
+                    {title && <Text style={styles.title}>{title}</Text>}
 
-                {/* Options */}
-                {options.map((opt, idx) => (
-                    <TouchableOpacity
-                        key={idx}
-                        style={[styles.option, idx < options.length - 1 && styles.optionBorder]}
-                        onPress={() => { onClose(); setTimeout(opt.onPress, 150); }}
-                        activeOpacity={0.7}
-                    >
-                        {opt.icon && <View style={styles.optionIcon}>{opt.icon}</View>}
-                        <Text style={[styles.optionLabel, opt.destructive && styles.destructive]}>
-                            {opt.label}
-                        </Text>
+                    {options.map((opt, idx) => (
+                        <TouchableOpacity
+                            key={idx}
+                            style={[styles.option, idx < options.length - 1 && styles.optionBorder]}
+                            onPress={() => { onClose(); setTimeout(opt.onPress, 150); }}
+                            activeOpacity={0.7}
+                        >
+                            {opt.icon && <View style={styles.optionIcon}>{opt.icon}</View>}
+                            <Text style={[styles.optionLabel, opt.destructive && styles.destructive]}>
+                                {opt.label}
+                            </Text>
+                        </TouchableOpacity>
+                    ))}
+
+                    <TouchableOpacity style={styles.cancel} onPress={onClose} activeOpacity={0.7}>
+                        <Text style={styles.cancelText}>Cancel</Text>
                     </TouchableOpacity>
-                ))}
-
-                {/* Cancel */}
-                <TouchableOpacity style={styles.cancel} onPress={onClose} activeOpacity={0.7}>
-                    <Text style={styles.cancelText}>Cancel</Text>
-                </TouchableOpacity>
+                </BlurView>
             </Animated.View>
         </Modal>
     );
@@ -111,12 +110,19 @@ const styles = StyleSheet.create({
         bottom: 0,
         left: 0,
         right: 0,
-        backgroundColor: '#1E1A1B',
         borderTopLeftRadius: 24,
         borderTopRightRadius: 24,
+        overflow: 'hidden',
+    },
+    sheetBlur: {
         paddingBottom: 34,
         paddingHorizontal: 20,
         paddingTop: 12,
+        backgroundColor: 'rgba(30, 26, 27, 0.76)',
+    },
+    sheetChrome: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(255,255,255,0.03)',
     },
     handle: {
         width: 40,

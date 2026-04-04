@@ -228,7 +228,7 @@ export default function VaultFloatingActionMenu({ actions }: VaultFloatingAction
             onPressIn={handleLauncherPressIn}
             onPressOut={handleLauncherPressOut}
           >
-            <BlurView intensity={34} tint="dark" style={styles.launcherBlur}>
+            <BlurView intensity={51} tint="dark" style={styles.launcherBlur}>
               <Animated.Text style={[styles.launcherPlus, { transform: [{ rotate: iconRotation }] }]}>+</Animated.Text>
             </BlurView>
           </TouchableOpacity>

@@ -28,7 +28,7 @@ function formatRelative(createdAtMs: number) {
   return `${diffDays}d ago`;
 }
 
-const SEARCH_SHEET_OFFSET = Math.round(Dimensions.get('window').width * 0.18);
+const SEARCH_SHEET_OFFSET = Math.round(Dimensions.get('window').height * 0.14);
 
 export default function VaultHomeScreen() {
   const router = useRouter();
@@ -50,7 +50,7 @@ export default function VaultHomeScreen() {
   const [creatingFolder, setCreatingFolder] = useState(false);
   const searchOverlayOpacity = useRef(new Animated.Value(0)).current;
   const searchSheetOpacity = useRef(new Animated.Value(0)).current;
-  const searchSheetTranslateX = useRef(new Animated.Value(SEARCH_SHEET_OFFSET)).current;
+  const searchSheetTranslateY = useRef(new Animated.Value(SEARCH_SHEET_OFFSET)).current;
 
   const currentPlanLabel = formatPlanLabel(actualRole || role);
   const storageSummary = `${formatStorage(usedStorageGB)} / ${formatStorage(storageLimitGB)}`;
@@ -62,7 +62,7 @@ export default function VaultHomeScreen() {
   const openSearchSheet = () => {
     searchOverlayOpacity.setValue(0);
     searchSheetOpacity.setValue(0);
-    searchSheetTranslateX.setValue(SEARCH_SHEET_OFFSET);
+    searchSheetTranslateY.setValue(SEARCH_SHEET_OFFSET);
     setShowSearchSheet(true);
 
     Animated.parallel([
@@ -78,9 +78,9 @@ export default function VaultHomeScreen() {
         easing: Easing.out(Easing.quad),
         useNativeDriver: true,
       }),
-      Animated.timing(searchSheetTranslateX, {
+      Animated.timing(searchSheetTranslateY, {
         toValue: 0,
-        duration: 220,
+        duration: 240,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }),
@@ -101,8 +101,8 @@ export default function VaultHomeScreen() {
         easing: Easing.in(Easing.quad),
         useNativeDriver: true,
       }),
-      Animated.timing(searchSheetTranslateX, {
-        toValue: -SEARCH_SHEET_OFFSET,
+      Animated.timing(searchSheetTranslateY, {
+        toValue: SEARCH_SHEET_OFFSET,
         duration: 190,
         easing: Easing.in(Easing.cubic),
         useNativeDriver: true,
@@ -436,7 +436,7 @@ export default function VaultHomeScreen() {
               styles.searchCard,
               {
                 opacity: searchSheetOpacity,
-                transform: [{ translateX: searchSheetTranslateX }],
+                transform: [{ translateY: searchSheetTranslateY }],
               },
             ]}
           >
