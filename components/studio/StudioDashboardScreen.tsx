@@ -1,7 +1,9 @@
 import { useAppSwitcherContext } from '@/app/(tabs)/_layout';
 import SharedHeader from '@/components/SharedHeader';
+import { theme } from '@/constants/theme';
 import { useStudioWorkspaceData } from '@/hooks/useStudioWorkspaceData';
 import { useAuthStore } from '@/store/useAuthStore';
+import { getModeTheme } from '@/utils/appModeTheme';
 import { formatUsd } from '@/utils/pricing';
 import { canUseStudioServices, getEffectivePlan } from '@/utils/subscriptions';
 import { useRouter } from 'expo-router';
@@ -9,6 +11,8 @@ import { BarChart3, DollarSign, Megaphone, Music4, PlayCircle, TrendingUp, Uploa
 import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+const studioTheme = getModeTheme('studio');
 
 export default function StudioDashboardScreen() {
   const router = useRouter();
@@ -66,7 +70,7 @@ export default function StudioDashboardScreen() {
               if (requireStudioSubscription()) return;
               router.push('/(tabs)/marketplace' as any);
             }} activeOpacity={0.9}>
-              <Megaphone size={18} color="#EC5C39" />
+              <Megaphone size={18} color={studioTheme.accent} />
               <Text style={styles.secondaryCtaText}>Promote</Text>
             </TouchableOpacity>
           </View>
@@ -76,7 +80,7 @@ export default function StudioDashboardScreen() {
           {kpis.map(({ label, value, Icon }) => (
             <View key={label} style={styles.kpiCard}>
               <View style={styles.kpiIcon}>
-                <Icon size={18} color="#EC5C39" />
+                <Icon size={18} color={studioTheme.accent} />
               </View>
               <Text style={styles.kpiValue}>{value}</Text>
               <Text style={styles.kpiLabel}>{label}</Text>
@@ -99,7 +103,7 @@ export default function StudioDashboardScreen() {
           {!loading && topTracks.map((track) => (
             <View key={track.id} style={styles.trackRow}>
               <View style={styles.trackIcon}>
-                <Music4 size={18} color="#EC5C39" />
+                <Music4 size={18} color={studioTheme.accent} />
               </View>
               <View style={styles.trackInfo}>
                 <Text style={styles.trackTitle} numberOfLines={1}>{track.title || 'Untitled Track'}</Text>
@@ -155,7 +159,7 @@ export default function StudioDashboardScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#140F10' },
+  screen: { flex: 1, backgroundColor: theme.colors.background },
   content: { paddingHorizontal: 20, gap: 18 },
   heroCard: {
     marginTop: 10,
@@ -166,41 +170,41 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.06)',
     gap: 12,
   },
-  heroEyebrow: { color: '#4CAF50', fontFamily: 'Poppins-SemiBold', fontSize: 12 },
-  heroTitle: { color: '#FFF', fontFamily: 'Poppins-Bold', fontSize: 22, lineHeight: 30 },
+  heroEyebrow: { color: studioTheme.accent, fontFamily: 'Poppins-SemiBold', fontSize: 12 },
+  heroTitle: { color: theme.colors.textPrimary, fontFamily: 'Poppins-Bold', fontSize: 22, lineHeight: 30 },
   heroActions: { flexDirection: 'row', gap: 12, marginTop: 4 },
   primaryCta: {
-    flex: 1, height: 48, borderRadius: 16, backgroundColor: '#4CAF50', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8,
+    flex: 1, height: 48, borderRadius: 16, backgroundColor: studioTheme.accent, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8,
   },
   primaryCtaText: { color: '#FFF', fontFamily: 'Poppins-SemiBold', fontSize: 14 },
   secondaryCta: {
     flex: 1, height: 48, borderRadius: 16, backgroundColor: 'rgba(76,175,80,0.08)', borderWidth: 1, borderColor: 'rgba(76,175,80,0.25)', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8,
   },
-  secondaryCtaText: { color: '#4CAF50', fontFamily: 'Poppins-SemiBold', fontSize: 14 },
+  secondaryCtaText: { color: studioTheme.accent, fontFamily: 'Poppins-SemiBold', fontSize: 14 },
   kpiGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   kpiCard: {
     width: '47%', backgroundColor: '#1A1A1B', borderRadius: 18, padding: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', gap: 8,
   },
   kpiIcon: { width: 36, height: 36, borderRadius: 12, backgroundColor: 'rgba(76,175,80,0.12)', alignItems: 'center', justifyContent: 'center' },
-  kpiValue: { color: '#FFF', fontFamily: 'Poppins-Bold', fontSize: 18 },
+  kpiValue: { color: theme.colors.textPrimary, fontFamily: 'Poppins-Bold', fontSize: 18 },
   kpiLabel: { color: 'rgba(255,255,255,0.58)', fontFamily: 'Poppins-Regular', fontSize: 12 },
   panel: {
     backgroundColor: '#1A1A1B', borderRadius: 22, padding: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', gap: 12,
   },
   panelHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
-  panelTitle: { color: '#FFF', fontFamily: 'Poppins-SemiBold', fontSize: 17 },
-  panelLink: { color: '#4CAF50', fontFamily: 'Poppins-Medium', fontSize: 13 },
+  panelTitle: { color: theme.colors.textPrimary, fontFamily: 'Poppins-SemiBold', fontSize: 17 },
+  panelLink: { color: studioTheme.accent, fontFamily: 'Poppins-Medium', fontSize: 13 },
   placeholder: { color: 'rgba(255,255,255,0.5)', fontFamily: 'Poppins-Regular', fontSize: 13, lineHeight: 20 },
   trackRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8 },
   trackIcon: { width: 38, height: 38, borderRadius: 12, backgroundColor: 'rgba(76,175,80,0.12)', alignItems: 'center', justifyContent: 'center' },
   trackInfo: { flex: 1 },
-  trackTitle: { color: '#FFF', fontFamily: 'Poppins-SemiBold', fontSize: 13 },
+  trackTitle: { color: theme.colors.textPrimary, fontFamily: 'Poppins-SemiBold', fontSize: 13 },
   trackMeta: { color: 'rgba(255,255,255,0.55)', fontFamily: 'Poppins-Regular', fontSize: 11, marginTop: 2 },
   summaryRow: { flexDirection: 'row', gap: 12 },
   summaryCard: { flex: 1, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 16, padding: 14, gap: 4 },
-  summaryValue: { color: '#FFF', fontFamily: 'Poppins-Bold', fontSize: 18 },
+  summaryValue: { color: theme.colors.textPrimary, fontFamily: 'Poppins-Bold', fontSize: 18 },
   summaryLabel: { color: 'rgba(255,255,255,0.58)', fontFamily: 'Poppins-Regular', fontSize: 12 },
   summarySub: { color: 'rgba(255,255,255,0.58)', fontFamily: 'Poppins-Regular', fontSize: 12, lineHeight: 19 },
   promoBanner: { flexDirection: 'row', gap: 12, alignItems: 'flex-start', backgroundColor: 'rgba(76,175,80,0.12)', borderRadius: 16, padding: 16 },
-  promoText: { flex: 1, color: '#FFF', fontFamily: 'Poppins-Regular', fontSize: 13, lineHeight: 20 },
+  promoText: { flex: 1, color: theme.colors.textPrimary, fontFamily: 'Poppins-Regular', fontSize: 13, lineHeight: 20 },
 });

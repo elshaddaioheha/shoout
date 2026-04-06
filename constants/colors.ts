@@ -8,6 +8,7 @@ export const colors = {
     borderLight: '#333',
     textPrimary: '#FFFFFF',
     textSecondary: 'rgba(255, 255, 255, 0.7)',
+    textTertiary: 'rgba(255, 255, 255, 0.55)',
     textDisabled: 'rgba(255, 255, 255, 0.4)',
     textPlaceholder: 'rgba(255, 255, 255, 0.6)',
     error: '#FF4D4D',

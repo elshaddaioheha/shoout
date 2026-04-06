@@ -4,17 +4,19 @@ import HybridDashboardScreen from '@/components/studio/HybridDashboardScreen';
 import SharedHeader from '@/components/SharedHeader';
 import StudioDashboardScreen from '@/components/studio/StudioDashboardScreen';
 import VaultHomeScreen from '@/components/vault/VaultHomeScreen';
+import { theme } from '@/constants/theme';
 import { ARTISTS, FREE_MUSIC, HOME_SECTIONS, POPULAR_BEATS, TOP_PLAYLISTS, TRENDING_SONGS, type HomeSectionKey } from '@/constants/homeFeed';
 import { auth, db } from '@/firebaseConfig';
 import { formatUsd } from '@/utils/pricing';
 import { toggleArtistFollow } from '@/utils/followArtist';
+import { usePlaylists } from '@/hooks/usePlaylists';
 import { useCartStore } from '@/store/useCartStore';
 import { usePlaybackStore } from '@/store/usePlaybackStore';
 import { useToastStore } from '@/store/useToastStore';
 import { useUserStore } from '@/store/useUserStore';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import { addDoc, collection, doc, getDoc, getDocs, limit, onSnapshot, query, serverTimestamp, setDoc, where } from 'firebase/firestore';
+import { doc, onSnapshot } from 'firebase/firestore';
 import {
   Heart,
   MoreVertical,
@@ -281,6 +283,24 @@ const FreeMusicCard = React.memo(function FreeMusicCard({ song, onPlay }: { song
   const { isFav, toggle } = useLocalFavourite(song.id);
   const { addItem, items } = useCartStore();
   const inCart = items.some((i: any) => i.id === song.id);
+
+  const handleAddToCart = useCallback((event: any) => {
+    event.stopPropagation?.();
+    addItem({
+      id: song.id,
+      title: song.title,
+      artist: song.artist,
+      price: song.price || 0,
+      uploaderId: song.uploaderId || '',
+      coverUrl: song.artworkUrl,
+    });
+  }, [addItem, song]);
+
+  const handleToggleFavorite = useCallback((event: any) => {
+    event.stopPropagation?.();
+    toggle();
+  }, [toggle]);
+
   return (
     <TouchableOpacity style={styles.freeMusicItem} onPress={onPlay}>
       {song.artworkUrl ? (
@@ -292,10 +312,10 @@ const FreeMusicCard = React.memo(function FreeMusicCard({ song, onPlay }: { song
         <Text style={styles.itemTitle}>{song.title}</Text>
         <Text style={styles.itemSubtitle}>{song.artist}</Text>
         <View style={styles.itemActionsSafe}>
-          <TouchableOpacity onPress={(e) => { e.stopPropagation?.(); addItem({ id: song.id, title: song.title, artist: song.artist, price: song.price || 0, uploaderId: song.uploaderId || '', coverUrl: song.artworkUrl }); }}>
+          <TouchableOpacity onPress={handleAddToCart}>
             <ShoppingCart size={14} color={inCart ? '#4CAF50' : SHOOUT_ACCENT} />
           </TouchableOpacity>
-          <TouchableOpacity onPress={(e) => { e.stopPropagation?.(); toggle(); }}>
+          <TouchableOpacity onPress={handleToggleFavorite}>
             <Heart size={12} color={SHOOUT_ACCENT} fill={isFav ? SHOOUT_ACCENT : 'transparent'} />
           </TouchableOpacity>
         </View>
@@ -347,6 +367,7 @@ function PopularBeatsSection() {
   const setTrack = usePlaybackStore(state => state.setTrack);
   const { addItem, items } = useCartStore();
   const { showToast } = useToastStore();
+  const { addToPlaylist } = usePlaylists();
   const [isFollowPending, setIsFollowPending] = useState(false);
   const [followingArtistIds, setFollowingArtistIds] = useState<Record<string, boolean>>({});
   const [hiddenBeatIds, setHiddenBeatIds] = useState<string[]>([]);
@@ -408,73 +429,8 @@ function PopularBeatsSection() {
   }, [addItem, items, selectedBeat, showToast]);
 
   const addSelectedBeatToPlaylist = useCallback(async () => {
-    if (!selectedBeat?.id || !selectedBeat?.uploaderId) {
-      showToast('Track reference is missing.', 'error');
-      return;
-    }
-
-    const uid = auth.currentUser?.uid;
-    if (!uid) {
-      showToast('Log in to add tracks to playlists.', 'error');
-      router.push({ pathname: '/(auth)/login', params: { redirectTo: '/(tabs)/index' } });
-      return;
-    }
-
-    try {
-      // Only published tracks are allowed in playlists.
-      const uploadRef = doc(db, `users/${selectedBeat.uploaderId}/uploads/${selectedBeat.id}`);
-      const uploadSnap = await getDoc(uploadRef);
-      if (!uploadSnap.exists()) {
-        showToast('Track is not available for playlist use.', 'error');
-        return;
-      }
-
-      const uploadData = uploadSnap.data() as any;
-      if (uploadData.published !== true || uploadData.isPublic !== true) {
-        showToast('Only published tracks can be added to playlists.', 'info');
-        return;
-      }
-
-      const playlistQ = query(
-        collection(db, 'globalPlaylists'),
-        where('ownerId', '==', uid),
-        limit(1)
-      );
-      const playlistSnap = await getDocs(playlistQ);
-
-      let playlistId = '';
-      if (playlistSnap.empty) {
-        const created = await addDoc(collection(db, 'globalPlaylists'), {
-          ownerId: uid,
-          name: 'My Playlist',
-          isPublic: false,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        });
-        playlistId = created.id;
-      } else {
-        playlistId = playlistSnap.docs[0].id;
-        await setDoc(doc(db, `globalPlaylists/${playlistId}`), {
-          updatedAt: serverTimestamp(),
-        }, { merge: true });
-      }
-
-      const trackRefId = `${selectedBeat.id}_${selectedBeat.uploaderId}`;
-      await setDoc(doc(db, `globalPlaylists/${playlistId}/tracks/${trackRefId}`), {
-        uploadId: selectedBeat.id,
-        uploaderId: selectedBeat.uploaderId,
-        titleSnapshot: selectedBeat.title,
-        artistSnapshot: selectedBeat.artist || selectedBeat.uploaderName,
-        artworkSnapshot: selectedBeat.artworkUrl || null,
-        addedAt: serverTimestamp(),
-      }, { merge: true });
-
-      showToast(`${selectedBeat.title} added to your playlist.`, 'success');
-    } catch (error) {
-      console.error('Add to playlist failed:', error);
-      showToast('Could not add track to playlist right now.', 'error');
-    }
-  }, [router, selectedBeat, showToast]);
+    await addToPlaylist(selectedBeat);
+  }, [addToPlaylist, selectedBeat]);
 
   const handleFollowSelectedArtist = useCallback(async () => {
     if (!selectedBeat) return;
@@ -624,6 +580,11 @@ const BeatRow = React.memo(function BeatRow({
     showToast(isFav ? 'Removed from favourites.' : 'Added to favourites.', 'info');
   }, [isFav, showToast, toggle]);
 
+  const handleMetaPress = useCallback((event: any) => {
+    event.stopPropagation?.();
+    onMorePress();
+  }, [onMorePress]);
+
   return (
     <View style={styles.beatItem}>
       <View style={styles.beatRow}>
@@ -637,10 +598,7 @@ const BeatRow = React.memo(function BeatRow({
             <Text style={styles.itemTitle}>{beat.title}</Text>
             <TouchableOpacity
               activeOpacity={0.75}
-              onPress={(event) => {
-                event.stopPropagation?.();
-                onMorePress();
-              }}
+              onPress={handleMetaPress}
             >
               <Text style={styles.itemSubtitle}>{beat.artist || beat.uploaderName}</Text>
               <Text style={styles.beatPriceText}>{priceDisplay}</Text>
@@ -669,7 +627,7 @@ const BeatRow = React.memo(function BeatRow({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#140F10',
+    backgroundColor: theme.colors.background,
   },
   content: {
     flex: 1,
@@ -689,7 +647,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   sectionTitle: {
-    color: 'white',
+    color: theme.colors.textPrimary,
     fontSize: 17,
     lineHeight: 22,
     letterSpacing: 0.2,
@@ -730,7 +688,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   songTitle: {
-    color: 'white',
+    color: theme.colors.textPrimary,
     fontSize: 15,
     lineHeight: 20,
     fontFamily: 'Poppins-Bold',
@@ -767,15 +725,15 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: PLAYLIST_VISUAL_WIDTH,
     height: PLAYLIST_VISUAL_HEIGHT,
-    borderRadius: 18,
+    borderRadius: theme.radius.lg,
   },
   playlistCoverImage: {
     width: PLAYLIST_VISUAL_WIDTH,
     height: PLAYLIST_VISUAL_HEIGHT,
-    borderRadius: 18,
+    borderRadius: theme.radius.lg,
   },
   playlistTitle: {
-    color: 'white',
+    color: theme.colors.textPrimary,
     fontSize: 13,
     lineHeight: 18,
     fontFamily: 'Poppins-SemiBold',
@@ -799,7 +757,7 @@ const styles = StyleSheet.create({
     width: FREE_CARD_WIDTH,
     height: FREE_CARD_WIDTH,
     backgroundColor: '#D9D9D9',
-    borderRadius: 14,
+    borderRadius: theme.radius.lg,
     marginBottom: spacing.sm,
     overflow: 'hidden',
   },
@@ -807,7 +765,7 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.sm,
   },
   itemTitle: {
-    color: 'white',
+    color: theme.colors.textPrimary,
     fontSize: 13,
     lineHeight: 18,
     fontFamily: 'Poppins-SemiBold',
@@ -836,7 +794,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   artistNameSmall: {
-    color: 'white',
+    color: theme.colors.textPrimary,
     fontSize: 11,
     lineHeight: 15,
     fontFamily: 'Poppins-Regular',
@@ -847,7 +805,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   emptyText: {
-    color: 'rgba(255,255,255,0.5)',
+    color: theme.colors.textTertiary,
     fontFamily: 'Poppins-Regular',
   },
   beatItem: {
@@ -868,7 +826,7 @@ const styles = StyleSheet.create({
     width: BEAT_IMAGE_WIDTH,
     height: Math.round(BEAT_IMAGE_WIDTH * 0.92),
     backgroundColor: '#D9D9D9',
-    borderRadius: 15,
+    borderRadius: theme.radius.lg,
     overflow: 'hidden',
   },
   beatActions: {
@@ -905,8 +863,8 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     width: width * 0.88,
-    backgroundColor: '#140F10',
-    borderRadius: 20,
+    backgroundColor: theme.colors.background,
+    borderRadius: theme.radius.xl,
     paddingVertical: 34,
     paddingHorizontal: 18,
     alignItems: 'center',
@@ -945,7 +903,7 @@ const styles = StyleSheet.create({
   },
   modalBtn: {
     height: 44,
-    borderRadius: 8,
+    borderRadius: theme.radius.md,
     alignItems: 'center',
     justifyContent: 'center',
   },

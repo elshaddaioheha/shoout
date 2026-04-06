@@ -1,8 +1,10 @@
 import { useAppSwitcherContext } from '@/app/(tabs)/_layout';
 import SharedHeader from '@/components/SharedHeader';
+import { theme } from '@/constants/theme';
 import { useStudioWorkspaceData } from '@/hooks/useStudioWorkspaceData';
 import { useVaultWorkspaceData } from '@/hooks/useVaultWorkspaceData';
 import { useAuthStore } from '@/store/useAuthStore';
+import { getModeTheme } from '@/utils/appModeTheme';
 import { formatUsd } from '@/utils/pricing';
 import { canUseHybridServices, formatPlanLabel, getVaultCapabilities } from '@/utils/subscriptions';
 import { useRouter } from 'expo-router';
@@ -14,6 +16,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 function formatStorage(value: number) {
   return `${value.toFixed(2)}GB`;
 }
+
+const hybridTheme = getModeTheme('hybrid');
 
 export default function HybridDashboardScreen() {
   const router = useRouter();
@@ -84,7 +88,7 @@ export default function HybridDashboardScreen() {
               }}
               activeOpacity={0.9}
             >
-              <UploadCloud size={18} color="#140F10" />
+              <UploadCloud size={18} color={theme.colors.background} />
               <Text style={styles.primaryCtaText}>Publish</Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -95,7 +99,7 @@ export default function HybridDashboardScreen() {
               }}
               activeOpacity={0.9}
             >
-              <Megaphone size={18} color="#FFD700" />
+              <Megaphone size={18} color={hybridTheme.accent} />
               <Text style={styles.secondaryCtaText}>Promote</Text>
             </TouchableOpacity>
           </View>
@@ -105,7 +109,7 @@ export default function HybridDashboardScreen() {
           {kpis.map(({ label, value, Icon }) => (
             <View key={label} style={styles.kpiCard}>
               <View style={styles.kpiIcon}>
-                <Icon size={18} color="#FFD700" />
+                <Icon size={18} color={hybridTheme.accent} />
               </View>
               <Text style={styles.kpiValue}>{value}</Text>
               <Text style={styles.kpiLabel}>{label}</Text>
@@ -120,7 +124,7 @@ export default function HybridDashboardScreen() {
               onPress={() => router.push('/(tabs)/library' as any)}
               activeOpacity={0.8}
             >
-              <Text style={styles.panelLink}>Open Vault</Text>
+              <Text style={[styles.panelLink, { color: hybridTheme.accent }]}>Open Vault</Text>
             </TouchableOpacity>
           </View>
 
@@ -145,7 +149,7 @@ export default function HybridDashboardScreen() {
               }}
               activeOpacity={0.85}
             >
-              <Archive size={16} color="#FFD700" />
+              <Archive size={16} color={hybridTheme.accent} />
               <Text style={styles.inlineActionText}>Vault Upload</Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -156,7 +160,7 @@ export default function HybridDashboardScreen() {
               }}
               activeOpacity={0.85}
             >
-              <Archive size={16} color="#FFD700" />
+              <Archive size={16} color={hybridTheme.accent} />
               <Text style={styles.inlineActionText}>Shared Links</Text>
             </TouchableOpacity>
           </View>
@@ -173,7 +177,7 @@ export default function HybridDashboardScreen() {
               }}
               activeOpacity={0.8}
             >
-              <Text style={styles.panelLink}>Open analytics</Text>
+              <Text style={[styles.panelLink, { color: hybridTheme.accent }]}>Open analytics</Text>
             </TouchableOpacity>
           </View>
           {studioLoading ? <Text style={styles.placeholder}>Loading creator stats...</Text> : null}
@@ -181,7 +185,7 @@ export default function HybridDashboardScreen() {
           {!studioLoading && topTracks.map((track) => (
             <View key={track.id} style={styles.trackRow}>
               <View style={styles.trackIcon}>
-                <Music4 size={18} color="#FFD700" />
+                <Music4 size={18} color={hybridTheme.accent} />
               </View>
               <View style={styles.trackInfo}>
                 <Text style={styles.trackTitle} numberOfLines={1}>{track.title || 'Untitled Track'}</Text>
@@ -203,7 +207,7 @@ export default function HybridDashboardScreen() {
               }}
               activeOpacity={0.8}
             >
-              <Text style={styles.panelLink}>Settings</Text>
+              <Text style={[styles.panelLink, { color: hybridTheme.accent }]}>Settings</Text>
             </TouchableOpacity>
           </View>
 
@@ -232,12 +236,12 @@ export default function HybridDashboardScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#140F10' },
+  screen: { flex: 1, backgroundColor: theme.colors.background },
   content: { paddingHorizontal: 20, gap: 18 },
   heroCard: {
     marginTop: 10,
     backgroundColor: '#1A1A1B',
-    borderRadius: 24,
+    borderRadius: theme.radius.xl,
     padding: 20,
     borderWidth: 1,
     borderColor: 'rgba(255,215,0,0.22)',
@@ -254,13 +258,13 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   heroEyebrow: {
-    color: '#FFD700',
+    color: hybridTheme.accent,
     fontFamily: 'Poppins-SemiBold',
     fontSize: 12,
     marginBottom: 4,
   },
   heroTitle: {
-    color: '#FFF',
+    color: theme.colors.textPrimary,
     fontFamily: 'Poppins-Bold',
     fontSize: 22,
     lineHeight: 30,
@@ -273,7 +277,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   planPillText: {
-    color: '#FFD700',
+    color: hybridTheme.accent,
     fontFamily: 'Poppins-SemiBold',
     fontSize: 11,
   },
@@ -286,14 +290,14 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 48,
     borderRadius: 16,
-    backgroundColor: '#FFD700',
+    backgroundColor: hybridTheme.accent,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
     gap: 8,
   },
   primaryCtaText: {
-    color: '#140F10',
+    color: theme.colors.background,
     fontFamily: 'Poppins-SemiBold',
     fontSize: 14,
   },
@@ -310,7 +314,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   secondaryCtaText: {
-    color: '#FFD700',
+    color: hybridTheme.accent,
     fontFamily: 'Poppins-SemiBold',
     fontSize: 14,
   },
@@ -318,7 +322,7 @@ const styles = StyleSheet.create({
   kpiCard: {
     width: '47%',
     backgroundColor: '#1A1A1B',
-    borderRadius: 18,
+    borderRadius: theme.radius.lg,
     padding: 16,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.06)',
@@ -332,11 +336,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  kpiValue: { color: '#FFF', fontFamily: 'Poppins-Bold', fontSize: 18 },
-  kpiLabel: { color: 'rgba(255,255,255,0.58)', fontFamily: 'Poppins-Regular', fontSize: 12 },
+  kpiValue: { color: theme.colors.textPrimary, fontFamily: 'Poppins-Bold', fontSize: 18 },
+  kpiLabel: { color: theme.colors.textTertiary, fontFamily: 'Poppins-Regular', fontSize: 12 },
   panel: {
     backgroundColor: '#1A1A1B',
-    borderRadius: 22,
+    borderRadius: theme.radius.xl,
     padding: 18,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.06)',
@@ -348,8 +352,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
-  panelTitle: { color: '#FFF', fontFamily: 'Poppins-SemiBold', fontSize: 17 },
-  panelLink: { color: '#FFD700', fontFamily: 'Poppins-Medium', fontSize: 13 },
+  panelTitle: { color: theme.colors.textPrimary, fontFamily: 'Poppins-SemiBold', fontSize: 17 },
+  panelLink: { color: hybridTheme.accent, fontFamily: 'Poppins-Medium', fontSize: 13 },
   summaryRow: { flexDirection: 'row', gap: 12 },
   summaryCard: {
     flex: 1,
@@ -358,9 +362,9 @@ const styles = StyleSheet.create({
     padding: 14,
     gap: 4,
   },
-  summaryLabel: { color: 'rgba(255,255,255,0.58)', fontFamily: 'Poppins-Regular', fontSize: 12 },
-  summaryValue: { color: '#FFF', fontFamily: 'Poppins-Bold', fontSize: 16 },
-  summaryMeta: { color: 'rgba(255,255,255,0.55)', fontFamily: 'Poppins-Regular', fontSize: 11 },
+  summaryLabel: { color: theme.colors.textTertiary, fontFamily: 'Poppins-Regular', fontSize: 12 },
+  summaryValue: { color: theme.colors.textPrimary, fontFamily: 'Poppins-Bold', fontSize: 16 },
+  summaryMeta: { color: theme.colors.textTertiary, fontFamily: 'Poppins-Regular', fontSize: 11 },
   inlineActions: { flexDirection: 'row', gap: 12 },
   inlineAction: {
     flex: 1,
@@ -374,8 +378,8 @@ const styles = StyleSheet.create({
     gap: 8,
     backgroundColor: 'rgba(255,215,0,0.05)',
   },
-  inlineActionText: { color: '#FFD700', fontFamily: 'Poppins-SemiBold', fontSize: 13 },
-  placeholder: { color: 'rgba(255,255,255,0.5)', fontFamily: 'Poppins-Regular', fontSize: 13, lineHeight: 20 },
+  inlineActionText: { color: hybridTheme.accent, fontFamily: 'Poppins-SemiBold', fontSize: 13 },
+  placeholder: { color: theme.colors.textTertiary, fontFamily: 'Poppins-Regular', fontSize: 13, lineHeight: 20 },
   trackRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8 },
   trackIcon: {
     width: 38,
@@ -386,8 +390,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   trackInfo: { flex: 1 },
-  trackTitle: { color: '#FFF', fontFamily: 'Poppins-SemiBold', fontSize: 13 },
-  trackMeta: { color: 'rgba(255,255,255,0.55)', fontFamily: 'Poppins-Regular', fontSize: 11, marginTop: 2 },
+  trackTitle: { color: theme.colors.textPrimary, fontFamily: 'Poppins-SemiBold', fontSize: 13 },
+  trackMeta: { color: theme.colors.textTertiary, fontFamily: 'Poppins-Regular', fontSize: 11, marginTop: 2 },
   operationsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   operationCard: {
     width: '47%',
@@ -396,6 +400,6 @@ const styles = StyleSheet.create({
     padding: 14,
     gap: 4,
   },
-  operationValue: { color: '#FFF', fontFamily: 'Poppins-Bold', fontSize: 18 },
-  operationLabel: { color: 'rgba(255,255,255,0.58)', fontFamily: 'Poppins-Regular', fontSize: 12 },
+  operationValue: { color: theme.colors.textPrimary, fontFamily: 'Poppins-Bold', fontSize: 18 },
+  operationLabel: { color: theme.colors.textTertiary, fontFamily: 'Poppins-Regular', fontSize: 12 },
 });

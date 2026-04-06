@@ -1,7 +1,9 @@
 import { useAppSwitcherContext } from '@/app/(tabs)/_layout';
 import SharedHeader from '@/components/SharedHeader';
+import { theme } from '@/constants/theme';
 import { useStudioWorkspaceData } from '@/hooks/useStudioWorkspaceData';
 import { useAuthStore } from '@/store/useAuthStore';
+import { getModeTheme } from '@/utils/appModeTheme';
 import { formatUsd } from '@/utils/pricing';
 import { canUseStudioServices, getEffectivePlan } from '@/utils/subscriptions';
 import { useRouter } from 'expo-router';
@@ -10,6 +12,8 @@ import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+const studioTheme = getModeTheme('studio');
+
 export default function StudioPublishScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -17,9 +21,10 @@ export default function StudioPublishScreen() {
   const currentPlan = getEffectivePlan(useAuthStore((state) => state.actualRole));
   const canUseServices = canUseStudioServices(currentPlan);
   const { tracks, drafts, publishedTracks, recentTransactions, loading } = useStudioWorkspaceData();
-  const accentColor = viewMode === 'hybrid' ? '#FFD700' : '#4CAF50';
-  const accentTint = viewMode === 'hybrid' ? 'rgba(255,215,0,0.12)' : 'rgba(76,175,80,0.12)';
-  const accentCard = viewMode === 'hybrid' ? 'rgba(255,215,0,0.06)' : 'rgba(76,175,80,0.06)';
+  const modeTheme = getModeTheme(viewMode === 'hybrid' ? 'hybrid' : 'studio');
+  const accentColor = modeTheme.accent;
+  const accentTint = modeTheme.accentTint;
+  const accentCard = modeTheme.accentSoft;
 
   const requireStudioSubscription = () => {
     if (canUseServices) return false;
@@ -128,29 +133,29 @@ export default function StudioPublishScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#140F10' },
+  screen: { flex: 1, backgroundColor: theme.colors.background },
   content: { paddingHorizontal: 20, gap: 18 },
   heroCard: {
     marginTop: 10, backgroundColor: '#1A1A1B', borderRadius: 24, padding: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', gap: 12,
   },
-  heroEyebrow: { color: '#4CAF50', fontFamily: 'Poppins-SemiBold', fontSize: 12 },
-  heroTitle: { color: '#FFF', fontFamily: 'Poppins-Bold', fontSize: 22, lineHeight: 30 },
-  heroButton: { height: 48, borderRadius: 16, backgroundColor: '#4CAF50', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8, marginTop: 4 },
+  heroEyebrow: { color: studioTheme.accent, fontFamily: 'Poppins-SemiBold', fontSize: 12 },
+  heroTitle: { color: theme.colors.textPrimary, fontFamily: 'Poppins-Bold', fontSize: 22, lineHeight: 30 },
+  heroButton: { height: 48, borderRadius: 16, backgroundColor: studioTheme.accent, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8, marginTop: 4 },
   heroButtonText: { color: '#FFF', fontFamily: 'Poppins-SemiBold', fontSize: 14 },
   summaryRow: { flexDirection: 'row', gap: 12 },
   summaryCard: { flex: 1, backgroundColor: '#1A1A1B', borderRadius: 18, padding: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', gap: 4 },
-  summaryValue: { color: '#FFF', fontFamily: 'Poppins-Bold', fontSize: 20, textAlign: 'center' },
+  summaryValue: { color: theme.colors.textPrimary, fontFamily: 'Poppins-Bold', fontSize: 20, textAlign: 'center' },
   summaryLabel: { color: 'rgba(255,255,255,0.56)', fontFamily: 'Poppins-Regular', fontSize: 12, textAlign: 'center' },
   panel: { backgroundColor: '#1A1A1B', borderRadius: 22, padding: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', gap: 12 },
   panelHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
-  panelTitle: { color: '#FFF', fontFamily: 'Poppins-SemiBold', fontSize: 17 },
-  panelLink: { color: '#4CAF50', fontFamily: 'Poppins-Medium', fontSize: 13 },
+  panelTitle: { color: theme.colors.textPrimary, fontFamily: 'Poppins-SemiBold', fontSize: 17 },
+  panelLink: { color: studioTheme.accent, fontFamily: 'Poppins-Medium', fontSize: 13 },
   placeholder: { color: 'rgba(255,255,255,0.5)', fontFamily: 'Poppins-Regular', fontSize: 13, lineHeight: 20 },
   trackRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8 },
   trackIcon: { width: 38, height: 38, borderRadius: 12, backgroundColor: 'rgba(76,175,80,0.12)', alignItems: 'center', justifyContent: 'center' },
   trackInfo: { flex: 1 },
-  trackTitle: { color: '#FFF', fontFamily: 'Poppins-SemiBold', fontSize: 13 },
+  trackTitle: { color: theme.colors.textPrimary, fontFamily: 'Poppins-SemiBold', fontSize: 13 },
   trackMeta: { color: 'rgba(255,255,255,0.55)', fontFamily: 'Poppins-Regular', fontSize: 11, marginTop: 2 },
   inlineAction: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(76,175,80,0.08)' },
-  amountText: { color: '#FFF', fontFamily: 'Poppins-SemiBold', fontSize: 12 },
+  amountText: { color: theme.colors.textPrimary, fontFamily: 'Poppins-SemiBold', fontSize: 12 },
 });
