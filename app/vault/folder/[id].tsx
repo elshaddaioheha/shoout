@@ -1,6 +1,8 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import SettingsHeader from '@/components/settings/SettingsHeader';
 import { auth, db } from '@/firebaseConfig';
+import { useAppTheme } from '@/hooks/use-app-theme';
+import { adaptLegacyColor, adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import {
     collection,
@@ -61,7 +63,18 @@ type AvailableUpload = {
     published?: boolean;
 };
 
+function useFolderDetailStyles() {
+    const appTheme = useAppTheme();
+    return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
+
 export default function FolderDetailScreen() {
+    const appTheme = useAppTheme();
+    const styles = useFolderDetailStyles();
+    const emptyIconColor = adaptLegacyColor('rgba(255,255,255,0.12)', 'color', appTheme);
+    const fallbackArtworkColor = adaptLegacyColor('rgba(255,255,255,0.5)', 'color', appTheme);
+    const trackMenuIconColor = adaptLegacyColor('rgba(255,255,255,0.4)', 'color', appTheme);
+
     const router = useRouter();
     const { id, name: nameParam } = useLocalSearchParams<{ id: string; name?: string }>();
 
@@ -313,7 +326,7 @@ export default function FolderDetailScreen() {
                         >
                             {tracks.length === 0 ? (
                                 <View style={styles.emptyWrap}>
-                                    <Music size={64} color="rgba(255,255,255,0.12)" strokeWidth={1.5} />
+                                    <Music size={64} color={emptyIconColor} strokeWidth={1.5} />
                                     <Text style={styles.emptyTitle}>No tracks yet</Text>
                                     <Text style={styles.emptySub}>
                                         Add existing private uploads to this folder or upload a new track into Vault.
@@ -333,7 +346,7 @@ export default function FolderDetailScreen() {
                                             {track.artworkUrl ? (
                                                 <Image source={{ uri: track.artworkUrl }} style={styles.trackArtImage} />
                                             ) : (
-                                                <Music size={20} color="rgba(255,255,255,0.5)" />
+                                                <Music size={20} color={fallbackArtworkColor} />
                                             )}
                                         </View>
                                         <View style={styles.trackInfo}>
@@ -344,7 +357,7 @@ export default function FolderDetailScreen() {
                                             style={styles.trackMore}
                                             onPress={() => handleTrackOptions(track)}
                                         >
-                                            <MoreVertical size={18} color="rgba(255,255,255,0.4)" />
+                                            <MoreVertical size={18} color={trackMenuIconColor} />
                                         </TouchableOpacity>
                                     </View>
                                 ))
@@ -416,7 +429,7 @@ export default function FolderDetailScreen() {
     );
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
     container: { flex: 1, backgroundColor: '#140F10' },
 
     // Header
@@ -589,5 +602,5 @@ const styles = StyleSheet.create({
         alignItems: 'center', justifyContent: 'center',
     },
     confirmBtnText: { color: '#140F10', fontFamily: 'Poppins-Bold', fontSize: 15 },
-});
+};
 

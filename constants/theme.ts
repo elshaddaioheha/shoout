@@ -1,10 +1,14 @@
-import { colors } from './colors';
+import { colorPalettes, colors } from './colors';
 import { spacing } from './spacing';
 import { FontFamily, LegacyFonts, typography } from './typography';
 
-export const theme = {
+export function getTheme(colorScheme: 'light' | 'dark' = 'dark') {
+  const palette = colorScheme === 'dark' ? colorPalettes.dark : colorPalettes.light;
+
+  return {
   spacing,
-  colors,
+  colors: palette,
+  isDark: colorScheme === 'dark',
   typography,
   radius: {
     sm: 4,
@@ -28,7 +32,11 @@ export const theme = {
     },
   },
   iconSize: { sm: 16, md: 20, lg: 24, xl: 32 },
-};
+  };
+}
+
+// Legacy default theme remains dark for backward compatibility.
+export const theme = getTheme('dark');
 
 // ──────────────────────────────────────────────
 // Legacy Exports (kept to prevent immediate breakages, will be phased out)

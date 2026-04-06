@@ -1,11 +1,21 @@
 import { useToastStore } from '@/store/useToastStore';
+import { useAppTheme } from '@/hooks/use-app-theme';
+import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { AlertCircle, CheckCircle, Info } from 'lucide-react-native';
 import React, { useEffect } from 'react';
 import { Animated, Dimensions, StyleSheet, Text, View } from 'react-native';
 
 const { width } = Dimensions.get('window');
 
+function useGlobalToastStyles() {
+    const appTheme = useAppTheme();
+    return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
+
 export default function GlobalToast() {
+    const appTheme = useAppTheme();
+    const styles = useGlobalToastStyles();
+
     const { visible, message, type } = useToastStore();
     const translateY = React.useRef(new Animated.Value(-150)).current;
 
@@ -27,15 +37,15 @@ export default function GlobalToast() {
 
     if (!visible && message === '') return null;
 
-    let backgroundColor = '#2A2A2A'; // Info (Dark theme neutral)
-    let icon = <Info size={20} color="#3AB0FF" />;
+    let backgroundColor = appTheme.isDark ? '#2A2A2A' : appTheme.colors.backgroundElevated;
+    let icon = <Info size={20} color={appTheme.colors.primary} />;
 
     if (type === 'success') {
-        backgroundColor = '#1E3329'; // Dark greenish
-        icon = <CheckCircle size={20} color="#4CAF50" />;
+        backgroundColor = appTheme.isDark ? '#1E3329' : 'rgba(46,141,64,0.12)';
+        icon = <CheckCircle size={20} color={appTheme.colors.success} />;
     } else if (type === 'error') {
-        backgroundColor = '#382020'; // Dark reddish
-        icon = <AlertCircle size={20} color="#FF5252" />;
+        backgroundColor = appTheme.isDark ? '#382020' : 'rgba(211,58,42,0.12)';
+        icon = <AlertCircle size={20} color={appTheme.colors.error} />;
     }
 
     return (
@@ -54,7 +64,7 @@ export default function GlobalToast() {
     );
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
     toastContainer: {
         position: 'absolute',
         top: 0,
@@ -86,4 +96,4 @@ const styles = StyleSheet.create({
         fontFamily: 'Poppins-Regular',
         flexShrink: 1,
     },
-});
+};

@@ -1,6 +1,8 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View, ViewStyle } from 'react-native';
 import { ChevronLeft } from 'lucide-react-native';
+import { useAppTheme } from '@/hooks/use-app-theme';
+import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 
 interface SettingsHeaderProps {
     title: string;
@@ -9,11 +11,19 @@ interface SettingsHeaderProps {
     style?: ViewStyle;
 }
 
+function useSettingsHeaderStyles() {
+    const appTheme = useAppTheme();
+    return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
+
 export default function SettingsHeader({ title, onBack, rightElement, style }: SettingsHeaderProps) {
+    const appTheme = useAppTheme();
+    const styles = useSettingsHeaderStyles();
+
     return (
         <View style={[styles.header, style]}>
             <TouchableOpacity onPress={onBack} style={styles.backButton}>
-                <ChevronLeft size={24} color="#FFF" />
+                <ChevronLeft size={24} color={appTheme.colors.textPrimary} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>{title}</Text>
             {rightElement ?? <View style={styles.rightPlaceholder} />}
@@ -21,7 +31,7 @@ export default function SettingsHeader({ title, onBack, rightElement, style }: S
     );
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
     header: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -45,4 +55,4 @@ const styles = StyleSheet.create({
     rightPlaceholder: {
         width: 40,
     },
-});
+};

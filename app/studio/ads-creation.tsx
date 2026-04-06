@@ -1,7 +1,9 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import { auth, db } from '@/firebaseConfig';
+import { useAppTheme } from '@/hooks/use-app-theme';
 import { formatUsd } from '@/utils/pricing';
 import { useToastStore } from '@/store/useToastStore';
+import { adaptLegacyColor, adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { ArrowLeft, ChevronDown, Image as ImageIcon, Megaphone, Play, Repeat2, Shuffle, SkipBack, SkipForward, Target } from 'lucide-react-native';
@@ -71,7 +73,14 @@ const STEP_TITLES = {
   5: { title: 'Payment', subtitle: 'Complete your campaign setup' },
 } as const;
 
+function useAdsStyles() {
+  const appTheme = useAppTheme();
+  return useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme)), [appTheme]);
+}
+
 export default function AdsCreationScreen() {
+  const appTheme = useAppTheme();
+  const styles = useAdsStyles();
   const router = useRouter();
   const params = useLocalSearchParams<{ step?: string; trackId?: string; trackTitle?: string; coverUrl?: string }>();
   const paramStep = Number(params.step || '1');
@@ -99,10 +108,10 @@ export default function AdsCreationScreen() {
     return Array.from({ length: 5 }, (_, index) => {
       const idx = index + 1;
       if (idx === step) return '#EC5C39';
-      if (idx < step) return '#AB452D';
-      return 'rgba(255,255,255,0.85)';
+      if (idx < step) return appTheme.isDark ? '#AB452D' : 'rgba(236,92,57,0.6)';
+      return appTheme.isDark ? 'rgba(255,255,255,0.85)' : 'rgba(23,18,19,0.16)';
     });
-  }, [step]);
+  }, [appTheme.isDark, step]);
 
   const canContinue = useMemo(() => {
     if (step === 1) return selectedGoal.length > 0;
@@ -198,9 +207,9 @@ export default function AdsCreationScreen() {
         {/* Track context banner — shown when promoting a specific track */}
         {promotingTrackTitle ? (
           <View style={styles.trackBanner}>
-            <Megaphone size={14} color="#EC5C39" />
+            <Megaphone size={14} color={adaptLegacyColor('#EC5C39', 'color', appTheme)} />
             <Text style={styles.trackBannerText} numberOfLines={1}>
-              Promoting: <Text style={{ color: '#EC5C39' }}>{promotingTrackTitle}</Text>
+              Promoting: <Text style={{ color: adaptLegacyColor('#EC5C39', 'color', appTheme) }}>{promotingTrackTitle}</Text>
             </Text>
           </View>
         ) : null}
@@ -244,7 +253,7 @@ export default function AdsCreationScreen() {
                 </View>
             ) : (
                 <TouchableOpacity style={styles.uploadBox} activeOpacity={0.9} onPress={() => showToast('Image upload coming soon', 'info')}>
-                  <ImageIcon size={28} color="#737373" />
+                  <ImageIcon size={28} color={adaptLegacyColor('#737373', 'color', appTheme)} />
                   <Text style={styles.uploadText}>Upload img Jpegs and Pngs only</Text>
                 </TouchableOpacity>
             )}
@@ -256,7 +265,7 @@ export default function AdsCreationScreen() {
                 onChangeText={(text) => setHeadline(text.slice(0, 50))}
                 style={styles.input}
                 placeholder="e.g New album out now"
-                placeholderTextColor="#737373"
+                placeholderTextColor={appTheme.colors.textPlaceholder}
               />
               <Text style={styles.counterText}>{headline.length}/50</Text>
             </View>
@@ -318,7 +327,7 @@ export default function AdsCreationScreen() {
           onPress={goNext}
         >
           {saving ? (
-            <ActivityIndicator size="small" color="#FFFFFF" />
+            <ActivityIndicator size="small" color={appTheme.colors.textPrimary} />
           ) : (
             <Text style={styles.ctaText}>{step === 5 ? 'Create Ad' : 'Continue'}</Text>
           )}
@@ -337,6 +346,9 @@ function StepCards({
   selected: string;
   onSelect: (id: string) => void;
 }) {
+  const styles = useAdsStyles();
+  const appTheme = useAppTheme();
+
   return (
     <View style={styles.cardsWrap}>
       {cards.map((card) => {
@@ -349,7 +361,7 @@ function StepCards({
             onPress={() => onSelect(card.id)}
           >
             <View style={[styles.optionIcon, { backgroundColor: card.color }]}>
-              <Target size={20} color="#FFFFFF" />
+              <Target size={20} color={adaptLegacyColor('#FFFFFF', 'color', appTheme)} />
             </View>
 
             <View style={styles.optionTextWrap}>
@@ -364,18 +376,23 @@ function StepCards({
 }
 
 function LabeledField({ label, value, onPress }: { label: string; value: string; onPress: () => void }) {
+  const styles = useAdsStyles();
+  const appTheme = useAppTheme();
+
   return (
     <View style={styles.fieldWrap}>
       <Text style={styles.formLabel}>{label}</Text>
       <TouchableOpacity style={styles.dropdown} activeOpacity={0.85} onPress={onPress}>
         <Text style={styles.dropdownText}>{value}</Text>
-        <ChevronDown size={16} color="#D9D9D9" />
+        <ChevronDown size={16} color={appTheme.colors.textSecondary} />
       </TouchableOpacity>
     </View>
   );
 }
 
 function CompactAdPreview({ headline, trackTitle, coverUrl }: { headline: string; trackTitle?: string; coverUrl?: string }) {
+  const styles = useAdsStyles();
+
   return (
     <View style={styles.compactPreview}>
       <View style={styles.compactLeft}>
@@ -398,6 +415,9 @@ function CompactAdPreview({ headline, trackTitle, coverUrl }: { headline: string
 }
 
 function AudioAdPreview({ trackTitle, coverUrl }: { trackTitle?: string; coverUrl?: string }) {
+  const styles = useAdsStyles();
+  const appTheme = useAppTheme();
+
   return (
     <View style={styles.audioWrap}>
       {coverUrl ? (
@@ -412,7 +432,20 @@ function AudioAdPreview({ trackTitle, coverUrl }: { trackTitle?: string; coverUr
         {Array.from({ length: 52 }).map((_, idx) => {
           const height = 4 + ((idx * 7) % 22);
           const active = idx < 18;
-          return <View key={idx} style={[styles.waveBar, { height, backgroundColor: active ? '#EC5C39' : '#747578' }]} />;
+          return (
+            <View
+              key={idx}
+              style={[
+                styles.waveBar,
+                {
+                  height,
+                  backgroundColor: active
+                    ? '#EC5C39'
+                    : (appTheme.isDark ? '#747578' : 'rgba(23,18,19,0.28)'),
+                },
+              ]}
+            />
+          );
         })}
       </View>
 
@@ -422,17 +455,19 @@ function AudioAdPreview({ trackTitle, coverUrl }: { trackTitle?: string; coverUr
       </View>
 
       <View style={styles.playerRow}>
-        <Shuffle size={17} color="#D9D9D9" />
-        <SkipBack size={17} color="#D9D9D9" />
-        <View style={styles.playBtn}><Play size={16} color="#000000" fill="#000000" /></View>
-        <SkipForward size={17} color="#D9D9D9" />
-        <Repeat2 size={17} color="#D9D9D9" />
+        <Shuffle size={17} color={appTheme.colors.textSecondary} />
+        <SkipBack size={17} color={appTheme.colors.textSecondary} />
+        <View style={styles.playBtn}><Play size={16} color={adaptLegacyColor('#000000', 'color', appTheme)} fill={adaptLegacyColor('#000000', 'color', appTheme)} /></View>
+        <SkipForward size={17} color={appTheme.colors.textSecondary} />
+        <Repeat2 size={17} color={appTheme.colors.textSecondary} />
       </View>
     </View>
   );
 }
 
 function SummaryRow({ label, value, bold = false }: { label: string; value: string; bold?: boolean }) {
+  const styles = useAdsStyles();
+
   return (
     <View style={styles.summaryRow}>
       <Text style={[styles.summaryKey, bold && styles.summaryBold]}>{label}</Text>
@@ -447,7 +482,7 @@ function cycleChoice(current: string, list: string[], setter: (value: string) =>
   setter(list[nextIdx]);
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
   container: { flex: 1, backgroundColor: '#140F10' },
   content: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 140 },
   trackBanner: {
@@ -890,4 +925,4 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 16,
   },
-});
+};

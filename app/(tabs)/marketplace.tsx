@@ -3,11 +3,13 @@ import FilterSheet from '@/components/FilterSheet';
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import StudioPromoteScreen from '@/components/studio/StudioPromoteScreen';
 import SharedHeader from '@/components/SharedHeader';
+import { useAppTheme } from '@/hooks/use-app-theme';
 import { useCartStore } from '@/store/useCartStore';
 import { usePlaybackStore } from '@/store/usePlaybackStore';
 import { useToastStore } from '@/store/useToastStore';
 import { useUserStore } from '@/store/useUserStore';
 import { useAuthStore } from '@/store/useAuthStore';
+import { adaptLegacyColor, adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { getModeTheme } from '@/utils/appModeTheme';
 import { getEffectivePlan } from '@/utils/subscriptions';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -37,7 +39,20 @@ import { auth, db } from '../../firebaseConfig';
 
 const { width } = Dimensions.get('window');
 
+function useMarketplaceStyles() {
+    const appTheme = useAppTheme();
+    return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
+
 export default function MarketplaceScreen() {
+    const appTheme = useAppTheme();
+    const styles = useMarketplaceStyles();
+    const searchIconColor = adaptLegacyColor('rgba(255,255,255,0.3)', 'color', appTheme);
+    const placeholderColor = appTheme.colors.textPlaceholder;
+    const loadingTextColor = adaptLegacyColor('rgba(255,255,255,0.4)', 'color', appTheme);
+    const emptyResultIconColor = adaptLegacyColor('rgba(255,255,255,0.1)', 'color', appTheme);
+    const emptyResultTextColor = adaptLegacyColor('rgba(255,255,255,0.3)', 'color', appTheme);
+
     const router = useRouter();
     const { role, activeAppMode } = useUserStore();
     const { actualRole } = useAuthStore();
@@ -179,7 +194,7 @@ export default function MarketplaceScreen() {
                                 <Text style={styles.merchSub}>Buy custom apparel & vinyl</Text>
                             </View>
                             <View style={styles.merchIconCircle}>
-                                <ShoppingBag size={24} color="#FFF" />
+                                <ShoppingBag size={24} color={appTheme.colors.textPrimary} />
                             </View>
                         </LinearGradient>
                     </TouchableOpacity>
@@ -187,24 +202,24 @@ export default function MarketplaceScreen() {
                     {/* Search & Filter */}
                     <View style={styles.searchRow}>
                         <View style={styles.searchBar}>
-                            <Search size={20} color="rgba(255,255,255,0.3)" />
+                            <Search size={20} color={searchIconColor} />
                             <TextInput
                                 placeholder="Search beats, samples..."
-                                placeholderTextColor="rgba(255,255,255,0.3)"
+                                placeholderTextColor={placeholderColor}
                                 style={styles.searchInput}
                                 value={searchQuery}
                                 onChangeText={setSearchQuery}
                             />
                         </View>
                         <TouchableOpacity style={[styles.filterButton, { backgroundColor: accentSoft }]} onPress={() => setFilterOpen(true)}>
-                            <Filter size={20} color="#FFF" />
+                            <Filter size={20} color={appTheme.colors.textPrimary} />
                         </TouchableOpacity>
                     </View>
 
                     {/* Studio Controls for Sellers */}
                     {isStudioMode && (
                         <LinearGradient
-                            colors={['#1E1A1B', '#140F10']}
+                            colors={[appTheme.colors.surface, appTheme.colors.background]}
                             style={styles.studioBanner}
                         >
                             <View style={styles.studioTextContainer}>
@@ -223,7 +238,7 @@ export default function MarketplaceScreen() {
                                         router.push('/studio/upload');
                                     }}
                                 >
-                                    <Upload size={18} color="#FFF" />
+                                    <Upload size={18} color={appTheme.colors.textPrimary} />
                                     <Text style={styles.studioActionText}>Upload</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity
@@ -236,7 +251,7 @@ export default function MarketplaceScreen() {
                                         router.push('/studio/withdraw');
                                     }}
                                 >
-                                    <DollarSign size={18} color="#FFF" />
+                                    <DollarSign size={18} color={appTheme.colors.textPrimary} />
                                     <Text style={styles.studioActionText}>Earnings</Text>
                                 </TouchableOpacity>
                             </View>
@@ -246,7 +261,7 @@ export default function MarketplaceScreen() {
                     {loading ? (
                         <View style={{ padding: 40, alignItems: 'center' }}>
                             <ActivityIndicator color={accentColor} />
-                            <Text style={{ color: 'rgba(255,255,255,0.4)', marginTop: 10 }}>Loading Store...</Text>
+                            <Text style={{ color: loadingTextColor, marginTop: 10 }}>Loading Store...</Text>
                         </View>
                     ) : (
                         <>
@@ -262,8 +277,8 @@ export default function MarketplaceScreen() {
 
                             {filteredTrending.length === 0 && filteredSamples.length === 0 && filteredArrivals.length === 0 && (
                                 <View style={{ padding: 40, alignItems: 'center' }}>
-                                    <Music size={40} color="rgba(255,255,255,0.1)" />
-                                    <Text style={{ color: 'rgba(255,255,255,0.3)', marginTop: 10 }}>No results found for "{searchQuery}"</Text>
+                                    <Music size={40} color={emptyResultIconColor} />
+                                    <Text style={{ color: emptyResultTextColor, marginTop: 10 }}>No results found for "{searchQuery}"</Text>
                                 </View>
                             )}
                         </>
@@ -289,6 +304,8 @@ export default function MarketplaceScreen() {
 }
 
 function MarketplaceSection({ title, items, accentColor, accentStrong }: any) {
+    const appTheme = useAppTheme();
+    const styles = useMarketplaceStyles();
     const setTrack = usePlaybackStore(state => state.setTrack);
     const router = useRouter();
 
@@ -333,7 +350,7 @@ function MarketplaceSection({ title, items, accentColor, accentStrong }: any) {
                                     style={styles.cardImageAsset}
                                 />
                             ) : null}
-                            <Music size={32} color="rgba(255,255,255,0.1)" />
+                            <Music size={32} color={adaptLegacyColor('rgba(255,255,255,0.1)', 'color', appTheme)} />
                             <View style={[styles.priceBadge, { backgroundColor: accentColor }]}>
                                 <Text style={styles.priceText}>
                                     {isUpcoming ? 'Pre-order ' : ''}${item.price?.toFixed(2) || '0.00'}
@@ -363,7 +380,7 @@ function MarketplaceSection({ title, items, accentColor, accentStrong }: any) {
                                     colors={[accentColor, accentStrong]}
                                     style={styles.previewCircle}
                                 >
-                                    <Music size={14} color="#FFF" />
+                                    <Music size={14} color={appTheme.colors.textPrimary} />
                                 </LinearGradient>
                             </TouchableOpacity>
                         </View>
@@ -381,7 +398,7 @@ function MarketplaceSection({ title, items, accentColor, accentStrong }: any) {
     );
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
     container: { flex: 1, backgroundColor: '#140F10' },
     scrollContent: { paddingBottom: 40 },
     searchRow: { flexDirection: 'row', gap: 12, paddingHorizontal: 24, marginBottom: 24 },
@@ -492,5 +509,5 @@ const styles = StyleSheet.create({
         fontFamily: 'Poppins-SemiBold',
         fontSize: 13,
     },
-});
+};
 

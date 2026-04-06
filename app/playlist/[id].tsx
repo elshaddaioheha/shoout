@@ -1,9 +1,11 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import SettingsHeader from '@/components/settings/SettingsHeader';
 import { auth, db } from '@/firebaseConfig';
+import { useAppTheme } from '@/hooks/use-app-theme';
 import { useCartStore } from '@/store/useCartStore';
 import { usePlaybackStore } from '@/store/usePlaybackStore';
 import { useToastStore } from '@/store/useToastStore';
+import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Heart, MoreVertical, Play, ShoppingCart, Shuffle } from 'lucide-react-native';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -47,7 +49,15 @@ function parseDurationMs(raw: any) {
   return 190000;
 }
 
+function usePlaylistStyles() {
+  const appTheme = useAppTheme();
+  return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
+
 export default function PlaylistScreen() {
+  const appTheme = useAppTheme();
+  const styles = usePlaylistStyles();
+
   const router = useRouter();
   const params = useLocalSearchParams();
   const { addItem } = useCartStore();
@@ -242,7 +252,7 @@ export default function PlaylistScreen() {
           onBack={() => router.back()}
           rightElement={
             <TouchableOpacity style={styles.iconButton} onPress={() => Alert.alert('Coming Soon')}>
-              <MoreVertical size={22} color="#FFF" />
+              <MoreVertical size={22} color={appTheme.colors.textPrimary} />
             </TouchableOpacity>
           }
           style={{ paddingHorizontal: 0, paddingVertical: 0, marginBottom: 2 }}
@@ -251,7 +261,7 @@ export default function PlaylistScreen() {
 
         {loading ? (
           <View style={styles.loadingWrap}>
-            <ActivityIndicator color="#EC5C39" />
+            <ActivityIndicator color={appTheme.colors.primary} />
           </View>
         ) : (
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
@@ -270,11 +280,11 @@ export default function PlaylistScreen() {
 
             <View style={styles.actionsRow}>
               <TouchableOpacity style={[styles.cta, styles.ctaGhost]} activeOpacity={0.9} onPress={onShuffle}>
-                <Shuffle size={18} color="#EC5C39" />
+                <Shuffle size={18} color={appTheme.colors.primary} />
                 <Text style={[styles.ctaText, styles.ctaGhostText]}>Shuffle</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[styles.cta, styles.ctaSolid]} activeOpacity={0.9} onPress={onPlay}>
-                <Play size={18} color="#140F10" />
+                <Play size={18} color={appTheme.colors.background} />
                 <Text style={[styles.ctaText, styles.ctaSolidText]}>Play</Text>
               </TouchableOpacity>
             </View>
@@ -318,10 +328,10 @@ export default function PlaylistScreen() {
                     <View style={styles.trackActions}>
                       <Text style={styles.trackDuration}>{track.duration}</Text>
                       <TouchableOpacity style={styles.smallIcon} onPress={() => handleTrackAddToCart(track)}>
-                        <ShoppingCart size={16} color="#EC5C39" />
+                        <ShoppingCart size={16} color={appTheme.colors.primary} />
                       </TouchableOpacity>
                       <TouchableOpacity style={styles.smallIcon} onPress={() => handleToggleFavourite(track)}>
-                        <Heart size={16} color="#EC5C39" fill={favouriteIds[track.id] ? '#EC5C39' : 'transparent'} />
+                        <Heart size={16} color={appTheme.colors.primary} fill={favouriteIds[track.id] ? appTheme.colors.primary : 'transparent'} />
                       </TouchableOpacity>
                     </View>
                   </TouchableOpacity>
@@ -335,7 +345,7 @@ export default function PlaylistScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
   container: { flex: 1, backgroundColor: '#140F10' },
   iconButton: {
     width: 40,
@@ -420,4 +430,4 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-});
+};

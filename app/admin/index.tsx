@@ -1,9 +1,17 @@
 import { useRouter } from 'expo-router';
 import { Text, TouchableOpacity, View, StyleSheet } from 'react-native';
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
-import { theme } from '@/constants/theme';
+import React from 'react';
+import { useAppTheme } from '@/hooks/use-app-theme';
+import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
+
+function useAdminHomeStyles() {
+  const appTheme = useAppTheme();
+  return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
 
 export default function AdminHome() {
+  const styles = useAdminHomeStyles();
   const router = useRouter();
 
   return (
@@ -38,7 +46,7 @@ export default function AdminHome() {
   );
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
   container: {
     flex: 1,
     padding: 16,
@@ -49,14 +57,14 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   subtitle: {
-    color: theme.colors.textSecondary,
+    color: 'rgba(255,255,255,0.7)',
     marginBottom: 20,
     lineHeight: 22,
   },
   card: {
     padding: 16,
     borderRadius: 14,
-    backgroundColor: theme.colors.surface,
+    backgroundColor: '#1E1A1B',
     marginBottom: 12,
     shadowColor: '#000',
     shadowOpacity: 0.08,
@@ -69,6 +77,6 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   cardSubtitle: {
-    color: theme.colors.textSecondary,
+    color: 'rgba(255,255,255,0.7)',
   },
-});
+};

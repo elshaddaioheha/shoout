@@ -1,7 +1,16 @@
 import { useRouter } from 'expo-router';
+import { useAppTheme } from '@/hooks/use-app-theme';
+import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+function useModalStyles() {
+  const appTheme = useAppTheme();
+  return StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any);
+}
+
 export default function ModalScreen() {
+  const styles = useModalStyles();
+
   const router = useRouter();
   return (
     <View style={styles.container}>
@@ -13,7 +22,7 @@ export default function ModalScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
   container: {
     flex: 1,
     backgroundColor: '#140F10',
@@ -31,4 +40,4 @@ const styles = StyleSheet.create({
     color: '#EC5C39',
     fontFamily: 'Poppins-SemiBold',
   },
-});
+};

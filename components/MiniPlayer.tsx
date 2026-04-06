@@ -1,4 +1,6 @@
 import { usePlaybackStore } from '@/store/usePlaybackStore';
+import { useAppTheme } from '@/hooks/use-app-theme';
+import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { BlurView } from 'expo-blur';
 import { Music, Pause, Play, SkipBack, SkipForward, X } from 'lucide-react-native';
 import React from 'react';
@@ -14,7 +16,15 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import FullPlayer from './FullPlayer';
 
+function useMiniPlayerStyles() {
+    const appTheme = useAppTheme();
+    return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
+
 export default function MiniPlayer() {
+    const appTheme = useAppTheme();
+    const styles = useMiniPlayerStyles();
+
     const {
         currentTrack,
         isPlaying,
@@ -41,9 +51,9 @@ export default function MiniPlayer() {
             <Pressable
                 style={[styles.container, { bottom: bottomPos }]}
                 onPress={() => setIsFullPlayerVisible(true)}
-                android_ripple={{ color: 'rgba(255,255,255,0.05)' }}
+                android_ripple={{ color: appTheme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(23,18,19,0.06)' }}
             >
-                <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />
+                <BlurView intensity={80} tint={appTheme.isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
 
                 {/* Content layer above BlurView */}
                 <View style={styles.content}>
@@ -52,7 +62,7 @@ export default function MiniPlayer() {
                         {currentTrack.artworkUrl ? (
                             <Image source={{ uri: currentTrack.artworkUrl }} style={styles.artwork} />
                         ) : (
-                            <Music size={20} color="#EC5C39" />
+                            <Music size={20} color={appTheme.colors.primary} />
                         )}
                     </View>
 
@@ -69,7 +79,7 @@ export default function MiniPlayer() {
                             hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
                             onPress={(e) => { e.stopPropagation(); skipBack(15); }}
                         >
-                            <SkipBack size={20} color="#FFF" fill="#FFF" />
+                            <SkipBack size={20} color={appTheme.colors.textPrimary} fill={appTheme.colors.textPrimary} />
                         </TouchableOpacity>
 
                         <TouchableOpacity
@@ -80,9 +90,9 @@ export default function MiniPlayer() {
                             {isBuffering ? (
                                 <View style={styles.bufferingDot} />
                             ) : isPlaying ? (
-                                <Pause size={24} color="#FFF" fill="#FFF" />
+                                <Pause size={24} color={appTheme.colors.textPrimary} fill={appTheme.colors.textPrimary} />
                             ) : (
-                                <Play size={24} color="#FFF" fill="#FFF" />
+                                <Play size={24} color={appTheme.colors.textPrimary} fill={appTheme.colors.textPrimary} />
                             )}
                         </TouchableOpacity>
 
@@ -91,7 +101,7 @@ export default function MiniPlayer() {
                             hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
                             onPress={(e) => { e.stopPropagation(); skipForward(15); }}
                         >
-                            <SkipForward size={20} color="#FFF" fill="#FFF" />
+                            <SkipForward size={20} color={appTheme.colors.textPrimary} fill={appTheme.colors.textPrimary} />
                         </TouchableOpacity>
 
                         <TouchableOpacity
@@ -99,7 +109,7 @@ export default function MiniPlayer() {
                             hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
                             onPress={(e) => { e.stopPropagation(); clearTrack(); }}
                         >
-                            <X size={18} color="rgba(255,255,255,0.5)" />
+                            <X size={18} color={appTheme.colors.textDisabled} />
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -119,7 +129,7 @@ export default function MiniPlayer() {
     );
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
     container: {
         position: 'absolute',
         left: 8,
@@ -199,4 +209,4 @@ const styles = StyleSheet.create({
         backgroundColor: '#EC5C39',
         borderRadius: 1,
     },
-});
+};

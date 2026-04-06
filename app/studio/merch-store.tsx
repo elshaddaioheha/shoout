@@ -2,7 +2,9 @@ import ActionSheet from '@/components/ActionSheet';
 import FilterSheet from '@/components/FilterSheet';
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import { auth, db } from '@/firebaseConfig';
+import { useAppTheme } from '@/hooks/use-app-theme';
 import { useToastStore } from '@/store/useToastStore';
+import { adaptLegacyColor, adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { collection, deleteDoc, doc, onSnapshot, orderBy, query } from 'firebase/firestore';
@@ -35,7 +37,18 @@ import {
 
 const { width } = Dimensions.get('window');
 
+function useMerchStoreStyles() {
+    const appTheme = useAppTheme();
+    return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
+
 export default function MerchStoreManagement() {
+    const appTheme = useAppTheme();
+    const styles = useMerchStoreStyles();
+    const placeholderColor = appTheme.colors.textPlaceholder;
+    const mutedIconColor = adaptLegacyColor('rgba(255,255,255,0.4)', 'color', appTheme);
+    const emptyIconColor = adaptLegacyColor('rgba(255,255,255,0.2)', 'color', appTheme);
+
     const router = useRouter();
     const [searchQuery, setSearchQuery] = useState('');
     const [activeTab, setActiveTab] = useState('All');
@@ -90,7 +103,7 @@ export default function MerchStoreManagement() {
     };
 
     if (loading) {
-        return <SafeScreenWrapper><View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}><ActivityIndicator color="#EC5C39" size="large" /></View></SafeScreenWrapper>;
+        return <SafeScreenWrapper><View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}><ActivityIndicator color={appTheme.colors.primary} size="large" /></View></SafeScreenWrapper>;
     }
 
     return (
@@ -115,17 +128,17 @@ export default function MerchStoreManagement() {
                 {/* Search */}
                 <View style={styles.searchContainer}>
                     <View style={styles.searchInputWrapper}>
-                        <Search size={18} color="rgba(255,255,255,0.4)" style={styles.searchIcon} />
+                        <Search size={18} color={mutedIconColor} style={styles.searchIcon} />
                         <TextInput
                             style={styles.searchInput}
                             placeholder="Search store..."
-                            placeholderTextColor="rgba(255,255,255,0.4)"
+                            placeholderTextColor={placeholderColor}
                             value={searchQuery}
                             onChangeText={setSearchQuery}
                         />
                     </View>
                     <TouchableOpacity style={styles.filterButton} onPress={() => setFilterOpen(true)}>
-                        <Filter size={20} color="#FFF" />
+                        <Filter size={20} color={appTheme.colors.textPrimary} />
                     </TouchableOpacity>
                 </View>
 
@@ -158,7 +171,7 @@ export default function MerchStoreManagement() {
                     <View style={styles.summaryDivider} />
                     <View style={styles.summaryItem}>
                         <Text style={styles.summaryLabel}>Revenue</Text>
-                        <Text style={[styles.summaryValue, { color: '#4CAF50' }]}>₦{(totalRevenue / 1000).toFixed(1)}K</Text>
+                        <Text style={[styles.summaryValue, { color: appTheme.colors.success }]}>₦{(totalRevenue / 1000).toFixed(1)}K</Text>
                     </View>
                 </View>
 
@@ -170,13 +183,15 @@ export default function MerchStoreManagement() {
                         <MerchCard
                             item={item}
                             onDelete={() => handleDelete(item.id)}
+                            styles={styles}
+                            appTheme={appTheme}
                         />
                     )}
                     contentContainerStyle={styles.listContent}
                     showsVerticalScrollIndicator={false}
                     ListEmptyComponent={
                         <View style={styles.emptyContainer}>
-                            <ShoppingBag size={48} color="rgba(255,255,255,0.2)" />
+                            <ShoppingBag size={48} color={emptyIconColor} />
                             <Text style={styles.emptyText}>Store is empty</Text>
                         </View>
                     }
@@ -198,8 +213,12 @@ export default function MerchStoreManagement() {
     );
 }
 
-function MerchCard({ item, onDelete }: any) {
+function MerchCard({ item, onDelete, styles, appTheme }: any) {
     const [menuOpen, setMenuOpen] = useState(false);
+    const actionIconColor = adaptLegacyColor('rgba(255,255,255,0.5)', 'color', appTheme);
+    const moreIconColor = adaptLegacyColor('rgba(255,255,255,0.6)', 'color', appTheme);
+    const disabledIconColor = adaptLegacyColor('rgba(255,255,255,0.45)', 'color', appTheme);
+
     const getStatusColor = () => {
         if (item.status === 'In Stock') return '#4CAF50';
         if (item.status === 'Low Stock') return '#FFC107';
@@ -217,7 +236,7 @@ function MerchCard({ item, onDelete }: any) {
                     <Text style={styles.category}>{item.category}</Text>
                 </View>
                 <TouchableOpacity style={styles.moreButton} onPress={() => setMenuOpen(true)}>
-                    <MoreVertical size={20} color="rgba(255,255,255,0.6)" />
+                    <MoreVertical size={20} color={moreIconColor} />
                 </TouchableOpacity>
             </View>
 
@@ -226,19 +245,19 @@ function MerchCard({ item, onDelete }: any) {
                 onClose={() => setMenuOpen(false)}
                 title={item.title}
                 options={[
-                    { label: 'Edit Listing (Temporarily Disabled)', icon: <Edit3 size={18} color="rgba(255,255,255,0.45)" />, onPress: () => { } },
-                    { label: 'Manage Variants (Temporarily Disabled)', icon: <Layers size={18} color="rgba(255,255,255,0.45)" />, onPress: () => { } },
+                    { label: 'Edit Listing (Temporarily Disabled)', icon: <Edit3 size={18} color={disabledIconColor} />, onPress: () => { } },
+                    { label: 'Manage Variants (Temporarily Disabled)', icon: <Layers size={18} color={disabledIconColor} />, onPress: () => { } },
                     { label: 'Delete', icon: <Trash2 size={18} color="#FF4D4D" />, onPress: onDelete, destructive: true },
                 ]}
             />
 
             <View style={styles.statsRow}>
                 <View style={styles.stat}>
-                    <DollarSign size={14} color="rgba(255,255,255,0.5)" />
+                    <DollarSign size={14} color={actionIconColor} />
                     <Text style={styles.statValueText}>${item.price}</Text>
                 </View>
                 <View style={styles.stat}>
-                    <Package size={14} color="rgba(255,255,255,0.5)" />
+                    <Package size={14} color={actionIconColor} />
                     <Text style={styles.statValueText}>{item.stock} in stock</Text>
                 </View>
                 <View style={styles.stat}>
@@ -249,15 +268,15 @@ function MerchCard({ item, onDelete }: any) {
 
             <View style={styles.cardActions}>
                 <TouchableOpacity style={[styles.actionBtn, styles.disabledActionBtn]} disabled>
-                    <Edit3 size={16} color="rgba(255,255,255,0.45)" />
+                    <Edit3 size={16} color={disabledIconColor} />
                     <Text style={[styles.actionBtnText, styles.disabledActionLabel]}>Edit (Disabled)</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={[styles.actionBtn, styles.disabledActionBtn]} disabled>
-                    <Layers size={16} color="rgba(255,255,255,0.45)" />
+                    <Layers size={16} color={disabledIconColor} />
                     <Text style={[styles.actionBtnText, styles.disabledActionLabel]}>Variants (Disabled)</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.actionBtn} onPress={onDelete}>
-                    <Trash2 size={16} color="rgba(255,255,255,0.6)" />
+                    <Trash2 size={16} color={moreIconColor} />
                     <Text style={styles.deleteText}>Delete</Text>
                 </TouchableOpacity>
             </View>
@@ -265,7 +284,7 @@ function MerchCard({ item, onDelete }: any) {
     );
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
     container: {
         flex: 1,
         paddingHorizontal: 20,
@@ -478,4 +497,4 @@ const styles = StyleSheet.create({
         fontFamily: 'Poppins-Regular',
         fontSize: 16,
     }
-});
+};

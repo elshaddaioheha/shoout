@@ -5,13 +5,24 @@ import { ChevronLeft, Eye, EyeOff } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { KeyboardAvoidingView, Platform, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
+import { useAppTheme } from '@/hooks/use-app-theme';
 import { useToastStore } from '@/store/useToastStore';
+import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { getFriendlyErrorMessage } from '@/utils/errorHandler';
 import { completePasswordResetWithOtp } from '@/utils/emailOtp';
 
 const PASSWORD_RESET_TOKEN_KEY = 'passwordResetOtpToken';
 
+function useResetPasswordStyles() {
+  const appTheme = useAppTheme();
+  return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
+
 export default function ResetPasswordScreen() {
+  const appTheme = useAppTheme();
+  const styles = useResetPasswordStyles();
+  const placeholderColor = appTheme.colors.textPlaceholder;
+
   const router = useRouter();
   const { showToast } = useToastStore();
   const [password, setPassword] = useState('');
@@ -54,18 +65,18 @@ export default function ResetPasswordScreen() {
 
   return (
     <SafeScreenWrapper style={styles.container}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar barStyle={appTheme.isDark ? 'light-content' : 'dark-content'} />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}
         style={styles.flex}
       >
         <View style={styles.blurBg} pointerEvents="none">
-          <BlurView intensity={44} tint="dark" style={StyleSheet.absoluteFill} />
+          <BlurView intensity={44} tint={appTheme.isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
         </View>
 
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <ChevronLeft color="#FFFFFF" size={24} />
+          <ChevronLeft color={appTheme.colors.textPrimary} size={24} />
         </TouchableOpacity>
 
         <View style={styles.headerWrap}>
@@ -79,13 +90,13 @@ export default function ResetPasswordScreen() {
               value={password}
               onChangeText={setPassword}
               placeholder="Enter password"
-              placeholderTextColor="#6B6B6B"
+              placeholderTextColor={placeholderColor}
               style={styles.input}
               secureTextEntry={!showPassword}
               autoCapitalize="none"
             />
             <TouchableOpacity style={styles.eyeButton} onPress={() => setShowPassword((prev) => !prev)}>
-              {showPassword ? <Eye color="#FFFFFF" size={20} /> : <EyeOff color="#FFFFFF" size={20} />}
+              {showPassword ? <Eye color={appTheme.colors.textPrimary} size={20} /> : <EyeOff color={appTheme.colors.textPrimary} size={20} />}
             </TouchableOpacity>
           </View>
         </View>
@@ -97,13 +108,13 @@ export default function ResetPasswordScreen() {
               value={confirmPassword}
               onChangeText={setConfirmPassword}
               placeholder="Re-enter password"
-              placeholderTextColor="#6B6B6B"
+              placeholderTextColor={placeholderColor}
               style={styles.input}
               secureTextEntry={!showConfirmPassword}
               autoCapitalize="none"
             />
             <TouchableOpacity style={styles.eyeButton} onPress={() => setShowConfirmPassword((prev) => !prev)}>
-              {showConfirmPassword ? <Eye color="#FFFFFF" size={20} /> : <EyeOff color="#FFFFFF" size={20} />}
+              {showConfirmPassword ? <Eye color={appTheme.colors.textPrimary} size={20} /> : <EyeOff color={appTheme.colors.textPrimary} size={20} />}
             </TouchableOpacity>
           </View>
         </View>
@@ -116,7 +127,7 @@ export default function ResetPasswordScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
   flex: { flex: 1 },
   container: {
     flex: 1,
@@ -203,4 +214,4 @@ const styles = StyleSheet.create({
     letterSpacing: -0.41,
     fontFamily: 'Poppins-SemiBold',
   },
-});
+};

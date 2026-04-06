@@ -1,5 +1,7 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import { auth, db } from '@/firebaseConfig';
+import { useAppTheme } from '@/hooks/use-app-theme';
+import { adaptLegacyColor, adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { useRouter } from 'expo-router';
 import {
     collection,
@@ -38,7 +40,19 @@ interface ChatSession {
     };
 }
 
+function useChatListStyles() {
+    const appTheme = useAppTheme();
+    return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
+
 export default function ChatListScreen() {
+    const appTheme = useAppTheme();
+    const styles = useChatListStyles();
+    const placeholderColor = appTheme.colors.textPlaceholder;
+    const searchIconColor = adaptLegacyColor('rgba(255,255,255,0.3)', 'color', appTheme);
+    const avatarIconColor = adaptLegacyColor('rgba(255,255,255,0.4)', 'color', appTheme);
+    const emptyIconColor = adaptLegacyColor('rgba(255,255,255,0.05)', 'color', appTheme);
+
     const router = useRouter();
     const [chats, setChats] = useState<ChatSession[]>([]);
     const [loading, setLoading] = useState(true);
@@ -86,9 +100,9 @@ export default function ChatListScreen() {
             >
                 <View style={styles.avatarContainer}>
                     <View style={styles.avatar}>
-                        <User size={24} color="rgba(255,255,255,0.4)" />
+                        <User size={24} color={avatarIconColor} />
                     </View>
-                    {hasUnread && <View style={styles.unreadDot} />}
+                    {hasUnread && <View style={[styles.unreadDot, { borderColor: appTheme.colors.background }]} />}
                 </View>
 
                 <View style={styles.chatInfo}>
@@ -117,7 +131,7 @@ export default function ChatListScreen() {
                 {/* Header */}
                 <View style={styles.header}>
                     <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-                        <ChevronLeft size={24} color="#FFF" />
+                        <ChevronLeft size={24} color={appTheme.colors.textPrimary} />
                     </TouchableOpacity>
                     <Text style={styles.headerTitle}>Messages</Text>
                     <View style={{ width: 40 }} />
@@ -126,10 +140,10 @@ export default function ChatListScreen() {
                 {/* Search */}
                 <View style={styles.searchContainer}>
                     <View style={styles.searchBar}>
-                        <Search size={18} color="rgba(255,255,255,0.3)" />
+                        <Search size={18} color={searchIconColor} />
                         <TextInput
                             placeholder="Search messages..."
-                            placeholderTextColor="rgba(255,255,255,0.3)"
+                            placeholderTextColor={placeholderColor}
                             style={styles.searchInput}
                             value={searchQuery}
                             onChangeText={setSearchQuery}
@@ -139,11 +153,11 @@ export default function ChatListScreen() {
 
                 {loading ? (
                     <View style={styles.centerContainer}>
-                        <ActivityIndicator color="#EC5C39" />
+                        <ActivityIndicator color={appTheme.colors.primary} />
                     </View>
                 ) : chats.length === 0 ? (
                     <View style={styles.centerContainer}>
-                        <MessageSquare size={48} color="rgba(255,255,255,0.05)" />
+                        <MessageSquare size={48} color={emptyIconColor} />
                         <Text style={styles.emptyTitle}>No messages yet</Text>
                         <Text style={styles.emptySub}>Connect with creators and buyers here.</Text>
                     </View>
@@ -160,7 +174,7 @@ export default function ChatListScreen() {
     );
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
     container: {
         flex: 1,
         backgroundColor: '#140F10',
@@ -286,4 +300,4 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         marginTop: 5,
     },
-});
+};

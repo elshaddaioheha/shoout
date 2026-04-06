@@ -1,11 +1,13 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import { auth, db } from '@/firebaseConfig';
+import { useAppTheme } from '@/hooks/use-app-theme';
 import { useRouter } from 'expo-router';
 import { collection, onSnapshot, orderBy, query, where } from 'firebase/firestore';
 import { ArrowLeft, MessageSquarePlus, UserRound } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import SettingsHeader from '@/components/settings/SettingsHeader';
+import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 
 type MessageRow = {
   id: string;
@@ -17,7 +19,15 @@ type MessageRow = {
   unread: number;
 };
 
+function useStudioMessagesStyles() {
+  const appTheme = useAppTheme();
+  return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
+
 export default function StudioMessagesScreen() {
+  const appTheme = useAppTheme();
+  const styles = useStudioMessagesStyles();
+
   const router = useRouter();
   const [liveRows, setLiveRows] = useState<MessageRow[]>([]);
 
@@ -65,7 +75,7 @@ export default function StudioMessagesScreen() {
           onBack={() => router.back()}
           rightElement={
             <TouchableOpacity activeOpacity={0.85} onPress={() => router.push('/chat/index' as any)}>
-              <MessageSquarePlus size={22} color="#FFFFFF" />
+              <MessageSquarePlus size={22} color={appTheme.colors.textPrimary} />
             </TouchableOpacity>
           }
           style={{ paddingHorizontal: 0, paddingVertical: 0, marginBottom: 18 }}
@@ -73,7 +83,7 @@ export default function StudioMessagesScreen() {
 
         {rows.length === 0 ? (
           <View style={styles.emptyWrap}>
-            <UserRound size={44} color="rgba(255,255,255,0.37)" />
+            <UserRound size={44} color={appTheme.colors.textDisabled} />
             <Text style={styles.emptyTitle}>No chats yet</Text>
             <Text style={styles.emptySub}>Chats appear here when buyers message you about tracks and purchases.</Text>
             <TouchableOpacity style={styles.startBtn} onPress={() => router.push('/chat/index' as any)}>
@@ -123,7 +133,7 @@ export default function StudioMessagesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
   container: { flex: 1, backgroundColor: '#140F10' },
   content: { paddingHorizontal: 20, paddingTop: 14, paddingBottom: 120 },
   emptyWrap: { marginTop: 150, alignItems: 'center', gap: 12 },
@@ -143,4 +153,4 @@ const styles = StyleSheet.create({
   preview: { color: 'rgba(255,255,255,0.75)', fontFamily: 'Poppins-Medium', fontSize: 12, lineHeight: 12, letterSpacing: -0.5, width: '86%' },
   badge: { width: 16, height: 16, borderRadius: 8, backgroundColor: '#EC5C39', alignItems: 'center', justifyContent: 'center' },
   badgeText: { color: '#FFFFFF', fontFamily: 'Poppins-Regular', fontSize: 8, lineHeight: 12, letterSpacing: -0.5 },
-});
+};

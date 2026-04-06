@@ -2,7 +2,13 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
-import { theme } from '@/constants/theme';
+import { useAppTheme } from '@/hooks/use-app-theme';
+import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
+
+function useMetricsStyles() {
+  const appTheme = useAppTheme();
+  return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
 
 type ComplianceMetrics = {
   pendingReports: number;
@@ -11,6 +17,9 @@ type ComplianceMetrics = {
 };
 
 export default function MetricsScreen() {
+  const appTheme = useAppTheme();
+  const styles = useMetricsStyles();
+
   const [metrics, setMetrics] = useState<ComplianceMetrics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -35,7 +44,7 @@ export default function MetricsScreen() {
     return (
       <SafeScreenWrapper>
         <View style={styles.loader}>
-          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <ActivityIndicator size="large" color={appTheme.colors.primary} />
           <Text style={styles.loadingText}>Loading metrics…</Text>
         </View>
       </SafeScreenWrapper>
@@ -80,7 +89,7 @@ export default function MetricsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
   loader: {
     flex: 1,
     alignItems: 'center',
@@ -88,7 +97,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 12,
-    color: theme.colors.textSecondary,
+    color: 'rgba(255,255,255,0.7)',
   },
   container: {
     padding: 16,
@@ -101,7 +110,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     textAlign: 'center',
-    color: theme.colors.textSecondary,
+    color: 'rgba(255,255,255,0.7)',
     marginBottom: 16,
   },
   cardRow: {
@@ -111,7 +120,7 @@ const styles = StyleSheet.create({
   },
   card: {
     width: '48%',
-    backgroundColor: theme.colors.surface,
+    backgroundColor: '#1E1A1B',
     borderRadius: 14,
     padding: 16,
     marginBottom: 12,
@@ -121,7 +130,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
   },
   cardLabel: {
-    color: theme.colors.textSecondary,
+    color: 'rgba(255,255,255,0.7)',
     marginBottom: 8,
     fontSize: 12,
   },
@@ -131,7 +140,7 @@ const styles = StyleSheet.create({
   },
   note: {
     marginTop: 20,
-    color: theme.colors.textSecondary,
+    color: 'rgba(255,255,255,0.7)',
     fontSize: 12,
   },
-});
+};

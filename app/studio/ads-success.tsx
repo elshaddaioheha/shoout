@@ -1,10 +1,20 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
+import { useAppTheme } from '@/hooks/use-app-theme';
+import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Check } from 'lucide-react-native';
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+function useAdsSuccessStyles() {
+  const appTheme = useAppTheme();
+  return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
+
 export default function AdsSuccessScreen() {
+  const appTheme = useAppTheme();
+  const styles = useAdsSuccessStyles();
+
   const router = useRouter();
   const params = useLocalSearchParams<{ headline?: string; adType?: string }>();
 
@@ -17,7 +27,7 @@ export default function AdsSuccessScreen() {
           <View style={styles.popupCard}>
             <View style={styles.checkRing}>
               <View style={styles.checkCore}>
-                <Check size={28} color="#FFFFFF" strokeWidth={3.2} />
+                <Check size={28} color={appTheme.colors.textPrimary} strokeWidth={3.2} />
               </View>
             </View>
 
@@ -45,7 +55,7 @@ export default function AdsSuccessScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
   screen: {
     flex: 1,
     backgroundColor: '#140F10',
@@ -109,4 +119,4 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 16,
   },
-});
+};

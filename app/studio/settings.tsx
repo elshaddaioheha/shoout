@@ -30,15 +30,28 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import SettingsHeader from '@/components/settings/SettingsHeader';
+import { useAppTheme } from '@/hooks/use-app-theme';
 import { useRouter } from 'expo-router';
 import { useUserStore } from '@/store/useUserStore';
 import { auth, db } from '@/firebaseConfig';
+import { adaptLegacyColor, adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { updateProfile } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 
 const { width } = Dimensions.get('window');
 
+function useStudioSettingsStyles() {
+    const appTheme = useAppTheme();
+    return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
+
 export default function ArtistSettingsScreen() {
+    const appTheme = useAppTheme();
+    const styles = useStudioSettingsStyles();
+    const placeholderColor = appTheme.colors.textPlaceholder;
+    const mutedIconColor = adaptLegacyColor('rgba(255,255,255,0.6)', 'color', appTheme);
+    const weakIconColor = adaptLegacyColor('rgba(255,255,255,0.2)', 'color', appTheme);
+
     const router = useRouter();
     // Seed display name from the global store so it matches the rest of the app.
     const storeName = useUserStore((s) => s.name);
@@ -160,7 +173,7 @@ export default function ArtistSettingsScreen() {
                     onBack={() => router.back()}
                     rightElement={(
                         <TouchableOpacity style={styles.saveButton} onPress={saveSettings} disabled={saving}>
-                            <Save size={20} color="#EC5C39" />
+                            <Save size={20} color={appTheme.colors.primary} />
                         </TouchableOpacity>
                     )}
                 />
@@ -170,7 +183,7 @@ export default function ArtistSettingsScreen() {
                     <View style={styles.imagesSection}>
                         <TouchableOpacity style={styles.bannerContainer} onPress={() => Alert.alert('Coming Soon')}>
                             <View style={styles.bannerPlaceholder}>
-                                <ImageIcon size={32} color="rgba(255,255,255,0.2)" />
+                                <ImageIcon size={32} color={weakIconColor} />
                                 <View style={styles.camIcon}>
                                     <Camera size={16} color="#FFF" />
                                 </View>
@@ -198,7 +211,7 @@ export default function ArtistSettingsScreen() {
                                 value={name}
                                 onChangeText={setName}
                                 placeholder="Enter your artist name"
-                                placeholderTextColor="rgba(255,255,255,0.3)"
+                                placeholderTextColor={placeholderColor}
                             />
                         </View>
 
@@ -211,7 +224,7 @@ export default function ArtistSettingsScreen() {
                                 multiline
                                 numberOfLines={3}
                                 placeholder="Tell your fans about yourself"
-                                placeholderTextColor="rgba(255,255,255,0.3)"
+                                placeholderTextColor={placeholderColor}
                             />
                         </View>
                     </View>
@@ -220,10 +233,10 @@ export default function ArtistSettingsScreen() {
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>Social Links</Text>
 
-                        <SocialInput icon={<Globe size={18} color="#FFF" />} value={website} onChangeText={setWebsite} label="Website" />
-                        <SocialInput icon={<Instagram size={18} color="#E4405F" />} value={instagram} onChangeText={setInstagram} label="Instagram" />
-                        <SocialInput icon={<Twitter size={18} color="#1DA1F2" />} value={twitter} onChangeText={setTwitter} label="Twitter" />
-                        <SocialInput icon={<Youtube size={18} color="#FF0000" />} value={youtube} onChangeText={setYoutube} label="YouTube" />
+                        <SocialInput icon={<Globe size={18} color={appTheme.colors.textPrimary} />} value={website} onChangeText={setWebsite} label="Website" styles={styles} appTheme={appTheme} />
+                        <SocialInput icon={<Instagram size={18} color="#E4405F" />} value={instagram} onChangeText={setInstagram} label="Instagram" styles={styles} appTheme={appTheme} />
+                        <SocialInput icon={<Twitter size={18} color="#1DA1F2" />} value={twitter} onChangeText={setTwitter} label="Twitter" styles={styles} appTheme={appTheme} />
+                        <SocialInput icon={<Youtube size={18} color="#FF0000" />} value={youtube} onChangeText={setYoutube} label="YouTube" styles={styles} appTheme={appTheme} />
                     </View>
 
                     {/* Preferences */}
@@ -232,25 +245,25 @@ export default function ArtistSettingsScreen() {
 
                         <View style={styles.preferenceRow}>
                             <View style={styles.preferenceInfo}>
-                                <Lock size={20} color="rgba(255,255,255,0.6)" />
+                                <Lock size={20} color={mutedIconColor} />
                                 <Text style={styles.preferenceLabel}>Private Profile</Text>
                             </View>
                             <Switch
                                 value={isPrivate}
                                 onValueChange={setIsPrivate}
-                                trackColor={{ false: '#333', true: '#EC5C39' }}
+                                trackColor={{ false: appTheme.isDark ? '#333' : '#C8BFBD', true: appTheme.colors.primary }}
                             />
                         </View>
 
                         <View style={styles.preferenceRow}>
                             <View style={styles.preferenceInfo}>
-                                <Bell size={20} color="rgba(255,255,255,0.6)" />
+                                <Bell size={20} color={mutedIconColor} />
                                 <Text style={styles.preferenceLabel}>Studio Notifications</Text>
                             </View>
                             <Switch
                                 value={notifications}
                                 onValueChange={setNotifications}
-                                trackColor={{ false: '#333', true: '#EC5C39' }}
+                                trackColor={{ false: appTheme.isDark ? '#333' : '#C8BFBD', true: appTheme.colors.primary }}
                             />
                         </View>
                     </View>
@@ -283,7 +296,10 @@ export default function ArtistSettingsScreen() {
     );
 }
 
-function SocialInput({ icon, value, label, onChangeText }: { icon: React.ReactNode; value: string; label: string; onChangeText?: (text: string) => void }) {
+function SocialInput({ icon, value, label, onChangeText, styles, appTheme }: { icon: React.ReactNode; value: string; label: string; onChangeText?: (text: string) => void; styles: any; appTheme: any }) {
+    const socialPlaceholder = adaptLegacyColor('rgba(255,255,255,0.2)', 'color', appTheme);
+    const externalIconColor = adaptLegacyColor('rgba(255,255,255,0.3)', 'color', appTheme);
+
     return (
         <View style={styles.socialInputContainer}>
             <View style={styles.socialIcon}>
@@ -296,17 +312,17 @@ function SocialInput({ icon, value, label, onChangeText }: { icon: React.ReactNo
                     value={value}
                     onChangeText={onChangeText}
                     placeholder={`Enter ${label} link`}
-                    placeholderTextColor="rgba(255,255,255,0.2)"
+                    placeholderTextColor={socialPlaceholder}
                     autoCapitalize="none"
                     autoCorrect={false}
                 />
             </View>
-            <ExternalLink size={16} color="rgba(255,255,255,0.3)" />
+            <ExternalLink size={16} color={externalIconColor} />
         </View>
     );
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
     container: {
         flex: 1,
         paddingHorizontal: 20,
@@ -505,4 +521,4 @@ const styles = StyleSheet.create({
         fontSize: 12,
         fontFamily: 'Poppins-Regular',
     },
-});
+};

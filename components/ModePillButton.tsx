@@ -2,6 +2,8 @@
  * ModePillButton - top-left app switcher pill with embedded rings logo.
  */
 import { ViewMode } from '@/store/useUserStore';
+import { useAppTheme } from '@/hooks/use-app-theme';
+import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { Image } from 'expo-image';
 import { ChevronDown } from 'lucide-react-native';
 import React, { useEffect, useRef } from 'react';
@@ -49,12 +51,22 @@ const MODE_COLORS: Record<ViewMode, { border: string; text: string; arrowBg: str
     },
 };
 
+function useModePillStyles() {
+    const appTheme = useAppTheme();
+    return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
+
 export default function ModePillButton({ viewMode, isOpen, onPress }: ModePillButtonProps) {
+    const appTheme = useAppTheme();
+    const styles = useModePillStyles();
+
     const chevronAnim = useRef(new Animated.Value(0)).current;
     const { width } = useWindowDimensions();
     const modeStyle = MODE_COLORS[viewMode];
     const modeLabel = MODE_LABELS[viewMode];
     const isCompact = width < 390;
+    const labelColor = appTheme.isDark ? modeStyle.text : appTheme.colors.textPrimary;
+    const chevronBgColor = appTheme.isDark ? modeStyle.arrowBg : appTheme.colors.surfaceMuted;
 
     useEffect(() => {
         Animated.spring(chevronAnim, {
@@ -87,21 +99,21 @@ export default function ModePillButton({ viewMode, isOpen, onPress }: ModePillBu
                     contentFit="contain"
                 />
             </View>
-            <Text style={[styles.label, isCompact && styles.labelCompact, { color: modeStyle.text }]}>{modeLabel}</Text>
+            <Text style={[styles.label, isCompact && styles.labelCompact, { color: labelColor }]}>{modeLabel}</Text>
             <Animated.View
                 style={[
                     styles.chevronCircle,
                     isCompact && styles.chevronCircleCompact,
-                    { backgroundColor: modeStyle.arrowBg, transform: [{ rotate: chevronRotate }] },
+                    { backgroundColor: chevronBgColor, transform: [{ rotate: chevronRotate }] },
                 ]}
             >
-                <ChevronDown size={isCompact ? 11 : 12} color={modeStyle.text} strokeWidth={2.5} />
+                <ChevronDown size={isCompact ? 11 : 12} color={labelColor} strokeWidth={2.5} />
             </Animated.View>
         </TouchableOpacity>
     );
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
     pill: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -163,4 +175,4 @@ const styles = StyleSheet.create({
         height: 20,
         borderRadius: 10,
     },
-});
+};

@@ -1,6 +1,8 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import { auth, db } from '@/firebaseConfig';
+import { useAppTheme } from '@/hooks/use-app-theme';
 import { useUserStore } from '@/store/useUserStore';
+import { adaptLegacyColor, adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
     addDoc,
@@ -47,7 +49,17 @@ interface Message {
     timestamp: any;
 }
 
+function useChatStyles() {
+    const appTheme = useAppTheme();
+    return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
+
 export default function ChatConversationScreen() {
+    const appTheme = useAppTheme();
+    const styles = useChatStyles();
+    const placeholderColor = appTheme.colors.textPlaceholder;
+    const avatarIconColor = adaptLegacyColor('rgba(255,255,255,0.4)', 'color', appTheme);
+
     const { id: otherUserId } = useLocalSearchParams();
     const router = useRouter();
     const { name, role } = useUserStore();
@@ -233,12 +245,12 @@ export default function ChatConversationScreen() {
                 {/* Custom Header */}
                 <View style={styles.header}>
                     <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn}>
-                        <ChevronLeft size={24} color="#FFF" />
+                        <ChevronLeft size={24} color={appTheme.colors.textPrimary} />
                     </TouchableOpacity>
 
                     <View style={styles.headerCenter}>
                         <View style={styles.headerAvatar}>
-                            <User size={18} color="rgba(255,255,255,0.4)" />
+                            <User size={18} color={avatarIconColor} />
                         </View>
                         <View>
                             <Text style={styles.headerName}>{otherUser?.name || '...'}</Text>
@@ -248,17 +260,17 @@ export default function ChatConversationScreen() {
 
                     <View style={styles.headerIcons}>
                         <TouchableOpacity style={styles.iconBtn} onPress={() => Alert.alert('Coming Soon')}>
-                            <Phone size={20} color="#FFF" />
+                            <Phone size={20} color={appTheme.colors.textPrimary} />
                         </TouchableOpacity>
                         <TouchableOpacity style={styles.iconBtn} onPress={() => Alert.alert('Coming Soon')}>
-                            <Video size={20} color="#FFF" />
+                            <Video size={20} color={appTheme.colors.textPrimary} />
                         </TouchableOpacity>
                     </View>
                 </View>
 
                 {loading ? (
                     <View style={styles.centerContainer}>
-                        <ActivityIndicator color="#EC5C39" />
+                        <ActivityIndicator color={appTheme.colors.primary} />
                     </View>
                 ) : (
                     <FlatList
@@ -283,7 +295,7 @@ export default function ChatConversationScreen() {
                         <TextInput
                             style={styles.input}
                             placeholder="Type a message..."
-                            placeholderTextColor="rgba(255,255,255,0.4)"
+                            placeholderTextColor={placeholderColor}
                             value={inputText}
                             onChangeText={setInputText}
                             multiline
@@ -294,9 +306,9 @@ export default function ChatConversationScreen() {
                             disabled={!inputText.trim() || sending}
                         >
                             {sending ? (
-                                <ActivityIndicator size="small" color="#FFF" />
+                                <ActivityIndicator size="small" color={appTheme.colors.textPrimary} />
                             ) : (
-                                <Send size={20} color="#FFF" />
+                                <Send size={20} color={appTheme.colors.textPrimary} />
                             )}
                         </TouchableOpacity>
                     </View>
@@ -306,7 +318,7 @@ export default function ChatConversationScreen() {
     );
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
     container: {
         flex: 1,
         backgroundColor: '#140F10',
@@ -449,4 +461,4 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontFamily: 'Poppins-Regular',
     },
-});
+};

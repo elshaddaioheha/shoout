@@ -150,6 +150,7 @@ export default function RootLayout() {
           <Stack.Screen name="admin" />
           <Stack.Screen name="settings/payment-methods" />
           <Stack.Screen name="settings/subscriptions" />
+          <Stack.Screen name="settings/appearance" />
           <Stack.Screen name="settings/notifications" />
           <Stack.Screen name="settings/privacy" />
           <Stack.Screen name="notifications" />

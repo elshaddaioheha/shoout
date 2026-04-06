@@ -2,6 +2,8 @@ import { usePlaybackStore } from '@/store/usePlaybackStore';
 import { useCartStore } from '@/store/useCartStore';
 import { useToastStore } from '@/store/useToastStore';
 import { auth, db } from '@/firebaseConfig';
+import { useAppTheme } from '@/hooks/use-app-theme';
+import { adaptLegacyColor, adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { Image } from 'expo-image';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
@@ -44,7 +46,17 @@ interface FullPlayerProps {
     onClose: () => void;
 }
 
+function useFullPlayerStyles() {
+    const appTheme = useAppTheme();
+    return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
+
 export default function FullPlayer({ visible, onClose }: FullPlayerProps) {
+    const appTheme = useAppTheme();
+    const styles = useFullPlayerStyles();
+    const mutedControlColor = adaptLegacyColor('rgba(255,255,255,0.45)', 'color', appTheme);
+    const darkIconOnLight = adaptLegacyColor('#140F10', 'color', appTheme);
+
     const router = useRouter();
     const { addItem } = useCartStore();
     const { showToast } = useToastStore();
@@ -417,11 +429,11 @@ export default function FullPlayer({ visible, onClose }: FullPlayerProps) {
             statusBarTranslucent
         >
             <View style={styles.container}>
-                <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+                <StatusBar barStyle={appTheme.isDark ? 'light-content' : 'dark-content'} translucent backgroundColor="transparent" />
 
                 {/* Background */}
                 <LinearGradient
-                    colors={[accents.greenB, '#140F10', '#0e0b0c']}
+                    colors={[accents.greenB, appTheme.colors.background, appTheme.colors.backgroundElevated]}
                     style={StyleSheet.absoluteFill}
                 />
 
@@ -432,7 +444,7 @@ export default function FullPlayer({ visible, onClose }: FullPlayerProps) {
                         style={styles.headerButton}
                         hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                     >
-                        <ChevronDown size={30} color="white" />
+                        <ChevronDown size={30} color={appTheme.colors.textPrimary} />
                     </TouchableOpacity>
                     <View style={styles.headerTitleContainer}>
                         <Text style={styles.headerLabel}>NOW PLAYING</Text>
@@ -450,7 +462,7 @@ export default function FullPlayer({ visible, onClose }: FullPlayerProps) {
                         onPress={handleMoreOptions}
                         hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                     >
-                        <MoreHorizontal size={26} color="white" />
+                        <MoreHorizontal size={26} color={appTheme.colors.textPrimary} />
                     </TouchableOpacity>
                 </View>
 
@@ -469,7 +481,7 @@ export default function FullPlayer({ visible, onClose }: FullPlayerProps) {
                         ) : null}
                         {isBuffering && (
                             <View style={styles.bufferingOverlay}>
-                                <ActivityIndicator size="large" color="white" />
+                                <ActivityIndicator size="large" color={appTheme.colors.textPrimary} />
                                 <Text style={styles.bufferingText}>Loading...</Text>
                             </View>
                         )}
@@ -491,7 +503,7 @@ export default function FullPlayer({ visible, onClose }: FullPlayerProps) {
                         >
                             <Heart
                                 size={30}
-                                color={liked ? accents.warmA : 'white'}
+                                color={liked ? accents.warmA : appTheme.colors.textPrimary}
                                 fill={liked ? accents.warmB : 'none'}
                             />
                         </TouchableOpacity>
@@ -552,7 +564,7 @@ export default function FullPlayer({ visible, onClose }: FullPlayerProps) {
                     >
                         <Shuffle
                             size={22}
-                            color={shuffleActive ? accents.greenA : 'rgba(255,255,255,0.45)'}
+                            color={shuffleActive ? accents.greenA : mutedControlColor}
                             strokeWidth={shuffleActive ? 2.5 : 1.8}
                         />
                     </TouchableOpacity>
@@ -563,7 +575,7 @@ export default function FullPlayer({ visible, onClose }: FullPlayerProps) {
                             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                             style={styles.skipButton}
                         >
-                            <SkipBack size={30} color="white" />
+                            <SkipBack size={30} color={appTheme.colors.textPrimary} />
                         </TouchableOpacity>
 
                         <TouchableOpacity
@@ -573,11 +585,11 @@ export default function FullPlayer({ visible, onClose }: FullPlayerProps) {
                         >
                             <Animated.View style={{ transform: [{ scale: playScale }] }}>
                                 {isBuffering ? (
-                                    <ActivityIndicator size="large" color="#140F10" />
+                                    <ActivityIndicator size="large" color={darkIconOnLight} />
                                 ) : isPlaying ? (
-                                    <Pause size={38} color="#140F10" fill="#140F10" />
+                                    <Pause size={38} color={darkIconOnLight} fill={darkIconOnLight} />
                                 ) : (
-                                    <Play size={38} color="#140F10" fill="#140F10" style={{ marginLeft: 4 }} />
+                                    <Play size={38} color={darkIconOnLight} fill={darkIconOnLight} style={{ marginLeft: 4 }} />
                                 )}
                             </Animated.View>
                         </TouchableOpacity>
@@ -587,7 +599,7 @@ export default function FullPlayer({ visible, onClose }: FullPlayerProps) {
                             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                             style={styles.skipButton}
                         >
-                            <SkipForward size={30} color="white" />
+                            <SkipForward size={30} color={appTheme.colors.textPrimary} />
                         </TouchableOpacity>
                     </View>
 
@@ -598,7 +610,7 @@ export default function FullPlayer({ visible, onClose }: FullPlayerProps) {
                     >
                         <Repeat
                             size={22}
-                            color={repeatActive ? accents.greenA : 'rgba(255,255,255,0.45)'}
+                            color={repeatActive ? accents.greenA : mutedControlColor}
                             strokeWidth={repeatActive ? 2.5 : 1.8}
                         />
                     </TouchableOpacity>
@@ -606,7 +618,7 @@ export default function FullPlayer({ visible, onClose }: FullPlayerProps) {
 
                 {/* Bottom Row */}
                 <View style={[styles.bottomRow, { paddingBottom: insets.bottom + 16 }]}>
-                    <BlurView intensity={38} tint="dark" style={styles.bottomGlass}>
+                    <BlurView intensity={38} tint={appTheme.isDark ? 'dark' : 'light'} style={styles.bottomGlass}>
                         <TouchableOpacity
                             style={styles.actionButton}
                             onPress={handleShare}
@@ -632,7 +644,7 @@ export default function FullPlayer({ visible, onClose }: FullPlayerProps) {
     );
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
     container: {
         flex: 1,
         backgroundColor: '#140F10',
@@ -872,4 +884,4 @@ const styles = StyleSheet.create({
         fontSize: 13,
         fontFamily: 'Poppins-SemiBold',
     },
-});
+};

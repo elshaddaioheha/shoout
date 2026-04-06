@@ -1,4 +1,6 @@
 import { usePlaybackStore } from '@/store/usePlaybackStore';
+import { useAppTheme } from '@/hooks/use-app-theme';
+import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { BlurView } from 'expo-blur';
 import { Music, Pause, Play, X } from 'lucide-react-native';
 import React from 'react';
@@ -15,7 +17,15 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import FullPlayer from './FullPlayer';
 
+function useVaultMiniPlayerStyles() {
+  const appTheme = useAppTheme();
+  return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
+
 export default function VaultMiniPlayer() {
+  const appTheme = useAppTheme();
+  const styles = useVaultMiniPlayerStyles();
+
   const {
     currentTrack,
     isPlaying,
@@ -42,16 +52,16 @@ export default function VaultMiniPlayer() {
       <Pressable
         style={[styles.container, { bottom: bottomPos, width: playerWidth }]}
         onPress={() => setIsFullPlayerVisible(true)}
-        android_ripple={{ color: 'rgba(255,255,255,0.05)' }}
+        android_ripple={{ color: appTheme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(23,18,19,0.06)' }}
       >
-        <BlurView intensity={60} tint="dark" style={StyleSheet.absoluteFill} />
+        <BlurView intensity={60} tint={appTheme.isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
 
         <View style={styles.content}>
           <View style={styles.artworkContainer}>
             {currentTrack.artworkUrl ? (
               <Image source={{ uri: currentTrack.artworkUrl }} style={styles.artwork} />
             ) : (
-              <Music size={16} color="#EC5C39" />
+              <Music size={16} color={appTheme.colors.primary} />
             )}
           </View>
 
@@ -69,9 +79,9 @@ export default function VaultMiniPlayer() {
               {isBuffering ? (
                 <View style={styles.bufferingDot} />
               ) : isPlaying ? (
-                <Pause size={20} color="#FFF" fill="#FFF" />
+                <Pause size={20} color={appTheme.colors.textPrimary} fill={appTheme.colors.textPrimary} />
               ) : (
-                <Play size={20} color="#FFF" fill="#FFF" />
+                <Play size={20} color={appTheme.colors.textPrimary} fill={appTheme.colors.textPrimary} />
               )}
             </TouchableOpacity>
 
@@ -80,7 +90,7 @@ export default function VaultMiniPlayer() {
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               onPress={(e) => { e.stopPropagation(); clearTrack(); }}
             >
-              <X size={16} color="rgba(255,255,255,0.6)" />
+              <X size={16} color={appTheme.colors.textDisabled} />
             </TouchableOpacity>
           </View>
         </View>
@@ -98,7 +108,7 @@ export default function VaultMiniPlayer() {
   );
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
   container: {
     position: 'absolute',
     left: 12,
@@ -176,4 +186,4 @@ const styles = StyleSheet.create({
     backgroundColor: '#EC5C39',
     borderRadius: 1,
   },
-});
+};

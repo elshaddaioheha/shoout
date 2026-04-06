@@ -1,8 +1,10 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import SettingsHeader from '@/components/settings/SettingsHeader';
+import { useAppTheme } from '@/hooks/use-app-theme';
 import { useVaultWorkspaceData } from '@/hooks/useVaultWorkspaceData';
 import { useToastStore } from '@/store/useToastStore';
 import { useUserStore } from '@/store/useUserStore';
+import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import * as DocumentPicker from 'expo-document-picker';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
@@ -26,7 +28,16 @@ async function uploadFileFromUri(uri: string, path: string) {
   return getDownloadURL(storageRef);
 }
 
+function useVaultUploadStyles() {
+  const appTheme = useAppTheme();
+  return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
+
 export default function VaultUploadScreen() {
+  const appTheme = useAppTheme();
+  const styles = useVaultUploadStyles();
+  const placeholderColor = appTheme.colors.textPlaceholder;
+
   const router = useRouter();
   const { showToast } = useToastStore();
   const { uploads, usedStorageGB } = useVaultWorkspaceData();
@@ -233,13 +244,13 @@ export default function VaultUploadScreen() {
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Track details</Text>
-            <TextInput value={title} onChangeText={setTitle} placeholder="Track title" placeholderTextColor="rgba(255,255,255,0.35)" style={styles.input} />
-            <TextInput value={artist} onChangeText={setArtist} placeholder="Artist name" placeholderTextColor="rgba(255,255,255,0.35)" style={styles.input} />
+            <TextInput value={title} onChangeText={setTitle} placeholder="Track title" placeholderTextColor={placeholderColor} style={styles.input} />
+            <TextInput value={artist} onChangeText={setArtist} placeholder="Artist name" placeholderTextColor={placeholderColor} style={styles.input} />
             <TextInput
               value={description}
               onChangeText={setDescription}
               placeholder="Notes about this upload"
-              placeholderTextColor="rgba(255,255,255,0.35)"
+              placeholderTextColor={placeholderColor}
               style={[styles.input, styles.textArea]}
               multiline
             />
@@ -272,9 +283,9 @@ export default function VaultUploadScreen() {
             </ScrollView>
 
             <View style={styles.inlineCreateRow}>
-              <TextInput value={folderName} onChangeText={setFolderName} placeholder="Create new folder" placeholderTextColor="rgba(255,255,255,0.35)" style={[styles.input, styles.inlineInput]} />
+              <TextInput value={folderName} onChangeText={setFolderName} placeholder="Create new folder" placeholderTextColor={placeholderColor} style={[styles.input, styles.inlineInput]} />
               <TouchableOpacity style={styles.inlineButton} onPress={handleCreateFolder} activeOpacity={0.9}>
-                <FolderPlus size={16} color="#FFFFFF" />
+                <FolderPlus size={16} color={appTheme.colors.textPrimary} />
               </TouchableOpacity>
             </View>
           </View>
@@ -285,7 +296,7 @@ export default function VaultUploadScreen() {
             disabled={submitting || uploadLimitReached || storageLimitReached}
             activeOpacity={0.9}
           >
-            {submitting ? <ActivityIndicator color="#FFF" /> : <UploadCloud size={18} color="#FFFFFF" />}
+            {submitting ? <ActivityIndicator color={appTheme.colors.textPrimary} /> : <UploadCloud size={18} color={appTheme.colors.textPrimary} />}
             <Text style={styles.submitButtonText}>{submitting ? 'Uploading...' : 'Upload to Vault'}</Text>
           </TouchableOpacity>
         </ScrollView>
@@ -294,7 +305,7 @@ export default function VaultUploadScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
   screen: {
     flex: 1,
     backgroundColor: '#140F10',
@@ -481,4 +492,4 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins-Bold',
     fontSize: 15,
   },
-});
+};

@@ -1,8 +1,10 @@
 import { useAppSwitcherContext } from '@/app/(tabs)/_layout';
 import SharedHeader from '@/components/SharedHeader';
 import { theme } from '@/constants/theme';
+import { useAppTheme } from '@/hooks/use-app-theme';
 import { useStudioWorkspaceData } from '@/hooks/useStudioWorkspaceData';
 import { useAuthStore } from '@/store/useAuthStore';
+import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { getModeTheme } from '@/utils/appModeTheme';
 import { canUseStudioServices, getEffectivePlan } from '@/utils/subscriptions';
 import { useRouter } from 'expo-router';
@@ -13,7 +15,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const studioTheme = getModeTheme('studio');
 
+function useStudioPromoteStyles() {
+  const appTheme = useAppTheme();
+  return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
+
 export default function StudioPromoteScreen() {
+  const appTheme = useAppTheme();
+  const styles = useStudioPromoteStyles();
+
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { openSheet, isModeSheetOpen, viewMode } = useAppSwitcherContext();
@@ -49,7 +59,7 @@ export default function StudioPromoteScreen() {
             if (requireStudioSubscription()) return;
             router.push('/studio/ads-intro' as any);
           }} activeOpacity={0.9}>
-            <Rocket size={18} color="#FFF" />
+            <Rocket size={18} color={appTheme.colors.textPrimary} />
             <Text style={styles.primaryCtaText}>Open Ad Manager</Text>
           </TouchableOpacity>
         </View>
@@ -117,7 +127,7 @@ export default function StudioPromoteScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
   screen: { flex: 1, backgroundColor: theme.colors.background },
   content: { paddingHorizontal: 20, gap: 18 },
   heroCard: { marginTop: 10, backgroundColor: '#1A1A1B', borderRadius: 24, padding: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', gap: 12 },
@@ -143,4 +153,4 @@ const styles = StyleSheet.create({
   promoteChipText: { color: studioTheme.accent, fontFamily: 'Poppins-SemiBold', fontSize: 12 },
   tipCard: { flexDirection: 'row', gap: 12, alignItems: 'flex-start', backgroundColor: 'rgba(76,175,80,0.1)', borderRadius: 18, padding: 16, borderWidth: 1, borderColor: 'rgba(76,175,80,0.2)' },
   tipText: { flex: 1, color: theme.colors.textPrimary, fontFamily: 'Poppins-Regular', fontSize: 13, lineHeight: 20 },
-});
+};

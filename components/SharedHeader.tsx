@@ -1,11 +1,26 @@
 import ModePillButton from '@/components/ModePillButton';
 import { useNotificationStore } from '@/store/useNotificationStore';
 import { ViewMode, useUserStore } from '@/store/useUserStore';
+import { useAppTheme } from '@/hooks/use-app-theme';
+import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
+import { getModeTheme } from '@/utils/appModeTheme';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { Bell, MessageSquare, ShoppingCart } from 'lucide-react-native';
 import React from 'react';
 import { Platform, SafeAreaView, StatusBar, StyleSheet, TouchableOpacity, View } from 'react-native';
+
+function withAlpha(hex: string, alphaHex: string) {
+    if (/^#[0-9a-fA-F]{6}$/.test(hex)) {
+        return `${hex}${alphaHex}`;
+    }
+    return hex;
+}
+
+function useSharedHeaderStyles() {
+    const appTheme = useAppTheme();
+    return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
 
 interface SharedHeaderProps {
     viewMode: ViewMode;
@@ -29,30 +44,24 @@ export default function SharedHeader({
     customRightContent,
 }: SharedHeaderProps) {
     const router = useRouter();
+    const styles = useSharedHeaderStyles();
     const { unreadCount } = useNotificationStore();
+    const appTheme = useAppTheme();
     const userRole = useUserStore((state) => state.role);
     const effectiveRole = role ?? userRole;
     const isVaultMode = viewMode === 'vault' || viewMode === 'vault_pro';
+    const modeKey = viewMode === 'vault_pro' ? 'vault' : viewMode;
+    const accentColor = getModeTheme(modeKey as any).accent || appTheme.colors.primary;
     const shouldShowCart = Boolean(showCart) && !isVaultMode;
     const shouldShowMessages = Boolean(showMessages) && !isVaultMode;
-    const accentColor = effectiveRole === 'hybrid'
-        ? '#FFD700'
-        : effectiveRole === 'studio'
-            ? '#4CAF50'
-            : effectiveRole === 'shoout'
-                ? '#6AA7FF'
-                : '#EC5C39';
 
     const getRoleGradient = (): readonly [string, string, ...string[]] => {
-        if (effectiveRole === 'shoout') return ['rgba(106, 167, 255, 0.2)', 'rgba(20, 15, 16, 1)'];
-        if (effectiveRole === 'vault_pro') return ['rgba(236, 92, 57, 0.25)', 'rgba(20, 15, 16, 1)'];
-        if (effectiveRole === 'studio') return ['rgba(76, 175, 80, 0.25)', 'rgba(20, 15, 16, 1)'];
-        if (effectiveRole === 'hybrid') return ['rgba(255, 215, 0, 0.25)', 'rgba(20, 15, 16, 1)'];
-        return ['#140F10', '#140F10'];
+        const startColor = withAlpha(accentColor, appTheme.isDark ? '40' : '22');
+        return [startColor, appTheme.colors.background];
     };
 
     return (
-        <SafeAreaView style={styles.safeArea}>
+        <SafeAreaView style={[styles.safeArea, { backgroundColor: appTheme.colors.background }]}>
             <LinearGradient colors={getRoleGradient()} style={StyleSheet.absoluteFillObject} />
             <View style={styles.header}>
                 <ModePillButton
@@ -68,30 +77,30 @@ export default function SharedHeader({
                         <>
                             {shouldShowMessages && (
                                 <TouchableOpacity
-                                    style={[styles.iconButton, { marginRight: 8 }]}
+                                    style={[styles.iconButton, { marginRight: 8, backgroundColor: appTheme.colors.surfaceMuted }]}
                                     onPress={() => router.push('/chat' as any)}
                                 >
-                                    <MessageSquare size={18} color="white" />
+                                    <MessageSquare size={18} color={appTheme.colors.textPrimary} />
                                 </TouchableOpacity>
                             )}
                             {shouldShowCart && (
                                 <TouchableOpacity
-                                    style={[styles.iconButton, { marginRight: 8 }]}
+                                    style={[styles.iconButton, { marginRight: 8, backgroundColor: appTheme.colors.surfaceMuted }]}
                                     onPress={() => router.push('/cart' as any)}
                                 >
-                                    <ShoppingCart size={18} color="white" />
+                                    <ShoppingCart size={18} color={appTheme.colors.textPrimary} />
                                     {cartCount != null && cartCount > 0 && (
-                                        <View style={[styles.badge, { backgroundColor: accentColor }]} />
+                                        <View style={[styles.badge, { backgroundColor: accentColor, borderColor: appTheme.colors.background }]} />
                                     )}
                                 </TouchableOpacity>
                             )}
                             <TouchableOpacity
-                                style={styles.iconButton}
+                                style={[styles.iconButton, { backgroundColor: appTheme.colors.surfaceMuted }]}
                                 onPress={() => router.push('/notifications' as any)}
                             >
-                                <Bell size={18} color="white" />
+                                <Bell size={18} color={appTheme.colors.textPrimary} />
                                 {unreadCount > 0 && (
-                                    <View style={[styles.badge, { backgroundColor: accentColor }]} />
+                                    <View style={[styles.badge, { backgroundColor: accentColor, borderColor: appTheme.colors.background }]} />
                                 )}
                             </TouchableOpacity>
                         </>
@@ -102,9 +111,8 @@ export default function SharedHeader({
     );
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
     safeArea: {
-        backgroundColor: '#140F10',
         paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
     },
     header: {
@@ -122,7 +130,6 @@ const styles = StyleSheet.create({
     },
     iconButton: {
         padding: 6,
-        backgroundColor: 'rgba(255,255,255,0.05)',
         borderRadius: 20,
         width: 34,
         height: 34,
@@ -136,8 +143,6 @@ const styles = StyleSheet.create({
         width: 7,
         height: 7,
         borderRadius: 3.5,
-        backgroundColor: '#EC5C39',
         borderWidth: 1,
-        borderColor: '#140F10',
     },
-});
+};

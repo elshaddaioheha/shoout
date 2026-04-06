@@ -1,5 +1,7 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import { db } from '@/firebaseConfig';
+import { useAppTheme } from '@/hooks/use-app-theme';
+import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { useRouter } from 'expo-router';
 import { ChevronLeft, Sparkles, Zap, Bell, Flame } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
@@ -20,6 +22,11 @@ type UpdateGroup = {
   label: string;
   items: UpdateItem[];
 };
+
+function useUpdatesStyles() {
+  const appTheme = useAppTheme();
+  return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
 
 const resolveIcon = (iconKey?: string, tag?: string) => {
   const key = (iconKey || tag || '').toLowerCase();
@@ -87,6 +94,9 @@ const fallbackFeed: UpdateGroup[] = [
 ];
 
 export default function UpdatesScreen() {
+  const appTheme = useAppTheme();
+  const styles = useUpdatesStyles();
+
   const router = useRouter();
   const [feed, setFeed] = useState<UpdateGroup[]>(fallbackFeed);
 
@@ -144,7 +154,7 @@ export default function UpdatesScreen() {
       <View style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity onPress={handleBack} style={styles.backBtn}>
-            <ChevronLeft size={22} color="#FFF" />
+            <ChevronLeft size={22} color={appTheme.colors.textPrimary} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Updates</Text>
           <View style={{ width: 40 }} />
@@ -158,7 +168,7 @@ export default function UpdatesScreen() {
                 {group.items.map((item, index) => (
                   <View key={item.id} style={[styles.card, index === 0 && { marginTop: 0 }]}> 
                     <View style={styles.cardHeader}>
-                      <View style={styles.iconBadge}>{item.icon || <Sparkles size={18} color="#EC5C39" />}</View>
+                      <View style={styles.iconBadge}>{item.icon || <Sparkles size={18} color={appTheme.colors.primary} />}</View>
                       <View style={{ flex: 1 }}>
                         <Text style={styles.cardTitle}>{item.title}</Text>
                         {item.dateLabel ? <Text style={styles.cardDate}>{item.dateLabel}</Text> : null}
@@ -180,7 +190,7 @@ export default function UpdatesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
   container: { flex: 1, backgroundColor: '#140F10' },
   header: {
     flexDirection: 'row',
@@ -241,4 +251,4 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins-Bold',
   },
   meta: { fontSize: 11, fontFamily: 'Poppins-Regular', color: 'rgba(255,255,255,0.5)' },
-});
+};

@@ -1,8 +1,10 @@
 import { useAppSwitcherContext } from '@/app/(tabs)/_layout';
 import SharedHeader from '@/components/SharedHeader';
 import { theme } from '@/constants/theme';
+import { useAppTheme } from '@/hooks/use-app-theme';
 import { useStudioWorkspaceData } from '@/hooks/useStudioWorkspaceData';
 import { useAuthStore } from '@/store/useAuthStore';
+import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { getModeTheme } from '@/utils/appModeTheme';
 import { formatUsd } from '@/utils/pricing';
 import { canUseStudioServices, getEffectivePlan } from '@/utils/subscriptions';
@@ -14,7 +16,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const studioTheme = getModeTheme('studio');
 
+function useStudioPublishStyles() {
+  const appTheme = useAppTheme();
+  return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
+
 export default function StudioPublishScreen() {
+  const appTheme = useAppTheme();
+  const styles = useStudioPublishStyles();
+
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { openSheet, isModeSheetOpen, viewMode } = useAppSwitcherContext();
@@ -50,7 +60,7 @@ export default function StudioPublishScreen() {
             if (requireStudioSubscription()) return;
             router.push('/studio/upload' as any);
           }} activeOpacity={0.9}>
-            <UploadCloud size={18} color="#FFF" />
+            <UploadCloud size={18} color={appTheme.colors.textPrimary} />
             <Text style={styles.heroButtonText}>Upload New Track</Text>
           </TouchableOpacity>
         </View>
@@ -132,7 +142,7 @@ export default function StudioPublishScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
   screen: { flex: 1, backgroundColor: theme.colors.background },
   content: { paddingHorizontal: 20, gap: 18 },
   heroCard: {
@@ -158,4 +168,4 @@ const styles = StyleSheet.create({
   trackMeta: { color: 'rgba(255,255,255,0.55)', fontFamily: 'Poppins-Regular', fontSize: 11, marginTop: 2 },
   inlineAction: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(76,175,80,0.08)' },
   amountText: { color: theme.colors.textPrimary, fontFamily: 'Poppins-SemiBold', fontSize: 12 },
-});
+};

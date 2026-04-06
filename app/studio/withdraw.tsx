@@ -1,5 +1,7 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
+import { useAppTheme } from '@/hooks/use-app-theme';
 import { useToastStore } from '@/store/useToastStore';
+import { adaptLegacyColor, adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -29,7 +31,15 @@ import SettingsHeader from '@/components/settings/SettingsHeader';
 
 const { width } = Dimensions.get('window');
 
+function useWithdrawStyles() {
+    const appTheme = useAppTheme();
+    return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
+
 export default function WithdrawalScreen() {
+    const appTheme = useAppTheme();
+    const styles = useWithdrawStyles();
+
     const router = useRouter();
     const [loading, setLoading] = useState(true);
     const [balance, setBalance] = useState(0);
@@ -129,14 +139,14 @@ export default function WithdrawalScreen() {
                     onBack={handleBack}
                     rightElement={
                         <TouchableOpacity style={styles.historyButton} onPress={() => showToast('Scroll down to see your payout history below.', 'info')}>
-                            <History size={20} color="#FFF" />
+                            <History size={20} color={appTheme.colors.textPrimary} />
                         </TouchableOpacity>
                     }
                 />
 
                 {loading ? (
                     <View style={{ flex: 1, justifyContent: 'center' }}>
-                        <ActivityIndicator color="#EC5C39" />
+                        <ActivityIndicator color={appTheme.colors.primary} />
                     </View>
                 ) : (
                     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
@@ -164,12 +174,12 @@ export default function WithdrawalScreen() {
                         {/* Quick Stats Grid */}
                         <View style={styles.statsRow}>
                             <View style={styles.statBox}>
-                                <ArrowUpRight size={18} color="#4CAF50" />
+                                <ArrowUpRight size={18} color={appTheme.colors.success} />
                                 <Text style={styles.statBoxLabel}>Sales</Text>
                                 <Text style={styles.statBoxValue}>{history.length > 0 ? (totalEarned / history.length).toFixed(1) : '0'} Avg</Text>
                             </View>
                             <View style={styles.statBox}>
-                                <ArrowDownRight size={18} color="#EC5C39" />
+                                <ArrowDownRight size={18} color={appTheme.colors.primary} />
                                 <Text style={styles.statBoxLabel}>Payouts</Text>
                                 <Text style={styles.statBoxValue}>$0.00</Text>
                             </View>
@@ -181,7 +191,7 @@ export default function WithdrawalScreen() {
                                 colors={['#EC5C39', '#ED5639']}
                                 style={styles.actionGradient}
                             >
-                                <Wallet size={20} color="#FFF" style={{ marginRight: 10 }} />
+                                <Wallet size={20} color={appTheme.colors.textPrimary} style={{ marginRight: 10 }} />
                                 <Text style={styles.actionText}>Request Withdrawal</Text>
                             </LinearGradient>
                         </TouchableOpacity>
@@ -190,7 +200,7 @@ export default function WithdrawalScreen() {
                         <Text style={styles.sectionTitle}>Payment Method</Text>
                         <TouchableOpacity style={styles.bankCard} onPress={() => showToast('Bank account management will be available in the next update.', 'info')}>
                             <View style={styles.bankIcon}>
-                                <Building2 size={24} color="#EC5C39" />
+                                <Building2 size={24} color={appTheme.colors.primary} />
                             </View>
                             <View style={styles.bankInfo}>
                                 <Text style={styles.bankName}>Local Nigerian Bank</Text>
@@ -225,13 +235,13 @@ export default function WithdrawalScreen() {
                                                     contentFit="contain"
                                                 />
                                             ) : (
-                                                <Clock size={16} color="#FFC107" />
+                                                <Clock size={16} color={appTheme.colors.warning} />
                                             )}
                                         </View>
                                         <View style={styles.historyInfo}>
                                             <View style={styles.historyRow}>
                                                 <Text style={styles.historyAmount}>${item.amount}</Text>
-                                                <Text style={[styles.historyStatus, { color: item.status === 'Completed' ? '#4CAF50' : '#FFC107' }]}>
+                                                <Text style={[styles.historyStatus, { color: item.status === 'Completed' ? appTheme.colors.success : appTheme.colors.warning }]}>
                                                     {item.status}
                                                 </Text>
                                             </View>
@@ -253,7 +263,7 @@ export default function WithdrawalScreen() {
     );
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
     container: {
         flex: 1,
         paddingHorizontal: 20,
@@ -459,4 +469,4 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         marginTop: 40,
     }
-});
+};

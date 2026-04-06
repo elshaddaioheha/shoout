@@ -8,8 +8,10 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { KeyboardAvoidingView, Platform, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import { auth, db } from '@/firebaseConfig';
+import { useAppTheme } from '@/hooks/use-app-theme';
 import { authNavigationHandled } from '../_layout';
 import { useToastStore } from '@/store/useToastStore';
+import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { getFriendlyErrorMessage } from '@/utils/errorHandler';
 import { sendEmailOtp, verifyEmailOtp } from '@/utils/emailOtp';
 import { hydrateSubscriptionTier } from '@/utils/subscriptionVerification';
@@ -24,6 +26,11 @@ type PendingSignupPayload = {
 };
 
 const PENDING_SIGNUP_KEY = 'pendingSignupPayload';
+
+function useSignupOtpStyles() {
+  const appTheme = useAppTheme();
+  return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
 
 function maskEmail(email: string): string {
   const [name, domain] = email.split('@');
@@ -49,6 +56,10 @@ async function writeSubscriptionDoc(uid: string, tier: SignupSubscriptionTier) {
 }
 
 export default function SignupOtpScreen() {
+  const appTheme = useAppTheme();
+  const styles = useSignupOtpStyles();
+  const placeholderColor = appTheme.colors.textPlaceholder;
+
   const router = useRouter();
   const { showToast } = useToastStore();
   const [pending, setPending] = useState<PendingSignupPayload | null>(null);
@@ -131,18 +142,18 @@ export default function SignupOtpScreen() {
 
   return (
     <SafeScreenWrapper style={styles.container}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar barStyle={appTheme.isDark ? 'light-content' : 'dark-content'} />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}
         style={styles.flex}
       >
         <View style={styles.blurBg} pointerEvents="none">
-          <BlurView intensity={44} tint="dark" style={StyleSheet.absoluteFill} />
+          <BlurView intensity={44} tint={appTheme.isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
         </View>
 
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <ChevronLeft color="#FFFFFF" size={24} />
+          <ChevronLeft color={appTheme.colors.textPrimary} size={24} />
         </TouchableOpacity>
 
         <View style={styles.headerWrap}>
@@ -156,7 +167,7 @@ export default function SignupOtpScreen() {
             value={code}
             onChangeText={(value) => setCode(value.replace(/\D/g, '').slice(0, 6))}
             placeholder="000000"
-            placeholderTextColor="#6B6B6B"
+            placeholderTextColor={placeholderColor}
             style={styles.input}
             keyboardType="number-pad"
             autoCapitalize="none"
@@ -180,7 +191,7 @@ export default function SignupOtpScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
   flex: { flex: 1 },
   container: {
     flex: 1,
@@ -285,5 +296,5 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
     fontFamily: 'Poppins-Regular',
   },
-});
+};
 

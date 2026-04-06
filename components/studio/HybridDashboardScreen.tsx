@@ -1,9 +1,11 @@
 import { useAppSwitcherContext } from '@/app/(tabs)/_layout';
 import SharedHeader from '@/components/SharedHeader';
 import { theme } from '@/constants/theme';
+import { useAppTheme } from '@/hooks/use-app-theme';
 import { useStudioWorkspaceData } from '@/hooks/useStudioWorkspaceData';
 import { useVaultWorkspaceData } from '@/hooks/useVaultWorkspaceData';
 import { useAuthStore } from '@/store/useAuthStore';
+import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { getModeTheme } from '@/utils/appModeTheme';
 import { formatUsd } from '@/utils/pricing';
 import { canUseHybridServices, formatPlanLabel, getVaultCapabilities } from '@/utils/subscriptions';
@@ -19,7 +21,15 @@ function formatStorage(value: number) {
 
 const hybridTheme = getModeTheme('hybrid');
 
+function useHybridDashboardStyles() {
+  const appTheme = useAppTheme();
+  return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
+
 export default function HybridDashboardScreen() {
+  const appTheme = useAppTheme();
+  const styles = useHybridDashboardStyles();
+
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { openSheet, isModeSheetOpen, viewMode } = useAppSwitcherContext();
@@ -88,7 +98,7 @@ export default function HybridDashboardScreen() {
               }}
               activeOpacity={0.9}
             >
-              <UploadCloud size={18} color={theme.colors.background} />
+              <UploadCloud size={18} color={appTheme.colors.background} />
               <Text style={styles.primaryCtaText}>Publish</Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -235,7 +245,7 @@ export default function HybridDashboardScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
   screen: { flex: 1, backgroundColor: theme.colors.background },
   content: { paddingHorizontal: 20, gap: 18 },
   heroCard: {
@@ -402,4 +412,4 @@ const styles = StyleSheet.create({
   },
   operationValue: { color: theme.colors.textPrimary, fontFamily: 'Poppins-Bold', fontSize: 18 },
   operationLabel: { color: theme.colors.textTertiary, fontFamily: 'Poppins-Regular', fontSize: 12 },
-});
+};

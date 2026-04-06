@@ -1,7 +1,9 @@
 import ActionSheet from '@/components/ActionSheet';
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
+import { useAppTheme } from '@/hooks/use-app-theme';
 import { usePlaybackStore } from '@/store/usePlaybackStore';
 import { useToastStore } from '@/store/useToastStore';
+import { adaptLegacyColor, adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { collection, deleteDoc, doc, onSnapshot, orderBy, query } from 'firebase/firestore';
@@ -36,7 +38,18 @@ import { auth, db } from '../../firebaseConfig';
 
 const { width } = Dimensions.get('window');
 
+function useBeatsStoreStyles() {
+    const appTheme = useAppTheme();
+    return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
+
 export default function BeatsStoreManagement() {
+    const appTheme = useAppTheme();
+    const styles = useBeatsStoreStyles();
+    const placeholderColor = appTheme.colors.textPlaceholder;
+    const mutedIconColor = adaptLegacyColor('rgba(255,255,255,0.4)', 'color', appTheme);
+    const emptyIconColor = adaptLegacyColor('rgba(255,255,255,0.2)', 'color', appTheme);
+
     const router = useRouter();
     const [searchQuery, setSearchQuery] = useState('');
     const [activeTab, setActiveTab] = useState('All');
@@ -127,11 +140,11 @@ export default function BeatsStoreManagement() {
                 {/* Search and Filters */}
                 <View style={styles.searchContainer}>
                     <View style={styles.searchInputWrapper}>
-                        <Search size={18} color="rgba(255,255,255,0.4)" style={styles.searchIcon} />
+                        <Search size={18} color={mutedIconColor} style={styles.searchIcon} />
                         <TextInput
                             style={styles.searchInput}
                             placeholder="Search your beats..."
-                            placeholderTextColor="rgba(255,255,255,0.4)"
+                            placeholderTextColor={placeholderColor}
                             value={searchQuery}
                             onChangeText={setSearchQuery}
                         />
@@ -169,7 +182,7 @@ export default function BeatsStoreManagement() {
                     <View style={styles.summaryDivider} />
                     <View style={styles.summaryItem}>
                         <Text style={styles.summaryLabel}>Revenue</Text>
-                        <Text style={[styles.summaryValue, { color: '#4CAF50' }]}>
+                        <Text style={[styles.summaryValue, { color: appTheme.colors.success }]}>
                             ${monthlyRevenue.toFixed(2)}
                         </Text>
                     </View>
@@ -177,7 +190,7 @@ export default function BeatsStoreManagement() {
 
                 {/* Beats List */}
                 {loading ? (
-                    <ActivityIndicator color="#EC5C39" style={{ marginTop: 40 }} />
+                    <ActivityIndicator color={appTheme.colors.primary} style={{ marginTop: 40 }} />
                 ) : (
                     <FlatList
                         data={filteredBeats}
@@ -186,13 +199,15 @@ export default function BeatsStoreManagement() {
                             <BeatCard
                                 beat={item}
                                 onDelete={() => handleDeleteBeat(item.id)}
+                                styles={styles}
+                                appTheme={appTheme}
                             />
                         )}
                         contentContainerStyle={styles.listContent}
                         showsVerticalScrollIndicator={false}
                         ListEmptyComponent={
                             <View style={styles.emptyContainer}>
-                                <Music size={48} color="rgba(255,255,255,0.2)" />
+                                <Music size={48} color={emptyIconColor} />
                                 <Text style={styles.emptyText}>No beats found in store</Text>
                             </View>
                         }
@@ -203,10 +218,13 @@ export default function BeatsStoreManagement() {
     );
 }
 
-function BeatCard({ beat, onDelete }: any) {
+function BeatCard({ beat, onDelete, styles, appTheme }: any) {
     const setTrack = usePlaybackStore(state => state.setTrack);
     const status = beat.published === true ? 'Published' : 'Unpublished';
     const [menuOpen, setMenuOpen] = useState(false);
+    const actionIconColor = adaptLegacyColor('rgba(255,255,255,0.5)', 'color', appTheme);
+    const menuIconColor = adaptLegacyColor('rgba(255,255,255,0.6)', 'color', appTheme);
+    const deleteTint = adaptLegacyColor('rgba(255,255,255,0.6)', 'color', appTheme);
 
     return (
         <View style={styles.beatCard}>
@@ -223,7 +241,7 @@ function BeatCard({ beat, onDelete }: any) {
                     </View>
                 </View>
                 <TouchableOpacity style={styles.moreButton} onPress={() => setMenuOpen(true)}>
-                    <MoreVertical size={20} color="rgba(255,255,255,0.6)" />
+                    <MoreVertical size={20} color={menuIconColor} />
                 </TouchableOpacity>
 
                 <ActionSheet
@@ -231,8 +249,8 @@ function BeatCard({ beat, onDelete }: any) {
                     onClose={() => setMenuOpen(false)}
                     title={beat.title}
                     options={[
-                        { label: 'Listen Preview', icon: <Play size={18} color="#FFF" />, onPress: () => setTrack({ id: beat.id, title: beat.title, artist: 'My Track', url: beat.audioUrl, uploaderId: beat.uploaderId }) },
-                        { label: 'Edit Details', icon: <Edit3 size={18} color="#FFF" />, onPress: () => useToastStore.getState().showToast('Beat editing coming soon.', 'info') },
+                        { label: 'Listen Preview', icon: <Play size={18} color={appTheme.colors.textPrimary} />, onPress: () => setTrack({ id: beat.id, title: beat.title, artist: 'My Track', url: beat.audioUrl, uploaderId: beat.uploaderId }) },
+                        { label: 'Edit Details', icon: <Edit3 size={18} color={appTheme.colors.textPrimary} />, onPress: () => useToastStore.getState().showToast('Beat editing coming soon.', 'info') },
                         { label: 'Delete', icon: <Trash2 size={18} color="#FF4D4D" />, onPress: onDelete, destructive: true },
                     ]}
                 />
@@ -240,11 +258,11 @@ function BeatCard({ beat, onDelete }: any) {
 
             <View style={styles.beatStatsRow}>
                 <View style={styles.beatStat}>
-                    <DollarSign size={14} color="rgba(255,255,255,0.5)" />
+                    <DollarSign size={14} color={actionIconColor} />
                     <Text style={styles.beatStatText}>${beat.price || '0.00'}</Text>
                 </View>
                 <View style={styles.beatStat}>
-                    <Tag size={14} color="rgba(255,255,255,0.5)" />
+                    <Tag size={14} color={actionIconColor} />
                     <Text style={styles.beatStatText}>{beat.salesCount || 0} Sales</Text>
                 </View>
                 <View style={styles.beatStat}>
@@ -273,23 +291,23 @@ function BeatCard({ beat, onDelete }: any) {
                         uploaderId: auth.currentUser?.uid
                     })}
                 >
-                    <Play size={18} color="#FFF" />
+                    <Play size={18} color={appTheme.colors.textPrimary} />
                     <Text style={styles.cardActionText}>Listen</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.cardActionButton} onPress={() => useToastStore.getState().showToast('Beat details editing coming soon. You can update title, price, genre, and BPM.', 'info')}>
-                    <Edit3 size={18} color="#FFF" />
+                    <Edit3 size={18} color={appTheme.colors.textPrimary} />
                     <Text style={styles.cardActionText}>Edit</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.cardActionButton} onPress={onDelete}>
-                    <Trash2 size={18} color="rgba(255,255,255,0.6)" />
-                    <Text style={[styles.cardActionText, { color: 'rgba(255,255,255,0.6)' }]}>Delete</Text>
+                    <Trash2 size={18} color={deleteTint} />
+                    <Text style={[styles.cardActionText, { color: deleteTint }]}>Delete</Text>
                 </TouchableOpacity>
             </View>
         </View>
     );
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
     container: {
         flex: 1,
         paddingHorizontal: 20,
@@ -484,4 +502,4 @@ const styles = StyleSheet.create({
         fontFamily: 'Poppins-Regular',
         fontSize: 16,
     }
-});
+};

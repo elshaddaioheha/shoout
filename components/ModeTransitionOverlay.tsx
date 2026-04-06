@@ -2,6 +2,8 @@
  * ModeTransitionOverlay - full-screen dimming overlay with "Welcome to [Mode]" card.
  */
 import { ViewMode } from '@/store/useUserStore';
+import { useAppTheme } from '@/hooks/use-app-theme';
+import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { Disc3, FolderLock, Layers3, Mic2, Music } from 'lucide-react-native';
 import React from 'react';
 import { Animated, Dimensions, StyleSheet, Text, View } from 'react-native';
@@ -24,6 +26,11 @@ const MODE_CONFIG: Record<ViewMode, { label: string; Icon: any; color: string; s
     hybrid: { label: 'Hybrid', Icon: Layers3, color: '#FFD700', subtitle: 'Combined creator workspace across Vault and Studio' },
 };
 
+function useModeTransitionStyles() {
+    const appTheme = useAppTheme();
+    return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
+
 export default function ModeTransitionOverlay({
     transitioning,
     newMode,
@@ -31,6 +38,8 @@ export default function ModeTransitionOverlay({
     welcomeSlideAnim,
     welcomeOpacityAnim,
 }: ModeTransitionOverlayProps) {
+    const styles = useModeTransitionStyles();
+
     if (!transitioning) return null;
 
     const config = MODE_CONFIG[newMode];
@@ -67,7 +76,7 @@ export default function ModeTransitionOverlay({
     );
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
     overlay: {
         zIndex: 99999,
         elevation: 99999,
@@ -118,4 +127,4 @@ const styles = StyleSheet.create({
         fontFamily: 'Poppins-Regular',
         marginTop: 3,
     },
-});
+};

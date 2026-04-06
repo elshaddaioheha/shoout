@@ -1,12 +1,14 @@
 import { useAppSwitcherContext } from '@/app/(tabs)/_layout';
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import SharedHeader from '@/components/SharedHeader';
+import { useAppTheme } from '@/hooks/use-app-theme';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useCartStore } from '@/store/useCartStore';
 import { useNotificationStore } from '@/store/useNotificationStore';
 import { usePlaybackStore } from '@/store/usePlaybackStore';
 import { useToastStore } from '@/store/useToastStore';
 import { useUserStore } from '@/store/useUserStore';
+import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { getModeTheme } from '@/utils/appModeTheme';
 import { canUseHybridServices, canUseStudioServices, getEffectivePlan } from '@/utils/subscriptions';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
@@ -18,7 +20,15 @@ import React, { useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { auth } from '../../firebaseConfig';
 
+function useMoreStyles() {
+    const appTheme = useAppTheme();
+    return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
+
 export default function MoreScreen() {
+    const appTheme = useAppTheme();
+    const styles = useMoreStyles();
+
     const router = useRouter();
     const { role, name, reset, activeAppMode } = useUserStore();
     const currentPlan = getEffectivePlan(useAuthStore((state) => state.actualRole || state.subscriptionTier || role));
@@ -157,6 +167,7 @@ export default function MoreScreen() {
 
                     <View style={styles.menuContainer}>
                         <MenuItem icon={User} label="Account" color={accentColor} onPress={() => router.push('/(tabs)/profile' as any)} />
+                        <MenuItem icon={Sparkles} label="Appearance" color={accentColor} onPress={() => router.push('/settings/appearance' as any)} />
                         {!isVaultMode && <MenuItem icon={CreditCard} label="Payment Methods" color={accentColor} onPress={() => router.push('/settings/payment-methods' as any)} />}
                         <MenuItem icon={Banknote} label="Subscription" value={role.replace('_', ' ').toUpperCase()} color={accentColor} onPress={() => router.push('/settings/subscriptions' as any)} />
                         {isStudioMode && <MenuItem icon={Sparkles} label="Studio Analytics" color={accentColor} onPress={() => canUseStudioTools ? router.push('/studio/analytics' as any) : pushSubscriptions()} />}
@@ -176,12 +187,12 @@ export default function MoreScreen() {
                                 colors={[modeTheme.accent, modeTheme.accentStrong]}
                                 style={styles.upgradeGradient}
                             >
-                                <Sparkles size={24} color="#FFF" />
+                                <Sparkles size={24} color={appTheme.colors.textPrimary} />
                                 <View style={styles.upgradeTextContainer}>
                                     <Text style={styles.upgradeTitle}>Upgrade Your Plan</Text>
                                     <Text style={styles.upgradeSubtitle}>{isVaultMode ? 'Unlock more Vault storage and higher upload limits' : 'Unlock uploads and richer creator access'}</Text>
                                 </View>
-                                <ChevronRight size={20} color="#FFF" />
+                                <ChevronRight size={20} color={appTheme.colors.textPrimary} />
                             </LinearGradient>
                         </TouchableOpacity>
                     )}
@@ -207,6 +218,9 @@ function getInitials(name: string) {
 }
 
 function MenuItem({ icon: Icon, label, value, color, onPress, hideChevron }: any) {
+    const appTheme = useAppTheme();
+    const styles = useMoreStyles();
+
     return (
         <TouchableOpacity style={styles.menuItem} onPress={onPress}>
             <View style={[styles.menuIconContainer, { backgroundColor: `${color}15` }]}>
@@ -216,12 +230,12 @@ function MenuItem({ icon: Icon, label, value, color, onPress, hideChevron }: any
                 <Text style={styles.menuLabel}>{label}</Text>
                 {value && <Text style={styles.menuValue}>{value}</Text>}
             </View>
-            {!hideChevron && <ChevronRight size={18} color="rgba(255,255,255,0.3)" />}
+            {!hideChevron && <ChevronRight size={18} color={appTheme.colors.textDisabled} />}
         </TouchableOpacity>
     );
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
     container: { flex: 1, backgroundColor: '#140F10' },
     content: { padding: 20, paddingTop: 12, gap: 20 },
     greetingRow: {
@@ -287,4 +301,4 @@ const styles = StyleSheet.create({
     primaryButtonText: { color: '#FFF', fontFamily: 'Poppins-SemiBold', fontSize: 14 },
     secondaryButton: { flex: 1, backgroundColor: 'rgba(255,255,255,0.08)', paddingVertical: 12, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
     secondaryButtonText: { color: '#FFF', fontFamily: 'Poppins-Medium', fontSize: 14 },
-});
+};

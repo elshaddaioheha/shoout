@@ -1,11 +1,22 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
+import { useAppTheme } from '@/hooks/use-app-theme';
 import { useNotificationStore } from '@/store/useNotificationStore';
+import { adaptLegacyColor, adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { useRouter } from 'expo-router';
 import { Bell, CheckCheck, ChevronLeft, MessageSquare, Music, ShieldAlert, Zap } from 'lucide-react-native';
 import React, { useEffect } from 'react';
 import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+function useNotificationsStyles() {
+    const appTheme = useAppTheme();
+    return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
+
 export default function NotificationsFeedScreen() {
+    const appTheme = useAppTheme();
+    const styles = useNotificationsStyles();
+    const emptyIconColor = adaptLegacyColor('rgba(255,255,255,0.1)', 'color', appTheme);
+
     const router = useRouter();
     const { notifications, unreadCount, markAsRead, markAllAsRead, startListening } = useNotificationStore();
 
@@ -80,12 +91,12 @@ export default function NotificationsFeedScreen() {
                 {/* Header */}
                 <View style={styles.header}>
                     <TouchableOpacity onPress={handleBack} style={styles.backBtn}>
-                        <ChevronLeft size={24} color="#FFF" />
+                        <ChevronLeft size={24} color={appTheme.colors.textPrimary} />
                     </TouchableOpacity>
                     <Text style={styles.headerTitle}>Notifications</Text>
                     {unreadCount > 0 ? (
                         <TouchableOpacity onPress={() => markAllAsRead()} style={styles.markAllBtn}>
-                            <CheckCheck size={20} color="#EC5C39" />
+                            <CheckCheck size={20} color={appTheme.colors.primary} />
                         </TouchableOpacity>
                     ) : (
                         <View style={{ width: 40 }} />
@@ -94,7 +105,7 @@ export default function NotificationsFeedScreen() {
 
                 {notifications.length === 0 ? (
                     <View style={styles.emptyContainer}>
-                        <Bell size={48} color="rgba(255,255,255,0.1)" />
+                        <Bell size={48} color={emptyIconColor} />
                         <Text style={styles.emptyTitle}>You're all caught up!</Text>
                         <Text style={styles.emptySub}>No new notifications right now.</Text>
                     </View>
@@ -111,7 +122,7 @@ export default function NotificationsFeedScreen() {
     );
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
     container: {
         flex: 1,
         backgroundColor: '#140F10',
@@ -221,4 +232,4 @@ const styles = StyleSheet.create({
         color: 'rgba(255,255,255,0.5)',
         marginTop: 8,
     },
-});
+};

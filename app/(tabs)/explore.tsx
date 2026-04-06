@@ -3,9 +3,11 @@ import { useAppSwitcherContext } from '@/app/(tabs)/_layout';
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import SharedHeader from '@/components/SharedHeader';
 import { db } from '@/firebaseConfig';
+import { useAppTheme } from '@/hooks/use-app-theme';
 import { useCartStore } from '@/store/useCartStore';
 import { usePlaybackStore } from '@/store/usePlaybackStore';
 import { useToastStore } from '@/store/useToastStore';
+import { adaptLegacyColor, adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { collectionGroup, getDocs, limit, orderBy, query, where } from 'firebase/firestore';
@@ -37,7 +39,19 @@ type ExploreItem = {
 
 const FEATURED_GENRE_CHIPS = ['Afrobeats', 'Afro-Pop', 'Gospel', 'Highlife', 'Hip-Hop', 'Afro Fusion'];
 
+function useExploreStyles() {
+  const appTheme = useAppTheme();
+  return useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
+
 export default function ExploreScreen() {
+  const appTheme = useAppTheme();
+  const styles = useExploreStyles();
+  const searchIconColor = adaptLegacyColor('rgba(255,255,255,0.45)', 'color', appTheme);
+  const placeholderColor = appTheme.colors.textPlaceholder;
+  const emptyArtworkColor = adaptLegacyColor('rgba(255,255,255,0.25)', 'color', appTheme);
+  const preOrderIconColor = adaptLegacyColor('#140F10', 'color', appTheme);
+
   const router = useRouter();
   const { openSheet, isModeSheetOpen, viewMode } = useAppSwitcherContext();
   const setTrack = usePlaybackStore((state) => state.setTrack);
@@ -216,7 +230,7 @@ export default function ExploreScreen() {
       <TouchableOpacity key={item.id} style={styles.rowCard} onPress={() => playPreview(item)}>
         <View style={styles.rowArtwork}>
           {item.artworkUrl ? <Image source={{ uri: item.artworkUrl }} style={styles.artworkImage} contentFit="cover" /> : null}
-          {!item.artworkUrl && <Music size={22} color="rgba(255,255,255,0.25)" />}
+          {!item.artworkUrl && <Music size={22} color={emptyArtworkColor} />}
           {upcoming && (
             <View style={styles.upcomingTag}>
               <Clock3 size={12} color="#FCD2C5" />
@@ -233,11 +247,11 @@ export default function ExploreScreen() {
           </Text>
           <View style={styles.rowActionLine}>
             <TouchableOpacity style={styles.previewBtn} onPress={() => playPreview(item)}>
-              <Play size={13} color="#FFF" />
+              <Play size={13} color={appTheme.colors.textPrimary} />
               <Text style={styles.previewBtnText}>Preview</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.preOrderBtn} onPress={() => openListing(item)}>
-              <ShoppingCart size={13} color="#140F10" />
+              <ShoppingCart size={13} color={preOrderIconColor} />
               <Text style={styles.preOrderBtnText}>{upcoming ? 'Pre-order' : 'View listing'}</Text>
             </TouchableOpacity>
           </View>
@@ -261,12 +275,12 @@ export default function ExploreScreen() {
         />
 
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          <View style={styles.searchBar}>
-            <Search size={16} color="rgba(255,255,255,0.45)" />
+          <View style={[styles.searchBar, { backgroundColor: appTheme.colors.backgroundElevated, borderColor: appTheme.colors.borderStrong }]}> 
+            <Search size={16} color={searchIconColor} />
             <TextInput
               style={styles.searchInput}
               placeholder="Search tracks, artists, genres"
-              placeholderTextColor="rgba(255,255,255,0.35)"
+              placeholderTextColor={placeholderColor}
               value={searchQuery}
               onChangeText={(value) => {
                 setSearchQuery(value);
@@ -305,7 +319,7 @@ export default function ExploreScreen() {
 
           {loading ? (
             <View style={styles.loadingBox}>
-              <ActivityIndicator color="#EC5C39" />
+              <ActivityIndicator color={appTheme.colors.primary} />
               <Text style={styles.loadingText}>Loading explore feed...</Text>
             </View>
           ) : (
@@ -338,7 +352,7 @@ export default function ExploreScreen() {
                             {item.artworkUrl ? (
                               <Image source={{ uri: item.artworkUrl }} style={styles.artworkImage} contentFit="cover" />
                             ) : (
-                              <Music size={28} color="rgba(255,255,255,0.2)" />
+                              <Music size={28} color={adaptLegacyColor('rgba(255,255,255,0.2)', 'color', appTheme)} />
                             )}
                             {upcoming && <View style={styles.carouselUpcomingPill}><Text style={styles.carouselUpcomingText}>Upcoming</Text></View>}
                           </View>
@@ -379,7 +393,7 @@ export default function ExploreScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
   container: {
     flex: 1,
     backgroundColor: '#140F10',
@@ -631,4 +645,4 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginBottom: 8,
   },
-});
+};

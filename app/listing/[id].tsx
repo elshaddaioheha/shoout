@@ -1,7 +1,9 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import { auth, db } from '@/firebaseConfig';
+import { useAppTheme } from '@/hooks/use-app-theme';
 import { useCartStore } from '@/store/useCartStore';
 import { useToastStore } from '@/store/useToastStore';
+import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { formatUsd } from '@/utils/pricing';
 import { BlurView } from 'expo-blur';
 import { Image } from 'expo-image';
@@ -42,7 +44,15 @@ type ListingData = {
     _resolvedUploaderId?: string;
 };
 
+function useListingModalStyles() {
+    const appTheme = useAppTheme();
+    return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
+
 export default function ListingLicenseModal() {
+    const appTheme = useAppTheme();
+    const styles = useListingModalStyles();
+
     const { id, uploaderId } = useLocalSearchParams();
     const router = useRouter();
     const { items, addItem } = useCartStore();
@@ -247,7 +257,7 @@ export default function ListingLicenseModal() {
         <SafeScreenWrapper>
             <View style={styles.screen}>
                 <Pressable style={styles.backdrop} onPress={() => router.back()}>
-                    <BlurView intensity={34} tint="dark" style={StyleSheet.absoluteFill} />
+                    <BlurView intensity={34} tint={appTheme.isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
                     <View style={styles.backdropDim} />
                 </Pressable>
 
@@ -261,7 +271,7 @@ export default function ListingLicenseModal() {
 
                     {loading ? (
                         <View style={styles.loadingContainer}>
-                            <ActivityIndicator size="small" color="#EC5C39" />
+                            <ActivityIndicator size="small" color={appTheme.colors.primary} />
                         </View>
                     ) : (
                         <>
@@ -348,7 +358,7 @@ export default function ListingLicenseModal() {
     );
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
     screen: {
         flex: 1,
         justifyContent: 'flex-end',
@@ -539,4 +549,4 @@ const styles = StyleSheet.create({
         fontFamily: 'Poppins-Regular',
         marginTop: 2,
     },
-});
+};

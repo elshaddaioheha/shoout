@@ -2,12 +2,13 @@ import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
+import { useAppTheme } from '@/hooks/use-app-theme';
 import { verifyRoleViaCustomClaims } from '@/utils/subscriptionVerification';
-import { theme } from '@/constants/theme';
 
 const ALLOWED_ROLES = ['admin', 'moderator', 'auditor'];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
+  const appTheme = useAppTheme();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthorized, setIsAuthorized] = useState(false);
@@ -30,8 +31,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     return (
       <SafeScreenWrapper>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <ActivityIndicator size="large" color={theme.colors.primary} />
-          <Text style={{ marginTop: 16, color: theme.colors.textSecondary }}>Verifying access...</Text>
+          <ActivityIndicator size="large" color={appTheme.colors.primary} />
+          <Text style={{ marginTop: 16, color: appTheme.colors.textSecondary }}>Verifying access...</Text>
         </View>
       </SafeScreenWrapper>
     );
@@ -42,14 +43,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <SafeScreenWrapper>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
           <Text style={{ fontSize: 20, fontWeight: '700', marginBottom: 12 }}>Access denied</Text>
-          <Text style={{ textAlign: 'center', marginBottom: 20, color: theme.colors.textSecondary }}>
+          <Text style={{ textAlign: 'center', marginBottom: 20, color: appTheme.colors.textSecondary }}>
             This section of the app is restricted to administrators and moderators.
           </Text>
           <TouchableOpacity
             onPress={() => router.replace('/(tabs)')}
-            style={{ paddingVertical: 12, paddingHorizontal: 24, backgroundColor: theme.colors.primary, borderRadius: 10 }}
+            style={{ paddingVertical: 12, paddingHorizontal: 24, backgroundColor: appTheme.colors.primary, borderRadius: 10 }}
           >
-            <Text style={{ color: 'white', fontWeight: '600' }}>Return to Home</Text>
+            <Text style={{ color: appTheme.colors.textPrimary, fontWeight: '600' }}>Return to Home</Text>
           </TouchableOpacity>
         </View>
       </SafeScreenWrapper>

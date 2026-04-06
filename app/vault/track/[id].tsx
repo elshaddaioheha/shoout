@@ -1,7 +1,9 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import SettingsHeader from '@/components/settings/SettingsHeader';
 import { auth, db } from '@/firebaseConfig';
+import { useAppTheme } from '@/hooks/use-app-theme';
 import { useToastStore } from '@/store/useToastStore';
+import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { collection, doc, getDocs, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
@@ -25,7 +27,16 @@ type FolderOption = {
   name: string;
 };
 
+function useVaultTrackStyles() {
+  const appTheme = useAppTheme();
+  return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
+
 export default function VaultTrackManageScreen() {
+  const appTheme = useAppTheme();
+  const styles = useVaultTrackStyles();
+  const placeholderColor = appTheme.colors.textPlaceholder;
+
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { showToast } = useToastStore();
@@ -153,16 +164,16 @@ export default function VaultTrackManageScreen() {
 
           <View style={styles.section}>
             <Text style={styles.label}>Title</Text>
-            <TextInput value={title} onChangeText={setTitle} style={styles.input} placeholder="Track title" placeholderTextColor="rgba(255,255,255,0.35)" />
+            <TextInput value={title} onChangeText={setTitle} style={styles.input} placeholder="Track title" placeholderTextColor={placeholderColor} />
             <Text style={styles.label}>Artist</Text>
-            <TextInput value={artist} onChangeText={setArtist} style={styles.input} placeholder="Artist" placeholderTextColor="rgba(255,255,255,0.35)" />
+            <TextInput value={artist} onChangeText={setArtist} style={styles.input} placeholder="Artist" placeholderTextColor={placeholderColor} />
             <Text style={styles.label}>Notes</Text>
             <TextInput
               value={description}
               onChangeText={setDescription}
               style={[styles.input, styles.textArea]}
               placeholder="What changed, versions, notes..."
-              placeholderTextColor="rgba(255,255,255,0.35)"
+              placeholderTextColor={placeholderColor}
               multiline
             />
           </View>
@@ -184,17 +195,17 @@ export default function VaultTrackManageScreen() {
           <View style={styles.section}>
             <Text style={styles.label}>Private link</Text>
             <View style={styles.linkCard}>
-              <Link2 size={18} color="#EC5C39" />
+              <Link2 size={18} color={appTheme.colors.primary} />
               <Text style={styles.linkText} numberOfLines={2}>{shareUrl}</Text>
             </View>
             <TouchableOpacity style={styles.shareButton} onPress={handleShare} activeOpacity={0.9}>
-              <Share2 size={18} color="#FFFFFF" />
+              <Share2 size={18} color={appTheme.colors.textPrimary} />
               <Text style={styles.shareButtonText}>Share Link</Text>
             </TouchableOpacity>
           </View>
 
           <TouchableOpacity style={[styles.saveButton, saving && styles.saveButtonDisabled]} onPress={handleSave} disabled={saving} activeOpacity={0.9}>
-            <Save size={18} color="#FFFFFF" />
+            <Save size={18} color={appTheme.colors.textPrimary} />
             <Text style={styles.saveButtonText}>{saving ? 'Saving...' : 'Save Changes'}</Text>
           </TouchableOpacity>
         </ScrollView>
@@ -203,7 +214,7 @@ export default function VaultTrackManageScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
   screen: {
     flex: 1,
     backgroundColor: '#140F10',
@@ -350,4 +361,4 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins-Bold',
     fontSize: 15,
   },
-});
+};

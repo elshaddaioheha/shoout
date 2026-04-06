@@ -2,14 +2,24 @@ import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import SettingsHeader from '@/components/settings/SettingsHeader';
 import { useVaultWorkspaceData } from '@/hooks/useVaultWorkspaceData';
 import { auth, db } from '@/firebaseConfig';
+import { useAppTheme } from '@/hooks/use-app-theme';
 import { useToastStore } from '@/store/useToastStore';
+import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { useRouter } from 'expo-router';
 import { doc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { Link2, Share2 } from 'lucide-react-native';
 import React from 'react';
 import { ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+function useVaultLinksStyles() {
+  const appTheme = useAppTheme();
+  return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
+
 export default function VaultLinksScreen() {
+  const appTheme = useAppTheme();
+  const styles = useVaultLinksStyles();
+
   const router = useRouter();
   const { showToast } = useToastStore();
   const { uploads, shareLinks } = useVaultWorkspaceData();
@@ -53,7 +63,7 @@ export default function VaultLinksScreen() {
             {shareLinks.map((link) => (
               <TouchableOpacity key={link.id} style={styles.row} activeOpacity={0.85}>
                 <View style={styles.rowIcon}>
-                  <Link2 size={18} color="#EC5C39" />
+                  <Link2 size={18} color={appTheme.colors.primary} />
                 </View>
                 <View style={styles.rowInfo}>
                   <Text style={styles.rowTitle}>{link.title || 'Private link'}</Text>
@@ -69,7 +79,7 @@ export default function VaultLinksScreen() {
             {uploads.map((upload) => (
               <TouchableOpacity key={upload.id} style={styles.row} onPress={() => createLinkForUpload(upload)} activeOpacity={0.85}>
                 <View style={styles.rowIcon}>
-                  <Share2 size={18} color="#EC5C39" />
+                  <Share2 size={18} color={appTheme.colors.primary} />
                 </View>
                 <View style={styles.rowInfo}>
                   <Text style={styles.rowTitle}>{upload.title || 'Untitled Track'}</Text>
@@ -84,7 +94,7 @@ export default function VaultLinksScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
   screen: { flex: 1, backgroundColor: '#140F10' },
   content: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 40, gap: 18 },
   heroCard: {
@@ -158,4 +168,4 @@ const styles = StyleSheet.create({
     fontSize: 11,
     marginTop: 2,
   },
-});
+};

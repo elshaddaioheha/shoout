@@ -5,8 +5,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { GoogleAuthProvider, OAuthProvider, signInWithCredential } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { useAppTheme } from '@/hooks/use-app-theme';
+import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import React from 'react';
-import { Animated, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Animated, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { auth, db } from '../../firebaseConfig';
 import { authNavigationHandled } from '../_layout';
@@ -19,7 +21,16 @@ type SignupSubscriptionTier = 'vault' | 'vault_pro' | 'studio' | 'hybrid';
 
 const PENDING_SIGNUP_KEY = 'pendingSignupPayload';
 
+function useSignupStyles() {
+    const appTheme = useAppTheme();
+    return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
+
 export default function SignupScreen() {
+    const appTheme = useAppTheme();
+    const styles = useSignupStyles();
+    const placeholderColor = appTheme.colors.textPlaceholder;
+
     const router = useRouter();
     const { redirectTo } = useLocalSearchParams<{ redirectTo?: string }>();
     const [fullName, setFullName] = React.useState('');
@@ -208,6 +219,7 @@ export default function SignupScreen() {
 
     return (
         <SafeAreaView style={styles.container}>
+            <StatusBar barStyle={appTheme.isDark ? 'light-content' : 'dark-content'} />
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 style={{ flex: 1 }}
@@ -226,7 +238,7 @@ export default function SignupScreen() {
                     {/* Social Login Buttons */}
                     <View style={styles.socialContainer}>
                         {Platform.OS === 'ios' ? (
-                            <SocialButton icon={<AppleIcon />} text="Signup with Apple" onPress={handleAppleLogin} />
+                            <SocialButton icon={<AppleIcon color={appTheme.colors.textPrimary} />} text="Signup with Apple" onPress={handleAppleLogin} />
                         ) : null}
                         <SocialButton icon={<GoogleIcon />} text="Signup with Google" onPress={handleGoogleLogin} />
                     </View>
@@ -242,14 +254,14 @@ export default function SignupScreen() {
                         <TextInput
                             style={styles.input}
                             placeholder="Full Name"
-                            placeholderTextColor="#666"
+                            placeholderTextColor={placeholderColor}
                             value={fullName}
                             onChangeText={setFullName}
                         />
                         <TextInput
                             style={styles.input}
                             placeholder="Email"
-                            placeholderTextColor="#666"
+                            placeholderTextColor={placeholderColor}
                             keyboardType="email-address"
                             autoCapitalize="none"
                             value={email}
@@ -258,7 +270,7 @@ export default function SignupScreen() {
                         <TextInput
                             style={styles.input}
                             placeholder="Password"
-                            placeholderTextColor="#666"
+                            placeholderTextColor={placeholderColor}
                             secureTextEntry
                             value={password}
                             onChangeText={setPassword}
@@ -266,7 +278,7 @@ export default function SignupScreen() {
                         <TextInput
                             style={styles.input}
                             placeholder="Confirm Password"
-                            placeholderTextColor="#666"
+                            placeholderTextColor={placeholderColor}
                             secureTextEntry
                             value={confirmPassword}
                             onChangeText={setConfirmPassword}
@@ -299,7 +311,7 @@ export default function SignupScreen() {
     );
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
     container: {
         flex: 1,
         backgroundColor: '#140F10',
@@ -422,10 +434,12 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         letterSpacing: -0.5,
     },
-});
+};
 
 // Sub-components
 function SocialButton({ icon, text, onPress }: { icon: React.ReactNode, text: string, onPress?: () => void }) {
+    const styles = useSignupStyles();
+
     return (
         <TouchableOpacity style={styles.socialButton} onPress={onPress}>
             {icon}
@@ -434,10 +448,10 @@ function SocialButton({ icon, text, onPress }: { icon: React.ReactNode, text: st
     );
 }
 
-function AppleIcon() {
+function AppleIcon({ color = 'white' }: { color?: string }) {
     return (
         <Svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-            <Path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" fill="white" />
+            <Path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" fill={color} />
         </Svg>
     );
 }

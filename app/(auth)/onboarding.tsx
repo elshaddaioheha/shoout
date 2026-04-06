@@ -1,5 +1,7 @@
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
+import { useAppTheme } from '@/hooks/use-app-theme';
+import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import React, { useEffect, useRef, useState } from 'react';
 import {
     Dimensions,
@@ -18,23 +20,28 @@ const screens = [
         title: "Welcome to the heartbeat of Afro music",
         description: "Discover, create, and share. The Afro sound starts with you.",
         illustration: "african",
-        titleColor: "#FFFFFF"
     },
     {
         title: "Discover, create, and share",
         description: "The sounds that move the world.",
         illustration: "discover",
-        titleColor: "#F15A3B"
     },
     {
         title: "Your journey starts here.",
         subtitle: "Whether you're an artist or a fan,",
         illustration: "journey",
-        titleColor: "#FFFFFF"
     }
 ];
 
+function useOnboardingStyles() {
+    const appTheme = useAppTheme();
+    return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
+
 export default function OnboardingFlow() {
+    const appTheme = useAppTheme();
+    const styles = useOnboardingStyles();
+
     const [currentScreen, setCurrentScreen] = useState(0);
     const scrollRef = useRef<ScrollView | null>(null);
     const autoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -90,7 +97,7 @@ export default function OnboardingFlow() {
 
     return (
         <View style={styles.container}>
-            <StatusBar barStyle="light-content" />
+            <StatusBar barStyle={appTheme.isDark ? 'light-content' : 'dark-content'} />
 
             {/* Content Section */}
             <View style={styles.content}>
@@ -116,7 +123,7 @@ export default function OnboardingFlow() {
                                         {screen.subtitle}
                                     </Text>
                                 )}
-                                <Text style={[styles.title, { color: screen.titleColor }]}>
+                                <Text style={[styles.title, { color: idx === 1 ? appTheme.colors.primary : appTheme.colors.textPrimary }]}> 
                                     {screen.title}
                                 </Text>
                             </View>
@@ -173,7 +180,7 @@ export default function OnboardingFlow() {
                 </TouchableOpacity>
                 <TouchableOpacity onPress={handleNext} activeOpacity={0.8} style={styles.nextButton}>
                     <Text style={styles.nextText}>{currentScreen === screens.length - 1 ? 'Get Started' : 'Next'}</Text>
-                    <View style={styles.arrow} />
+                    <View style={[styles.arrow, { borderColor: appTheme.colors.textPrimary }]} />
                 </TouchableOpacity>
             </View>
 
@@ -184,7 +191,7 @@ export default function OnboardingFlow() {
 
 // SVG illustrations removed in favor of images
 
-const styles = StyleSheet.create({
+const legacyStyles = {
     container: {
         flex: 1,
         backgroundColor: '#140F10',
@@ -310,5 +317,5 @@ const styles = StyleSheet.create({
         width: 352,
         height: 329,
     }
-});
+};
 

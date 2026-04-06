@@ -1,11 +1,21 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import SettingsHeader from '@/components/settings/SettingsHeader';
+import { useAppTheme } from '@/hooks/use-app-theme';
+import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { useRouter } from 'expo-router';
 import { CreditCard, Plus } from 'lucide-react-native';
 import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+function usePaymentMethodsStyles() {
+    const appTheme = useAppTheme();
+    return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
+
 export default function PaymentMethodsScreen() {
+    const appTheme = useAppTheme();
+    const styles = usePaymentMethodsStyles();
+
     const router = useRouter();
 
     return (
@@ -15,7 +25,7 @@ export default function PaymentMethodsScreen() {
 
                 <ScrollView contentContainerStyle={styles.scrollContent}>
                     <View style={styles.emptyState}>
-                        <CreditCard size={48} color="rgba(255,255,255,0.2)" />
+                        <CreditCard size={48} color={appTheme.colors.textDisabled} />
                         <Text style={styles.emptyTitle}>No payment methods</Text>
                         <Text style={styles.emptySubtitle}>
                             You haven't added any payment methods yet. Add one to easily handle future subscriptions.
@@ -23,7 +33,7 @@ export default function PaymentMethodsScreen() {
                     </View>
 
                     <TouchableOpacity style={styles.addButton}>
-                        <Plus size={20} color="#FFF" />
+                        <Plus size={20} color={appTheme.colors.textPrimary} />
                         <Text style={styles.addButtonText}>Add New Card</Text>
                     </TouchableOpacity>
                 </ScrollView>
@@ -32,7 +42,7 @@ export default function PaymentMethodsScreen() {
     );
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
     container: { flex: 1, backgroundColor: '#140F10' },
     scrollContent: { paddingHorizontal: 20, paddingTop: 40, alignItems: 'center' },
     emptyState: {
@@ -68,4 +78,4 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontFamily: 'Poppins-SemiBold',
     },
-});
+};

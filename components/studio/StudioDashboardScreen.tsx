@@ -2,7 +2,9 @@ import { useAppSwitcherContext } from '@/app/(tabs)/_layout';
 import SharedHeader from '@/components/SharedHeader';
 import { theme } from '@/constants/theme';
 import { useStudioWorkspaceData } from '@/hooks/useStudioWorkspaceData';
+import { useAppTheme } from '@/hooks/use-app-theme';
 import { useAuthStore } from '@/store/useAuthStore';
+import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { getModeTheme } from '@/utils/appModeTheme';
 import { formatUsd } from '@/utils/pricing';
 import { canUseStudioServices, getEffectivePlan } from '@/utils/subscriptions';
@@ -14,7 +16,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const studioTheme = getModeTheme('studio');
 
+function useStudioDashboardStyles() {
+  const appTheme = useAppTheme();
+  return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
+
 export default function StudioDashboardScreen() {
+  const appTheme = useAppTheme();
+  const styles = useStudioDashboardStyles();
+
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { openSheet, isModeSheetOpen, viewMode } = useAppSwitcherContext();
@@ -63,7 +73,7 @@ export default function StudioDashboardScreen() {
               if (requireStudioSubscription()) return;
               router.push('/(tabs)/search' as any);
             }} activeOpacity={0.9}>
-              <UploadCloud size={18} color="#FFF" />
+              <UploadCloud size={18} color={appTheme.colors.textPrimary} />
               <Text style={styles.primaryCtaText}>Publish</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.secondaryCta} onPress={() => {
@@ -149,7 +159,7 @@ export default function StudioDashboardScreen() {
             </TouchableOpacity>
           </View>
           <View style={styles.promoBanner}>
-            <BarChart3 size={20} color="#FFF" />
+            <BarChart3 size={20} color={appTheme.colors.textPrimary} />
             <Text style={styles.promoText}>Promote your strongest releases and monitor campaign readiness from one place.</Text>
           </View>
         </View>
@@ -158,7 +168,7 @@ export default function StudioDashboardScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
   screen: { flex: 1, backgroundColor: theme.colors.background },
   content: { paddingHorizontal: 20, gap: 18 },
   heroCard: {
@@ -207,4 +217,4 @@ const styles = StyleSheet.create({
   summarySub: { color: 'rgba(255,255,255,0.58)', fontFamily: 'Poppins-Regular', fontSize: 12, lineHeight: 19 },
   promoBanner: { flexDirection: 'row', gap: 12, alignItems: 'flex-start', backgroundColor: 'rgba(76,175,80,0.12)', borderRadius: 16, padding: 16 },
   promoText: { flex: 1, color: theme.colors.textPrimary, fontFamily: 'Poppins-Regular', fontSize: 13, lineHeight: 20 },
-});
+};

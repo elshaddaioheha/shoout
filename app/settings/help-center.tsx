@@ -1,11 +1,21 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import SettingsHeader from '@/components/settings/SettingsHeader';
+import { useAppTheme } from '@/hooks/use-app-theme';
+import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { useRouter } from 'expo-router';
 import { CircleHelp, FileText, Mail, MessageCircleQuestion, ShieldCheck } from 'lucide-react-native';
 import React from 'react';
 import { Alert, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+function useHelpCenterStyles() {
+  const appTheme = useAppTheme();
+  return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
+
 export default function HelpCenterScreen() {
+  const appTheme = useAppTheme();
+  const styles = useHelpCenterStyles();
+
   const router = useRouter();
 
   const openEmail = async () => {
@@ -28,14 +38,14 @@ export default function HelpCenterScreen() {
 
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <View style={styles.hero}>
-            <View style={styles.heroIcon}><CircleHelp size={24} color="#EC5C39" /></View>
+            <View style={styles.heroIcon}><CircleHelp size={24} color={appTheme.colors.primary} /></View>
             <Text style={styles.heroTitle}>Need help?</Text>
             <Text style={styles.heroSub}>Find quick answers or contact support for account, billing, and creator tools.</Text>
           </View>
 
           <View style={styles.section}>
             <TouchableOpacity style={styles.item} activeOpacity={0.85} onPress={() => Alert.alert('Account & Login', 'Use Profile > Log Out to switch account. For sign-in issues, contact support@shoouts.com.') }>
-              <MessageCircleQuestion size={18} color="#EC5C39" />
+              <MessageCircleQuestion size={18} color={appTheme.colors.primary} />
               <View style={styles.itemTextWrap}>
                 <Text style={styles.itemTitle}>Account & Login</Text>
                 <Text style={styles.itemSub}>Sign-in help, account recovery, role access</Text>
@@ -43,7 +53,7 @@ export default function HelpCenterScreen() {
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.item} activeOpacity={0.85} onPress={() => Alert.alert('Purchases & Billing', 'Purchase records are in your account purchases. Subscription issues can be resolved by support.') }>
-              <FileText size={18} color="#EC5C39" />
+              <FileText size={18} color={appTheme.colors.primary} />
               <View style={styles.itemTextWrap}>
                 <Text style={styles.itemTitle}>Purchases & Billing</Text>
                 <Text style={styles.itemSub}>Subscriptions, receipts, failed checkout</Text>
@@ -51,7 +61,7 @@ export default function HelpCenterScreen() {
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.item} activeOpacity={0.85} onPress={() => Alert.alert('Privacy & Security', 'Manage privacy in Settings > Privacy. Report suspicious activity immediately.') }>
-              <ShieldCheck size={18} color="#EC5C39" />
+              <ShieldCheck size={18} color={appTheme.colors.primary} />
               <View style={styles.itemTextWrap}>
                 <Text style={styles.itemTitle}>Privacy & Security</Text>
                 <Text style={styles.itemSub}>Data controls, account safety, suspicious access</Text>
@@ -60,7 +70,7 @@ export default function HelpCenterScreen() {
           </View>
 
           <TouchableOpacity style={styles.supportButton} onPress={openEmail}>
-            <Mail size={18} color="#FFF" />
+            <Mail size={18} color={appTheme.colors.textPrimary} />
             <Text style={styles.supportButtonText}>Contact Support</Text>
           </TouchableOpacity>
 
@@ -72,7 +82,7 @@ export default function HelpCenterScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
   container: { flex: 1, backgroundColor: '#140F10' },
   content: { paddingHorizontal: 20, paddingTop: 10 },
   hero: {
@@ -131,4 +141,4 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins-Regular',
     fontSize: 12,
   },
-});
+};

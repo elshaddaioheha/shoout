@@ -2,7 +2,13 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
-import { theme } from '@/constants/theme';
+import { useAppTheme } from '@/hooks/use-app-theme';
+import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
+
+function usePayoutLedgerStyles() {
+  const appTheme = useAppTheme();
+  return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
 
 type PayoutEntry = {
   id: string;
@@ -15,6 +21,9 @@ type PayoutEntry = {
 };
 
 export default function PayoutLedgerScreen() {
+  const appTheme = useAppTheme();
+  const styles = usePayoutLedgerStyles();
+
   const [entries, setEntries] = useState<PayoutEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -40,7 +49,7 @@ export default function PayoutLedgerScreen() {
     return (
       <SafeScreenWrapper>
         <View style={styles.loader}>
-          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <ActivityIndicator size="large" color={appTheme.colors.primary} />
           <Text style={styles.loadingText}>Loading payout ledger…</Text>
         </View>
       </SafeScreenWrapper>
@@ -80,7 +89,7 @@ export default function PayoutLedgerScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
   loader: {
     flex: 1,
     alignItems: 'center',
@@ -88,7 +97,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 12,
-    color: theme.colors.textSecondary,
+    color: 'rgba(255,255,255,0.7)',
   },
   container: {
     flex: 1,
@@ -103,7 +112,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     textAlign: 'center',
-    color: theme.colors.textSecondary,
+    color: 'rgba(255,255,255,0.7)',
   },
   list: {
     padding: 16,
@@ -112,7 +121,7 @@ const styles = StyleSheet.create({
   card: {
     padding: 16,
     borderRadius: 14,
-    backgroundColor: theme.colors.surface,
+    backgroundColor: '#1E1A1B',
     marginBottom: 12,
     shadowColor: '#000',
     shadowOpacity: 0.08,
@@ -125,8 +134,8 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   cardMeta: {
-    color: theme.colors.textSecondary,
+    color: 'rgba(255,255,255,0.7)',
     fontSize: 12,
     marginBottom: 4,
   },
-});
+};

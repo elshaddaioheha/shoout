@@ -4,13 +4,23 @@ import SettingsDivider from '@/components/settings/SettingsDivider';
 import SettingsHeader from '@/components/settings/SettingsHeader';
 import SettingsSwitchRow from '@/components/settings/SettingsSwitchRow';
 import { auth, db } from '@/firebaseConfig';
+import { useAppTheme } from '@/hooks/use-app-theme';
 import { useRouter } from 'expo-router';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { Bell } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
+
+function useSettingsNotificationsStyles() {
+    const appTheme = useAppTheme();
+    return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
 
 export default function NotificationsScreen() {
+    const appTheme = useAppTheme();
+    const styles = useSettingsNotificationsStyles();
+
     const router = useRouter();
     const [emailAlerts, setEmailAlerts] = useState(true);
     const [pushNotifs, setPushNotifs] = useState(true);
@@ -47,7 +57,7 @@ export default function NotificationsScreen() {
 
                 <View style={styles.content}>
                     <View style={styles.iconContainer}>
-                        <Bell size={48} color="#EC5C39" />
+                        <Bell size={48} color={appTheme.colors.primary} />
                     </View>
 
                     <Text style={styles.sectionTitle}>General Notifications</Text>
@@ -82,14 +92,14 @@ export default function NotificationsScreen() {
                     onPress={handleTestNotification}
                     disabled={sendingTest}
                 >
-                    {sendingTest ? <ActivityIndicator color="#FFF" /> : <Text style={styles.testBtnText}>Send Test Live Notification</Text>}
+                    {sendingTest ? <ActivityIndicator color={appTheme.colors.textPrimary} /> : <Text style={styles.testBtnText}>Send Test Live Notification</Text>}
                 </TouchableOpacity>
             </View>
         </SafeScreenWrapper>
     );
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
     container: { flex: 1, backgroundColor: '#140F10' },
     content: { padding: 20 },
     iconContainer: { alignItems: 'center', marginBottom: 30, marginTop: 20 },
@@ -106,4 +116,4 @@ const styles = StyleSheet.create({
         fontFamily: 'Poppins-Bold',
         fontSize: 14,
     }
-});
+};

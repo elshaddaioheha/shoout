@@ -1,6 +1,8 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import { auth, db } from '@/firebaseConfig';
+import { useAppTheme } from '@/hooks/use-app-theme';
 import { useUserStore } from '@/store/useUserStore';
+import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ArrowLeft, Camera, Paperclip, SendHorizontal } from 'lucide-react-native';
 import {
@@ -29,7 +31,16 @@ type Bubble = {
   senderId?: string;
 };
 
+function useMessageThreadStyles() {
+  const appTheme = useAppTheme();
+  return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
+
 export default function StudioMessageThreadScreen() {
+  const appTheme = useAppTheme();
+  const styles = useMessageThreadStyles();
+  const placeholderColor = appTheme.colors.textPlaceholder;
+
   const router = useRouter();
   const { role } = useUserStore();
   const params = useLocalSearchParams<{
@@ -189,7 +200,7 @@ export default function StudioMessageThreadScreen() {
         <View style={styles.headerWrap}>
           <View style={styles.headerRow}>
             <TouchableOpacity onPress={() => router.back()} activeOpacity={0.85}>
-              <ArrowLeft size={22} color="#FFFFFF" />
+              <ArrowLeft size={22} color={appTheme.colors.textPrimary} />
             </TouchableOpacity>
 
             <View style={styles.userRow}>
@@ -219,8 +230,8 @@ export default function StudioMessageThreadScreen() {
 
         <View style={styles.inputBar}>
           <View style={styles.attachGroup}>
-            <Paperclip size={20} color="#FFFFFF" />
-            <Camera size={18} color="#FFFFFF" />
+            <Paperclip size={20} color={appTheme.colors.textPrimary} />
+            <Camera size={18} color={appTheme.colors.textPrimary} />
           </View>
 
           <View style={styles.inputWrap}>
@@ -228,11 +239,11 @@ export default function StudioMessageThreadScreen() {
               value={input}
               onChangeText={setInput}
               placeholder="Type your message here"
-              placeholderTextColor="rgba(255,255,255,0.5)"
+              placeholderTextColor={placeholderColor}
               style={styles.input}
             />
             <TouchableOpacity onPress={send} activeOpacity={0.85}>
-              <SendHorizontal size={16} color="#EC5C39" />
+              <SendHorizontal size={16} color={appTheme.colors.primary} />
             </TouchableOpacity>
           </View>
         </View>
@@ -248,7 +259,7 @@ function formatTime(timestamp: any) {
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }).toLowerCase();
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
   container: { flex: 1, backgroundColor: '#140F10' },
   headerWrap: { marginTop: 12 },
   headerRow: { paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', gap: 16 },
@@ -304,4 +315,4 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
     paddingVertical: 0,
   },
-});
+};

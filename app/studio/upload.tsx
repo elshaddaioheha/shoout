@@ -1,7 +1,9 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
+import { useAppTheme } from '@/hooks/use-app-theme';
 import SettingsHeader from '@/components/settings/SettingsHeader';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useToastStore } from '@/store/useToastStore';
+import { adaptLegacyColor, adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import * as DocumentPicker from 'expo-document-picker';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -21,7 +23,7 @@ import {
     Upload as UploadIcon,
     X
 } from 'lucide-react-native';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     KeyboardAvoidingView,
@@ -58,6 +60,12 @@ type PublisherProfile = {
 };
 
 export default function UploadScreen() {
+    const appTheme = useAppTheme();
+    const styles = useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+    const placeholderColor = appTheme.colors.textPlaceholder;
+    const iconPrimary = appTheme.colors.textPrimary;
+    const iconMuted = appTheme.colors.textSecondary;
+
     const router = useRouter();
     const authRole = useAuthStore((state) => state.actualRole);
     const authTier = useAuthStore((state) => state.subscriptionTier);
@@ -679,18 +687,18 @@ export default function UploadScreen() {
                     <View style={styles.splashRingOuter}>
                         <View style={styles.splashRingInner}>
                             <View style={styles.splashCheckCircle}>
-                                <Check size={36} color="#140F10" strokeWidth={3} />
+                                <Check size={36} color={adaptLegacyColor('#140F10', 'color', appTheme)} strokeWidth={3} />
                             </View>
                         </View>
                     </View>
                     <Text style={styles.splashTitle}>Track Published! 🎉</Text>
                     <Text style={styles.splashSub}>Your track "{uploadedTitle}" is now live in your Vault.</Text>
                     <View style={styles.splashLinkBox}>
-                        <Link2 size={16} color="#EC5C39" />
+                        <Link2 size={16} color={adaptLegacyColor('#EC5C39', 'color', appTheme)} />
                         <Text style={styles.splashLinkText} numberOfLines={1} selectable>{shareUrl}</Text>
                     </View>
                     <TouchableOpacity style={styles.splashShareBtn} onPress={handleShare}>
-                        <Share2 size={18} color="#140F10" />
+                        <Share2 size={18} color={adaptLegacyColor('#140F10', 'color', appTheme)} />
                         <Text style={styles.splashShareText}>Share Link</Text>
                     </TouchableOpacity>
 
@@ -707,7 +715,7 @@ export default function UploadScreen() {
                             },
                         })}
                     >
-                        <Megaphone size={18} color="#EC5C39" />
+                        <Megaphone size={18} color={adaptLegacyColor('#EC5C39', 'color', appTheme)} />
                         <Text style={styles.splashPromoteText}>Promote this Track</Text>
                     </TouchableOpacity>
 
@@ -748,7 +756,7 @@ export default function UploadScreen() {
                                         <Text style={styles.choiceSub}>Organize songs before publishing</Text>
                                     </View>
                                     <View style={styles.choiceIcon}>
-                                        <FolderPlus size={26} color="#FFF" />
+                                        <FolderPlus size={26} color={iconPrimary} />
                                     </View>
                                 </TouchableOpacity>
 
@@ -761,7 +769,7 @@ export default function UploadScreen() {
                                         <Text style={styles.choiceSub}>Start your publishing flow</Text>
                                     </View>
                                     <View style={styles.choiceIcon}>
-                                        <Music size={26} color="#FFF" />
+                                        <Music size={26} color={iconPrimary} />
                                     </View>
                                 </TouchableOpacity>
                             </View>
@@ -774,7 +782,7 @@ export default function UploadScreen() {
                                     <TextInput
                                         style={styles.input}
                                         placeholder="Name of Folder"
-                                        placeholderTextColor="rgba(255,255,255,0.3)"
+                                        placeholderTextColor={placeholderColor}
                                         value={folderName}
                                         onChangeText={setFolderName}
                                     />
@@ -823,7 +831,7 @@ export default function UploadScreen() {
                                             <TextInput
                                                 style={styles.input}
                                                 placeholder="Enter your stage name"
-                                                placeholderTextColor="rgba(255,255,255,0.3)"
+                                                placeholderTextColor={placeholderColor}
                                                 value={publisherProfile.stageName}
                                                 onChangeText={(value) => setPublisherProfile((prev) => ({ ...prev, stageName: value }))}
                                             />
@@ -834,7 +842,7 @@ export default function UploadScreen() {
                                             <TextInput
                                                 style={styles.input}
                                                 placeholder="Select or input record label"
-                                                placeholderTextColor="rgba(255,255,255,0.3)"
+                                                placeholderTextColor={placeholderColor}
                                                 value={publisherProfile.recordLabel}
                                                 onChangeText={(value) => setPublisherProfile((prev) => ({ ...prev, recordLabel: value }))}
                                             />
@@ -845,7 +853,7 @@ export default function UploadScreen() {
                                             <TextInput
                                                 style={styles.input}
                                                 placeholder="Enter full name"
-                                                placeholderTextColor="rgba(255,255,255,0.3)"
+                                                placeholderTextColor={placeholderColor}
                                                 value={publisherProfile.fullName}
                                                 onChangeText={(value) => setPublisherProfile((prev) => ({ ...prev, fullName: value }))}
                                             />
@@ -856,7 +864,7 @@ export default function UploadScreen() {
                                             <TextInput
                                                 style={styles.input}
                                                 placeholder="BVN/NIN/Passport Number"
-                                                placeholderTextColor="rgba(255,255,255,0.3)"
+                                                placeholderTextColor={placeholderColor}
                                                 value={publisherProfile.idNumber}
                                                 onChangeText={(value) => setPublisherProfile((prev) => ({ ...prev, idNumber: value }))}
                                             />
@@ -868,7 +876,7 @@ export default function UploadScreen() {
                                                 <TextInput
                                                     style={styles.input}
                                                     placeholder="Select Bank"
-                                                    placeholderTextColor="rgba(255,255,255,0.3)"
+                                                    placeholderTextColor={placeholderColor}
                                                     value={publisherProfile.bank}
                                                     onChangeText={(value) => setPublisherProfile((prev) => ({ ...prev, bank: value }))}
                                                 />
@@ -878,7 +886,7 @@ export default function UploadScreen() {
                                                 <TextInput
                                                     style={styles.input}
                                                     placeholder="Account Number"
-                                                    placeholderTextColor="rgba(255,255,255,0.3)"
+                                                    placeholderTextColor={placeholderColor}
                                                     keyboardType="number-pad"
                                                     value={publisherProfile.accountNumber}
                                                     onChangeText={(value) => setPublisherProfile((prev) => ({ ...prev, accountNumber: value }))}
@@ -891,7 +899,7 @@ export default function UploadScreen() {
                                             <TextInput
                                                 style={styles.input}
                                                 placeholder="Enter amount"
-                                                placeholderTextColor="rgba(255,255,255,0.3)"
+                                                placeholderTextColor={placeholderColor}
                                                 keyboardType="number-pad"
                                                 value={publisherProfile.payoutThreshold}
                                                 onChangeText={(value) => setPublisherProfile((prev) => ({ ...prev, payoutThreshold: value }))}
@@ -907,7 +915,7 @@ export default function UploadScreen() {
                                         >
                                             <Text style={styles.inlineLinkText}>Let Fans Subscribe</Text>
                                             <View style={[styles.checkbox, publisherProfile.letFansSubscribe && styles.checkboxActive]}>
-                                                {publisherProfile.letFansSubscribe && <Check size={12} color="#FFF" />}
+                                                {publisherProfile.letFansSubscribe && <Check size={12} color={iconPrimary} />}
                                             </View>
                                         </TouchableOpacity>
                                     </View>
@@ -924,7 +932,7 @@ export default function UploadScreen() {
                                             <Text style={styles.fileTitle} numberOfLines={1}>{audioFile ? audioFile.name : 'Select Audio File'}</Text>
                                             <Text style={styles.fileSub}>{audioFile && audioFile.size ? `${(audioFile.size / (1024 * 1024)).toFixed(2)} MB` : 'MP3, WAV or FLAC (Max 50MB)'}</Text>
                                         </View>
-                                        <UploadIcon size={20} color={audioFile ? '#EC5C39' : 'rgba(255,255,255,0.4)'} />
+                                        <UploadIcon size={20} color={audioFile ? '#EC5C39' : iconMuted} />
                                     </TouchableOpacity>
 
                                     <View style={styles.inputGroup}>
@@ -933,10 +941,10 @@ export default function UploadScreen() {
                                             style={styles.pickerTrigger}
                                             onPress={() => setShowAssetTypePicker(true)}
                                         >
-                                            <Text style={[styles.pickerText, !assetType && { color: 'rgba(255,255,255,0.3)' }]}>
+                                            <Text style={[styles.pickerText, !assetType && { color: placeholderColor }]}>
                                                 {assetType || 'Single, Album, Playlist'}
                                             </Text>
-                                            <ChevronDown size={18} color="rgba(255,255,255,0.6)" />
+                                            <ChevronDown size={18} color={iconMuted} />
                                         </TouchableOpacity>
                                     </View>
 
@@ -945,7 +953,7 @@ export default function UploadScreen() {
                                         <TextInput
                                             style={styles.input}
                                             placeholder="Enter song or beat name"
-                                            placeholderTextColor="rgba(255,255,255,0.3)"
+                                            placeholderTextColor={placeholderColor}
                                             value={title}
                                             onChangeText={setTitle}
                                         />
@@ -957,10 +965,10 @@ export default function UploadScreen() {
                                             style={styles.pickerTrigger}
                                             onPress={() => setShowTrackPicker(true)}
                                         >
-                                            <Text style={[styles.pickerText, selectedTrackIds.length === 0 && { color: 'rgba(255,255,255,0.3)' }]}>
+                                            <Text style={[styles.pickerText, selectedTrackIds.length === 0 && { color: placeholderColor }]}>
                                                 {selectedTrackIds.length > 0 ? `${selectedTrackIds.length} selected` : 'Select Tracks'}
                                             </Text>
-                                            <ChevronDown size={18} color="rgba(255,255,255,0.6)" />
+                                            <ChevronDown size={18} color={iconMuted} />
                                         </TouchableOpacity>
                                     </View>
 
@@ -970,10 +978,10 @@ export default function UploadScreen() {
                                             style={styles.pickerTrigger}
                                             onPress={() => setShowGenrePicker(true)}
                                         >
-                                            <Text style={[styles.pickerText, !genre && { color: 'rgba(255,255,255,0.3)' }]}>
+                                            <Text style={[styles.pickerText, !genre && { color: placeholderColor }]}>
                                                 {genre || 'Select Genre'}
                                             </Text>
-                                            <ChevronDown size={18} color="rgba(255,255,255,0.6)" />
+                                            <ChevronDown size={18} color={iconMuted} />
                                         </TouchableOpacity>
                                     </View>
 
@@ -993,7 +1001,7 @@ export default function UploadScreen() {
                                         <TextInput
                                             style={styles.input}
                                             placeholder="Input Price"
-                                            placeholderTextColor="rgba(255,255,255,0.3)"
+                                            placeholderTextColor={placeholderColor}
                                             keyboardType="decimal-pad"
                                             value={price}
                                             onChangeText={setPrice}
@@ -1005,7 +1013,7 @@ export default function UploadScreen() {
                                         <TextInput
                                             style={styles.input}
                                             placeholder="120"
-                                            placeholderTextColor="rgba(255,255,255,0.3)"
+                                            placeholderTextColor={placeholderColor}
                                             keyboardType="numeric"
                                             value={bpm}
                                             onChangeText={setBpm}
@@ -1017,7 +1025,7 @@ export default function UploadScreen() {
                                         <TextInput
                                             style={[styles.input, styles.textArea]}
                                             placeholder="Write something about your track"
-                                            placeholderTextColor="rgba(255,255,255,0.3)"
+                                            placeholderTextColor={placeholderColor}
                                             multiline
                                             numberOfLines={4}
                                             value={description}
@@ -1030,7 +1038,7 @@ export default function UploadScreen() {
                                             <Text style={styles.inlineLinkText}>Use existing track cover</Text>
                                         </TouchableOpacity>
                                         <View style={[styles.checkbox, useExistingCover && styles.checkboxActive]}>
-                                            {useExistingCover && <Check size={12} color="#FFF" />}
+                                            {useExistingCover && <Check size={12} color={iconPrimary} />}
                                         </View>
                                     </View>
 
@@ -1043,7 +1051,7 @@ export default function UploadScreen() {
                                                     colors={['rgba(255,255,255,0.05)', 'rgba(255,255,255,0.02)']}
                                                     style={styles.artworkGradient}
                                                 >
-                                                    <ImageIcon size={32} color="rgba(255,255,255,0.4)" />
+                                                    <ImageIcon size={32} color={iconMuted} />
                                                     <Text style={styles.uploadArtText}>Select Track Cover</Text>
                                                     <Text style={styles.uploadArtSub}>Tap to upload image</Text>
                                                 </LinearGradient>
@@ -1057,7 +1065,7 @@ export default function UploadScreen() {
                                             onPress={() => setSubscriberOnly(!subscriberOnly)}
                                             style={[styles.checkbox, subscriberOnly && styles.checkboxActive]}
                                         >
-                                            {subscriberOnly && <Check size={12} color="#FFF" />}
+                                            {subscriberOnly && <Check size={12} color={iconPrimary} />}
                                         </TouchableOpacity>
                                     </View>
 
@@ -1073,7 +1081,7 @@ export default function UploadScreen() {
                                                     }}
                                                     style={[styles.checkbox, scheduleRelease && styles.checkboxActive]}
                                                 >
-                                                    {scheduleRelease && <Check size={12} color="#FFF" />}
+                                                    {scheduleRelease && <Check size={12} color={iconPrimary} />}
                                                 </TouchableOpacity>
                                             </View>
 
@@ -1083,7 +1091,7 @@ export default function UploadScreen() {
                                                     <TextInput
                                                         style={styles.input}
                                                         placeholder="YYYY-MM-DD HH:mm"
-                                                        placeholderTextColor="rgba(255,255,255,0.3)"
+                                                        placeholderTextColor={placeholderColor}
                                                         value={scheduledReleaseInput}
                                                         onChangeText={setScheduledReleaseInput}
                                                         autoCapitalize="none"
@@ -1102,12 +1110,12 @@ export default function UploadScreen() {
                                             style={styles.pickerTrigger}
                                             onPress={() => setShowFolderPicker(true)}
                                         >
-                                            <Text style={[styles.pickerText, !selectedFolderId && { color: 'rgba(255,255,255,0.3)' }]}>
+                                            <Text style={[styles.pickerText, !selectedFolderId && { color: placeholderColor }]}>
                                                 {selectedFolderId
                                                     ? (folders.find((f) => f.id === selectedFolderId)?.name || 'Selected Folder')
                                                     : 'Folders/File'}
                                             </Text>
-                                            <ChevronDown size={18} color="rgba(255,255,255,0.6)" />
+                                            <ChevronDown size={18} color={iconMuted} />
                                         </TouchableOpacity>
                                     </View>
                                 </View>
@@ -1119,7 +1127,7 @@ export default function UploadScreen() {
                                         disabled={uploading}
                                     >
                                         {uploading && activeUploadAction === 'saveDraft' ? (
-                                            <ActivityIndicator color="#FFF" />
+                                            <ActivityIndicator color={iconPrimary} />
                                         ) : (
                                             <Text style={styles.secondaryActionText}>Save Draft</Text>
                                         )}
@@ -1135,10 +1143,10 @@ export default function UploadScreen() {
                                             style={styles.publishGradient}
                                         >
                                             {uploading && activeUploadAction === 'publish' ? (
-                                                <ActivityIndicator color="#FFF" />
+                                                <ActivityIndicator color={iconPrimary} />
                                             ) : (
                                                 <View style={styles.buttonContent}>
-                                                    <UploadIcon size={18} color="#FFF" style={{ marginRight: 8 }} />
+                                                    <UploadIcon size={18} color={iconPrimary} style={{ marginRight: 8 }} />
                                                     <Text style={styles.publishText}>Publish Track</Text>
                                                 </View>
                                             )}
@@ -1163,7 +1171,7 @@ export default function UploadScreen() {
                             <View style={styles.pickerHeader}>
                                 <Text style={styles.pickerTitle}>Select Genre</Text>
                                 <TouchableOpacity onPress={() => setShowGenrePicker(false)}>
-                                    <X size={24} color="#FFF" />
+                                    <X size={24} color={iconPrimary} />
                                 </TouchableOpacity>
                             </View>
                             {GENRES.map((g) => (
@@ -1202,7 +1210,7 @@ export default function UploadScreen() {
                             <View style={styles.pickerHeader}>
                                 <Text style={styles.pickerTitle}>Select Asset Type</Text>
                                 <TouchableOpacity onPress={() => setShowAssetTypePicker(false)}>
-                                    <X size={24} color="#FFF" />
+                                    <X size={24} color={iconPrimary} />
                                 </TouchableOpacity>
                             </View>
                             {ASSET_TYPES.map((type) => (
@@ -1240,7 +1248,7 @@ export default function UploadScreen() {
                             <View style={styles.pickerHeader}>
                                 <Text style={styles.pickerTitle}>Select Folder</Text>
                                 <TouchableOpacity onPress={() => setShowFolderPicker(false)}>
-                                    <X size={24} color="#FFF" />
+                                    <X size={24} color={iconPrimary} />
                                 </TouchableOpacity>
                             </View>
                             {folders.length === 0 ? (
@@ -1283,7 +1291,7 @@ export default function UploadScreen() {
                             <View style={styles.pickerHeader}>
                                 <Text style={styles.pickerTitle}>Select Tracks</Text>
                                 <TouchableOpacity onPress={() => setShowTrackPicker(false)}>
-                                    <X size={24} color="#FFF" />
+                                    <X size={24} color={iconPrimary} />
                                 </TouchableOpacity>
                             </View>
                             {existingTracks.length === 0 ? (
@@ -1321,7 +1329,7 @@ export default function UploadScreen() {
     );
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
     container: {
         flex: 1,
         paddingHorizontal: 20,
@@ -1803,4 +1811,4 @@ const styles = StyleSheet.create({
         fontFamily: 'Poppins-Bold',
         fontSize: 15,
     },
-});
+};

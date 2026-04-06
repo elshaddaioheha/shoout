@@ -1,6 +1,8 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import { auth, db } from '@/firebaseConfig';
+import { useAppTheme } from '@/hooks/use-app-theme';
 import { formatUsd } from '@/utils/pricing';
+import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { useRouter } from 'expo-router';
 import { collection, onSnapshot, orderBy, query, where } from 'firebase/firestore';
 import { ArrowLeft, DollarSign, Mic, Users } from 'lucide-react-native';
@@ -15,7 +17,15 @@ type TransactionItem = {
   createdAt?: any;
 };
 
+function useStudioEarningsStyles() {
+  const appTheme = useAppTheme();
+  return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
+
 export default function StudioEarningsScreen() {
+  const appTheme = useAppTheme();
+  const styles = useStudioEarningsStyles();
+
   const router = useRouter();
   const [transactions, setTransactions] = useState<TransactionItem[]>([]);
 
@@ -42,9 +52,9 @@ export default function StudioEarningsScreen() {
   );
 
   const stats = [
-    { title: 'Net Sales', value: formatUsd(netSales), icon: <DollarSign size={18} color="#FFFFFF" /> },
-    { title: 'New Subscribers', value: '0.00', icon: <Users size={18} color="#FFFFFF" /> },
-    { title: 'Total Uploaded Track', value: `${transactions.length}`, icon: <Mic size={18} color="#FFFFFF" /> },
+    { title: 'Net Sales', value: formatUsd(netSales), icon: <DollarSign size={18} color={appTheme.colors.textPrimary} /> },
+    { title: 'New Subscribers', value: '0.00', icon: <Users size={18} color={appTheme.colors.textPrimary} /> },
+    { title: 'Total Uploaded Track', value: `${transactions.length}`, icon: <Mic size={18} color={appTheme.colors.textPrimary} /> },
   ];
 
   return (
@@ -86,7 +96,7 @@ export default function StudioEarningsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
   container: { flex: 1, backgroundColor: '#140F10' },
   content: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 120 },
   statsRow: { gap: 10, paddingBottom: 16 },
@@ -124,4 +134,4 @@ const styles = StyleSheet.create({
   },
   emptyTitle: { color: '#FFFFFF', fontFamily: 'Poppins-Medium', fontSize: 14, lineHeight: 12, letterSpacing: -0.5 },
   emptySub: { marginTop: 8, color: 'rgba(255,255,255,0.37)', fontFamily: 'Poppins-Regular', fontSize: 8, lineHeight: 12, letterSpacing: -0.5 },
-});
+};

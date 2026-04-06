@@ -2,6 +2,8 @@
  * ModeSelectorSheet - bottom sheet listing all available product experiences.
  */
 import { ViewMode } from '@/store/useUserStore';
+import { useAppTheme } from '@/hooks/use-app-theme';
+import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { formatPlanLabel, getSubscriptionPlan, type AppMode } from '@/utils/subscriptions';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
@@ -86,6 +88,11 @@ interface ModeSelectorSheetProps {
     onClose: () => void;
 }
 
+function useModeSelectorStyles() {
+    const appTheme = useAppTheme();
+    return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
+
 export default function ModeSelectorSheet({
     visible,
     currentMode,
@@ -94,6 +101,9 @@ export default function ModeSelectorSheet({
     onSelect,
     onClose,
 }: ModeSelectorSheetProps) {
+    const appTheme = useAppTheme();
+    const styles = useModeSelectorStyles();
+
     const insets = useSafeAreaInsets();
     const router = useRouter();
     const { width, height } = useWindowDimensions();
@@ -145,7 +155,7 @@ export default function ModeSelectorSheet({
         >
             <Animated.View style={[StyleSheet.absoluteFill, { opacity: fadeAnim }]}>
                 <Pressable style={StyleSheet.absoluteFill} onPress={onClose}>
-                    <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
+                    <BlurView intensity={30} tint={appTheme.isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
                     <View style={styles.backdropDim} />
                 </Pressable>
             </Animated.View>
@@ -235,7 +245,7 @@ export default function ModeSelectorSheet({
     );
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
     backdropDim: {
         ...StyleSheet.absoluteFillObject,
         backgroundColor: 'rgba(10,10,20,0.55)',
@@ -410,4 +420,4 @@ const styles = StyleSheet.create({
         borderRadius: 5,
         backgroundColor: 'transparent',
     },
-});
+};

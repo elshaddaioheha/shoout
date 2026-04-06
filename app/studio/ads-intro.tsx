@@ -1,10 +1,20 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
+import { useAppTheme } from '@/hooks/use-app-theme';
+import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { useRouter } from 'expo-router';
 import { Megaphone } from 'lucide-react-native';
 import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+function useAdsIntroStyles() {
+  const appTheme = useAppTheme();
+  return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
+
 export default function AdsIntroScreen() {
+  const appTheme = useAppTheme();
+  const styles = useAdsIntroStyles();
+
   const router = useRouter();
 
   return (
@@ -18,7 +28,7 @@ export default function AdsIntroScreen() {
         </View>
 
         <View style={styles.heroCircle}>
-          <Megaphone size={60} color="#FFFFFF" strokeWidth={2.2} />
+          <Megaphone size={60} color={appTheme.colors.textPrimary} strokeWidth={2.2} />
         </View>
 
         <View style={styles.heroTextWrap}>
@@ -51,7 +61,7 @@ export default function AdsIntroScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
   container: { flex: 1, backgroundColor: '#140F10' },
   content: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 120 },
   headerRow: { height: 57, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
@@ -148,4 +158,4 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 16,
   },
-});
+};

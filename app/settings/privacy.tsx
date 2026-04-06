@@ -3,12 +3,22 @@ import SettingsCard from '@/components/settings/SettingsCard';
 import SettingsDivider from '@/components/settings/SettingsDivider';
 import SettingsHeader from '@/components/settings/SettingsHeader';
 import SettingsSwitchRow from '@/components/settings/SettingsSwitchRow';
+import { useAppTheme } from '@/hooks/use-app-theme';
 import { useRouter } from 'expo-router';
 import { ChevronRight, Lock, ShieldCheck, UserX } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
+
+function usePrivacyStyles() {
+    const appTheme = useAppTheme();
+    return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
 
 export default function PrivacyScreen() {
+    const appTheme = useAppTheme();
+    const styles = usePrivacyStyles();
+
     const router = useRouter();
     const [publicProfile, setPublicProfile] = useState(true);
     const [shareData, setShareData] = useState(false);
@@ -20,7 +30,7 @@ export default function PrivacyScreen() {
 
                 <ScrollView contentContainerStyle={styles.content}>
                     <View style={styles.iconContainer}>
-                        <ShieldCheck size={48} color="#64748B" />
+                        <ShieldCheck size={48} color={appTheme.colors.textTertiary} />
                     </View>
 
                     <Text style={styles.sectionTitle}>Privacy Settings</Text>
@@ -46,20 +56,20 @@ export default function PrivacyScreen() {
                     <SettingsCard>
                         <TouchableOpacity style={styles.actionRow}>
                             <View style={styles.actionIconCell}>
-                                <Lock size={20} color="#FFF" />
+                                <Lock size={20} color={appTheme.colors.textPrimary} />
                             </View>
                             <Text style={styles.actionTitle}>Change Password</Text>
-                            <ChevronRight size={20} color="rgba(255,255,255,0.3)" />
+                            <ChevronRight size={20} color={appTheme.colors.textDisabled} />
                         </TouchableOpacity>
 
                         <SettingsDivider />
 
                         <TouchableOpacity style={styles.actionRow}>
-                            <View style={[styles.actionIconCell, { backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}>
-                                <UserX size={20} color="#EF4444" />
+                            <View style={[styles.actionIconCell, { backgroundColor: appTheme.isDark ? 'rgba(239, 68, 68, 0.1)' : 'rgba(211, 58, 42, 0.12)' }]}>
+                                <UserX size={20} color={appTheme.colors.error} />
                             </View>
-                            <Text style={[styles.actionTitle, { color: '#EF4444' }]}>Delete Account</Text>
-                            <ChevronRight size={20} color="rgba(255,255,255,0.3)" />
+                            <Text style={[styles.actionTitle, { color: appTheme.colors.error }]}>Delete Account</Text>
+                            <ChevronRight size={20} color={appTheme.colors.textDisabled} />
                         </TouchableOpacity>
                     </SettingsCard>
                 </ScrollView>
@@ -68,7 +78,7 @@ export default function PrivacyScreen() {
     );
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
     container: { flex: 1, backgroundColor: '#140F10' },
     content: { padding: 20, paddingBottom: 60 },
     iconContainer: { alignItems: 'center', marginBottom: 30, marginTop: 20 },
@@ -76,4 +86,4 @@ const styles = StyleSheet.create({
     actionRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12 },
     actionIconCell: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
     actionTitle: { flex: 1, fontSize: 16, fontFamily: 'Poppins-Medium', color: '#FFF', marginLeft: 16 },
-});
+};

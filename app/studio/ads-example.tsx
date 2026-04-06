@@ -1,11 +1,21 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
+import { useAppTheme } from '@/hooks/use-app-theme';
+import { adaptLegacyColor, adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ArrowLeft, MoreHorizontal, Play, Repeat2, Shuffle, SkipBack, SkipForward } from 'lucide-react-native';
 import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import SettingsHeader from '@/components/settings/SettingsHeader';
 
+function useAdsExampleStyles() {
+  const appTheme = useAppTheme();
+  return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
+
 export default function AdsExampleScreen() {
+  const appTheme = useAppTheme();
+  const styles = useAdsExampleStyles();
+
   const router = useRouter();
   const params = useLocalSearchParams<{ headline?: string; adType?: string }>();
   const headline = params.headline || 'Ojoro';
@@ -18,7 +28,7 @@ export default function AdsExampleScreen() {
           onBack={() => router.back()}
           rightElement={
             <TouchableOpacity style={styles.iconBtn} activeOpacity={0.85} onPress={() => router.push('/studio/ads-creation' as any)}>
-              <MoreHorizontal size={22} color="#FFFFFF" />
+              <MoreHorizontal size={22} color={appTheme.colors.textPrimary} />
             </TouchableOpacity>
           }
           style={{ paddingHorizontal: 0, marginBottom: 18 }}
@@ -37,7 +47,7 @@ export default function AdsExampleScreen() {
           {Array.from({ length: 88 }).map((_, idx) => {
             const height = 5 + ((idx * 13) % 44);
             const active = idx <= 44;
-            return <View key={idx} style={[styles.waveBar, { height, backgroundColor: active ? '#EC5C39' : '#747578' }]} />;
+            return <View key={idx} style={[styles.waveBar, { height, backgroundColor: active ? '#EC5C39' : (appTheme.isDark ? '#747578' : 'rgba(23,18,19,0.28)') }]} />;
           })}
         </View>
 
@@ -47,13 +57,13 @@ export default function AdsExampleScreen() {
         </View>
 
         <View style={styles.controlsRow}>
-          <Shuffle size={34} color="#D9D9D9" />
-          <SkipBack size={30} color="#D9D9D9" />
+          <Shuffle size={34} color={appTheme.colors.textSecondary} />
+          <SkipBack size={30} color={appTheme.colors.textSecondary} />
           <View style={styles.playBtn}>
-            <Play size={28} color="#000000" fill="#000000" />
+            <Play size={28} color={adaptLegacyColor('#000000', 'color', appTheme)} fill={adaptLegacyColor('#000000', 'color', appTheme)} />
           </View>
-          <SkipForward size={30} color="#D9D9D9" />
-          <Repeat2 size={34} color="#D9D9D9" />
+          <SkipForward size={30} color={appTheme.colors.textSecondary} />
+          <Repeat2 size={34} color={appTheme.colors.textSecondary} />
         </View>
 
         <View style={styles.sponsoredStrip}>
@@ -75,7 +85,7 @@ export default function AdsExampleScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
   container: { flex: 1, backgroundColor: '#140F10' },
   content: { paddingTop: 10, paddingBottom: 120 },
   iconBtn: {
@@ -224,4 +234,4 @@ const styles = StyleSheet.create({
     lineHeight: 11,
     letterSpacing: -0.5,
   },
-});
+};

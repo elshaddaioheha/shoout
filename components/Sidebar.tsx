@@ -1,4 +1,6 @@
 import { useUserStore } from '@/store/useUserStore';
+import { useAppTheme } from '@/hooks/use-app-theme';
+import { adaptLegacyColor, adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
 import { ChevronRight, LogOut, Mic2, Music, Sparkles, User, X, Zap } from 'lucide-react-native';
@@ -12,7 +14,15 @@ interface SidebarProps {
     onClose: () => void;
 }
 
+function useSidebarStyles() {
+    const appTheme = useAppTheme();
+    return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
+
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
+    const appTheme = useAppTheme();
+    const styles = useSidebarStyles();
+
     const router = useRouter();
     const { role, viewMode, setViewMode, reset } = useUserStore();
     const translateX = React.useRef(new Animated.Value(width)).current;
@@ -71,7 +81,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         <View style={[StyleSheet.absoluteFill, { zIndex: 9999, elevation: 9999 }]}>
             <Animated.View style={[StyleSheet.absoluteFill, { opacity: opacityAnim }]}>
                 <Pressable style={styles.overlay} onPress={onClose}>
-                    <BlurView intensity={28} style={StyleSheet.absoluteFill} tint="dark" />
+                    <BlurView intensity={28} style={StyleSheet.absoluteFill} tint={appTheme.isDark ? 'dark' : 'light'} />
                     <View style={styles.overlayDim} />
                 </Pressable>
             </Animated.View>
@@ -80,7 +90,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                 <View style={styles.header}>
                     <Text style={styles.headerTitle}>Account Mode</Text>
                     <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                        <X size={24} color="#FFF" />
+                        <X size={24} color={appTheme.colors.textPrimary} />
                     </TouchableOpacity>
                 </View>
 
@@ -93,6 +103,8 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                         active={viewMode === 'vault'}
                         onPress={() => handleModeSwitch('vault')}
                         disabled={role.startsWith('studio')}
+                        styles={styles}
+                        appTheme={appTheme}
                     />
 
                     <ModeItem
@@ -101,6 +113,8 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                         active={viewMode === 'studio'}
                         onPress={() => handleModeSwitch('studio')}
                         disabled={role.startsWith('vault')}
+                        styles={styles}
+                        appTheme={appTheme}
                     />
 
                     {isHybrid && (
@@ -114,22 +128,22 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
                     <TouchableOpacity style={styles.profileLink} onPress={() => { router.push('/profile'); onClose(); }}>
                         <View style={styles.profileIcon}>
-                            <User size={20} color="#FFF" />
+                            <User size={20} color={appTheme.colors.textPrimary} />
                         </View>
                         <Text style={styles.profileLabel}>View Profile</Text>
-                        <ChevronRight size={18} color="rgba(255,255,255,0.3)" />
+                        <ChevronRight size={18} color={appTheme.colors.textDisabled} />
                     </TouchableOpacity>
 
                     <TouchableOpacity style={styles.profileLink} onPress={() => { router.push('/settings/subscriptions' as any); onClose(); }}>
                         <View style={styles.profileIcon}>
-                            <Zap size={20} color="#FFF" />
+                            <Zap size={20} color={appTheme.colors.textPrimary} />
                         </View>
                         <Text style={styles.profileLabel}>Premium Plans</Text>
-                        <ChevronRight size={18} color="rgba(255,255,255,0.3)" />
+                        <ChevronRight size={18} color={appTheme.colors.textDisabled} />
                     </TouchableOpacity>
 
                     <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-                        <LogOut size={20} color="#EF4444" />
+                        <LogOut size={20} color={adaptLegacyColor('#EF4444', 'color', appTheme)} />
                         <Text style={styles.logoutText}>Log Out</Text>
                     </TouchableOpacity>
                 </View>
@@ -142,7 +156,9 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     );
 }
 
-function ModeItem({ icon: Icon, label, active, onPress, disabled }: any) {
+function ModeItem({ icon: Icon, label, active, onPress, disabled, styles, appTheme }: any) {
+    const iconMuted = adaptLegacyColor('rgba(255,255,255,0.4)', 'color', appTheme);
+
     return (
         <TouchableOpacity
             style={[styles.modeItem, active && styles.modeItemActive, disabled && styles.modeItemDisabled]}
@@ -150,7 +166,7 @@ function ModeItem({ icon: Icon, label, active, onPress, disabled }: any) {
             disabled={disabled || active}
         >
             <View style={[styles.modeIcon, active && styles.modeIconActive]}>
-                <Icon size={20} color={active ? '#FFF' : 'rgba(255,255,255,0.4)'} />
+                <Icon size={20} color={active ? appTheme.colors.textPrimary : iconMuted} />
             </View>
             <Text style={[styles.modeLabel, active && styles.modeLabelActive]}>{label}</Text>
             {active && <View style={styles.activeDot} />}
@@ -158,7 +174,7 @@ function ModeItem({ icon: Icon, label, active, onPress, disabled }: any) {
     );
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
     overlay: { flex: 1 },
     overlayDim: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(8,8,12,0.42)' },
     sidebar: {
@@ -208,4 +224,4 @@ const styles = StyleSheet.create({
     logoutText: { marginLeft: 12, color: '#EF4444', fontSize: 15, fontFamily: 'Poppins-Medium' },
     footer: { padding: 24, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)' },
     versionText: { color: 'rgba(255,255,255,0.2)', fontSize: 12, textAlign: 'center' },
-});
+};

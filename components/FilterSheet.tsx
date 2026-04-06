@@ -12,6 +12,8 @@
  *     onCategoryChange={setCategory}
  *   />
  */
+import { useAppTheme } from '@/hooks/use-app-theme';
+import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { BlurView } from 'expo-blur';
 import React, { useEffect } from 'react';
 import {
@@ -42,12 +44,20 @@ interface Props {
     onReset?: () => void;
 }
 
+function useFilterSheetStyles() {
+    const appTheme = useAppTheme();
+    return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
+
 export default function FilterSheet({
     visible, onClose,
     sortOptions, selectedSort, onSortChange,
     categories, selectedCategory, onCategoryChange,
     onReset,
 }: Props) {
+    const appTheme = useAppTheme();
+    const styles = useFilterSheetStyles();
+
     const slideAnim = useSharedValue(400);
     const fadeAnim = useSharedValue(0);
 
@@ -73,13 +83,13 @@ export default function FilterSheet({
         <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
             <TouchableWithoutFeedback onPress={onClose}>
                 <Animated.View style={[styles.overlay, overlayAnimatedStyle]}>
-                    <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
+                    <BlurView intensity={30} tint={appTheme.isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
                     <View style={styles.overlayDim} />
                 </Animated.View>
             </TouchableWithoutFeedback>
 
             <Animated.View style={[styles.sheet, sheetAnimatedStyle]}>
-                <BlurView intensity={28} tint="dark" style={styles.sheetBlur}>
+                <BlurView intensity={28} tint={appTheme.isDark ? 'dark' : 'light'} style={styles.sheetBlur}>
                     <View style={styles.sheetChrome} />
                     <View style={styles.handle} />
 
@@ -143,7 +153,7 @@ export default function FilterSheet({
     );
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
     overlay: {
         ...StyleSheet.absoluteFillObject,
     },
@@ -243,4 +253,4 @@ const styles = StyleSheet.create({
         fontFamily: 'Poppins-Bold',
         fontSize: 15,
     },
-});
+};

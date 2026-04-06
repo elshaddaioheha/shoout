@@ -13,8 +13,9 @@ import {
   View,
 } from 'react-native';
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
+import { useAppTheme } from '@/hooks/use-app-theme';
 import { useToastStore } from '@/store/useToastStore';
-import { theme } from '@/constants/theme';
+import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 
 type ModerationReport = {
   id: string;
@@ -45,7 +46,15 @@ const decisionLabels: Record<string, string> = {
   escalate: 'Escalate',
 };
 
+function useModerationStyles() {
+  const appTheme = useAppTheme();
+  return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
+
 export default function ModerationQueueScreen() {
+  const appTheme = useAppTheme();
+  const styles = useModerationStyles();
+
   const [reports, setReports] = useState<ModerationReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedReport, setSelectedReport] = useState<ModerationReport | null>(null);
@@ -57,9 +66,30 @@ export default function ModerationQueueScreen() {
   const { showToast } = useToastStore();
 
   const functions = useMemo(() => getFunctions(), []);
-  const getQueueFn = useMemo(() => httpsCallable(functions, 'adminGetModerationQueue'), [functions]);
-  const reviewFn = useMemo(() => httpsCallable(functions, 'adminReviewReport'), [functions]);
-  const batchReviewFn = useMemo(() => httpsCallable(functions, 'adminReviewReportsBatch'), [functions]);
+  const getQueueFn = useMemo(
+    () =>
+      httpsCallable<{ filters?: Record<string, any>; limit: number }, { reports?: ModerationReport[] }>(
+        functions,
+        'adminGetModerationQueue'
+      ),
+    [functions]
+  );
+  const reviewFn = useMemo(
+    () =>
+      httpsCallable<
+        { reportId: string; decision: 'dismiss' | 'uphold' | 'escalate'; notes: string },
+        { success?: boolean }
+      >(functions, 'adminReviewReport'),
+    [functions]
+  );
+  const batchReviewFn = useMemo(
+    () =>
+      httpsCallable<
+        { reportIds: string[]; decision: 'dismiss' | 'uphold' | 'escalate'; reason: string },
+        { processed?: number }
+      >(functions, 'adminReviewReportsBatch'),
+    [functions]
+  );
 
   useEffect(() => {
     (async () => {
@@ -203,7 +233,7 @@ export default function ModerationQueueScreen() {
     return (
       <SafeScreenWrapper>
         <View style={styles.loader}>
-          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <ActivityIndicator size="large" color={appTheme.colors.primary} />
           <Text style={styles.loadingText}>Loading reports…</Text>
         </View>
       </SafeScreenWrapper>
@@ -484,7 +514,7 @@ export default function ModerationQueueScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
   loader: {
     flex: 1,
     alignItems: 'center',
@@ -492,7 +522,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 12,
-    color: theme.colors.textSecondary,
+    color: 'rgba(255,255,255,0.7)',
   },
   emptyContainer: {
     flex: 1,
@@ -507,14 +537,14 @@ const styles = StyleSheet.create({
   },
   emptySubtitle: {
     textAlign: 'center',
-    color: theme.colors.textSecondary,
+    color: 'rgba(255,255,255,0.7)',
   },
   header: {
     flexDirection: 'row',
     padding: 12,
     gap: 12,
     borderBottomWidth: 1,
-    borderBottomColor: theme.colors.outline,
+    borderBottomColor: 'rgba(255,255,255,0.12)',
   },
   filterButton: {
     flex: 1,
@@ -522,43 +552,43 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: theme.colors.outline,
+    borderColor: 'rgba(255,255,255,0.12)',
     alignItems: 'center',
   },
   filterButtonActive: {
-    backgroundColor: theme.colors.primary,
-    borderColor: theme.colors.primary,
+    backgroundColor: '#EC5C39',
+    borderColor: '#EC5C39',
   },
   filterButtonText: {
     fontWeight: '600',
-    color: theme.colors.text,
+    color: '#FFFFFF',
   },
   selectAllButton: {
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: theme.colors.outline,
+    borderColor: 'rgba(255,255,255,0.12)',
   },
   selectAllButtonActive: {
-    backgroundColor: theme.colors.surface,
+    backgroundColor: '#1E1A1B',
   },
   selectAllText: {
     fontWeight: '600',
     fontSize: 12,
   },
   batchBar: {
-    backgroundColor: theme.colors.surface,
+    backgroundColor: '#1E1A1B',
     padding: 12,
     borderBottomWidth: 1,
-    borderBottomColor: theme.colors.outline,
+    borderBottomColor: 'rgba(255,255,255,0.12)',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
   batchCount: {
     fontWeight: '600',
-    color: theme.colors.text,
+    color: '#FFFFFF',
   },
   batchActions: {
     flexDirection: 'row',
@@ -568,14 +598,14 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 10,
     borderRadius: 6,
-    backgroundColor: theme.colors.surfaceVariant,
+    backgroundColor: 'rgba(255,255,255,0.08)',
   },
   batchBtnSmall: {
     paddingVertical: 6,
     paddingHorizontal: 8,
   },
   batchBtnPrimary: {
-    backgroundColor: theme.colors.primary,
+    backgroundColor: '#EC5C39',
   },
   batchBtnText: {
     fontSize: 12,
@@ -599,14 +629,14 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     borderWidth: 1,
-    borderColor: theme.colors.outline,
+    borderColor: 'rgba(255,255,255,0.12)',
     borderRadius: 4,
     alignItems: 'center',
     justifyContent: 'center',
   },
   checkboxBoxChecked: {
-    backgroundColor: theme.colors.primary,
-    borderColor: theme.colors.primary,
+    backgroundColor: '#EC5C39',
+    borderColor: '#EC5C39',
   },
   checkboxTick: {
     color: 'white',
@@ -615,7 +645,7 @@ const styles = StyleSheet.create({
   },
   card: {
     flex: 1,
-    backgroundColor: theme.colors.surface,
+    backgroundColor: '#1E1A1B',
     borderRadius: 12,
     padding: 14,
     shadowColor: '#000',
@@ -629,12 +659,12 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   cardMeta: {
-    color: theme.colors.textSecondary,
+    color: 'rgba(255,255,255,0.7)',
     fontSize: 11,
     marginBottom: 3,
   },
   cardText: {
-    color: theme.colors.textSecondary,
+    color: 'rgba(255,255,255,0.7)',
     marginBottom: 8,
     fontSize: 12,
   },
@@ -651,7 +681,7 @@ const styles = StyleSheet.create({
   modalContent: {
     width: '100%',
     maxWidth: 480,
-    backgroundColor: theme.colors.surface,
+    backgroundColor: '#1E1A1B',
     borderRadius: 16,
     padding: 18,
   },
@@ -662,23 +692,23 @@ const styles = StyleSheet.create({
   },
   modalLabel: {
     fontSize: 12,
-    color: theme.colors.textSecondary,
+    color: 'rgba(255,255,255,0.7)',
     marginTop: 10,
     fontWeight: '600',
   },
   modalValue: {
     marginTop: 4,
-    color: theme.colors.text,
+    color: '#FFFFFF',
   },
   notesInput: {
     marginTop: 8,
     borderWidth: 1,
-    borderColor: theme.colors.outline,
+    borderColor: 'rgba(255,255,255,0.12)',
     borderRadius: 12,
     padding: 10,
     minHeight: 80,
     textAlignVertical: 'top',
-    color: theme.colors.text,
+    color: '#FFFFFF',
   },
   typeButtons: {
     flexDirection: 'row',
@@ -691,15 +721,15 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: theme.colors.outline,
+    borderColor: 'rgba(255,255,255,0.12)',
   },
   typeButtonActive: {
-    backgroundColor: theme.colors.primary,
-    borderColor: theme.colors.primary,
+    backgroundColor: '#EC5C39',
+    borderColor: '#EC5C39',
   },
   typeButtonText: {
     fontSize: 12,
-    color: theme.colors.text,
+    color: '#FFFFFF',
   },
   typeButtonTextActive: {
     color: 'white',
@@ -708,11 +738,11 @@ const styles = StyleSheet.create({
   filterInput: {
     marginTop: 8,
     borderWidth: 1,
-    borderColor: theme.colors.outline,
+    borderColor: 'rgba(255,255,255,0.12)',
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 8,
-    color: theme.colors.text,
+    color: '#FFFFFF',
     fontSize: 12,
   },
   actionRow: {
@@ -727,19 +757,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   buttonNeutral: {
-    backgroundColor: theme.colors.surfaceVariant,
+    backgroundColor: 'rgba(255,255,255,0.08)',
   },
   buttonWarn: {
     backgroundColor: '#E02424',
   },
   buttonPrimary: {
-    backgroundColor: theme.colors.primary,
+    backgroundColor: '#EC5C39',
   },
   buttonSecondary: {
-    backgroundColor: theme.colors.secondary,
+    backgroundColor: '#334155',
   },
   buttonText: {
     color: 'white',
     fontWeight: '600',
   },
-});
+};

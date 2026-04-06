@@ -1,6 +1,8 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import Sidebar from '@/components/Sidebar';
 import { db } from '@/firebaseConfig';
+import { useAppTheme } from '@/hooks/use-app-theme';
+import { adaptLegacyColor, adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { formatUsd } from '@/utils/pricing';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { ChevronLeft, ShoppingBag, Star, Tag } from 'lucide-react-native';
@@ -20,7 +22,18 @@ import {
 
 const { width } = Dimensions.get('window');
 
+function useMerchIndexStyles() {
+    const appTheme = useAppTheme();
+    return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
+
 export default function MerchStoreScreen() {
+    const appTheme = useAppTheme();
+    const styles = useMerchIndexStyles();
+    const placeholderColor = appTheme.colors.textPlaceholder;
+    const mutedIconColor = adaptLegacyColor('rgba(255,255,255,0.4)', 'color', appTheme);
+    const emptyIconColor = adaptLegacyColor('rgba(255,255,255,0.1)', 'color', appTheme);
+
     const router = useRouter();
     const [merch, setMerch] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -44,22 +57,22 @@ export default function MerchStoreScreen() {
     return (
         <SafeScreenWrapper>
             <View style={styles.container}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16 }}>
+                <View style={styles.headerRow}>
                     <TouchableOpacity
                         onPress={() => router.back()}
                         style={styles.backBtn}
                     >
-                        <ChevronLeft size={22} color="#FFF" />
+                        <ChevronLeft size={22} color={appTheme.colors.textPrimary} />
                     </TouchableOpacity>
-                    <Text style={{ color: '#FFF', fontSize: 22, fontFamily: 'Poppins-Bold', flex: 1 }}>Merch Store</Text>
+                    <Text style={styles.headerTitle}>Merch Store</Text>
                 </View>
 
                 <View style={styles.searchBar}>
-                    <ShoppingBag size={20} color="rgba(255,255,255,0.4)" />
+                    <ShoppingBag size={20} color={mutedIconColor} />
                     <TextInput
                         style={styles.searchInput}
                         placeholder="Search custom merch..."
-                        placeholderTextColor="rgba(255,255,255,0.4)"
+                        placeholderTextColor={placeholderColor}
                         value={searchQuery}
                         onChangeText={setSearchQuery}
                     />
@@ -67,18 +80,18 @@ export default function MerchStoreScreen() {
 
                 {loading ? (
                     <View style={styles.center}>
-                        <ActivityIndicator color="#EC5C39" size="large" />
+                        <ActivityIndicator color={appTheme.colors.primary} size="large" />
                     </View>
                 ) : (
                     <FlatList
                         data={filteredMerch}
                         keyExtractor={(item) => item.id}
                         numColumns={2}
-                        renderItem={({ item }) => <MerchCard item={item} />}
+                        renderItem={({ item }) => <MerchCard item={item} styles={styles} appTheme={appTheme} />}
                         contentContainerStyle={styles.listContent}
                         ListEmptyComponent={
                             <View style={styles.emptyContainer}>
-                                <ShoppingBag size={48} color="rgba(255,255,255,0.1)" />
+                                <ShoppingBag size={48} color={emptyIconColor} />
                                 <Text style={styles.emptyText}>No merch available yet.</Text>
                             </View>
                         }
@@ -91,7 +104,9 @@ export default function MerchStoreScreen() {
     );
 }
 
-function MerchCard({ item }: any) {
+function MerchCard({ item, styles, appTheme }: any) {
+    const placeholderIconColor = adaptLegacyColor('rgba(255,255,255,0.2)', 'color', appTheme);
+
     return (
         <TouchableOpacity style={styles.card}>
             <View style={styles.imageContainer}>
@@ -99,11 +114,11 @@ function MerchCard({ item }: any) {
                     <Image source={{ uri: item.image }} style={styles.image} />
                 ) : (
                     <View style={styles.imagePlaceholder}>
-                        <ShoppingBag size={30} color="rgba(255,255,255,0.2)" />
+                        <ShoppingBag size={30} color={placeholderIconColor} />
                     </View>
                 )}
                 <View style={styles.tagBadge}>
-                    <Tag size={10} color="#FFF" />
+                    <Tag size={10} color={appTheme.colors.textPrimary} />
                     <Text style={styles.tagText}>{item.category || 'Limited'}</Text>
                 </View>
             </View>
@@ -124,9 +139,11 @@ function MerchCard({ item }: any) {
 
 
 
-const styles = StyleSheet.create({
+const legacyStyles = {
     container: { flex: 1, backgroundColor: '#140F10' },
     center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    headerRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16 },
+    headerTitle: { color: '#FFF', fontSize: 22, fontFamily: 'Poppins-Bold', flex: 1 },
     backBtn: {
         width: 38, height: 38, borderRadius: 19,
         backgroundColor: 'rgba(255,255,255,0.06)',
@@ -181,4 +198,4 @@ const styles = StyleSheet.create({
     ratingText: { color: 'rgba(255,255,255,0.4)', fontSize: 10, fontFamily: 'Poppins-Regular' },
     emptyContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', marginTop: 100 },
     emptyText: { color: 'rgba(255,255,255,0.2)', marginTop: 15, fontFamily: 'Poppins-Regular' },
-});
+};

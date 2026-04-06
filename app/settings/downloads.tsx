@@ -1,6 +1,8 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import SettingsHeader from '@/components/settings/SettingsHeader';
 import { auth, db } from '@/firebaseConfig';
+import { useAppTheme } from '@/hooks/use-app-theme';
+import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { useRouter } from 'expo-router';
 import { collection, getDocs, query } from 'firebase/firestore';
 import { Download, Music4, RefreshCw } from 'lucide-react-native';
@@ -14,7 +16,15 @@ type DownloadRow = {
   purchasedAt?: string;
 };
 
+function useDownloadsStyles() {
+  const appTheme = useAppTheme();
+  return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
+
 export default function DownloadsScreen() {
+  const appTheme = useAppTheme();
+  const styles = useDownloadsStyles();
+
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<DownloadRow[]>([]);
@@ -65,18 +75,18 @@ export default function DownloadsScreen() {
 
         {loading ? (
           <View style={styles.loadingWrap}>
-            <ActivityIndicator color="#EC5C39" />
+            <ActivityIndicator color={appTheme.colors.primary} />
           </View>
         ) : (
           <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
             <View style={styles.heroCard}>
               <View style={styles.heroIconWrap}>
-                <Download size={24} color="#EC5C39" />
+                <Download size={24} color={appTheme.colors.primary} />
               </View>
               <Text style={styles.heroTitle}>Offline Downloads</Text>
               <Text style={styles.heroSub}>{subtitle}</Text>
               <TouchableOpacity style={styles.refreshButton} onPress={loadRows}>
-                <RefreshCw size={16} color="#FFF" />
+                <RefreshCw size={16} color={appTheme.colors.textPrimary} />
                 <Text style={styles.refreshText}>Refresh</Text>
               </TouchableOpacity>
             </View>
@@ -93,7 +103,7 @@ export default function DownloadsScreen() {
                     onPress={() => Alert.alert('Download queue', `${row.title} will be available for offline caching in the next update.`)}
                   >
                     <View style={styles.rowIcon}>
-                      <Music4 size={16} color="#EC5C39" />
+                      <Music4 size={16} color={appTheme.colors.primary} />
                     </View>
                     <View style={styles.rowTextWrap}>
                       <Text style={styles.rowTitle} numberOfLines={1}>{row.title}</Text>
@@ -112,7 +122,7 @@ export default function DownloadsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
   container: { flex: 1, backgroundColor: '#140F10' },
   loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   scrollContent: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 20 },
@@ -180,4 +190,4 @@ const styles = StyleSheet.create({
   rowTextWrap: { flex: 1 },
   rowTitle: { color: '#FFF', fontFamily: 'Poppins-SemiBold', fontSize: 13 },
   rowSub: { color: 'rgba(255,255,255,0.6)', fontFamily: 'Poppins-Regular', fontSize: 11, marginTop: 1 },
-});
+};

@@ -12,8 +12,14 @@ import {
   View,
 } from 'react-native';
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
+import { useAppTheme } from '@/hooks/use-app-theme';
 import { useToastStore } from '@/store/useToastStore';
-import { theme } from '@/constants/theme';
+import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
+
+function useCreatorsStyles() {
+  const appTheme = useAppTheme();
+  return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
 
 type CreatorSummary = {
   id: string;
@@ -36,6 +42,10 @@ type CreatorDetails = CreatorSummary & {
 };
 
 export default function CreatorsScreen() {
+  const appTheme = useAppTheme();
+  const styles = useCreatorsStyles();
+  const placeholderColor = appTheme.colors.textPlaceholder;
+
   const [creators, setCreators] = useState<CreatorSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -45,11 +55,28 @@ export default function CreatorsScreen() {
   const { showToast } = useToastStore();
 
   const functions = useMemo(() => getFunctions(), []);
-  const getCreatorsFn = useMemo(() => httpsCallable(functions, 'adminGetCreators'), [functions]);
-  const getDetailsFn = useMemo(() => httpsCallable(functions, 'adminGetCreatorDetails'), [functions]);
-  const unsuspendFn = useMemo(() => httpsCallable(functions, 'adminUnsuspendCreator'), [functions]);
+  const getCreatorsFn = useMemo(
+    () =>
+      httpsCallable<{ query: string; limit: number }, { creators?: CreatorSummary[] }>(
+        functions,
+        'adminGetCreators'
+      ),
+    [functions]
+  );
+  const getDetailsFn = useMemo(
+    () => httpsCallable<{ creatorId: string }, CreatorDetails>(functions, 'adminGetCreatorDetails'),
+    [functions]
+  );
+  const unsuspendFn = useMemo(
+    () => httpsCallable<{ creatorId: string; reason: string }, { success?: boolean }>(functions, 'adminUnsuspendCreator'),
+    [functions]
+  );
   const reconcileFn = useMemo(
-    () => httpsCallable(functions, 'adminTriggerPayoutReconciliation'),
+    () =>
+      httpsCallable<{ creatorId: string }, { payoutAmount?: number }>(
+        functions,
+        'adminTriggerPayoutReconciliation'
+      ),
     [functions]
   );
 
@@ -140,7 +167,7 @@ export default function CreatorsScreen() {
             try {
               const res = await reconcileFn({ creatorId: selectedCreator.id });
               showToast(
-                `Payout triggered: ₦${res.data?.payoutAmount}`,
+                  `Payout triggered: ₦${res.data?.payoutAmount ?? 0}`,
                 'success'
               );
               // Refresh details
@@ -166,7 +193,7 @@ export default function CreatorsScreen() {
     return (
       <SafeScreenWrapper>
         <View style={styles.loader}>
-          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <ActivityIndicator size="large" color={appTheme.colors.primary} />
           <Text style={styles.loadingText}>Loading creators…</Text>
         </View>
       </SafeScreenWrapper>
@@ -181,7 +208,7 @@ export default function CreatorsScreen() {
           placeholder="Search by name or email…"
           value={searchQuery}
           onChangeText={setSearchQuery}
-          placeholderTextColor={theme.colors.textSecondary}
+          placeholderTextColor={placeholderColor}
         />
       </View>
 
@@ -218,7 +245,7 @@ export default function CreatorsScreen() {
             <Text style={styles.modalTitle}>Creator Details</Text>
 
             {detailsLoading ? (
-              <ActivityIndicator size="large" color={theme.colors.primary} />
+              <ActivityIndicator size="large" color={appTheme.colors.primary} />
             ) : selectedCreator ? (
               <>
                 <Text style={styles.modalLabel}>Name</Text>
@@ -300,19 +327,19 @@ export default function CreatorsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
   searchContainer: {
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: theme.colors.outline,
+    borderBottomColor: 'rgba(255,255,255,0.12)',
   },
   searchInput: {
     borderWidth: 1,
-    borderColor: theme.colors.outline,
+    borderColor: 'rgba(255,255,255,0.12)',
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    color: theme.colors.text,
+    color: '#FFFFFF',
   },
   loader: {
     flex: 1,
@@ -321,7 +348,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 12,
-    color: theme.colors.textSecondary,
+    color: 'rgba(255,255,255,0.7)',
   },
   list: {
     padding: 16,
@@ -329,7 +356,7 @@ const styles = StyleSheet.create({
   },
   card: {
     marginBottom: 12,
-    backgroundColor: theme.colors.surface,
+    backgroundColor: '#1E1A1B',
     borderRadius: 14,
     padding: 14,
     shadowColor: '#000',
@@ -347,7 +374,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   cardMeta: {
-    color: theme.colors.textSecondary,
+    color: 'rgba(255,255,255,0.7)',
     fontSize: 12,
   },
   badgeContainer: {
@@ -358,7 +385,7 @@ const styles = StyleSheet.create({
   badge: {
     fontSize: 12,
     fontWeight: '600',
-    backgroundColor: theme.colors.primary,
+    backgroundColor: '#EC5C39',
     color: 'white',
     paddingHorizontal: 8,
     paddingVertical: 4,
@@ -380,7 +407,7 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     width: '100%',
-    backgroundColor: theme.colors.surface,
+    backgroundColor: '#1E1A1B',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: 20,
@@ -393,13 +420,13 @@ const styles = StyleSheet.create({
   },
   modalLabel: {
     fontSize: 12,
-    color: theme.colors.textSecondary,
+    color: 'rgba(255,255,255,0.7)',
     marginTop: 12,
     fontWeight: '600',
   },
   modalValue: {
     marginTop: 4,
-    color: theme.colors.text,
+    color: '#FFFFFF',
   },
   payoutRow: {
     flexDirection: 'row',
@@ -407,14 +434,14 @@ const styles = StyleSheet.create({
     marginTop: 8,
     paddingVertical: 6,
     borderBottomWidth: 1,
-    borderBottomColor: theme.colors.outline,
+    borderBottomColor: 'rgba(255,255,255,0.12)',
   },
   payoutAmount: {
     fontWeight: '600',
   },
   payoutStatus: {
     fontSize: 12,
-    color: theme.colors.textSecondary,
+    color: 'rgba(255,255,255,0.7)',
   },
   actionRow: {
     flexDirection: 'row',
@@ -428,13 +455,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   buttonNeutral: {
-    backgroundColor: theme.colors.surfaceVariant,
+    backgroundColor: 'rgba(255,255,255,0.08)',
   },
   buttonWarn: {
     backgroundColor: '#E02424',
   },
   buttonPrimary: {
-    backgroundColor: theme.colors.primary,
+    backgroundColor: '#EC5C39',
     paddingVertical: 12,
     borderRadius: 10,
     alignItems: 'center',
@@ -443,4 +470,4 @@ const styles = StyleSheet.create({
     color: 'white',
     fontWeight: '600',
   },
-});
+};

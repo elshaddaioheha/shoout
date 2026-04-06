@@ -1,5 +1,7 @@
 import type { UserRole } from '@/store/useUserStore';
 import { hydrateSubscriptionTier } from '@/utils/subscriptionVerification';
+import { useAppTheme } from '@/hooks/use-app-theme';
+import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -77,7 +79,15 @@ const SUBSCRIPTION_TIERS = [
     },
 ];
 
+function useRoleSelectionStyles() {
+    const appTheme = useAppTheme();
+    return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
+
 export default function RoleSelectionScreen() {
+    const appTheme = useAppTheme();
+    const styles = useRoleSelectionStyles();
+
     const router = useRouter();
     const [selectedRole, setSelectedRole] = useState<UserRole | null>(null);
 
@@ -157,7 +167,7 @@ export default function RoleSelectionScreen() {
 
     return (
         <SafeScreenWrapper>
-            <StatusBar barStyle="light-content" />
+            <StatusBar barStyle={appTheme.isDark ? 'light-content' : 'dark-content'} />
 
             {/* Background decorative circles */}
             <Animated.View style={[styles.bgCircle1, { opacity: headerAnim }]} />
@@ -184,6 +194,12 @@ export default function RoleSelectionScreen() {
                         const isSelected = selectedRole === role.id;
                         const Icon = role.icon;
                         const cardAnim = cardAnims[index];
+                        const selectedGradient: readonly [string, string] = role.id === 'vault'
+                            ? [appTheme.colors.surface, appTheme.isDark ? '#3D2A1F' : '#F1D8D0']
+                            : role.gradient;
+                        const cardGradient: readonly [string, string] = isSelected
+                            ? selectedGradient
+                            : [appTheme.colors.surface, appTheme.colors.surface];
 
                         return (
                             <Animated.View
@@ -201,7 +217,7 @@ export default function RoleSelectionScreen() {
                                     onPress={() => setSelectedRole(role.id)}
                                 >
                                     <LinearGradient
-                                        colors={isSelected ? role.gradient : [theme.colors.surface, theme.colors.surface]}
+                                        colors={cardGradient}
                                         start={{ x: 0, y: 0 }}
                                         end={{ x: 1, y: 1 }}
                                         style={[
@@ -210,12 +226,12 @@ export default function RoleSelectionScreen() {
                                         ]}
                                     >
                                         <View style={styles.roleCardContent}>
-                                            <View style={[styles.roleIconContainer, isSelected && { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
-                                                <Icon size={theme.iconSize.lg} color={isSelected ? theme.colors.textPrimary : theme.colors.primary} />
+                                            <View style={[styles.roleIconContainer, isSelected && { backgroundColor: appTheme.isDark ? 'rgba(255,255,255,0.2)' : 'rgba(23,18,19,0.12)' }]}>
+                                                <Icon size={theme.iconSize.lg} color={isSelected ? appTheme.colors.textPrimary : appTheme.colors.primary} />
                                             </View>
                                             <View style={styles.roleTextContent}>
                                                 <Text style={styles.roleTitle} allowFontScaling={false}>{role.title}</Text>
-                                                <Text style={[styles.roleSubtitle, isSelected && { color: 'rgba(255,255,255,0.8)' }]} allowFontScaling={false}>
+                                                <Text style={[styles.roleSubtitle, isSelected && { color: appTheme.colors.textSecondary }]} allowFontScaling={false}>
                                                     {role.subtitle}
                                                 </Text>
                                             </View>
@@ -237,7 +253,7 @@ export default function RoleSelectionScreen() {
                                                     const FeatureIcon = role.featureIcons[fi];
                                                     return (
                                                         <View key={fi} style={styles.featureRow}>
-                                                            <FeatureIcon size={theme.iconSize.sm} color={theme.colors.textSecondary} />
+                                                            <FeatureIcon size={theme.iconSize.sm} color={appTheme.colors.textSecondary} />
                                                             <Text style={styles.featureText} allowFontScaling={false}>{feature}</Text>
                                                         </View>
                                                     );
@@ -263,13 +279,13 @@ export default function RoleSelectionScreen() {
                         style={[styles.continueButton, !selectedRole && { opacity: 0.4 }]}
                     >
                         <LinearGradient
-                            colors={selectedRole ? [theme.colors.primary, '#863420'] : [theme.colors.borderLight, '#222']}
+                            colors={selectedRole ? [appTheme.colors.primary, appTheme.isDark ? '#863420' : '#B74227'] : [appTheme.colors.borderLight, appTheme.colors.border]}
                             style={styles.continueGradient}
                             start={{ x: 0, y: 0 }}
                             end={{ x: 1, y: 0 }}
                         >
                             <Text style={styles.continueText} allowFontScaling={false}>Continue</Text>
-                            <ChevronRight size={theme.iconSize.md} color={theme.colors.textPrimary} />
+                            <ChevronRight size={theme.iconSize.md} color={appTheme.colors.textPrimary} />
                         </LinearGradient>
                     </TouchableOpacity>
                 </Animated.View>
@@ -278,7 +294,7 @@ export default function RoleSelectionScreen() {
     );
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
     scrollContent: {
         flexGrow: 1,
         paddingHorizontal: theme.spacing.screenPadding,
@@ -412,4 +428,4 @@ const styles = StyleSheet.create({
         fontSize: theme.typography.button.fontSize,
         letterSpacing: theme.typography.button.letterSpacing,
     },
-});
+};

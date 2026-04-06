@@ -1,5 +1,7 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import { auth, db } from '@/firebaseConfig';
+import { useAppTheme } from '@/hooks/use-app-theme';
+import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { useRouter } from 'expo-router';
 import { collection, doc, onSnapshot, orderBy, query, where } from 'firebase/firestore';
 import { ArrowLeft, CalendarDays, TrendingDown, TrendingUp } from 'lucide-react-native';
@@ -21,8 +23,16 @@ type TransactionRow = {
   amount?: number;
 };
 
+function useAnalyticsStyles() {
+  const appTheme = useAppTheme();
+  return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
+
 
 export default function StudioAnalyticsScreen() {
+  const appTheme = useAppTheme();
+  const styles = useAnalyticsStyles();
+
   const router = useRouter();
   const [tracks, setTracks] = useState<UploadTrack[]>([]);
   const [followersCount, setFollowersCount] = useState(0);
@@ -110,7 +120,7 @@ export default function StudioAnalyticsScreen() {
         />
 
         <View style={styles.rangeRow}>
-          <CalendarDays size={12} color="#FFFFFF" />
+          <CalendarDays size={12} color={appTheme.colors.textPrimary} />
           <Text style={styles.rangeText}>Last 7 days</Text>
         </View>
 
@@ -174,8 +184,8 @@ export default function StudioAnalyticsScreen() {
                     </View>
                   </View>
                   <View style={styles.topRight}>
-                    {up ? <TrendingUp size={10} color="#319F43" /> : <TrendingDown size={10} color="#EC5C39" />}
-                    <Text style={[styles.delta, { color: up ? '#319F43' : '#EC5C39' }]}>
+                    {up ? <TrendingUp size={10} color={appTheme.colors.success} /> : <TrendingDown size={10} color={appTheme.colors.primary} />}
+                    <Text style={[styles.delta, { color: up ? appTheme.colors.success : appTheme.colors.primary }]}>
                       {up ? '+' : ''}{pct}%
                     </Text>
                   </View>
@@ -194,6 +204,8 @@ export default function StudioAnalyticsScreen() {
 }
 
 function MetricCard({ title, value }: { title: string; value: string }) {
+  const styles = useAnalyticsStyles();
+
   return (
     <View style={styles.metricCard}>
       <Text style={styles.metricTitle}>{title}</Text>
@@ -203,6 +215,8 @@ function MetricCard({ title, value }: { title: string; value: string }) {
 }
 
 function Legend({ color, label }: { color: string; label: string }) {
+  const styles = useAnalyticsStyles();
+
   return (
     <View style={styles.legendItem}>
       <View style={[styles.legendLine, { backgroundColor: color }]} />
@@ -217,7 +231,7 @@ function toCompact(value: number) {
   return `${value}`;
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
   container: { flex: 1, backgroundColor: '#140F10' },
   content: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 120 },
   rangeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 20 },
@@ -311,4 +325,4 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
     textDecorationLine: 'underline',
   },
-});
+};

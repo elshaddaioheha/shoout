@@ -1,6 +1,8 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import SettingsHeader from '@/components/settings/SettingsHeader';
+import { useAppTheme } from '@/hooks/use-app-theme';
 import { useVaultWorkspaceData } from '@/hooks/useVaultWorkspaceData';
+import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { useRouter } from 'expo-router';
 import { FolderPlus, Link2, Music4, RefreshCw } from 'lucide-react-native';
 import React from 'react';
@@ -23,7 +25,15 @@ function formatRelative(createdAtMs: number) {
   return `${Math.floor(diffHours / 24)}d ago`;
 }
 
+function useVaultUpdatesStyles() {
+  const appTheme = useAppTheme();
+  return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
+
 export default function VaultUpdatesScreen() {
+  const appTheme = useAppTheme();
+  const styles = useVaultUpdatesStyles();
+
   const router = useRouter();
   const { recentActivities } = useVaultWorkspaceData();
 
@@ -47,7 +57,7 @@ export default function VaultUpdatesScreen() {
               return (
                 <TouchableOpacity key={item.id} style={styles.row} activeOpacity={0.85}>
                   <View style={styles.rowIcon}>
-                    <Icon size={18} color="#EC5C39" />
+                    <Icon size={18} color={appTheme.colors.primary} />
                   </View>
                   <View style={styles.rowInfo}>
                     <Text style={styles.rowTitle}>{item.title}</Text>
@@ -64,7 +74,7 @@ export default function VaultUpdatesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
   screen: { flex: 1, backgroundColor: '#140F10' },
   content: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 40, gap: 18 },
   heroCard: {
@@ -136,4 +146,4 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins-Regular',
     fontSize: 11,
   },
-});
+};

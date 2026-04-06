@@ -13,6 +13,8 @@
  */
 import React, { useEffect, useRef } from 'react';
 import { BlurView } from 'expo-blur';
+import { useAppTheme } from '@/hooks/use-app-theme';
+import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import {
     Animated,
     Dimensions,
@@ -40,7 +42,15 @@ interface Props {
     options: ActionSheetOption[];
 }
 
+function useActionSheetStyles() {
+    const appTheme = useAppTheme();
+    return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
+
 export default function ActionSheet({ visible, onClose, title, options }: Props) {
+    const appTheme = useAppTheme();
+    const styles = useActionSheetStyles();
+
     const slideAnim = useRef(new Animated.Value(300)).current;
     const fadeAnim = useRef(new Animated.Value(0)).current;
 
@@ -62,13 +72,13 @@ export default function ActionSheet({ visible, onClose, title, options }: Props)
         <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
             <TouchableWithoutFeedback onPress={onClose}>
                 <Animated.View style={[styles.overlay, { opacity: fadeAnim }]}>
-                    <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
+                    <BlurView intensity={30} tint={appTheme.isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
                     <View style={styles.overlayDim} />
                 </Animated.View>
             </TouchableWithoutFeedback>
 
             <Animated.View style={[styles.sheet, { transform: [{ translateY: slideAnim }] }]}>
-                <BlurView intensity={28} tint="dark" style={styles.sheetBlur}>
+                <BlurView intensity={28} tint={appTheme.isDark ? 'dark' : 'light'} style={styles.sheetBlur}>
                     <View style={styles.sheetChrome} />
                     <View style={styles.handle} />
 
@@ -82,7 +92,7 @@ export default function ActionSheet({ visible, onClose, title, options }: Props)
                             activeOpacity={0.7}
                         >
                             {opt.icon && <View style={styles.optionIcon}>{opt.icon}</View>}
-                            <Text style={[styles.optionLabel, opt.destructive && styles.destructive]}>
+                            <Text style={[styles.optionLabel, opt.destructive && { color: appTheme.colors.error }]}>
                                 {opt.label}
                             </Text>
                         </TouchableOpacity>
@@ -97,7 +107,7 @@ export default function ActionSheet({ visible, onClose, title, options }: Props)
     );
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
     overlay: {
         ...StyleSheet.absoluteFillObject,
     },
@@ -158,9 +168,6 @@ const styles = StyleSheet.create({
         fontFamily: 'Poppins-SemiBold',
         fontSize: 15,
     },
-    destructive: {
-        color: '#FF4D4D',
-    },
     cancel: {
         marginTop: 10,
         paddingVertical: 14,
@@ -173,4 +180,4 @@ const styles = StyleSheet.create({
         fontFamily: 'Poppins-SemiBold',
         fontSize: 15,
     },
-});
+};

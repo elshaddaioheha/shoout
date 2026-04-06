@@ -3,11 +3,22 @@ import { ChevronLeft } from 'lucide-react-native';
 import React, { useMemo, useState } from 'react';
 import { KeyboardAvoidingView, Platform, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
+import { useAppTheme } from '@/hooks/use-app-theme';
 import { useToastStore } from '@/store/useToastStore';
+import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { getFriendlyErrorMessage } from '@/utils/errorHandler';
 import { sendEmailOtp } from '@/utils/emailOtp';
 
+function useForgotPasswordStyles() {
+  const appTheme = useAppTheme();
+  return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
+
 export default function ForgotPasswordScreen() {
+  const appTheme = useAppTheme();
+  const styles = useForgotPasswordStyles();
+  const placeholderColor = appTheme.colors.textPlaceholder;
+
   const router = useRouter();
   const { email: emailParam } = useLocalSearchParams<{ email?: string }>();
   const { showToast } = useToastStore();
@@ -36,14 +47,14 @@ export default function ForgotPasswordScreen() {
 
   return (
     <SafeScreenWrapper style={styles.container}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar barStyle={appTheme.isDark ? 'light-content' : 'dark-content'} />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}
         style={styles.flex}
       >
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <ChevronLeft color="#FFFFFF" size={24} />
+          <ChevronLeft color={appTheme.colors.textPrimary} size={24} />
         </TouchableOpacity>
 
         <View style={styles.headerWrap}>
@@ -57,7 +68,7 @@ export default function ForgotPasswordScreen() {
             value={email}
             onChangeText={setEmail}
             placeholder="you@example.com"
-            placeholderTextColor="#6B6B6B"
+            placeholderTextColor={placeholderColor}
             style={styles.input}
             keyboardType="email-address"
             autoCapitalize="none"
@@ -85,7 +96,7 @@ export default function ForgotPasswordScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
   flex: { flex: 1 },
   container: {
     flex: 1,
@@ -181,4 +192,4 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
     fontFamily: 'Poppins-Regular',
   },
-});
+};

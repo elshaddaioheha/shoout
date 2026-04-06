@@ -1,9 +1,11 @@
 import VaultHomeScreen from '@/components/vault/VaultHomeScreen';
+import { useAppTheme } from '@/hooks/use-app-theme';
 import { useUserStore } from '@/store/useUserStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { usePlaybackStore } from '@/store/usePlaybackStore';
 import { formatUsd } from '@/utils/pricing';
 import { useToastStore } from '@/store/useToastStore';
+import { adaptLegacyColor, adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { auth, db } from '@/firebaseConfig';
 import { useRouter } from 'expo-router';
 import { addDoc, collection, deleteDoc, doc, onSnapshot, orderBy, query, serverTimestamp, where } from 'firebase/firestore';
@@ -78,7 +80,14 @@ type FavouriteTrack = {
   addedAt?: string;
 };
 
+function useLibraryStyles() {
+  const appTheme = useAppTheme();
+  return useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
+
 export default function LibraryScreen() {
+  const appTheme = useAppTheme();
+  const styles = useLibraryStyles();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { showToast } = useToastStore();
@@ -399,7 +408,7 @@ export default function LibraryScreen() {
             <View style={styles.listingsCard}>
               {uploads.length === 0 ? (
                 <View style={styles.listingsEmptyWrap}>
-                  <Archive size={48} color="#4C4E54" strokeWidth={2.2} />
+                  <Archive size={48} color={adaptLegacyColor('#4C4E54', 'color', appTheme)} strokeWidth={2.2} />
                   <Text style={styles.listingsEmptyText}>You haven’t made any listings.</Text>
                   <TouchableOpacity
                     style={styles.createListingBtn}
@@ -429,7 +438,7 @@ export default function LibraryScreen() {
 
                 <View style={styles.listingsCard}>
                   <View style={styles.listingsEmptyWrap}>
-                    <Megaphone size={48} color="#4C4E54" strokeWidth={2.2} />
+                    <Megaphone size={48} color={adaptLegacyColor('#4C4E54', 'color', appTheme)} strokeWidth={2.2} />
                     <Text style={styles.listingsEmptyText}>You haven’t made any promotions.</Text>
                     <TouchableOpacity
                       style={styles.createListingBtn}
@@ -482,7 +491,7 @@ export default function LibraryScreen() {
 
             {favouriteTracks.length === 0 ? (
               <View style={styles.favouritesEmptyWrap}>
-                <Heart size={52} color="rgba(255,255,255,0.24)" strokeWidth={1.7} />
+                <Heart size={52} color={adaptLegacyColor('rgba(255,255,255,0.24)', 'color', appTheme)} strokeWidth={1.7} />
                 <Text style={styles.favouritesEmptyTitle}>No liked tracks yet</Text>
                 <Text style={styles.favouritesEmptySubtitle}>Tap the heart icon while playing songs to save them here.</Text>
                 <TouchableOpacity
@@ -508,7 +517,7 @@ export default function LibraryScreen() {
                           {art ? (
                             <Image source={{ uri: art }} style={styles.favouriteArt} />
                           ) : (
-                            <Music size={18} color="rgba(255,255,255,0.5)" />
+                            <Music size={18} color={adaptLegacyColor('rgba(255,255,255,0.5)', 'color', appTheme)} />
                           )}
                         </View>
                         <View style={styles.favouriteInfo}>
@@ -523,7 +532,7 @@ export default function LibraryScreen() {
                           activeOpacity={0.8}
                           onPress={() => openFavourite(track)}
                         >
-                          <Play size={16} color="#FFFFFF" fill="#FFFFFF" />
+                          <Play size={16} color={appTheme.colors.textPrimary} fill={appTheme.colors.textPrimary} />
                         </TouchableOpacity>
                         <TouchableOpacity
                           style={styles.favouriteActionBtn}
@@ -541,7 +550,7 @@ export default function LibraryScreen() {
 
             <View style={styles.actionsRow}>
               <TouchableOpacity style={styles.filterButton} activeOpacity={0.8} onPress={() => showToast('Coming soon', 'info')}>
-                <Filter size={18} color="#FFFFFF" />
+                <Filter size={18} color={appTheme.colors.textPrimary} />
                 <Text style={styles.filterText}>filter</Text>
               </TouchableOpacity>
 
@@ -557,7 +566,7 @@ export default function LibraryScreen() {
             {!hasVaultContent ? (
               <View style={styles.emptyWrap}>
                 <View style={styles.emptyIconWrap}>
-                  <Archive size={84} color="rgba(118,118,118,0.4)" strokeWidth={1.6} />
+                  <Archive size={84} color={adaptLegacyColor('#767676', 'color', appTheme)} strokeWidth={1.6} />
                 </View>
 
                 <Text style={styles.emptyTitle}>No Item added yet</Text>
@@ -603,7 +612,7 @@ export default function LibraryScreen() {
               activeOpacity={0.85}
               onPress={() => router.push('/studio/messages' as any)}
             >
-              <MessageSquare size={20} color="#FFFFFF" />
+              <MessageSquare size={20} color={appTheme.colors.textPrimary} />
             </TouchableOpacity>
           ) : null}
 
@@ -620,7 +629,7 @@ export default function LibraryScreen() {
             activeOpacity={0.85}
             onPress={() => setShowCreateSheet(true)}
           >
-            <Plus size={20} color="#F8F8F8" />
+            <Plus size={20} color={appTheme.colors.textPrimary} />
           </TouchableOpacity>
         </>
       ) : (
@@ -630,7 +639,7 @@ export default function LibraryScreen() {
             activeOpacity={0.85}
             onPress={() => setShowCreateSheet(true)}
           >
-            <Plus size={20} color="#F8F8F8" />
+            <Plus size={20} color={appTheme.colors.textPrimary} />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -638,7 +647,7 @@ export default function LibraryScreen() {
             activeOpacity={0.85}
             onPress={() => showToast('Coming soon', 'info')}
           >
-            <Link2 size={20} color="#FFFFFF" />
+            <Link2 size={20} color={appTheme.colors.textPrimary} />
           </TouchableOpacity>
         </>
       )}
@@ -653,7 +662,7 @@ export default function LibraryScreen() {
               activeOpacity={0.8}
               onPress={() => setShowCreateSheet(false)}
             >
-              <X size={20} color="#D9D9D9" />
+              <X size={20} color={appTheme.colors.textSecondary} />
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -670,9 +679,9 @@ export default function LibraryScreen() {
             >
               <Text style={styles.sheetOptionTitle}>{isHybridUser ? 'Create Listing' : 'Create Folder'}</Text>
               {isHybridUser ? (
-                <Music size={52} color="rgba(255,255,255,0.58)" strokeWidth={2.6} />
+                <Music size={52} color={adaptLegacyColor('rgba(255,255,255,0.58)', 'color', appTheme)} strokeWidth={2.6} />
               ) : (
-                <FolderPlus size={52} color="rgba(255,255,255,0.58)" strokeWidth={2.6} />
+                <FolderPlus size={52} color={adaptLegacyColor('rgba(255,255,255,0.58)', 'color', appTheme)} strokeWidth={2.6} />
               )}
             </TouchableOpacity>
 
@@ -690,9 +699,9 @@ export default function LibraryScreen() {
             >
               <Text style={styles.sheetOptionTitle}>{isHybridUser ? 'Promote Ad' : 'Upload Track'}</Text>
               {isHybridUser ? (
-                <Megaphone size={52} color="rgba(255,255,255,0.58)" strokeWidth={2.6} />
+                <Megaphone size={52} color={adaptLegacyColor('rgba(255,255,255,0.58)', 'color', appTheme)} strokeWidth={2.6} />
               ) : (
-                <Music size={52} color="rgba(255,255,255,0.58)" strokeWidth={2.6} />
+                <Music size={52} color={adaptLegacyColor('rgba(255,255,255,0.58)', 'color', appTheme)} strokeWidth={2.6} />
               )}
             </TouchableOpacity>
           </View>
@@ -710,7 +719,7 @@ export default function LibraryScreen() {
             <View style={styles.sheetHandle} />
 
             <TouchableOpacity style={styles.closeBtn} activeOpacity={0.8} onPress={closeFolderSheet}>
-              <X size={20} color="#D9D9D9" />
+              <X size={20} color={appTheme.colors.textSecondary} />
             </TouchableOpacity>
 
             <Text style={styles.folderSheetTitle}>Create Folder</Text>
@@ -718,9 +727,9 @@ export default function LibraryScreen() {
             {folderCreated ? (
               <View style={styles.successCard}>
                 <View style={styles.successIconWrap}>
-                  <FolderPlus size={38} color="rgba(255,255,255,0.53)" strokeWidth={2.2} />
+                  <FolderPlus size={38} color={adaptLegacyColor('rgba(255,255,255,0.53)', 'color', appTheme)} strokeWidth={2.2} />
                   <View style={styles.checkBadge}>
-                    <Check size={14} color="#FFFFFF" strokeWidth={3} />
+                    <Check size={14} color={appTheme.colors.textPrimary} strokeWidth={3} />
                   </View>
                 </View>
                 <Text style={styles.successText}>Folder Uploaded successfully</Text>
@@ -730,7 +739,7 @@ export default function LibraryScreen() {
                 <View style={styles.folderInputWrap}>
                   <TextInput
                     placeholder="Name of Folder"
-                    placeholderTextColor="#D9D9D9"
+                    placeholderTextColor={appTheme.colors.textPlaceholder}
                     style={styles.folderInput}
                     value={folderName}
                     onChangeText={setFolderName}
@@ -767,6 +776,7 @@ function VaultHeader({
   showStorage: boolean;
   planLabel: string;
 }) {
+  const styles = useLibraryStyles();
   const initials = userLabel
     .split(' ')
     .map((part) => part[0])
@@ -796,6 +806,7 @@ function VaultHeader({
 }
 
 function StatCard({ title, value }: { title: string; value: string }) {
+  const styles = useLibraryStyles();
   return (
     <View style={styles.statCard}>
       <Text style={styles.statTitle}>{title}</Text>
@@ -805,6 +816,7 @@ function StatCard({ title, value }: { title: string; value: string }) {
 }
 
 function FolderCard({ folder }: { folder: VaultFolder }) {
+  const styles = useLibraryStyles();
   const router = useRouter();
   return (
     <TouchableOpacity
@@ -829,6 +841,8 @@ function FolderCard({ folder }: { folder: VaultFolder }) {
 }
 
 function UploadCard({ item }: { item: UploadItem }) {
+  const appTheme = useAppTheme();
+  const styles = useLibraryStyles();
   const artwork = item.artworkUrl || item.coverUrl;
   return (
     <View style={styles.cardItem}>
@@ -836,7 +850,7 @@ function UploadCard({ item }: { item: UploadItem }) {
         {artwork ? (
           <Image source={{ uri: artwork }} style={styles.trackArtImage} />
         ) : (
-          <Music size={28} color="rgba(255,255,255,0.65)" />
+          <Music size={28} color={adaptLegacyColor('rgba(255,255,255,0.65)', 'color', appTheme)} />
         )}
       </View>
       <Text style={styles.cardTitle} numberOfLines={1}>{item.title || 'Untitled Track'}</Text>
@@ -857,7 +871,7 @@ function formatDate(date?: any) {
   return `${day}/${month}/${year}`;
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
   screen: {
     flex: 1,
     backgroundColor: '#140F10',
@@ -1559,5 +1573,5 @@ const styles = StyleSheet.create({
     lineHeight: 25,
     letterSpacing: -0.5,
   },
-});
+};
 

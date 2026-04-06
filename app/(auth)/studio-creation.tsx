@@ -1,6 +1,8 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import { auth, db } from '@/firebaseConfig';
+import { useAppTheme } from '@/hooks/use-app-theme';
 import { useToastStore } from '@/store/useToastStore';
+import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { hydrateSubscriptionTier } from '@/utils/subscriptionVerification';
 import * as DocumentPicker from 'expo-document-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -36,6 +38,11 @@ const CREATOR_TYPES: Array<{
 
 const STEP_PROGRESS = [70, 150, 245, 336];
 
+function useStudioCreationStyles() {
+  const appTheme = useAppTheme();
+  return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
+
 function prettyCreatorType(value: CreatorType | null) {
   if (!value) return 'Not selected';
   if (value === 'record_label') return 'Record Label';
@@ -43,6 +50,11 @@ function prettyCreatorType(value: CreatorType | null) {
 }
 
 export default function StudioCreationScreen() {
+  const appTheme = useAppTheme();
+  const styles = useStudioCreationStyles();
+  const placeholderColor = appTheme.colors.textPlaceholder;
+  const uploadIconColor = appTheme.colors.textPlaceholder;
+
   const router = useRouter();
   const { showToast } = useToastStore();
   const params = useLocalSearchParams<{ role?: string }>();
@@ -173,7 +185,7 @@ export default function StudioCreationScreen() {
 
   return (
     <SafeScreenWrapper style={styles.container}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar barStyle={appTheme.isDark ? 'light-content' : 'dark-content'} />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 10 : 0}
@@ -215,7 +227,7 @@ export default function StudioCreationScreen() {
                       value={creatorName}
                       onChangeText={setCreatorName}
                       placeholder="Your full name"
-                      placeholderTextColor="#737373"
+                      placeholderTextColor={placeholderColor}
                     />
                   </View>
 
@@ -226,7 +238,7 @@ export default function StudioCreationScreen() {
                       value={studioName}
                       onChangeText={setStudioName}
                       placeholder="Enter studio name"
-                      placeholderTextColor="#737373"
+                      placeholderTextColor={placeholderColor}
                     />
                   </View>
                 </View>
@@ -237,7 +249,7 @@ export default function StudioCreationScreen() {
                   <View style={styles.fieldWrap}>
                     <Text style={styles.label}>Profile</Text>
                     <TouchableOpacity style={styles.uploadBox} activeOpacity={0.85} onPress={() => pickImage('profile')}>
-                      <ImagePlus size={28} color="#737373" />
+                      <ImagePlus size={28} color={uploadIconColor} />
                       <Text style={styles.uploadText}>{profileImageName || 'Upload img Jpegs and Pngs only'}</Text>
                     </TouchableOpacity>
                   </View>
@@ -245,7 +257,7 @@ export default function StudioCreationScreen() {
                   <View style={styles.fieldWrap}>
                     <Text style={styles.label}>Studio Banner</Text>
                     <TouchableOpacity style={styles.uploadBox} activeOpacity={0.85} onPress={() => pickImage('banner')}>
-                      <ImagePlus size={28} color="#737373" />
+                      <ImagePlus size={28} color={uploadIconColor} />
                       <Text style={styles.uploadText}>{bannerImageName || 'Upload img Jpegs and Pngs only'}</Text>
                     </TouchableOpacity>
                   </View>
@@ -269,16 +281,16 @@ export default function StudioCreationScreen() {
                             >
                               <View style={[styles.creatorIconWrap, selected && styles.creatorIconWrapSelected]}>
                                 {item.id === 'producer' ? (
-                                  <Music2 size={14} color="#FFFFFF" />
+                                  <Music2 size={14} color={selected ? '#FFFFFF' : appTheme.colors.textSecondary} />
                                 ) : (
-                                  <User size={14} color="#FFFFFF" />
+                                  <User size={14} color={selected ? '#FFFFFF' : appTheme.colors.textSecondary} />
                                 )}
                               </View>
                               <View style={styles.creatorTextWrap}>
                                 <Text style={styles.creatorTypeTitle}>{item.title}</Text>
                                 <Text style={styles.creatorTypeSub}>{item.subtitle}</Text>
                               </View>
-                              {selected ? <Check size={16} color="#EC5C39" /> : null}
+                              {selected ? <Check size={16} color={appTheme.colors.primary} /> : null}
                             </TouchableOpacity>
                           );
                         })}
@@ -369,7 +381,7 @@ export default function StudioCreationScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
   flex: { flex: 1 },
   container: {
     flex: 1,
@@ -713,4 +725,4 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 16,
   },
-});
+};

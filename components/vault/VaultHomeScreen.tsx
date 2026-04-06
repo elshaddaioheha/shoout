@@ -1,9 +1,11 @@
 import { useAppSwitcherContext } from '@/app/(tabs)/_layout';
 import SharedHeader from '@/components/SharedHeader';
 import VaultFloatingActionMenu from '@/components/vault/VaultFloatingActionMenu';
+import { useAppTheme } from '@/hooks/use-app-theme';
 import { useVaultWorkspaceData } from '@/hooks/useVaultWorkspaceData';
 import { useToastStore } from '@/store/useToastStore';
 import { useUserStore } from '@/store/useUserStore';
+import { adaptLegacyColor, adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { formatPlanLabel } from '@/utils/subscriptions';
 import { useRouter } from 'expo-router';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
@@ -30,7 +32,14 @@ function formatRelative(createdAtMs: number) {
 
 const SEARCH_SHEET_OFFSET = Math.round(Dimensions.get('window').height * 0.14);
 
+function useVaultHomeStyles() {
+  const appTheme = useAppTheme();
+  return useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
+
 export default function VaultHomeScreen() {
+  const appTheme = useAppTheme();
+  const styles = useVaultHomeStyles();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { openSheet, isModeSheetOpen, viewMode } = useAppSwitcherContext();
@@ -51,6 +60,8 @@ export default function VaultHomeScreen() {
   const searchOverlayOpacity = useRef(new Animated.Value(0)).current;
   const searchSheetOpacity = useRef(new Animated.Value(0)).current;
   const searchSheetTranslateY = useRef(new Animated.Value(SEARCH_SHEET_OFFSET)).current;
+  const iconPrimary = appTheme.colors.textPrimary;
+  const placeholderColor = appTheme.colors.textPlaceholder;
 
   const currentPlanLabel = formatPlanLabel(actualRole || role);
   const accentColor = viewMode === 'hybrid' ? '#FFD700' : '#EC5C39';
@@ -256,21 +267,21 @@ export default function VaultHomeScreen() {
               onPress={() => router.push('/vault/updates' as any)}
               activeOpacity={0.8}
             >
-              <Bell size={17} color="#FFFFFF" />
+              <Bell size={17} color={iconPrimary} />
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.vaultHeaderButton}
               onPress={openSearchSheet}
               activeOpacity={0.8}
             >
-              <Search size={17} color="#FFFFFF" />
+              <Search size={17} color={iconPrimary} />
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.vaultHeaderButton, styles.profileButton]}
               onPress={() => router.push('/(tabs)/more' as any)}
               activeOpacity={0.8}
             >
-              <User size={17} color="#FFFFFF" />
+              <User size={17} color={iconPrimary} />
             </TouchableOpacity>
           </View>
         )}
@@ -414,7 +425,7 @@ export default function VaultHomeScreen() {
               value={folderName}
               onChangeText={setFolderName}
               placeholder="Folder name"
-              placeholderTextColor="rgba(255,255,255,0.35)"
+              placeholderTextColor={placeholderColor}
               style={styles.input}
             />
             <View style={styles.modalActions}>
@@ -449,7 +460,7 @@ export default function VaultHomeScreen() {
               value={searchQuery}
               onChangeText={setSearchQuery}
               placeholder="Search uploads, folders, links..."
-              placeholderTextColor="rgba(255,255,255,0.35)"
+              placeholderTextColor={placeholderColor}
               style={styles.input}
               autoFocus
             />
@@ -459,7 +470,7 @@ export default function VaultHomeScreen() {
               {searchResults.map((result) => (
                 <TouchableOpacity key={result.id} style={styles.searchResultRow} onPress={result.onPress} activeOpacity={0.85}>
                   <View style={styles.rowIconWrap}>
-                    <Search size={16} color="#EC5C39" />
+                    <Search size={16} color={adaptLegacyColor('#EC5C39', 'color', appTheme)} />
                   </View>
                   <View style={styles.rowInfo}>
                     <Text style={styles.rowTitle} numberOfLines={1}>{result.title}</Text>
@@ -481,6 +492,8 @@ export default function VaultHomeScreen() {
 }
 
 function SectionHeader({ title, actionLabel, onPress }: { title: string; actionLabel?: string; onPress?: () => void }) {
+  const styles = useVaultHomeStyles();
+
   return (
     <View style={styles.sectionHeader}>
       <Text style={styles.sectionTitle}>{title}</Text>
@@ -493,7 +506,7 @@ function SectionHeader({ title, actionLabel, onPress }: { title: string; actionL
   );
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
   screen: {
     flex: 1,
     backgroundColor: '#140F10',
@@ -841,4 +854,4 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins-SemiBold',
     fontSize: 14,
   },
-});
+};

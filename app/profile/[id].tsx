@@ -1,7 +1,9 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import { auth, db } from '@/firebaseConfig';
+import { useAppTheme } from '@/hooks/use-app-theme';
 import { useToastStore } from '@/store/useToastStore';
 import { toggleArtistFollow } from '@/utils/followArtist';
+import { adaptLegacyColor, adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
@@ -32,7 +34,17 @@ import {
 
 const { width } = Dimensions.get('window');
 
+function useArtistProfileStyles() {
+    const appTheme = useAppTheme();
+    return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
+
 export default function ArtistProfileScreen() {
+    const appTheme = useAppTheme();
+    const styles = useArtistProfileStyles();
+    const iconPrimary = appTheme.colors.textPrimary;
+    const trackFallbackIcon = adaptLegacyColor('rgba(255,255,255,0.2)', 'color', appTheme);
+
     const { id: artistId } = useLocalSearchParams();
     const router = useRouter();
     const [artist, setArtist] = useState<any>(null);
@@ -155,7 +167,7 @@ export default function ArtistProfileScreen() {
         return (
             <SafeScreenWrapper>
                 <View style={styles.centerContainer}>
-                    <ActivityIndicator color="#EC5C39" />
+                    <ActivityIndicator color={appTheme.colors.primary} />
                 </View>
             </SafeScreenWrapper>
         );
@@ -167,14 +179,14 @@ export default function ArtistProfileScreen() {
                 {/* Header Backdrop */}
                 <View style={styles.header}>
                     <LinearGradient
-                        colors={['#EC5C39', '#140F10']}
+                        colors={['#EC5C39', appTheme.colors.background]}
                         style={styles.backdrop}
                     />
                     <TouchableOpacity onPress={handleBack} style={styles.backBtn}>
-                        <ChevronLeft size={24} color="#FFF" />
+                        <ChevronLeft size={24} color={iconPrimary} />
                     </TouchableOpacity>
                     <TouchableOpacity style={styles.shareBtn}>
-                        <Share2 size={20} color="#FFF" />
+                        <Share2 size={20} color={iconPrimary} />
                     </TouchableOpacity>
                 </View>
 
@@ -182,7 +194,7 @@ export default function ArtistProfileScreen() {
                 <View style={styles.profileSection}>
                     <View style={styles.avatarContainer}>
                         <View style={styles.avatar}>
-                            <User size={50} color="white" />
+                            <User size={50} color={iconPrimary} />
                         </View>
                     </View>
                     <Text style={styles.artistName}>{artist?.name || 'Artist'}</Text>
@@ -217,7 +229,7 @@ export default function ArtistProfileScreen() {
                             style={styles.msgBtn}
                             onPress={() => router.push({ pathname: '/chat/[id]', params: { id: artistId as string } })}
                         >
-                            <MessageCircle size={20} color="#FFF" />
+                            <MessageCircle size={20} color={iconPrimary} />
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -239,7 +251,7 @@ export default function ArtistProfileScreen() {
                                 onPress={() => router.push({ pathname: '/listing/[id]', params: { id: track.id, uploaderId: artistId as string } })}
                             >
                                 <View style={styles.trackArtwork}>
-                                    <Music size={20} color="rgba(255,255,255,0.2)" />
+                                    <Music size={20} color={trackFallbackIcon} />
                                 </View>
                                 <View style={styles.trackInfo}>
                                     <Text style={styles.trackTitle}>{track.title}</Text>
@@ -269,7 +281,7 @@ export default function ArtistProfileScreen() {
     );
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
     container: { flex: 1, backgroundColor: '#140F10' },
     centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     header: { height: 200, position: 'relative' },
@@ -316,4 +328,4 @@ const styles = StyleSheet.create({
         letterSpacing: 0.3,
     },
     emptyText: { color: 'rgba(255,255,255,0.3)', textAlign: 'center', marginTop: 20 }
-});
+};

@@ -7,9 +7,12 @@ import VaultHomeScreen from '@/components/vault/VaultHomeScreen';
 import { theme } from '@/constants/theme';
 import { ARTISTS, FREE_MUSIC, HOME_SECTIONS, POPULAR_BEATS, TOP_PLAYLISTS, TRENDING_SONGS, type HomeSectionKey } from '@/constants/homeFeed';
 import { auth, db } from '@/firebaseConfig';
+import { useAppTheme } from '@/hooks/use-app-theme';
 import { formatUsd } from '@/utils/pricing';
 import { toggleArtistFollow } from '@/utils/followArtist';
 import { usePlaylists } from '@/hooks/usePlaylists';
+import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useCartStore } from '@/store/useCartStore';
 import { usePlaybackStore } from '@/store/usePlaybackStore';
 import { useToastStore } from '@/store/useToastStore';
@@ -60,6 +63,11 @@ const spacing = {
 const SHOOUT_ACCENT = '#6AA7FF';
 const SHOOUT_ACCENT_SOFT = '#D8E8FF';
 
+function useHomeStyles() {
+  const appTheme = useAppTheme();
+  return useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
+
 // ─── Local favourite hook (no Firestore) ───────────────────────────────────────
 function useLocalFavourite(_trackId: string) {
   const [isFav, setIsFav] = useState(false);
@@ -68,7 +76,9 @@ function useLocalFavourite(_trackId: string) {
 }
 
 export default function HomeScreen() {
+  const styles = useHomeStyles();
   const { openSheet, isModeSheetOpen, viewMode } = useAppSwitcherContext();
+  const colorScheme = useColorScheme();
   const { items } = useCartStore();
   const activeAppMode = useUserStore((state) => state.activeAppMode);
 
@@ -103,7 +113,7 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar barStyle={colorScheme === 'dark' ? 'light-content' : 'dark-content'} />
 
       <SharedHeader
         viewMode={viewMode}
@@ -131,6 +141,7 @@ export default function HomeScreen() {
 
 // Sub-sections
 function TrendingSection() {
+  const styles = useHomeStyles();
   const setTrack = usePlaybackStore(state => state.setTrack);
   const songs = TRENDING_SONGS;
   const COLORS = useMemo(() => ['#D9D9D9', '#C9A959', '#8B7355'], []);
@@ -163,6 +174,8 @@ function TrendingSection() {
 }
 
 const TrendingCard = React.memo(function TrendingCard({ song, bgColor, onPlay }: { song: any; bgColor: string; onPlay: () => void }) {
+  const appTheme = useAppTheme();
+  const styles = useHomeStyles();
   const { isFav, toggle } = useLocalFavourite(song.id);
   return (
     <View style={[styles.trendingCard, { backgroundColor: bgColor }]}>
@@ -173,7 +186,7 @@ const TrendingCard = React.memo(function TrendingCard({ song, bgColor, onPlay }:
         <View style={{ flex: 1 }}>
           <Text style={styles.songTitle}>{song.title}</Text>
           <View style={styles.artistRow}>
-            <Users size={14} color="white" />
+              <Users size={14} color={appTheme.colors.textPrimary} />
             <Text style={styles.artistName}>{song.artist || song.uploaderName}</Text>
           </View>
         </View>
@@ -181,17 +194,17 @@ const TrendingCard = React.memo(function TrendingCard({ song, bgColor, onPlay }:
           style={{ paddingHorizontal: 8 }}
           onPress={() => toggle()}
         >
-          <Heart size={18} color={isFav ? SHOOUT_ACCENT : 'white'} fill={isFav ? SHOOUT_ACCENT : 'transparent'} />
+            <Heart size={18} color={isFav ? SHOOUT_ACCENT : appTheme.colors.textPrimary} fill={isFav ? SHOOUT_ACCENT : 'transparent'} />
         </TouchableOpacity>
         <TouchableOpacity style={styles.playButton} onPress={onPlay}>
-          <Play size={20} color="white" fill="white" />
+            <Play size={20} color={appTheme.colors.textPrimary} fill={appTheme.colors.textPrimary} />
         </TouchableOpacity>
       </View>
     </View>
   );
 });
-
 function PlaylistSection() {
+  const styles = useHomeStyles();
   const router = useRouter();
   const playlists = TOP_PLAYLISTS;
 
@@ -246,6 +259,7 @@ function PlaylistSection() {
 
 
 function FreeMusicSection() {
+  const styles = useHomeStyles();
   const router = useRouter();
   const setTrack = usePlaybackStore(state => state.setTrack);
   const songs = FREE_MUSIC;
@@ -280,6 +294,7 @@ function FreeMusicSection() {
 }
 
 const FreeMusicCard = React.memo(function FreeMusicCard({ song, onPlay }: { song: any; onPlay: () => void }) {
+  const styles = useHomeStyles();
   const { isFav, toggle } = useLocalFavourite(song.id);
   const { addItem, items } = useCartStore();
   const inCart = items.some((i: any) => i.id === song.id);
@@ -325,6 +340,7 @@ const FreeMusicCard = React.memo(function FreeMusicCard({ song, onPlay }: { song
 });
 
 function ArtistsSection() {
+  const styles = useHomeStyles();
   const router = useRouter();
   const artists = ARTISTS;
 
@@ -363,6 +379,7 @@ function ArtistsSection() {
 }
 
 function PopularBeatsSection() {
+  const styles = useHomeStyles();
   const router = useRouter();
   const setTrack = usePlaybackStore(state => state.setTrack);
   const { addItem, items } = useCartStore();
@@ -560,6 +577,8 @@ const BeatRow = React.memo(function BeatRow({
   onPlay: () => void;
   onMorePress: () => void;
 }) {
+  const appTheme = useAppTheme();
+  const styles = useHomeStyles();
   const { isFav, toggle } = useLocalFavourite(beat.id);
   const { addItem, items } = useCartStore();
   const { showToast } = useToastStore();
@@ -616,7 +635,7 @@ const BeatRow = React.memo(function BeatRow({
         </View>
 
         <TouchableOpacity onPress={onMorePress} style={styles.moreActionButton} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <MoreVertical size={24} color="white" />
+          <MoreVertical size={24} color={appTheme.colors.textPrimary} />
         </TouchableOpacity>
       </View>
       {!isLast && <View style={styles.beatDivider} />}
@@ -624,7 +643,7 @@ const BeatRow = React.memo(function BeatRow({
   );
 });
 
-const styles = StyleSheet.create({
+const legacyStyles = {
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
@@ -920,4 +939,4 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'Poppins-Regular',
   },
-});
+};

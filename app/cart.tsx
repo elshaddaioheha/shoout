@@ -1,8 +1,10 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import { auth, db } from '@/firebaseConfig';
+import { useAppTheme } from '@/hooks/use-app-theme';
 import { formatUsd } from '@/utils/pricing';
 import { useCartStore } from '@/store/useCartStore';
 import { useToastStore } from '@/store/useToastStore';
+import { adaptLegacyColor, adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -51,7 +53,18 @@ type MarketplaceItem = {
     userId?: string;
 };
 
+function useCartStyles() {
+    const appTheme = useAppTheme();
+    return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
+
 export default function CartScreen() {
+    const appTheme = useAppTheme();
+    const styles = useCartStyles();
+    const itemFallbackIconColor = adaptLegacyColor('rgba(255,255,255,0.2)', 'color', appTheme);
+    const bestSellerFallbackIconColor = adaptLegacyColor('rgba(255,255,255,0.25)', 'color', appTheme);
+    const emptyCartIconColor = adaptLegacyColor('rgba(255,255,255,0.7)', 'color', appTheme);
+
     const router = useRouter();
     const { items, removeItem, clearCart, total } = useCartStore();
     const [checkingOut, setCheckingOut] = useState(false);
@@ -205,7 +218,7 @@ export default function CartScreen() {
             activeOpacity={0.8}
         >
             <View style={styles.itemArtwork}>
-                <Music size={24} color="rgba(255,255,255,0.2)" />
+                <Music size={24} color={itemFallbackIconColor} />
             </View>
             <View style={styles.itemInfo}>
                 <Text style={styles.itemTitle} numberOfLines={1}>{item.title}</Text>
@@ -226,7 +239,7 @@ export default function CartScreen() {
             <View style={styles.container}>
                 <View style={styles.header}>
                     <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-                        <ChevronLeft size={24} color="#FFF" />
+                        <ChevronLeft size={24} color={appTheme.colors.textPrimary} />
                     </TouchableOpacity>
                     <Text style={styles.headerTitle}>Cart</Text>
                     <TouchableOpacity
@@ -243,7 +256,7 @@ export default function CartScreen() {
                 {items.length === 0 ? (
                     <View style={styles.emptyContainer}>
                         <View style={styles.emptyIconContainer}>
-                            <ShoppingCart size={72} color="rgba(255,255,255,0.7)" />
+                            <ShoppingCart size={72} color={emptyCartIconColor} />
                         </View>
                         <Text style={styles.emptyTitle}>No Item in Cart</Text>
                         {purchasedCount > 0 ? (
@@ -273,7 +286,7 @@ export default function CartScreen() {
 
                         {bestSellerLoading ? (
                             <View style={styles.bestSellerLoadingWrap}>
-                                <ActivityIndicator color="#EC5C39" />
+                                <ActivityIndicator color={appTheme.colors.primary} />
                                 <Text style={styles.bestSellerPlaceholderText}>Loading live listings...</Text>
                             </View>
                         ) : bestSellers.length > 0 ? (
@@ -293,7 +306,7 @@ export default function CartScreen() {
                                             {item.coverUrl ? (
                                                 <Image source={{ uri: item.coverUrl }} style={styles.bestSellerArtworkImage} />
                                             ) : (
-                                                <Music size={22} color="rgba(255,255,255,0.25)" />
+                                                <Music size={22} color={bestSellerFallbackIconColor} />
                                             )}
                                         </View>
                                         <Text style={styles.bestSellerItemTitle} numberOfLines={1}>{item.title || 'Untitled Track'}</Text>
@@ -338,12 +351,12 @@ export default function CartScreen() {
                                     style={styles.checkoutGradient}
                                 >
                                     {checkingOut ? (
-                                        <ActivityIndicator color="#FFF" />
+                                        <ActivityIndicator color={appTheme.colors.textPrimary} />
                                     ) : (
                                         <>
-                                            <CreditCard size={20} color="#FFF" />
+                                            <CreditCard size={20} color={appTheme.colors.textPrimary} />
                                             <Text style={styles.checkoutText}>Complete Purchase</Text>
-                                            <ArrowRight size={20} color="#FFF" />
+                                            <ArrowRight size={20} color={appTheme.colors.textPrimary} />
                                         </>
                                     )}
                                 </LinearGradient>
@@ -386,7 +399,7 @@ export default function CartScreen() {
 }
 
 
-const styles = StyleSheet.create({
+const legacyStyles = {
     container: {
         flex: 1,
         backgroundColor: '#140F10',
@@ -646,4 +659,4 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontFamily: 'Poppins-Bold',
     },
-});
+};

@@ -5,11 +5,18 @@ import { ChevronLeft } from 'lucide-react-native';
 import React, { useMemo, useState } from 'react';
 import { KeyboardAvoidingView, Platform, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
+import { useAppTheme } from '@/hooks/use-app-theme';
 import { useToastStore } from '@/store/useToastStore';
+import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { getFriendlyErrorMessage } from '@/utils/errorHandler';
 import { sendEmailOtp, verifyEmailOtp } from '@/utils/emailOtp';
 
 const PASSWORD_RESET_TOKEN_KEY = 'passwordResetOtpToken';
+
+function useForgotPasswordCodeStyles() {
+  const appTheme = useAppTheme();
+  return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
 
 function maskEmail(email: string): string {
   const [name, domain] = email.split('@');
@@ -20,6 +27,10 @@ function maskEmail(email: string): string {
 }
 
 export default function ForgotPasswordCodeScreen() {
+  const appTheme = useAppTheme();
+  const styles = useForgotPasswordCodeStyles();
+  const placeholderColor = appTheme.colors.textPlaceholder;
+
   const router = useRouter();
   const { showToast } = useToastStore();
   const { email } = useLocalSearchParams<{ email?: string }>();
@@ -71,18 +82,18 @@ export default function ForgotPasswordCodeScreen() {
 
   return (
     <SafeScreenWrapper style={styles.container}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar barStyle={appTheme.isDark ? 'light-content' : 'dark-content'} />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}
         style={styles.flex}
       >
         <View style={styles.blurBg} pointerEvents="none">
-          <BlurView intensity={44} tint="dark" style={StyleSheet.absoluteFill} />
+          <BlurView intensity={44} tint={appTheme.isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
         </View>
 
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <ChevronLeft color="#FFFFFF" size={24} />
+          <ChevronLeft color={appTheme.colors.textPrimary} size={24} />
         </TouchableOpacity>
 
         <View style={styles.headerWrap}>
@@ -96,7 +107,7 @@ export default function ForgotPasswordCodeScreen() {
             value={code}
             onChangeText={(value) => setCode(value.replace(/\D/g, '').slice(0, 6))}
             placeholder="000000"
-            placeholderTextColor="#6B6B6B"
+            placeholderTextColor={placeholderColor}
             style={styles.input}
             keyboardType="number-pad"
             autoCapitalize="none"
@@ -120,7 +131,7 @@ export default function ForgotPasswordCodeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
   flex: { flex: 1 },
   container: {
     flex: 1,
@@ -225,4 +236,4 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
     fontFamily: 'Poppins-Regular',
   },
-});
+};

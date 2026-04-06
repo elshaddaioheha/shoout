@@ -5,8 +5,10 @@ import { Home, Library, Megaphone, MoreHorizontal, Search, ShoppingCart, Upload 
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { BlurView } from 'expo-blur';
 import { usePathname, useRouter } from 'expo-router';
+import { useAppTheme } from '@/hooks/use-app-theme';
 import { useUserStore } from '@/store/useUserStore';
 import { getModeTheme } from '@/utils/appModeTheme';
+import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 
 interface TabConfig {
     key: string;
@@ -16,10 +18,17 @@ interface TabConfig {
     label: string;
 }
 
+function useResponsiveBottomTabBarStyles() {
+    const appTheme = useAppTheme();
+    return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
+
 export default function ResponsiveBottomTabBar(props: BottomTabBarProps) {
+    const styles = useResponsiveBottomTabBarStyles();
     const { state, navigation } = props;
     const router = useRouter();
     const pathname = usePathname();
+    const appTheme = useAppTheme();
     const insets = useSafeAreaInsets();
     const { width } = useWindowDimensions();
     const activeAppMode = useUserStore((s) => s.activeAppMode);
@@ -79,8 +88,18 @@ export default function ResponsiveBottomTabBar(props: BottomTabBarProps) {
 
     return (
         <View style={[styles.container, { paddingBottom: bottomPadding }]}>
-            <View style={[styles.tabBar, isVaultMode && styles.vaultTabBar, { width: barWidth }]}>
-                <BlurView intensity={34} tint="dark" style={styles.tabBarBlur} />
+            <View
+                style={[
+                    styles.tabBar,
+                    isVaultMode && styles.vaultTabBar,
+                    {
+                        width: barWidth,
+                        backgroundColor: appTheme.isDark ? 'rgba(20, 15, 16, 0.46)' : 'rgba(255,255,255,0.72)',
+                        borderColor: appTheme.colors.borderStrong,
+                    },
+                ]}
+            >
+                <BlurView intensity={34} tint={appTheme.isDark ? 'dark' : 'light'} style={styles.tabBarBlur} />
                 {tabs.map((tab) => {
                     const Icon = tab.icon;
                     const routeIndex = tab.name ? getRouteIndex(tab.name) : -1;
@@ -122,6 +141,8 @@ export default function ResponsiveBottomTabBar(props: BottomTabBarProps) {
                             tabKey={tab.key}
                             isCompact={isVaultMode}
                             activeAppMode={activeAppMode}
+                            appTheme={appTheme}
+                            styles={styles}
                             onPress={onPress}
                         />
                     );
@@ -131,10 +152,10 @@ export default function ResponsiveBottomTabBar(props: BottomTabBarProps) {
     );
 }
 
-function TabButton({ Icon, label, isFocused, tabKey, isCompact, activeAppMode, onPress }: any) {
-    const inactiveColor = 'rgba(255, 255, 255, 0.65)';
+function TabButton({ Icon, label, isFocused, tabKey, isCompact, activeAppMode, appTheme, styles, onPress }: any) {
+    const inactiveColor = appTheme.colors.icon;
     const activeBgColor = getModeTheme(activeAppMode).accent;
-    const activeFgColor = activeAppMode === 'hybrid' ? '#140F10' : '#FFFFFF';
+    const activeFgColor = activeAppMode === 'hybrid' ? appTheme.colors.background : appTheme.colors.textPrimary;
 
     return (
         <TouchableOpacity
@@ -166,7 +187,7 @@ function MegaphoneIcon(props: any) {
     return <Megaphone {...props} />;
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
     container: {
         position: 'absolute',
         bottom: 0,
@@ -183,9 +204,7 @@ const styles = StyleSheet.create({
         height: 60,
         borderRadius: 40,
         overflow: 'hidden',
-        backgroundColor: 'rgba(20, 15, 16, 0.46)',
         borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.18)',
         shadowColor: '#000000',
         shadowOffset: { width: 2, height: 2 },
         shadowOpacity: 0.25,
@@ -228,7 +247,6 @@ const styles = StyleSheet.create({
         width: 30,
     },
     labelActive: {
-        color: '#FFFFFF',
         fontFamily: 'Poppins-Medium',
         fontSize: 12,
         lineHeight: 12,
@@ -237,4 +255,4 @@ const styles = StyleSheet.create({
         fontSize: 11,
         lineHeight: 11,
     },
-});
+};

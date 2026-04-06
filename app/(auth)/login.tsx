@@ -22,12 +22,23 @@ import Svg, { Path } from 'react-native-svg';
 import { auth, db } from '../../firebaseConfig';
 import { authNavigationHandled } from '../_layout';
 import { useToastStore } from '../../store/useToastStore';
+import { useAppTheme } from '@/hooks/use-app-theme';
+import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { ensureDefaultSubscriptionDoc, hydrateSubscriptionTier } from '../../utils/subscriptionVerification';
 import { getFriendlyErrorMessage } from '../../utils/errorHandler';
 
 const { width, height } = Dimensions.get('window');
 
+function useLoginStyles() {
+    const appTheme = useAppTheme();
+    return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
+
 export default function LoginScreen() {
+    const appTheme = useAppTheme();
+    const styles = useLoginStyles();
+    const placeholderColor = appTheme.colors.textPlaceholder;
+
     const router = useRouter();
     const { redirectTo } = useLocalSearchParams<{ redirectTo?: string }>();
     const [showPassword, setShowPassword] = useState(false);
@@ -190,7 +201,7 @@ export default function LoginScreen() {
 
     return (
         <View style={styles.container}>
-            <StatusBar barStyle="light-content" />
+            <StatusBar barStyle={appTheme.isDark ? 'light-content' : 'dark-content'} />
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 style={{ flex: 1 }}
@@ -231,7 +242,7 @@ export default function LoginScreen() {
                         <TextInput
                             style={styles.input}
                             placeholder="Email Address"
-                            placeholderTextColor="rgba(255, 255, 255, 0.6)"
+                            placeholderTextColor={placeholderColor}
                             value={email}
                             onChangeText={setEmail}
                             keyboardType="email-address"
@@ -242,7 +253,7 @@ export default function LoginScreen() {
                             <TextInput
                                 style={[styles.input, { paddingRight: 50 }]}
                                 placeholder="Password"
-                                placeholderTextColor="rgba(255, 255, 255, 0.6)"
+                                placeholderTextColor={placeholderColor}
                                 value={password}
                                 onChangeText={setPassword}
                                 secureTextEntry={!showPassword}
@@ -251,7 +262,7 @@ export default function LoginScreen() {
                                 onPress={() => setShowPassword(!showPassword)}
                                 style={styles.eyeIcon}
                             >
-                                {showPassword ? <Eye color="white" size={24} /> : <EyeOff color="white" size={24} />}
+                                {showPassword ? <Eye color={appTheme.colors.textPrimary} size={24} /> : <EyeOff color={appTheme.colors.textPrimary} size={24} />}
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -289,6 +300,8 @@ export default function LoginScreen() {
 
 // Sub-components
 function SocialButton({ icon, text, onPress }: { icon: React.ReactNode, text: string, onPress?: () => void }) {
+    const styles = useLoginStyles();
+
     return (
         <TouchableOpacity style={styles.socialButton} onPress={onPress}>
             {icon}
@@ -317,6 +330,8 @@ function GoogleIcon() {
 }
 
 function ActionModal({ children, visible, onClose }: { children: React.ReactNode, visible: boolean, onClose: () => void }) {
+    const styles = useLoginStyles();
+
     return (
         <RNModal
             transparent
@@ -333,7 +348,7 @@ function ActionModal({ children, visible, onClose }: { children: React.ReactNode
     );
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
     container: {
         flex: 1,
         backgroundColor: '#140F10',
@@ -645,5 +660,5 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         marginBottom: 10,
     },
-});
+};
 

@@ -1,4 +1,6 @@
 import { BlurView } from 'expo-blur';
+import { useAppTheme } from '@/hooks/use-app-theme';
+import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { FolderPlus, RefreshCcw, Shapes, UploadCloud } from 'lucide-react-native';
 import React, { useEffect, useRef, useState } from 'react';
 import {
@@ -31,7 +33,15 @@ const ACTION_ICONS = {
   folder: FolderPlus,
 } as const;
 
+function useVaultFloatingMenuStyles() {
+  const appTheme = useAppTheme();
+  return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
+
 export default function VaultFloatingActionMenu({ actions }: VaultFloatingActionMenuProps) {
+  const appTheme = useAppTheme();
+  const styles = useVaultFloatingMenuStyles();
+
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const [visible, setVisible] = useState(false);
@@ -228,7 +238,7 @@ export default function VaultFloatingActionMenu({ actions }: VaultFloatingAction
             onPressIn={handleLauncherPressIn}
             onPressOut={handleLauncherPressOut}
           >
-            <BlurView intensity={51} tint="dark" style={styles.launcherBlur}>
+            <BlurView intensity={51} tint={appTheme.isDark ? 'dark' : 'light'} style={styles.launcherBlur}>
               <Animated.Text style={[styles.launcherPlus, { transform: [{ rotate: iconRotation }] }]}>+</Animated.Text>
             </BlurView>
           </TouchableOpacity>
@@ -253,7 +263,7 @@ export default function VaultFloatingActionMenu({ actions }: VaultFloatingAction
               },
             ]}
           >
-            <BlurView intensity={28} tint="dark" style={styles.menuBlur}>
+            <BlurView intensity={28} tint={appTheme.isDark ? 'dark' : 'light'} style={styles.menuBlur}>
               <View style={styles.menuGrid}>
                 {actions.map((action, index) => {
                   const Icon = ACTION_ICONS[action.key as keyof typeof ACTION_ICONS] ?? FolderPlus;
@@ -280,7 +290,7 @@ export default function VaultFloatingActionMenu({ actions }: VaultFloatingAction
                         }}
                       >
                         <View style={styles.menuIconWrap}>
-                          <Icon size={18} color="#EC5C39" />
+                          <Icon size={18} color={appTheme.colors.primary} />
                         </View>
                         <Text style={styles.menuLabel}>{action.label}</Text>
                       </TouchableOpacity>
@@ -296,7 +306,7 @@ export default function VaultFloatingActionMenu({ actions }: VaultFloatingAction
   );
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
   launcherWrap: {
     position: 'absolute',
     left: 0,
@@ -377,4 +387,4 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins-SemiBold',
     fontSize: 14,
   },
-});
+};

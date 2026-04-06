@@ -1,8 +1,10 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import SettingsHeader from '@/components/settings/SettingsHeader';
 import { auth } from '@/firebaseConfig';
+import { useAppTheme } from '@/hooks/use-app-theme';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useUserStore } from '@/store/useUserStore';
+import { adaptLegacyColor, adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { hydrateSubscriptionTier } from '@/utils/subscriptionVerification';
 import { formatUsd, usdToNgn } from '@/utils/pricing';
 import { getSubscriptionPlan, SUBSCRIPTION_PLANS, type SubscriptionPlanId } from '@/utils/subscriptions';
@@ -52,6 +54,9 @@ function hexToRgba(hex: string, alpha: number) {
 }
 
 export default function SubscriptionsScreen() {
+    const appTheme = useAppTheme();
+    const styles = useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+
     const router = useRouter();
     const { role, activeAppMode, setActiveAppMode } = useUserStore();
     const { actualRole } = useAuthStore();
@@ -190,8 +195,8 @@ export default function SubscriptionsScreen() {
                             <Switch
                                 value={isAnnual}
                                 onValueChange={setIsAnnual}
-                                trackColor={{ false: 'rgba(255,255,255,0.1)', true: activeCategoryColor }}
-                                thumbColor="#FFF"
+                                trackColor={{ false: appTheme.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(23,18,19,0.18)', true: activeCategoryColor }}
+                                thumbColor={appTheme.colors.backgroundElevated}
                                 style={styles.billingToggleSwitch}
                             />
                             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -220,7 +225,11 @@ export default function SubscriptionsScreen() {
 
                                 {plan.recommended && (
                                     <View style={[styles.recommendedBadge, { backgroundColor: plan.color }]}>
-                                        <Star size={12} color="#140F10" fill="#140F10" />
+                                        <Star
+                                            size={12}
+                                            color={adaptLegacyColor('#140F10', 'color', appTheme)}
+                                            fill={adaptLegacyColor('#140F10', 'color', appTheme)}
+                                        />
                                         <Text style={styles.recommendedText}>MOST POPULAR</Text>
                                     </View>
                                 )}
@@ -233,7 +242,7 @@ export default function SubscriptionsScreen() {
                                         <Text style={styles.planName}>{plan.name}</Text>
                                         {isCurrentPlan && (
                                             <View style={styles.activeBadge}>
-                                                <Check size={12} color="#FFF" />
+                                                <Check size={12} color={appTheme.colors.textPrimary} />
                                                 <Text style={styles.activeText}>Current Plan</Text>
                                             </View>
                                         )}
@@ -267,7 +276,7 @@ export default function SubscriptionsScreen() {
                                     onPress={() => handleUpgradePress(plan, dueUsd)}
                                     disabled={isCurrentPlan}
                                 >
-                                    <Text style={[styles.actionButtonText, isCurrentPlan && { color: 'rgba(255,255,255,0.4)' }]}>
+                                    <Text style={[styles.actionButtonText, isCurrentPlan && { color: appTheme.colors.textDisabled }]}> 
                                         {isCurrentPlan ? 'Current Plan' : plan.id === 'shoout' ? 'Switch to Shoout' : 'Select Plan'}
                                     </Text>
                                 </TouchableOpacity>
@@ -276,7 +285,7 @@ export default function SubscriptionsScreen() {
                     })}
 
                     <View style={styles.footerInfo}>
-                        <ShieldCheck size={20} color="rgba(255,255,255,0.4)" />
+                        <ShieldCheck size={20} color={appTheme.colors.textDisabled} />
                         <Text style={styles.footerText}>Flutterwave is live for paid plans. Shoout and Vault free flows switch instantly.</Text>
                     </View>
                     <View style={{ height: 40 }} />
@@ -298,7 +307,7 @@ export default function SubscriptionsScreen() {
 
                             {Platform.OS === 'web' ? (
                                 <View style={styles.webPaymentNotice}>
-                                    <CreditCard color="#EC5C39" size={28} />
+                                    <CreditCard color={adaptLegacyColor('#EC5C39', 'color', appTheme)} size={28} />
                                     <Text style={styles.webPaymentTitle}>Mobile Payment Required</Text>
                                     <Text style={styles.webPaymentSub}>
                                         Flutterwave payments are not supported in the browser.{"\n"}
@@ -328,12 +337,12 @@ export default function SubscriptionsScreen() {
                                     }}
                                     customButton={(props) => (
                                         <TouchableOpacity style={styles.paymentOption} onPress={props.onPress} disabled={props.disabled}>
-                                            <CreditCard color="#EC5C39" size={24} />
+                                            <CreditCard color={adaptLegacyColor('#EC5C39', 'color', appTheme)} size={24} />
                                             <View style={styles.payOptionTexts}>
                                                 <Text style={styles.payOptionTitle}>Pay with Flutterwave</Text>
                                                 <Text style={styles.payOptionSub}>Secured localized payment (NGN)</Text>
                                             </View>
-                                            <ChevronLeft size={20} color="rgba(255,255,255,0.2)" style={{ transform: [{ rotate: '180deg' }] }} />
+                                            <ChevronLeft size={20} color={appTheme.colors.textTertiary} style={{ transform: [{ rotate: '180deg' }] }} />
                                         </TouchableOpacity>
                                     )}
                                 />
@@ -349,7 +358,7 @@ export default function SubscriptionsScreen() {
 
                 {isVerifying && (
                     <View style={styles.loadingOverlay}>
-                        <ActivityIndicator color="#FFF" size="large" />
+                        <ActivityIndicator color={appTheme.colors.textPrimary} size="large" />
                         <Text style={styles.loadingText}>Processing Secure Payment...</Text>
                     </View>
                 )}
@@ -357,7 +366,7 @@ export default function SubscriptionsScreen() {
                 {showSuccessSplash && (
                     <Animated.View style={[styles.splashOverlay, { opacity: splashAnim }]}> 
                         <LinearGradient
-                            colors={['#140F10', hexToRgba(splashAccent, 0.72), '#140F10']}
+                            colors={[appTheme.colors.background, hexToRgba(splashAccent, 0.72), appTheme.colors.background]}
                             style={StyleSheet.absoluteFillObject}
                         />
                         <PartyPopper size={80} color={splashAccent} style={{ marginBottom: 20 }} />
@@ -370,7 +379,7 @@ export default function SubscriptionsScreen() {
     );
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
     container: { flex: 1, backgroundColor: '#140F10' },
     scrollContent: { paddingHorizontal: 20, paddingTop: 10 },
     introSection: { alignItems: 'center', marginBottom: 35, textAlign: 'center' },
@@ -446,4 +455,4 @@ const styles = StyleSheet.create({
     webPaymentNotice: { backgroundColor: 'rgba(236, 92, 57, 0.08)', borderWidth: 1, borderColor: 'rgba(236, 92, 57, 0.25)', borderRadius: 16, padding: 20, alignItems: 'center', marginBottom: 16, gap: 10 },
     webPaymentTitle: { fontSize: 16, fontFamily: 'Poppins-Bold', color: '#FFF', textAlign: 'center' },
     webPaymentSub: { fontSize: 13, fontFamily: 'Poppins-Regular', color: 'rgba(255,255,255,0.6)', textAlign: 'center', lineHeight: 20 },
-});
+};

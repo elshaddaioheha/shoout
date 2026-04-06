@@ -1,10 +1,12 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import { auth, db } from '@/firebaseConfig';
+import { useAppTheme } from '@/hooks/use-app-theme';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useCartStore } from '@/store/useCartStore';
 import { useNotificationStore } from '@/store/useNotificationStore';
 import { usePlaybackStore } from '@/store/usePlaybackStore';
 import { useUserStore } from '@/store/useUserStore';
+import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { getModeTheme } from '@/utils/appModeTheme';
 import { updateProfile } from 'firebase/auth';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
@@ -43,7 +45,16 @@ import {
 
 const { width } = Dimensions.get('window');
 
+function useProfileStyles() {
+    const appTheme = useAppTheme();
+    return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
+
 export default function ProfileScreen() {
+    const appTheme = useAppTheme();
+    const styles = useProfileStyles();
+    const placeholderColor = appTheme.colors.textPlaceholder;
+
     const router = useRouter();
     const { name, role, isPremium, reset, setName, activeAppMode } = useUserStore();
     const { actualRole } = useAuthStore();
@@ -70,7 +81,7 @@ export default function ProfileScreen() {
         if (activeAppMode === 'studio') return ['rgba(76, 175, 80, 0.15)', 'rgba(0,0,0,0)'];
         if (activeAppMode === 'hybrid') return ['rgba(255, 215, 0, 0.15)', 'rgba(0,0,0,0)'];
         if (activeAppMode === 'shoout') return ['rgba(106, 167, 255, 0.15)', 'rgba(0,0,0,0)'];
-        return ['rgba(255,255,255,0.02)', 'rgba(0,0,0,0)'];
+        return [appTheme.isDark ? 'rgba(255,255,255,0.02)' : 'rgba(23,18,19,0.04)', 'rgba(0,0,0,0)'];
     };
 
     useEffect(() => {
@@ -265,11 +276,11 @@ export default function ProfileScreen() {
                 {/* Header */}
                 <View style={styles.header}>
                     <TouchableOpacity style={styles.iconButton} onPress={handleBack}>
-                        <ChevronLeft size={22} color="#FFF" />
+                        <ChevronLeft size={22} color={appTheme.colors.textPrimary} />
                     </TouchableOpacity>
                     <Text style={styles.headerTitle}>Profile</Text>
                     <TouchableOpacity style={styles.iconButton} onPress={handleShare}>
-                        <Share2 size={22} color="#FFF" />
+                        <Share2 size={22} color={appTheme.colors.textPrimary} />
                     </TouchableOpacity>
                 </View>
 
@@ -283,10 +294,10 @@ export default function ProfileScreen() {
                     />
                     <View style={styles.avatarContainer}>
                         <View style={[styles.avatar, { backgroundColor: accentSoft, borderColor: accentColor }]}>
-                            <User size={40} color="#FFF" />
+                            <User size={40} color={appTheme.colors.textPrimary} />
                         </View>
                         <TouchableOpacity style={[styles.editBadge, { backgroundColor: accentColor }]} onPress={handleEditProfile}>
-                            <Settings size={14} color="#FFF" />
+                            <Settings size={14} color={appTheme.colors.textPrimary} />
                         </TouchableOpacity>
                     </View>
 
@@ -368,6 +379,7 @@ export default function ProfileScreen() {
                 {/* Preferences Section */}
                 <Text style={styles.sectionTitle}>Preferences</Text>
                 <View style={styles.menuContainer}>
+                    <MenuItem icon={Sparkles} label="Appearance" color={accentColor} onPress={() => router.push('/settings/appearance' as any)} />
                     <MenuItem icon={Bell} label="Notifications" color={accentColor} onPress={() => router.push('/settings/notifications' as any)} />
                     <MenuItem icon={Download} label="Downloads" color={accentColor} onPress={() => router.push('/settings/downloads' as any)} />
                     <MenuItem icon={Shield} label="Privacy & Security" color={accentColor} onPress={() => router.push('/settings/privacy' as any)} />
@@ -394,7 +406,7 @@ export default function ProfileScreen() {
                             onChangeText={setEditName}
                             style={styles.textInput}
                             placeholder="Your display name"
-                            placeholderTextColor="rgba(255,255,255,0.35)"
+                            placeholderTextColor={placeholderColor}
                             editable={!isSavingProfile}
                             maxLength={40}
                         />
@@ -405,7 +417,7 @@ export default function ProfileScreen() {
                             onChangeText={setEditBio}
                             style={[styles.textInput, styles.bioInput]}
                             placeholder="Tell people about your music"
-                            placeholderTextColor="rgba(255,255,255,0.35)"
+                            placeholderTextColor={placeholderColor}
                             editable={!isSavingProfile}
                             multiline
                             maxLength={180}
@@ -427,6 +439,9 @@ export default function ProfileScreen() {
 }
 
 function MenuItem({ icon: Icon, label, value, color, onPress, hideChevron }: any) {
+    const appTheme = useAppTheme();
+    const styles = useProfileStyles();
+
     return (
         <TouchableOpacity style={styles.menuItem} onPress={onPress}>
             <View style={[styles.menuIconContainer, { backgroundColor: `${color}15` }]}>
@@ -436,12 +451,12 @@ function MenuItem({ icon: Icon, label, value, color, onPress, hideChevron }: any
                 <Text style={styles.menuLabel}>{label}</Text>
                 {value && <Text style={styles.menuValue}>{value}</Text>}
             </View>
-            {!hideChevron && <ChevronRight size={18} color="rgba(255,255,255,0.3)" />}
+            {!hideChevron && <ChevronRight size={18} color={appTheme.colors.textTertiary} />}
         </TouchableOpacity>
     );
 }
 
-const styles = StyleSheet.create({
+const legacyStyles = {
     container: {
         flex: 1,
         backgroundColor: '#140F10',
@@ -680,4 +695,4 @@ const styles = StyleSheet.create({
         fontFamily: 'Poppins-Bold',
         fontSize: 13,
     },
-});
+};
