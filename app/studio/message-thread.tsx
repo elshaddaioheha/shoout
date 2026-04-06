@@ -1,5 +1,6 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import { auth, db } from '@/firebaseConfig';
+import { useUserStore } from '@/store/useUserStore';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ArrowLeft, Camera, Paperclip, SendHorizontal } from 'lucide-react-native';
 import {
@@ -7,7 +8,9 @@ import {
   collection,
   doc,
   getDocs,
+  getDoc,
   increment,
+  limit,
   onSnapshot,
   orderBy,
   query,
@@ -16,7 +19,7 @@ import {
   where,
 } from 'firebase/firestore';
 import React, { useEffect, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 type Bubble = {
   id: string;
@@ -28,6 +31,7 @@ type Bubble = {
 
 export default function StudioMessageThreadScreen() {
   const router = useRouter();
+  const { role } = useUserStore();
   const params = useLocalSearchParams<{
     id?: string;
     name?: string;
@@ -115,6 +119,36 @@ export default function StudioMessageThreadScreen() {
     setInput('');
 
     try {
+      const senderUid = auth.currentUser.uid;
+
+      if (role === 'shoout') {
+        const senderSnap = await getDoc(doc(db, `users/${senderUid}`));
+        const recipientSnap = await getDoc(doc(db, `users/${String(otherUserId)}`));
+
+        const senderData = senderSnap.data() as any;
+        const recipientData = recipientSnap.data() as any;
+        const senderFollowing = Array.isArray(senderData?.following) ? senderData.following : [];
+        const recipientFollowing = Array.isArray(recipientData?.following) ? recipientData.following : [];
+        const recipientRole = String(recipientData?.role || recipientData?.actualRole || '').toLowerCase();
+        const senderFollowsRecipient = senderFollowing.includes(String(otherUserId));
+        const recipientFollowsBack = recipientFollowing.includes(senderUid);
+        const recipientIsStudio = recipientRole.startsWith('studio') || recipientRole.startsWith('hybrid');
+
+        if (senderFollowsRecipient && recipientIsStudio && !recipientFollowsBack && resolvedChatId) {
+          const priorMineQ = query(
+            collection(db, 'chats', resolvedChatId, 'messages'),
+            where('senderId', '==', senderUid),
+            limit(1)
+          );
+          const priorMine = await getDocs(priorMineQ);
+          if (!priorMine.empty) {
+            setInput(text);
+            Alert.alert('Message limit reached', 'You can send one message until this studio follows you back.');
+            return;
+          }
+        }
+      }
+
       let chatId = resolvedChatId;
 
       if (!chatId) {

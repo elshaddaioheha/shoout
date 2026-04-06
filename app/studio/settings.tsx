@@ -32,6 +32,9 @@ import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import SettingsHeader from '@/components/settings/SettingsHeader';
 import { useRouter } from 'expo-router';
 import { useUserStore } from '@/store/useUserStore';
+import { auth, db } from '@/firebaseConfig';
+import { updateProfile } from 'firebase/auth';
+import { doc, setDoc } from 'firebase/firestore';
 
 const { width } = Dimensions.get('window');
 
@@ -39,6 +42,7 @@ export default function ArtistSettingsScreen() {
     const router = useRouter();
     // Seed display name from the global store so it matches the rest of the app.
     const storeName = useUserStore((s) => s.name);
+    const setNameInStore = useUserStore((s) => s.setName);
     const [name, setName] = useState(storeName || '');
     const [bio, setBio] = useState('');
     const [website, setWebsite] = useState('');
@@ -47,6 +51,106 @@ export default function ArtistSettingsScreen() {
     const [youtube, setYoutube] = useState('');
     const [isPrivate, setIsPrivate] = useState(false);
     const [notifications, setNotifications] = useState(true);
+    const [saving, setSaving] = useState(false);
+
+    const saveSettings = async () => {
+        const uid = auth.currentUser?.uid;
+        const nextName = name.trim();
+        if (!uid) {
+            Alert.alert('Sign in required', 'Please sign in again to update studio settings.');
+            return;
+        }
+        if (!nextName) {
+            Alert.alert('Display name required', 'Please enter a display name.');
+            return;
+        }
+
+        try {
+            setSaving(true);
+            if (auth.currentUser) {
+                await updateProfile(auth.currentUser, { displayName: nextName });
+            }
+            await setDoc(doc(db, 'users', uid), {
+                fullName: nextName,
+                displayName: nextName,
+                bio,
+                socialLinks: {
+                    website,
+                    instagram,
+                    twitter,
+                    youtube,
+                },
+                preferences: {
+                    isPrivate,
+                    notifications,
+                },
+                updatedAt: new Date().toISOString(),
+            }, { merge: true });
+            setNameInStore(nextName);
+            Alert.alert('Saved', 'Studio settings updated successfully.');
+        } catch (error) {
+            console.error('Failed to save studio settings:', error);
+            Alert.alert('Save failed', 'Could not save settings right now. Please try again.');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const suspendAccount = async () => {
+        const uid = auth.currentUser?.uid;
+        if (!uid) return;
+        Alert.alert(
+            'Suspend account',
+            'Your studio profile will be hidden and payouts paused until you reactivate it. Continue?',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Suspend',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            await setDoc(doc(db, 'users', uid), {
+                                accountStatus: 'suspended',
+                                suspensionRequestedAt: new Date().toISOString(),
+                            }, { merge: true });
+                            Alert.alert('Account suspended', 'Your suspension request is active. You can contact support to reactivate.');
+                        } catch (error) {
+                            console.error('Suspend request failed:', error);
+                            Alert.alert('Request failed', 'Could not suspend account right now.');
+                        }
+                    },
+                },
+            ]
+        );
+    };
+
+    const requestDeletion = async () => {
+        const uid = auth.currentUser?.uid;
+        if (!uid) return;
+        Alert.alert(
+            'Delete account',
+            'This requests permanent account deletion. This action is irreversible after review. Continue?',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Request deletion',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            await setDoc(doc(db, 'users', uid), {
+                                deletionRequestedAt: new Date().toISOString(),
+                                accountStatus: 'deletion_requested',
+                            }, { merge: true });
+                            Alert.alert('Deletion requested', 'Your request was submitted. Support will contact you if verification is required.');
+                        } catch (error) {
+                            console.error('Delete request failed:', error);
+                            Alert.alert('Request failed', 'Could not submit deletion request right now.');
+                        }
+                    },
+                },
+            ]
+        );
+    };
 
     return (
         <SafeScreenWrapper>
@@ -55,7 +159,7 @@ export default function ArtistSettingsScreen() {
                     title="Studio Settings"
                     onBack={() => router.back()}
                     rightElement={(
-                        <TouchableOpacity style={styles.saveButton} onPress={() => Alert.alert('Coming Soon')}>
+                        <TouchableOpacity style={styles.saveButton} onPress={saveSettings} disabled={saving}>
                             <Save size={20} color="#EC5C39" />
                         </TouchableOpacity>
                     )}
@@ -153,10 +257,23 @@ export default function ArtistSettingsScreen() {
 
                     {/* Danger Zone */}
                     <View style={[styles.section, { marginBottom: 40 }]}>
-                        <TouchableOpacity style={styles.dangerButton} onPress={() => Alert.alert('Coming Soon')}>
+                        <Text style={styles.sectionTitle}>Account Safety</Text>
+
+                        <TouchableOpacity style={styles.warningButton} onPress={suspendAccount}>
                             <Shield size={18} color="#FF4D4D" style={{ marginRight: 10 }} />
-                            <Text style={styles.dangerText}>Verify Artist Status</Text>
+                            <Text style={styles.warningText}>Suspend Account</Text>
                         </TouchableOpacity>
+
+                        <TouchableOpacity style={styles.dangerButton} onPress={requestDeletion}>
+                            <Shield size={18} color="#FF4D4D" style={{ marginRight: 10 }} />
+                            <Text style={styles.dangerText}>Request Account Deletion</Text>
+                        </TouchableOpacity>
+
+                        <Text style={styles.recommendedTitle}>Recommended in Studio Settings</Text>
+                        <Text style={styles.recommendedText}>1. Payout account details and tax information.</Text>
+                        <Text style={styles.recommendedText}>2. Verification status and identity checks.</Text>
+                        <Text style={styles.recommendedText}>3. Release defaults (genre, pricing, licensing).</Text>
+                        <Text style={styles.recommendedText}>4. Team access and permissions for collaborators.</Text>
                     </View>
 
                     <View style={{ height: 100 }} />
@@ -351,14 +468,41 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: 'rgba(255, 77, 77, 0.05)',
+        marginTop: 10,
         padding: 16,
         borderRadius: 16,
         borderWidth: 1,
         borderColor: 'rgba(255, 77, 77, 0.1)',
     },
+    warningButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(255, 165, 0, 0.08)',
+        padding: 16,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 165, 0, 0.24)',
+    },
+    warningText: {
+        color: '#FFB84D',
+        fontSize: 15,
+        fontFamily: 'Poppins-Bold',
+    },
     dangerText: {
         color: '#FF4D4D',
         fontSize: 15,
         fontFamily: 'Poppins-Bold',
-    }
+    },
+    recommendedTitle: {
+        marginTop: 16,
+        color: 'rgba(255,255,255,0.9)',
+        fontSize: 13,
+        fontFamily: 'Poppins-SemiBold',
+    },
+    recommendedText: {
+        marginTop: 6,
+        color: 'rgba(255,255,255,0.58)',
+        fontSize: 12,
+        fontFamily: 'Poppins-Regular',
+    },
 });

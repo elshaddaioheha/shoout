@@ -173,7 +173,7 @@ export const SUBSCRIPTION_PLANS: SubscriptionConfig[] = [
     id: 'hybrid',
     label: 'Hybrid',
     shortLabel: 'Hybrid',
-    description: 'Combined creator mode across Vault and Studio.',
+    description: 'Combined creator mode with Publish, Promote, and Vault workflows.',
     category: 'Hybrid',
     monthlyPriceUsd: 21.82,
     annualPerMonthUsd: 18.54,
@@ -181,7 +181,7 @@ export const SUBSCRIPTION_PLANS: SubscriptionConfig[] = [
     color: '#FFD700',
     gradient: ['rgba(255, 215, 0, 0.15)', 'rgba(255, 215, 0, 0.05)', 'rgba(0,0,0,0)'],
     borderColor: '#FFD700',
-    features: ['Vault and Studio access', 'Team collaboration', 'Dedicated support', '10% transaction fee'],
+    features: ['Publish tools', 'Promote & Ads tools', 'Vault workspace access', 'Team collaboration', 'Dedicated support', '10% transaction fee'],
     upgradeTarget: null,
     flags: makeFlags({
       canBuy: true,

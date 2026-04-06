@@ -8,6 +8,7 @@ import { usePlaybackStore } from '@/store/usePlaybackStore';
 import { useToastStore } from '@/store/useToastStore';
 import { useUserStore } from '@/store/useUserStore';
 import { useAuthStore } from '@/store/useAuthStore';
+import { getModeTheme } from '@/utils/appModeTheme';
 import { getEffectivePlan } from '@/utils/subscriptions';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -123,6 +124,11 @@ export default function MarketplaceScreen() {
     const [filterCategory, setFilterCategory] = useState('All');
 
     const isStudioMode = activeAppMode === 'studio' || activeAppMode === 'hybrid';
+    const modeTheme = getModeTheme(activeAppMode);
+    const accentColor = modeTheme.accent;
+    const accentStrong = modeTheme.accentStrong;
+    const accentTint = modeTheme.accentTint;
+    const accentSoft = modeTheme.accentSoft;
 
     if (activeAppMode === 'studio' || activeAppMode === 'hybrid') {
         return <StudioPromoteScreen />;
@@ -159,11 +165,11 @@ export default function MarketplaceScreen() {
                 <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
                     {/* Merch Store Entry */}
                     <TouchableOpacity
-                        style={styles.merchBanner}
+                        style={[styles.merchBanner, { borderColor: accentTint }]}
                         onPress={() => router.push('/merch' as any)}
                     >
                         <LinearGradient
-                            colors={['#EC5C39', '#863420']}
+                            colors={[accentColor, accentStrong]}
                             start={{ x: 0, y: 0 }}
                             end={{ x: 1, y: 0 }}
                             style={styles.merchGradient}
@@ -190,7 +196,7 @@ export default function MarketplaceScreen() {
                                 onChangeText={setSearchQuery}
                             />
                         </View>
-                        <TouchableOpacity style={styles.filterButton} onPress={() => setFilterOpen(true)}>
+                        <TouchableOpacity style={[styles.filterButton, { backgroundColor: accentSoft }]} onPress={() => setFilterOpen(true)}>
                             <Filter size={20} color="#FFF" />
                         </TouchableOpacity>
                     </View>
@@ -221,7 +227,7 @@ export default function MarketplaceScreen() {
                                     <Text style={styles.studioActionText}>Upload</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity
-                                    style={[styles.studioActionBtn, { backgroundColor: '#EC5C39' }]}
+                                    style={[styles.studioActionBtn, { backgroundColor: accentColor }]}
                                     onPress={() => {
                                         if (!isStudioPaid) {
                                             showToast('Upgrade to Studio Pro to access earnings.', 'info');
@@ -239,14 +245,14 @@ export default function MarketplaceScreen() {
 
                     {loading ? (
                         <View style={{ padding: 40, alignItems: 'center' }}>
-                            <ActivityIndicator color="#EC5C39" />
+                            <ActivityIndicator color={accentColor} />
                             <Text style={{ color: 'rgba(255,255,255,0.4)', marginTop: 10 }}>Loading Store...</Text>
                         </View>
                     ) : (
                         <>
-                            <MarketplaceSection title="Trending Beats" items={filteredTrending} />
-                            <MarketplaceSection title="Top Samples" items={filteredSamples} />
-                            <MarketplaceSection title="New Arrivals" items={filteredArrivals} />
+                            <MarketplaceSection title="Trending Beats" items={filteredTrending} accentColor={accentColor} accentStrong={accentStrong} />
+                            <MarketplaceSection title="Top Samples" items={filteredSamples} accentColor={accentColor} accentStrong={accentStrong} />
+                            <MarketplaceSection title="New Arrivals" items={filteredArrivals} accentColor={accentColor} accentStrong={accentStrong} />
 
                             {hasMore && (
                                 <TouchableOpacity style={styles.loadMoreButton} onPress={handleLoadMore} disabled={loadingMore}>
@@ -282,7 +288,7 @@ export default function MarketplaceScreen() {
     );
 }
 
-function MarketplaceSection({ title, items }: any) {
+function MarketplaceSection({ title, items, accentColor, accentStrong }: any) {
     const setTrack = usePlaybackStore(state => state.setTrack);
     const router = useRouter();
 
@@ -308,7 +314,7 @@ function MarketplaceSection({ title, items }: any) {
         <View style={styles.section}>
             <View style={styles.sectionHeader}>
                 <Text style={styles.sectionTitle}>{title}</Text>
-                <TouchableOpacity onPress={() => router.push('/(tabs)/marketplace')}><Text style={styles.seeAll}>See All</Text></TouchableOpacity>
+                <TouchableOpacity onPress={() => router.push('/(tabs)/marketplace')}><Text style={[styles.seeAll, { color: accentColor }]}>See All</Text></TouchableOpacity>
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
                 {items.map((item: any, idx: number) => (
@@ -328,7 +334,7 @@ function MarketplaceSection({ title, items }: any) {
                                 />
                             ) : null}
                             <Music size={32} color="rgba(255,255,255,0.1)" />
-                            <View style={styles.priceBadge}>
+                            <View style={[styles.priceBadge, { backgroundColor: accentColor }]}>
                                 <Text style={styles.priceText}>
                                     {isUpcoming ? 'Pre-order ' : ''}${item.price?.toFixed(2) || '0.00'}
                                 </Text>
@@ -354,7 +360,7 @@ function MarketplaceSection({ title, items }: any) {
                                 }}
                             >
                                 <LinearGradient
-                                    colors={['#EC5C39', '#863420']}
+                                    colors={[accentColor, accentStrong]}
                                     style={styles.previewCircle}
                                 >
                                     <Music size={14} color="#FFF" />
@@ -381,7 +387,7 @@ const styles = StyleSheet.create({
     searchRow: { flexDirection: 'row', gap: 12, paddingHorizontal: 24, marginBottom: 24 },
     searchBar: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 16, paddingHorizontal: 16, height: 50 },
     searchInput: { flex: 1, marginLeft: 12, color: '#FFF', fontFamily: 'Poppins-Regular' },
-    filterButton: { width: 50, height: 50, borderRadius: 16, backgroundColor: 'rgba(236, 92, 57, 0.1)', alignItems: 'center', justifyContent: 'center' },
+    filterButton: { width: 50, height: 50, borderRadius: 16, backgroundColor: 'rgba(106, 167, 255, 0.1)', alignItems: 'center', justifyContent: 'center' },
     studioBanner: { marginHorizontal: 24, padding: 20, borderRadius: 24, marginBottom: 32, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
     studioTitle: { fontSize: 16, fontFamily: 'Poppins-Bold', color: '#FFF' },
     studioSubtitle: { fontSize: 12, fontFamily: 'Poppins-Regular', color: 'rgba(255,255,255,0.4)', marginBottom: 16 },
@@ -392,12 +398,12 @@ const styles = StyleSheet.create({
     section: { marginBottom: 32 },
     sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, marginBottom: 16 },
     sectionTitle: { fontSize: 18, fontFamily: 'Poppins-Bold', color: '#FFF' },
-    seeAll: { fontSize: 14, fontFamily: 'Poppins-Medium', color: '#EC5C39' },
+    seeAll: { fontSize: 14, fontFamily: 'Poppins-Medium', color: '#6AA7FF' },
     horizontalScroll: { paddingLeft: 24 },
     marketCard: { width: 160, marginRight: 16 },
     cardImage: { width: 160, height: 160, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.03)', alignItems: 'center', justifyContent: 'center', marginBottom: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', overflow: 'hidden' },
     cardImageAsset: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%' },
-    priceBadge: { position: 'absolute', bottom: 12, right: 12, backgroundColor: '#EC5C39', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
+    priceBadge: { position: 'absolute', bottom: 12, right: 12, backgroundColor: '#6AA7FF', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
     priceText: { color: '#FFF', fontSize: 12, fontFamily: 'Poppins-Bold' },
     itemTitle: { color: '#FFF', fontSize: 15, fontFamily: 'Poppins-SemiBold' },
     itemArtist: { color: 'rgba(255,255,255,0.4)', fontSize: 12, fontFamily: 'Poppins-Regular' },
@@ -411,7 +417,7 @@ const styles = StyleSheet.create({
         width: 32,
         height: 32,
         borderRadius: 16,
-        backgroundColor: 'rgba(236, 92, 57, 0.2)',
+        backgroundColor: 'rgba(106, 167, 255, 0.2)',
         alignItems: 'center',
         justifyContent: 'center',
         elevation: 4,
@@ -443,7 +449,7 @@ const styles = StyleSheet.create({
         borderRadius: 20,
         overflow: 'hidden',
         borderWidth: 1,
-        borderColor: 'rgba(236, 92, 57, 0.3)',
+        borderColor: 'rgba(106, 167, 255, 0.3)',
     },
     merchGradient: {
         flexDirection: 'row',

@@ -1,12 +1,14 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import SettingsHeader from '@/components/settings/SettingsHeader';
-import { db } from '@/firebaseConfig';
+import { auth, db } from '@/firebaseConfig';
+import { useCartStore } from '@/store/useCartStore';
 import { usePlaybackStore } from '@/store/usePlaybackStore';
+import { useToastStore } from '@/store/useToastStore';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Heart, MoreVertical, Play, ShoppingCart, Shuffle } from 'lucide-react-native';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { collection, doc, getDoc, getDocs, orderBy, query } from 'firebase/firestore';
+import { collection, deleteDoc, doc, getDoc, getDocs, onSnapshot, orderBy, query, setDoc } from 'firebase/firestore';
 
 type PlaylistTrackRef = {
   id: string;
@@ -22,22 +24,62 @@ type PlaylistTrack = {
   title: string;
   artist: string;
   duration: string;
+  durationMs: number;
   price?: number;
   url: string;
   artworkUrl?: string;
   uploaderId: string;
 };
 
+function formatDurationFromMs(ms: number) {
+  if (!ms || ms < 0) return '0:00';
+  const totalSeconds = Math.floor(ms / 1000);
+  const mins = Math.floor(totalSeconds / 60);
+  const secs = totalSeconds % 60;
+  return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+}
+
+function parseDurationMs(raw: any) {
+  const direct = Number(raw?.durationMs || raw?.durationMillis || raw?.duration || 0);
+  if (Number.isFinite(direct) && direct > 0) {
+    return direct > 10000 ? direct : direct * 1000;
+  }
+  return 190000;
+}
+
 export default function PlaylistScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
+  const { addItem } = useCartStore();
+  const { showToast } = useToastStore();
   const initializePlaylist = usePlaybackStore(state => state.initializePlaylist);
 
   const playlistId = String(params.id || '');
   const [loading, setLoading] = useState(true);
   const [playlistName, setPlaylistName] = useState(String(params.title || 'Playlist'));
   const [playlistSubtitle, setPlaylistSubtitle] = useState('Curated selection');
+  const [createdByLabel, setCreatedByLabel] = useState('Unknown creator');
+  const [createdDateLabel, setCreatedDateLabel] = useState('');
   const [tracks, setTracks] = useState<PlaylistTrack[]>([]);
+  const [favouriteIds, setFavouriteIds] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    const uid = auth.currentUser?.uid;
+    if (!uid) {
+      setFavouriteIds({});
+      return;
+    }
+
+    const unsub = onSnapshot(collection(db, `users/${uid}/favourites`), (snap) => {
+      const map: Record<string, boolean> = {};
+      snap.forEach((item) => {
+        map[item.id] = true;
+      });
+      setFavouriteIds(map);
+    });
+
+    return () => unsub();
+  }, []);
 
   useEffect(() => {
     const loadPlaylist = async () => {
@@ -52,6 +94,20 @@ export default function PlaylistScreen() {
           const data = playlistSnap.data() as any;
           setPlaylistName(String(data.name || params.title || 'Playlist'));
           setPlaylistSubtitle(data.isPublic ? 'Public playlist' : 'Private playlist');
+
+          const createdAtDate = data.createdAt?.toDate?.();
+          setCreatedDateLabel(createdAtDate ? createdAtDate.toLocaleDateString() : '');
+
+          if (data.ownerId) {
+            const ownerSnap = await getDoc(doc(db, `users/${String(data.ownerId)}`));
+            if (ownerSnap.exists()) {
+              const ownerData = ownerSnap.data() as any;
+              const ownerName = String(ownerData.fullName || ownerData.displayName || '').trim();
+              setCreatedByLabel(ownerName || `Creator ${String(data.ownerId).slice(-5)}`);
+            } else {
+              setCreatedByLabel(`Creator ${String(data.ownerId).slice(-5)}`);
+            }
+          }
         }
 
         const refsQuery = query(
@@ -70,12 +126,14 @@ export default function PlaylistScreen() {
           const upload = uploadSnap.data() as any;
           const audioUrl = String(upload.audioUrl || '');
           if (!audioUrl) return null;
+          const trackDurationMs = parseDurationMs(upload);
 
           return {
             id: refRow.uploadId,
             title: String(upload.title || refRow.titleSnapshot || 'Untitled'),
             artist: String(upload.uploaderName || upload.artist || refRow.artistSnapshot || 'Artist'),
-            duration: '3:10',
+            duration: formatDurationFromMs(trackDurationMs),
+            durationMs: trackDurationMs,
             price: Number(upload.price || 0),
             url: audioUrl,
             artworkUrl: String(upload.coverUrl || upload.artworkUrl || refRow.artworkSnapshot || ''),
@@ -95,6 +153,7 @@ export default function PlaylistScreen() {
   }, [params.title, playlistId]);
 
   const coverUri = useMemo(() => tracks.find((track) => !!track.artworkUrl)?.artworkUrl || '', [tracks]);
+  const totalDurationMs = useMemo(() => tracks.reduce((sum, track) => sum + (track.durationMs || 0), 0), [tracks]);
 
   const mapForPlayback = (rows: PlaylistTrack[]) => rows.map((track) => ({
     id: track.id,
@@ -130,6 +189,48 @@ export default function PlaylistScreen() {
     } catch (error) {
       console.error('Failed to start shuffled playlist:', error);
       Alert.alert('Error', 'Failed to start playback');
+    }
+  };
+
+  const handleTrackAddToCart = (track: PlaylistTrack) => {
+    addItem({
+      id: track.id,
+      title: track.title,
+      artist: track.artist,
+      price: track.price || 0,
+      audioUrl: track.url,
+      uploaderId: track.uploaderId,
+      category: 'Track',
+    });
+    showToast(`${track.title} added to cart.`, 'success');
+  };
+
+  const handleToggleFavourite = async (track: PlaylistTrack) => {
+    const uid = auth.currentUser?.uid;
+    if (!uid) {
+      showToast('Sign in to save favourites.', 'info');
+      return;
+    }
+
+    const favRef = doc(db, `users/${uid}/favourites`, track.id);
+    try {
+      if (favouriteIds[track.id]) {
+        await deleteDoc(favRef);
+        showToast('Removed from favourites.', 'info');
+      } else {
+        await setDoc(favRef, {
+          id: track.id,
+          title: track.title,
+          artist: track.artist,
+          url: track.url,
+          uploaderId: track.uploaderId || '',
+          addedAt: new Date().toISOString(),
+        });
+        showToast('Added to favourites.', 'success');
+      }
+    } catch (error) {
+      console.error('Toggle favourite in playlist failed:', error);
+      showToast('Could not update favourite right now.', 'error');
     }
   };
 
@@ -180,6 +281,11 @@ export default function PlaylistScreen() {
 
             <View style={styles.metaRow}>
               <Text style={styles.metaText}>{tracks.length} track{tracks.length === 1 ? '' : 's'}</Text>
+              <Text style={styles.metaText}>Total {formatDurationFromMs(totalDurationMs)}</Text>
+            </View>
+            <View style={styles.metaRow}>
+              <Text style={styles.metaText}>By {createdByLabel}</Text>
+              <Text style={styles.metaText}>{createdDateLabel ? `Created ${createdDateLabel}` : ''}</Text>
             </View>
 
             <View style={styles.trackList}>
@@ -211,11 +317,11 @@ export default function PlaylistScreen() {
                     </View>
                     <View style={styles.trackActions}>
                       <Text style={styles.trackDuration}>{track.duration}</Text>
-                      <TouchableOpacity style={styles.smallIcon} onPress={() => Alert.alert('Coming Soon')}>
+                      <TouchableOpacity style={styles.smallIcon} onPress={() => handleTrackAddToCart(track)}>
                         <ShoppingCart size={16} color="#EC5C39" />
                       </TouchableOpacity>
-                      <TouchableOpacity style={styles.smallIcon} onPress={() => Alert.alert('Coming Soon')}>
-                        <Heart size={16} color="#EC5C39" />
+                      <TouchableOpacity style={styles.smallIcon} onPress={() => handleToggleFavourite(track)}>
+                        <Heart size={16} color="#EC5C39" fill={favouriteIds[track.id] ? '#EC5C39' : 'transparent'} />
                       </TouchableOpacity>
                     </View>
                   </TouchableOpacity>

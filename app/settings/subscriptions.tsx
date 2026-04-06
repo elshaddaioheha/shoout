@@ -5,7 +5,7 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { useUserStore } from '@/store/useUserStore';
 import { hydrateSubscriptionTier } from '@/utils/subscriptionVerification';
 import { formatUsd, usdToNgn } from '@/utils/pricing';
-import { SUBSCRIPTION_PLANS, type SubscriptionPlanId } from '@/utils/subscriptions';
+import { getSubscriptionPlan, SUBSCRIPTION_PLANS, type SubscriptionPlanId } from '@/utils/subscriptions';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { PayWithFlutterwave } from 'flutterwave-react-native';
@@ -39,6 +39,18 @@ const PLANS = SUBSCRIPTION_PLANS.map((plan) => ({
     description: plan.description,
 }));
 
+function hexToRgba(hex: string, alpha: number) {
+    const value = hex.replace('#', '');
+    const safe = value.length === 3
+        ? value.split('').map((char) => char + char).join('')
+        : value;
+    const int = Number.parseInt(safe, 16);
+    const r = (int >> 16) & 255;
+    const g = (int >> 8) & 255;
+    const b = int & 255;
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 export default function SubscriptionsScreen() {
     const router = useRouter();
     const { role, activeAppMode, setActiveAppMode } = useUserStore();
@@ -52,8 +64,11 @@ export default function SubscriptionsScreen() {
     const [isVerifying, setIsVerifying] = useState(false);
     const [showSuccessSplash, setShowSuccessSplash] = useState(false);
     const [splashPlanName, setSplashPlanName] = useState('');
+    const [splashAccent, setSplashAccent] = useState('#EC5C39');
     const [pendingTxRef, setPendingTxRef] = useState<string>('');
     const splashAnim = React.useRef(new Animated.Value(0)).current;
+
+    const activeCategoryColor = CATEGORY_TABS.find((tab) => tab.id === activeCategory)?.color || '#EC5C39';
 
     const visiblePlans = useMemo(
         () => PLANS.filter((plan) => plan.category === activeCategory),
@@ -64,6 +79,7 @@ export default function SubscriptionsScreen() {
 
     const showUpgradeSuccess = (planId: string) => {
         setSplashPlanName(planId.replace('_', ' ').toUpperCase());
+        setSplashAccent(getSubscriptionPlan(planId as SubscriptionPlanId).color);
         setShowSuccessSplash(true);
         Animated.sequence([
             Animated.timing(splashAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
@@ -132,14 +148,6 @@ export default function SubscriptionsScreen() {
         setShowPaymentModal(true);
     };
 
-    const handleStripePayment = () => {
-        setShowPaymentModal(false);
-        Alert.alert(
-            'Stripe unavailable',
-            'Stripe/Google Pay checkout is disabled until secure backend verification is deployed. Use Flutterwave for now.'
-        );
-    };
-
     return (
         <SafeScreenWrapper>
             <View style={styles.container}>
@@ -147,7 +155,7 @@ export default function SubscriptionsScreen() {
 
                 <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
                     <View style={styles.introSection}>
-                        <Sparkles size={40} color="#EC5C39" />
+                        <Sparkles size={40} color={activeCategoryColor} />
                         <Text style={styles.introTitle}>Choose Your Shoout Experience</Text>
                         <Text style={styles.introSubtitle}>One switcher. Five experiences. Upgrade when you are ready.</Text>
 
@@ -182,18 +190,18 @@ export default function SubscriptionsScreen() {
                             <Switch
                                 value={isAnnual}
                                 onValueChange={setIsAnnual}
-                                trackColor={{ false: 'rgba(255,255,255,0.1)', true: '#EC5C39' }}
+                                trackColor={{ false: 'rgba(255,255,255,0.1)', true: activeCategoryColor }}
                                 thumbColor="#FFF"
                                 style={styles.billingToggleSwitch}
                             />
                             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                                 <Text style={[styles.billingToggleText, isAnnual && styles.activeBillingText]}>Annually </Text>
-                                <View style={styles.discountBadge}>
-                                    <Text style={styles.discountBadgeText}>Switcher Ready</Text>
+                                <View style={[styles.discountBadge, { backgroundColor: hexToRgba(activeCategoryColor, 0.2) }]}>
+                                    <Text style={[styles.discountBadgeText, { color: activeCategoryColor }]}>Switcher Ready</Text>
                                 </View>
                             </View>
                         </View>
-                        <Text style={styles.discountNote}>All five subscriptions are represented in the app switcher.</Text>
+                        <Text style={[styles.discountNote, { color: hexToRgba(activeCategoryColor, 0.8) }]}>All five subscriptions are represented in the app switcher.</Text>
                     </View>
 
                     {visiblePlans.map((plan) => {
@@ -236,7 +244,7 @@ export default function SubscriptionsScreen() {
                                         {dueUsd > 0 && <Text style={styles.planPeriod}>/{isAnnual ? 'month (annual billing)' : 'month'}</Text>}
                                     </View>
                                     {isAnnual && plan.annualTotalUsd > 0 ? (
-                                        <Text style={styles.annualTotalText}>Billed as {formatUsd(plan.annualTotalUsd)} per year (charged in NGN)</Text>
+                                        <Text style={[styles.annualTotalText, { color: hexToRgba(plan.color, 0.95) }]}>Billed as {formatUsd(plan.annualTotalUsd)} per year (charged in NGN)</Text>
                                     ) : null}
                                 </View>
 
@@ -331,14 +339,10 @@ export default function SubscriptionsScreen() {
                                 />
                             )}
 
-                            <TouchableOpacity style={[styles.paymentOption, { marginBottom: 10 }]} onPress={handleStripePayment}>
-                                <CreditCard color="#635BFF" size={24} />
-                                <View style={styles.payOptionTexts}>
-                                    <Text style={styles.payOptionTitle}>Pay with Stripe</Text>
-                                    <Text style={styles.payOptionSub}>Disabled until backend verification is live</Text>
-                                </View>
-                                <ChevronLeft size={20} color="rgba(255,255,255,0.2)" style={{ transform: [{ rotate: '180deg' }] }} />
-                            </TouchableOpacity>
+                            <View style={styles.disabledPaymentNotice}>
+                                <CreditCard color="rgba(99,91,255,0.6)" size={20} />
+                                <Text style={styles.disabledPaymentNoticeText}>Stripe is temporarily unavailable. Flutterwave is currently the active checkout option.</Text>
+                            </View>
                         </View>
                     </View>
                 </Modal>
@@ -353,12 +357,12 @@ export default function SubscriptionsScreen() {
                 {showSuccessSplash && (
                     <Animated.View style={[styles.splashOverlay, { opacity: splashAnim }]}> 
                         <LinearGradient
-                            colors={['#140F10', '#EC5C39', '#140F10']}
+                            colors={['#140F10', hexToRgba(splashAccent, 0.72), '#140F10']}
                             style={StyleSheet.absoluteFillObject}
                         />
-                        <PartyPopper size={80} color="#FFD700" style={{ marginBottom: 20 }} />
+                        <PartyPopper size={80} color={splashAccent} style={{ marginBottom: 20 }} />
                         <Text style={styles.splashTitle}>Welcome to Premium!</Text>
-                        <Text style={styles.splashSub}>You are now on the {splashPlanName} experience.</Text>
+                        <Text style={[styles.splashSub, { color: splashAccent }]}>You are now on the {splashPlanName} experience.</Text>
                     </Animated.View>
                 )}
             </View>
@@ -416,6 +420,24 @@ const styles = StyleSheet.create({
     payOptionTexts: { flex: 1, marginLeft: 16 },
     payOptionTitle: { fontSize: 16, fontFamily: 'Poppins-Bold', color: '#FFF' },
     payOptionSub: { fontSize: 13, fontFamily: 'Poppins-Regular', color: 'rgba(255,255,255,0.5)' },
+    disabledPaymentNotice: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: 'rgba(99, 91, 255, 0.25)',
+        backgroundColor: 'rgba(99, 91, 255, 0.08)',
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        marginBottom: 10,
+    },
+    disabledPaymentNoticeText: {
+        flex: 1,
+        color: 'rgba(255,255,255,0.7)',
+        fontFamily: 'Poppins-Regular',
+        fontSize: 12,
+    },
     loadingOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.8)', alignItems: 'center', justifyContent: 'center', zIndex: 999 },
     loadingText: { color: '#FFF', fontFamily: 'Poppins-Bold', marginTop: 16, fontSize: 16 },
     splashOverlay: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', zIndex: 1000, backgroundColor: '#140F10' },

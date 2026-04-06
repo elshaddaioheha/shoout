@@ -226,8 +226,8 @@ function MerchCard({ item, onDelete }: any) {
                 onClose={() => setMenuOpen(false)}
                 title={item.title}
                 options={[
-                    { label: 'Edit Listing', icon: <Edit3 size={18} color="#FFF" />, onPress: () => useToastStore.getState().showToast('Merch editing coming soon.', 'info') },
-                    { label: 'Manage Variants', icon: <Layers size={18} color="#FFF" />, onPress: () => useToastStore.getState().showToast('Variant management coming soon.', 'info') },
+                    { label: 'Edit Listing (Temporarily Disabled)', icon: <Edit3 size={18} color="rgba(255,255,255,0.45)" />, onPress: () => { } },
+                    { label: 'Manage Variants (Temporarily Disabled)', icon: <Layers size={18} color="rgba(255,255,255,0.45)" />, onPress: () => { } },
                     { label: 'Delete', icon: <Trash2 size={18} color="#FF4D4D" />, onPress: onDelete, destructive: true },
                 ]}
             />
@@ -248,13 +248,13 @@ function MerchCard({ item, onDelete }: any) {
             </View>
 
             <View style={styles.cardActions}>
-                <TouchableOpacity style={styles.actionBtn} onPress={() => useToastStore.getState().showToast('Merch editing coming soon.', 'info')}>
-                    <Edit3 size={16} color="#FFF" />
-                    <Text style={styles.actionBtnText}>Edit</Text>
+                <TouchableOpacity style={[styles.actionBtn, styles.disabledActionBtn]} disabled>
+                    <Edit3 size={16} color="rgba(255,255,255,0.45)" />
+                    <Text style={[styles.actionBtnText, styles.disabledActionLabel]}>Edit (Disabled)</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.actionBtn} onPress={() => useToastStore.getState().showToast('Variant management coming soon.', 'info')}>
-                    <Layers size={16} color="#FFF" />
-                    <Text style={styles.actionBtnText}>Variants</Text>
+                <TouchableOpacity style={[styles.actionBtn, styles.disabledActionBtn]} disabled>
+                    <Layers size={16} color="rgba(255,255,255,0.45)" />
+                    <Text style={[styles.actionBtnText, styles.disabledActionLabel]}>Variants (Disabled)</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.actionBtn} onPress={onDelete}>
                     <Trash2 size={16} color="rgba(255,255,255,0.6)" />
@@ -451,10 +451,16 @@ const styles = StyleSheet.create({
         paddingVertical: 8,
         borderRadius: 10,
     },
+    disabledActionBtn: {
+        backgroundColor: 'rgba(255,255,255,0.03)',
+    },
     actionBtnText: {
         color: '#FFF',
         fontSize: 12,
         fontFamily: 'Poppins-SemiBold',
+    },
+    disabledActionLabel: {
+        color: 'rgba(255,255,255,0.5)',
     },
     deleteText: {
         color: 'rgba(255,255,255,0.6)',

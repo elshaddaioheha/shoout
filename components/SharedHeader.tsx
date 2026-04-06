@@ -35,6 +35,13 @@ export default function SharedHeader({
     const isVaultMode = viewMode === 'vault' || viewMode === 'vault_pro';
     const shouldShowCart = Boolean(showCart) && !isVaultMode;
     const shouldShowMessages = Boolean(showMessages) && !isVaultMode;
+    const accentColor = effectiveRole === 'hybrid'
+        ? '#FFD700'
+        : effectiveRole === 'studio'
+            ? '#4CAF50'
+            : effectiveRole === 'shoout'
+                ? '#6AA7FF'
+                : '#EC5C39';
 
     const getRoleGradient = (): readonly [string, string, ...string[]] => {
         if (effectiveRole === 'shoout') return ['rgba(106, 167, 255, 0.2)', 'rgba(20, 15, 16, 1)'];
@@ -74,7 +81,7 @@ export default function SharedHeader({
                                 >
                                     <ShoppingCart size={18} color="white" />
                                     {cartCount != null && cartCount > 0 && (
-                                        <View style={styles.badge} />
+                                        <View style={[styles.badge, { backgroundColor: accentColor }]} />
                                     )}
                                 </TouchableOpacity>
                             )}
@@ -84,7 +91,7 @@ export default function SharedHeader({
                             >
                                 <Bell size={18} color="white" />
                                 {unreadCount > 0 && (
-                                    <View style={styles.badge} />
+                                    <View style={[styles.badge, { backgroundColor: accentColor }]} />
                                 )}
                             </TouchableOpacity>
                         </>

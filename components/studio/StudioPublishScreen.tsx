@@ -17,6 +17,9 @@ export default function StudioPublishScreen() {
   const currentPlan = getEffectivePlan(useAuthStore((state) => state.actualRole));
   const canUseServices = canUseStudioServices(currentPlan);
   const { tracks, drafts, publishedTracks, recentTransactions, loading } = useStudioWorkspaceData();
+  const accentColor = viewMode === 'hybrid' ? '#FFD700' : '#4CAF50';
+  const accentTint = viewMode === 'hybrid' ? 'rgba(255,215,0,0.12)' : 'rgba(76,175,80,0.12)';
+  const accentCard = viewMode === 'hybrid' ? 'rgba(255,215,0,0.06)' : 'rgba(76,175,80,0.06)';
 
   const requireStudioSubscription = () => {
     if (canUseServices) return false;
@@ -35,10 +38,10 @@ export default function StudioPublishScreen() {
       />
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 120 }]}>
-        <View style={styles.heroCard}>
-          <Text style={styles.heroEyebrow}>Publish</Text>
+        <View style={[styles.heroCard, { borderColor: accentTint, backgroundColor: accentCard }]}>
+          <Text style={[styles.heroEyebrow, { color: accentColor }]}>Publish</Text>
           <Text style={styles.heroTitle}>Upload tracks, manage releases, and keep royalties visible.</Text>
-          <TouchableOpacity style={styles.heroButton} onPress={() => {
+          <TouchableOpacity style={[styles.heroButton, { backgroundColor: accentColor }]} onPress={() => {
             if (requireStudioSubscription()) return;
             router.push('/studio/upload' as any);
           }} activeOpacity={0.9}>
@@ -48,28 +51,28 @@ export default function StudioPublishScreen() {
         </View>
 
         <View style={styles.summaryRow}>
-          <View style={styles.summaryCard}>
+          <View style={[styles.summaryCard, { borderColor: accentTint, backgroundColor: accentCard }]}>
             <Text style={styles.summaryValue}>{tracks.length}</Text>
             <Text style={styles.summaryLabel}>All uploads</Text>
           </View>
-          <View style={styles.summaryCard}>
+          <View style={[styles.summaryCard, { borderColor: accentTint, backgroundColor: accentCard }]}>
             <Text style={styles.summaryValue}>{publishedTracks.length}</Text>
             <Text style={styles.summaryLabel}>Published</Text>
           </View>
-          <View style={styles.summaryCard}>
+          <View style={[styles.summaryCard, { borderColor: accentTint, backgroundColor: accentCard }]}>
             <Text style={styles.summaryValue}>{drafts.length}</Text>
             <Text style={styles.summaryLabel}>Drafts</Text>
           </View>
         </View>
 
-        <View style={styles.panel}>
+        <View style={[styles.panel, { borderColor: accentTint, backgroundColor: accentCard }]}>
           <View style={styles.panelHeader}>
             <Text style={styles.panelTitle}>Track Manager</Text>
             <TouchableOpacity onPress={() => {
               if (requireStudioSubscription()) return;
               router.push('/studio/upload' as any);
             }} activeOpacity={0.8}>
-              <Text style={styles.panelLink}>Open upload flow</Text>
+              <Text style={[styles.panelLink, { color: accentColor }]}>Open upload flow</Text>
             </TouchableOpacity>
           </View>
           {loading ? <Text style={styles.placeholder}>Loading uploads...</Text> : null}
@@ -77,7 +80,7 @@ export default function StudioPublishScreen() {
           {!loading && tracks.slice(0, 8).map((track) => (
             <View key={track.id} style={styles.trackRow}>
               <View style={styles.trackIcon}>
-                <Music4 size={18} color="#4CAF50" />
+                <Music4 size={18} color={accentColor} />
               </View>
               <View style={styles.trackInfo}>
                 <Text style={styles.trackTitle} numberOfLines={1}>{track.title || 'Untitled Track'}</Text>
@@ -85,31 +88,31 @@ export default function StudioPublishScreen() {
                   {track.published === true || track.lifecycleStatus === 'published' ? 'Published' : 'Draft'} · {formatUsd(Number(track.price || 0))}
                 </Text>
               </View>
-              <TouchableOpacity style={styles.inlineAction} onPress={() => {
+              <TouchableOpacity style={[styles.inlineAction, { backgroundColor: accentTint }]} onPress={() => {
                 if (requireStudioSubscription()) return;
                 router.push('/studio/upload' as any);
               }} activeOpacity={0.8}>
-                <FilePenLine size={16} color="#4CAF50" />
+                <FilePenLine size={16} color={accentColor} />
               </TouchableOpacity>
             </View>
           ))}
         </View>
 
-        <View style={styles.panel}>
+        <View style={[styles.panel, { borderColor: accentTint, backgroundColor: accentCard }]}>
           <View style={styles.panelHeader}>
             <Text style={styles.panelTitle}>Royalties</Text>
             <TouchableOpacity onPress={() => {
               if (requireStudioSubscription()) return;
               router.push('/studio/earnings' as any);
             }} activeOpacity={0.8}>
-              <Text style={styles.panelLink}>Open earnings</Text>
+              <Text style={[styles.panelLink, { color: accentColor }]}>Open earnings</Text>
             </TouchableOpacity>
           </View>
           {recentTransactions.length === 0 ? <Text style={styles.placeholder}>Royalty-related sales will show here as customers purchase your releases.</Text> : null}
           {recentTransactions.map((tx) => (
             <View key={tx.id} style={styles.trackRow}>
               <View style={styles.trackIcon}>
-                <CircleDollarSign size={18} color="#4CAF50" />
+                <CircleDollarSign size={18} color={accentColor} />
               </View>
               <View style={styles.trackInfo}>
                 <Text style={styles.trackTitle} numberOfLines={1}>{tx.trackTitle || 'Track purchased'}</Text>

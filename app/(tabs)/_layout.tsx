@@ -2,6 +2,7 @@ import MiniPlayer from '@/components/MiniPlayer';
 import ModeSelectorSheet from '@/components/ModeSelectorSheet';
 import ModeTransitionOverlay from '@/components/ModeTransitionOverlay';
 import ResponsiveBottomTabBar from '@/components/ResponsiveBottomTabBar';
+import VaultMiniPlayer from '@/components/VaultMiniPlayer';
 import { useAppSwitcher } from '@/hooks/useAppSwitcher';
 import { Tabs } from 'expo-router';
 import React from 'react';
@@ -114,7 +115,7 @@ export default function TabLayout() {
         <Tabs.Screen name="explore" options={{ href: null }} />
       </Tabs>
 
-      <MiniPlayer />
+      {(viewMode === 'vault' || viewMode === 'vault_pro') ? <VaultMiniPlayer /> : <MiniPlayer />}
 
       <ModeSelectorSheet
         visible={sheetVisible}

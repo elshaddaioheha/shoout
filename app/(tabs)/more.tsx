@@ -7,6 +7,7 @@ import { useNotificationStore } from '@/store/useNotificationStore';
 import { usePlaybackStore } from '@/store/usePlaybackStore';
 import { useToastStore } from '@/store/useToastStore';
 import { useUserStore } from '@/store/useUserStore';
+import { getModeTheme } from '@/utils/appModeTheme';
 import { canUseHybridServices, canUseStudioServices, getEffectivePlan } from '@/utils/subscriptions';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -30,13 +31,13 @@ export default function MoreScreen() {
         return unsub;
     }, []);
 
-    const isStudioOrHybrid = role?.startsWith('studio') || role?.startsWith('hybrid');
     const isVaultMode = activeAppMode === 'vault' || activeAppMode === 'vault_pro';
-    const isShooutMode = activeAppMode === 'shoout';
     const isStudioMode = activeAppMode === 'studio';
     const isHybridMode = activeAppMode === 'hybrid';
     const canUseStudioTools = canUseStudioServices(currentPlan);
     const canUseHybridTools = canUseHybridServices(currentPlan);
+    const modeTheme = getModeTheme(activeAppMode);
+    const accentColor = modeTheme.accent;
 
     const pushSubscriptions = () => router.push('/settings/subscriptions' as any);
 
@@ -109,11 +110,11 @@ export default function MoreScreen() {
                     viewMode={viewMode}
                     isModeSheetOpen={isModeSheetOpen}
                     onModePillPress={openSheet}
-                    showCart={isShooutMode}
+                    showCart={activeAppMode === 'shoout'}
                 />
                 <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
                     <View style={styles.greetingRow}>
-                        <View style={styles.avatarBubble}>
+                        <View style={[styles.avatarBubble, { backgroundColor: accentColor }]}>
                             <Text style={styles.avatarBubbleText}>{getInitials(name)}</Text>
                         </View>
                         <Text style={styles.greetingText}>Hi, {name || 'Creator'}</Text>
@@ -122,57 +123,57 @@ export default function MoreScreen() {
                     <View style={styles.menuContainer}>
                         {isVaultMode ? (
                             <>
-                                <MenuItem icon={Library} label="Vault Home" color="#EC5C39" onPress={() => router.push('/(tabs)/index' as any)} />
-                                <MenuItem icon={UploadCloud} label="Upload Track" color="#EC5C39" onPress={() => router.push('/vault/upload' as any)} />
-                                <MenuItem icon={Link2} label="Shared Links" color="#EC5C39" onPress={() => router.push('/vault/links' as any)} />
-                                <MenuItem icon={Bell} label="Vault Updates" color="#EC5C39" onPress={() => router.push('/vault/updates' as any)} />
+                                <MenuItem icon={Library} label="Vault Home" color={accentColor} onPress={() => router.push('/(tabs)/index' as any)} />
+                                <MenuItem icon={UploadCloud} label="Upload Track" color={accentColor} onPress={() => router.push('/vault/upload' as any)} />
+                                <MenuItem icon={Link2} label="Shared Links" color={accentColor} onPress={() => router.push('/vault/links' as any)} />
+                                <MenuItem icon={Bell} label="Vault Updates" color={accentColor} onPress={() => router.push('/vault/updates' as any)} />
                             </>
                         ) : isStudioMode ? (
                             <>
-                                <MenuItem icon={Library} label="Studio Home" color="#4CAF50" onPress={() => router.push('/(tabs)/index' as any)} />
-                                <MenuItem icon={UploadCloud} label="Publish" color="#4CAF50" onPress={() => canUseStudioTools ? router.push('/(tabs)/search' as any) : pushSubscriptions()} />
-                                <MenuItem icon={Banknote} label="Royalties & Earnings" color="#4CAF50" onPress={() => canUseStudioTools ? router.push('/studio/earnings' as any) : pushSubscriptions()} />
-                                <MenuItem icon={Bell} label="Promote & Ads" color="#4CAF50" onPress={() => canUseStudioTools ? router.push('/(tabs)/marketplace' as any) : pushSubscriptions()} />
+                                <MenuItem icon={Library} label="Studio Home" color={accentColor} onPress={() => router.push('/(tabs)/index' as any)} />
+                                <MenuItem icon={UploadCloud} label="Publish" color={accentColor} onPress={() => canUseStudioTools ? router.push('/(tabs)/search' as any) : pushSubscriptions()} />
+                                <MenuItem icon={Banknote} label="Royalties & Earnings" color={accentColor} onPress={() => canUseStudioTools ? router.push('/studio/earnings' as any) : pushSubscriptions()} />
+                                <MenuItem icon={Bell} label="Promote & Ads" color={accentColor} onPress={() => canUseStudioTools ? router.push('/(tabs)/marketplace' as any) : pushSubscriptions()} />
                             </>
                         ) : isHybridMode ? (
                             <>
-                                <MenuItem icon={Library} label="Hybrid Home" color="#FFD700" onPress={() => router.push('/(tabs)/index' as any)} />
-                                <MenuItem icon={UploadCloud} label="Publish" color="#FFD700" onPress={() => canUseHybridTools ? router.push('/(tabs)/search' as any) : pushSubscriptions()} />
-                                <MenuItem icon={Banknote} label="Creator Earnings" color="#FFD700" onPress={() => canUseHybridTools ? router.push('/studio/earnings' as any) : pushSubscriptions()} />
-                                <MenuItem icon={Bell} label="Promote & Ads" color="#FFD700" onPress={() => canUseHybridTools ? router.push('/(tabs)/marketplace' as any) : pushSubscriptions()} />
-                                <MenuItem icon={UploadCloud} label="Vault Workspace" color="#FFD700" onPress={() => router.push('/(tabs)/library' as any)} />
-                                <MenuItem icon={Link2} label="Vault Links" color="#FFD700" onPress={() => canUseHybridTools ? router.push('/vault/links' as any) : pushSubscriptions()} />
-                                <MenuItem icon={Bell} label="Vault Updates" color="#FFD700" onPress={() => canUseHybridTools ? router.push('/vault/updates' as any) : pushSubscriptions()} />
+                                <MenuItem icon={Library} label="Hybrid Home" color={accentColor} onPress={() => router.push('/(tabs)/index' as any)} />
+                                <MenuItem icon={UploadCloud} label="Publish" color={accentColor} onPress={() => canUseHybridTools ? router.push('/(tabs)/search' as any) : pushSubscriptions()} />
+                                <MenuItem icon={Banknote} label="Creator Earnings" color={accentColor} onPress={() => canUseHybridTools ? router.push('/studio/earnings' as any) : pushSubscriptions()} />
+                                <MenuItem icon={Bell} label="Promote & Ads" color={accentColor} onPress={() => canUseHybridTools ? router.push('/(tabs)/marketplace' as any) : pushSubscriptions()} />
+                                <MenuItem icon={UploadCloud} label="Vault Workspace" color={accentColor} onPress={() => router.push('/(tabs)/library' as any)} />
+                                <MenuItem icon={Link2} label="Vault Links" color={accentColor} onPress={() => canUseHybridTools ? router.push('/vault/links' as any) : pushSubscriptions()} />
+                                <MenuItem icon={Bell} label="Vault Updates" color={accentColor} onPress={() => canUseHybridTools ? router.push('/vault/updates' as any) : pushSubscriptions()} />
                             </>
                         ) : (
                             <>
-                                <MenuItem icon={Library} label="Library" color="#EC5C39" onPress={() => router.push('/(tabs)/library' as any)} />
-                                <MenuItem icon={ShoppingCart} label="My Cart" color="#EC5C39" onPress={() => router.push('/cart' as any)} />
-                                <MenuItem icon={History} label="History" color="#EC5C39" onPress={() => showToast('Coming soon', 'info')} />
-                                <MenuItem icon={Bell} label="Updates" color="#EC5C39" onPress={() => router.push('/updates' as any)} />
+                                <MenuItem icon={Library} label="Library" color={accentColor} onPress={() => router.push('/(tabs)/library' as any)} />
+                                <MenuItem icon={ShoppingCart} label="My Cart" color={accentColor} onPress={() => router.push('/cart' as any)} />
+                                <MenuItem icon={History} label="History" color={accentColor} onPress={() => showToast('Coming soon', 'info')} />
+                                <MenuItem icon={Bell} label="Updates" color={accentColor} onPress={() => router.push('/updates' as any)} />
                             </>
                         )}
                     </View>
 
                     <View style={styles.menuContainer}>
-                        <MenuItem icon={User} label="Account" color="#EC5C39" onPress={() => router.push('/(tabs)/profile' as any)} />
-                        {!isVaultMode && <MenuItem icon={CreditCard} label="Payment Methods" color="#EC5C39" onPress={() => router.push('/settings/payment-methods' as any)} />}
-                        <MenuItem icon={Banknote} label="Subscription" value={role.replace('_', ' ').toUpperCase()} color="#EC5C39" onPress={() => router.push('/settings/subscriptions' as any)} />
-                        {isStudioMode && <MenuItem icon={Sparkles} label="Studio Analytics" color="#4CAF50" onPress={() => canUseStudioTools ? router.push('/studio/analytics' as any) : pushSubscriptions()} />}
-                        {isStudioMode && <MenuItem icon={CircleHelp} label="Studio Settings" color="#4CAF50" onPress={() => canUseStudioTools ? router.push('/studio/settings' as any) : pushSubscriptions()} />}
-                        {isHybridMode && <MenuItem icon={Sparkles} label="Hybrid Analytics" color="#FFD700" onPress={() => canUseHybridTools ? router.push('/studio/analytics' as any) : pushSubscriptions()} />}
-                        {isHybridMode && <MenuItem icon={CircleHelp} label="Studio Settings" color="#FFD700" onPress={() => canUseHybridTools ? router.push('/studio/settings' as any) : pushSubscriptions()} />}
-                        <MenuItem icon={Share2} label="Share" color="#EC5C39" onPress={() => showToast('Coming soon', 'info')} />
-                        <MenuItem icon={CircleHelp} label="Support" color="#EC5C39" onPress={() => showToast('Support coming soon', 'info')} />
-                        <MenuItem icon={Shield} label="Privacy & Security" color="#EC5C39" onPress={() => router.push('/settings/privacy' as any)} />
-                        <MenuItem icon={Link2} label="Notifications" color="#EC5C39" onPress={() => router.push('/notifications' as any)} />
+                        <MenuItem icon={User} label="Account" color={accentColor} onPress={() => router.push('/(tabs)/profile' as any)} />
+                        {!isVaultMode && <MenuItem icon={CreditCard} label="Payment Methods" color={accentColor} onPress={() => router.push('/settings/payment-methods' as any)} />}
+                        <MenuItem icon={Banknote} label="Subscription" value={role.replace('_', ' ').toUpperCase()} color={accentColor} onPress={() => router.push('/settings/subscriptions' as any)} />
+                        {isStudioMode && <MenuItem icon={Sparkles} label="Studio Analytics" color={accentColor} onPress={() => canUseStudioTools ? router.push('/studio/analytics' as any) : pushSubscriptions()} />}
+                        {isStudioMode && <MenuItem icon={CircleHelp} label="Studio Settings" color={accentColor} onPress={() => canUseStudioTools ? router.push('/studio/settings' as any) : pushSubscriptions()} />}
+                        {isHybridMode && <MenuItem icon={Sparkles} label="Hybrid Analytics" color={accentColor} onPress={() => canUseHybridTools ? router.push('/studio/analytics' as any) : pushSubscriptions()} />}
+                        {isHybridMode && <MenuItem icon={CircleHelp} label="Studio Settings" color={accentColor} onPress={() => canUseHybridTools ? router.push('/studio/settings' as any) : pushSubscriptions()} />}
+                        <MenuItem icon={Share2} label="Share" color={accentColor} onPress={() => showToast('Coming soon', 'info')} />
+                        <MenuItem icon={CircleHelp} label="Support" color={accentColor} onPress={() => showToast('Support coming soon', 'info')} />
+                        <MenuItem icon={Shield} label="Privacy & Security" color={accentColor} onPress={() => router.push('/settings/privacy' as any)} />
+                        <MenuItem icon={Link2} label="Notifications" color={accentColor} onPress={() => router.push('/notifications' as any)} />
                         <MenuItem icon={LogOut} label="Log Out" color="#EF4444" onPress={handleLogout} hideChevron />
                     </View>
 
-                    {!isStudioOrHybrid && (
+                    {!isStudioMode && !isHybridMode && (
                         <TouchableOpacity style={styles.upgradeCard} onPress={() => router.push('/settings/subscriptions' as any)}>
                             <LinearGradient
-                                colors={['#EC5C39', '#863420']}
+                                colors={[modeTheme.accent, modeTheme.accentStrong]}
                                 style={styles.upgradeGradient}
                             >
                                 <Sparkles size={24} color="#FFF" />
@@ -233,7 +234,7 @@ const styles = StyleSheet.create({
         width: 33,
         height: 35,
         borderRadius: 17,
-        backgroundColor: '#EC5C39',
+        backgroundColor: '#6AA7FF',
         alignItems: 'center',
         justifyContent: 'center',
     },
@@ -282,7 +283,7 @@ const styles = StyleSheet.create({
     guestTitle: { color: '#FFF', fontSize: 20, fontFamily: 'Poppins-Bold' },
     guestSubtitle: { color: 'rgba(255,255,255,0.65)', fontSize: 13, fontFamily: 'Poppins-Regular' },
     guestActions: { flexDirection: 'row', gap: 12, marginTop: 8 },
-    primaryButton: { flex: 1, backgroundColor: '#EC5C39', paddingVertical: 12, borderRadius: 12, alignItems: 'center' },
+    primaryButton: { flex: 1, backgroundColor: '#6AA7FF', paddingVertical: 12, borderRadius: 12, alignItems: 'center' },
     primaryButtonText: { color: '#FFF', fontFamily: 'Poppins-SemiBold', fontSize: 14 },
     secondaryButton: { flex: 1, backgroundColor: 'rgba(255,255,255,0.08)', paddingVertical: 12, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
     secondaryButtonText: { color: '#FFF', fontFamily: 'Poppins-Medium', fontSize: 14 },

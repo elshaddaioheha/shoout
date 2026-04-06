@@ -16,6 +16,9 @@ export default function StudioPromoteScreen() {
   const currentPlan = getEffectivePlan(useAuthStore((state) => state.actualRole));
   const canUseServices = canUseStudioServices(currentPlan);
   const { topTracks } = useStudioWorkspaceData();
+  const accentColor = viewMode === 'hybrid' ? '#FFD700' : '#4CAF50';
+  const accentTint = viewMode === 'hybrid' ? 'rgba(255,215,0,0.12)' : 'rgba(76,175,80,0.12)';
+  const accentCard = viewMode === 'hybrid' ? 'rgba(255,215,0,0.06)' : 'rgba(76,175,80,0.06)';
 
   const requireStudioSubscription = () => {
     if (canUseServices) return false;
@@ -34,10 +37,10 @@ export default function StudioPromoteScreen() {
       />
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 120 }]}>
-        <View style={styles.heroCard}>
-          <Text style={styles.heroEyebrow}>Promote</Text>
+        <View style={[styles.heroCard, { borderColor: accentTint, backgroundColor: accentCard }]}>
+          <Text style={[styles.heroEyebrow, { color: accentColor }]}>Promote</Text>
           <Text style={styles.heroTitle}>Plan campaigns and push your strongest releases in front of more listeners.</Text>
-          <TouchableOpacity style={styles.primaryCta} onPress={() => {
+          <TouchableOpacity style={[styles.primaryCta, { backgroundColor: accentColor }]} onPress={() => {
             if (requireStudioSubscription()) return;
             router.push('/studio/ads-intro' as any);
           }} activeOpacity={0.9}>
@@ -46,62 +49,62 @@ export default function StudioPromoteScreen() {
           </TouchableOpacity>
         </View>
 
-        <View style={styles.panel}>
+        <View style={[styles.panel, { borderColor: accentTint, backgroundColor: accentCard }]}>
           <View style={styles.panelHeader}>
             <Text style={styles.panelTitle}>Campaign Readiness</Text>
             <TouchableOpacity onPress={() => {
               if (requireStudioSubscription()) return;
               router.push('/studio/ads-intro' as any);
             }} activeOpacity={0.8}>
-              <Text style={styles.panelLink}>Create campaign</Text>
+              <Text style={[styles.panelLink, { color: accentColor }]}>Create campaign</Text>
             </TouchableOpacity>
           </View>
           <View style={styles.statusRow}>
-            <View style={styles.statusCard}>
-              <Megaphone size={18} color="#4CAF50" />
+            <View style={[styles.statusCard, { borderColor: accentTint, backgroundColor: accentCard, borderWidth: 1 }]}>
+              <Megaphone size={18} color={accentColor} />
               <Text style={styles.statusValue}>0</Text>
               <Text style={styles.statusLabel}>Active campaigns</Text>
             </View>
-            <View style={styles.statusCard}>
-              <BarChart3 size={18} color="#4CAF50" />
+            <View style={[styles.statusCard, { borderColor: accentTint, backgroundColor: accentCard, borderWidth: 1 }]}>
+              <BarChart3 size={18} color={accentColor} />
               <Text style={styles.statusValue}>{topTracks.length}</Text>
               <Text style={styles.statusLabel}>Tracks ready</Text>
             </View>
           </View>
         </View>
 
-        <View style={styles.panel}>
+        <View style={[styles.panel, { borderColor: accentTint, backgroundColor: accentCard }]}>
           <View style={styles.panelHeader}>
             <Text style={styles.panelTitle}>Best Tracks To Promote</Text>
             <TouchableOpacity onPress={() => {
               if (requireStudioSubscription()) return;
               router.push('/studio/analytics' as any);
             }} activeOpacity={0.8}>
-              <Text style={styles.panelLink}>See performance</Text>
+              <Text style={[styles.panelLink, { color: accentColor }]}>See performance</Text>
             </TouchableOpacity>
           </View>
           {topTracks.length === 0 ? <Text style={styles.placeholder}>Upload and publish tracks first. Your best-performing releases will appear here.</Text> : null}
           {topTracks.map((track) => (
             <View key={track.id} style={styles.trackRow}>
               <View style={styles.trackIcon}>
-                <Music4 size={18} color="#4CAF50" />
+                <Music4 size={18} color={accentColor} />
               </View>
               <View style={styles.trackInfo}>
                 <Text style={styles.trackTitle} numberOfLines={1}>{track.title || 'Untitled Track'}</Text>
                 <Text style={styles.trackMeta}>{Number(track.listenCount || 0).toLocaleString()} plays · {Number(track.shareCount || 0).toLocaleString()} shares</Text>
               </View>
-              <TouchableOpacity style={styles.promoteChip} onPress={() => {
+              <TouchableOpacity style={[styles.promoteChip, { backgroundColor: accentTint }]} onPress={() => {
                 if (requireStudioSubscription()) return;
                 router.push('/studio/ads-intro' as any);
               }} activeOpacity={0.85}>
-                <Text style={styles.promoteChipText}>Promote</Text>
+                <Text style={[styles.promoteChipText, { color: accentColor }]}>Promote</Text>
               </TouchableOpacity>
             </View>
           ))}
         </View>
 
-        <View style={styles.tipCard}>
-          <Sparkles size={18} color="#4CAF50" />
+        <View style={[styles.tipCard, { backgroundColor: accentCard, borderColor: accentTint }]}>
+          <Sparkles size={18} color={accentColor} />
           <Text style={styles.tipText}>Use Promote to launch ads, refine campaign messaging, and connect new listeners back to your releases.</Text>
         </View>
       </ScrollView>

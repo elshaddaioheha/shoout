@@ -6,7 +6,7 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { formatUsd } from '@/utils/pricing';
 import { canUseHybridServices, formatPlanLabel, getVaultCapabilities } from '@/utils/subscriptions';
 import { useRouter } from 'expo-router';
-import { Archive, BarChart3, Link2, Megaphone, Music4, PlayCircle, TrendingUp, UploadCloud, Users } from 'lucide-react-native';
+import { Archive, BarChart3, Megaphone, Music4, PlayCircle, TrendingUp, UploadCloud, Users } from 'lucide-react-native';
 import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -35,7 +35,6 @@ export default function HybridDashboardScreen() {
   const {
     uploads,
     folders,
-    shareLinks,
     recentActivities,
     usedStorageGB,
     loading: vaultLoading,
@@ -129,21 +128,11 @@ export default function HybridDashboardScreen() {
             <View style={styles.summaryCard}>
               <Text style={styles.summaryLabel}>Storage</Text>
               <Text style={styles.summaryValue}>{formatStorage(usedStorageGB)} / {formatStorage(hybridVault.storageLimitGB)}</Text>
+              <Text style={styles.summaryMeta}>Uploads: {uploads.length} / {hybridVault.maxVaultUploads}</Text>
             </View>
-            <View style={styles.summaryCard}>
-              <Text style={styles.summaryLabel}>Uploads</Text>
-              <Text style={styles.summaryValue}>{uploads.length} / {hybridVault.maxVaultUploads}</Text>
-            </View>
-          </View>
-
-          <View style={styles.summaryRow}>
             <View style={styles.summaryCard}>
               <Text style={styles.summaryLabel}>Folders</Text>
               <Text style={styles.summaryValue}>{folders.length}</Text>
-            </View>
-            <View style={styles.summaryCard}>
-              <Text style={styles.summaryLabel}>Shared Links</Text>
-              <Text style={styles.summaryValue}>{shareLinks.length}</Text>
             </View>
           </View>
 
@@ -167,7 +156,7 @@ export default function HybridDashboardScreen() {
               }}
               activeOpacity={0.85}
             >
-              <Link2 size={16} color="#FFD700" />
+              <Archive size={16} color="#FFD700" />
               <Text style={styles.inlineActionText}>Shared Links</Text>
             </TouchableOpacity>
           </View>
@@ -371,6 +360,7 @@ const styles = StyleSheet.create({
   },
   summaryLabel: { color: 'rgba(255,255,255,0.58)', fontFamily: 'Poppins-Regular', fontSize: 12 },
   summaryValue: { color: '#FFF', fontFamily: 'Poppins-Bold', fontSize: 16 },
+  summaryMeta: { color: 'rgba(255,255,255,0.55)', fontFamily: 'Poppins-Regular', fontSize: 11 },
   inlineActions: { flexDirection: 'row', gap: 12 },
   inlineAction: {
     flex: 1,

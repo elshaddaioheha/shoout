@@ -97,17 +97,15 @@ export default function LibraryScreen() {
   const [folderCreated, setFolderCreated] = useState(false);
   const [creatingFolder, setCreatingFolder] = useState(false);
 
-  if (user.activeAppMode === 'vault' || user.activeAppMode === 'vault_pro' || user.activeAppMode === 'hybrid') {
-    return <VaultHomeScreen />;
-  }
-
   const activeRole = authState.actualRole || user.actualRole || user.role;
+  const isVaultSurface = user.activeAppMode === 'vault' || user.activeAppMode === 'vault_pro' || user.activeAppMode === 'hybrid';
   const isStudioUser = user.activeAppMode === 'studio' || user.activeAppMode === 'hybrid' || activeRole?.startsWith('studio');
   const isHybridUser = activeRole?.startsWith('hybrid');
   const isCreatorSurface = isStudioUser || isHybridUser;
   const isStudioPaid = activeRole?.startsWith('studio') || activeRole?.startsWith('hybrid');
 
   useEffect(() => {
+    if (isVaultSurface) return;
     if (!auth.currentUser) return;
 
     const uploadsQuery = query(
@@ -169,7 +167,7 @@ export default function LibraryScreen() {
       unsubUser();
       unsubFavourites();
     };
-  }, []);
+  }, [isVaultSurface]);
 
   const usedStorage = useMemo(() => {
     const totalBytes = uploads.reduce((sum, item) => sum + Number(item.fileSizeBytes || 0), 0);
@@ -309,6 +307,10 @@ export default function LibraryScreen() {
       showToast('Could not remove this favourite right now.', 'error');
     }
   };
+
+  if (isVaultSurface) {
+    return <VaultHomeScreen />;
+  }
 
   return (
     <View style={styles.screen}>

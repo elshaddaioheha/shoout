@@ -7,6 +7,8 @@ import {
     collection,
     doc,
     getDocs,
+    getDoc,
+    limit,
     onSnapshot,
     orderBy,
     query,
@@ -48,7 +50,7 @@ interface Message {
 export default function ChatConversationScreen() {
     const { id: otherUserId } = useLocalSearchParams();
     const router = useRouter();
-    const { name } = useUserStore();
+    const { name, role } = useUserStore();
     const [messages, setMessages] = useState<Message[]>([]);
     const [inputText, setInputText] = useState('');
     const [loading, setLoading] = useState(true);
@@ -120,6 +122,40 @@ export default function ChatConversationScreen() {
         setSending(true);
 
         try {
+            const senderUid = auth.currentUser.uid;
+
+            // Rule: Shoout user can send only one message to a studio/hybrid user until they are followed back.
+            if (role === 'shoout') {
+                const senderSnap = await getDoc(doc(db, `users/${senderUid}`));
+                const recipientSnap = await getDoc(doc(db, `users/${String(otherUserId)}`));
+
+                const senderData = senderSnap.data() as any;
+                const recipientData = recipientSnap.data() as any;
+                const senderFollowing = Array.isArray(senderData?.following) ? senderData.following : [];
+                const recipientFollowing = Array.isArray(recipientData?.following) ? recipientData.following : [];
+                const recipientRole = String(recipientData?.role || recipientData?.actualRole || '').toLowerCase();
+                const senderFollowsRecipient = senderFollowing.includes(String(otherUserId));
+                const recipientFollowsBack = recipientFollowing.includes(senderUid);
+                const recipientIsStudio = recipientRole.startsWith('studio') || recipientRole.startsWith('hybrid');
+
+                if (senderFollowsRecipient && recipientIsStudio && !recipientFollowsBack) {
+                    const currentChatId = chatId;
+                    if (currentChatId) {
+                        const priorMineQ = query(
+                            collection(db, 'chats', currentChatId, 'messages'),
+                            where('senderId', '==', senderUid),
+                            limit(1)
+                        );
+                        const priorMine = await getDocs(priorMineQ);
+                        if (!priorMine.empty) {
+                            setInputText(messageText);
+                            Alert.alert('Message limit reached', 'You can send one message until this studio follows you back.');
+                            return;
+                        }
+                    }
+                }
+            }
+
             let currentChatId = chatId;
 
             // Create chat if it doesn't exist

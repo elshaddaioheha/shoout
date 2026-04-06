@@ -1,5 +1,6 @@
 import { ViewMode, useUserStore } from '@/store/useUserStore';
 import { useAuthStore } from '@/store/useAuthStore';
+import { usePlaybackStore } from '@/store/usePlaybackStore';
 import { canAccessAppMode, canUseStudioServices, formatPlanLabel, getDefaultAppModeForPlan, getEffectivePlan } from '@/utils/subscriptions';
 import { useRouter } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
@@ -62,6 +63,15 @@ export function useAppSwitcher() {
         ]).start();
 
         await new Promise<void>((r) => setTimeout(r, 700));
+
+        if (targetViewMode === 'vault' || targetViewMode === 'vault_pro') {
+            try {
+                await usePlaybackStore.getState().clearTrack();
+            } catch (error) {
+                console.warn('Failed to clear playback when entering Vault mode:', error);
+            }
+        }
+
         setActiveAppMode(targetViewMode);
 
         await new Promise<void>((resolve) => {

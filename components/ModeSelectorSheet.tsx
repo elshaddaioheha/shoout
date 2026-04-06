@@ -17,11 +17,14 @@ import {
 import React, { useEffect, useRef } from 'react';
 import {
     Animated,
+    Easing,
     Modal,
     Pressable,
+    ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
+    useWindowDimensions,
     View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -93,17 +96,22 @@ export default function ModeSelectorSheet({
 }: ModeSelectorSheetProps) {
     const insets = useSafeAreaInsets();
     const router = useRouter();
-    const slideAnim = useRef(new Animated.Value(400)).current;
+    const { width, height } = useWindowDimensions();
+    const compactLayout = width < 390 || height < 760;
+    const modeListMaxHeight = Math.max(260, Math.floor(height * (compactLayout ? 0.48 : 0.58)));
+    const hiddenOffset = Math.max(height, 520);
+    const slideAnim = useRef(new Animated.Value(hiddenOffset)).current;
     const fadeAnim = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
         if (visible) {
+            slideAnim.setValue(hiddenOffset);
             Animated.parallel([
-                Animated.spring(slideAnim, {
+                Animated.timing(slideAnim, {
                     toValue: 0,
+                    duration: 260,
+                    easing: Easing.out(Easing.cubic),
                     useNativeDriver: true,
-                    speed: 22,
-                    bounciness: 2,
                 }),
                 Animated.timing(fadeAnim, {
                     toValue: 1,
@@ -114,8 +122,9 @@ export default function ModeSelectorSheet({
         } else {
             Animated.parallel([
                 Animated.timing(slideAnim, {
-                    toValue: 400,
-                    duration: 200,
+                    toValue: hiddenOffset,
+                    duration: 220,
+                    easing: Easing.in(Easing.cubic),
                     useNativeDriver: true,
                 }),
                 Animated.timing(fadeAnim, {
@@ -125,7 +134,7 @@ export default function ModeSelectorSheet({
                 }),
             ]).start();
         }
-    }, [visible, slideAnim, fadeAnim]);
+    }, [visible, hiddenOffset, slideAnim, fadeAnim]);
 
     return (
         <Modal
@@ -144,17 +153,21 @@ export default function ModeSelectorSheet({
             <Animated.View
                 style={[
                     styles.sheet,
-                    { paddingBottom: insets.bottom + 24, transform: [{ translateY: slideAnim }] },
+                    compactLayout && styles.sheetCompact,
+                    { paddingBottom: insets.bottom + (compactLayout ? 14 : 24), transform: [{ translateY: slideAnim }] },
                 ]}
             >
-                <BlurView intensity={28} tint="dark" style={styles.sheetBlur}>
-                    <View style={styles.sheetChrome} />
-                    <View style={styles.handle} />
+                <View style={[styles.sheetSurface, compactLayout && styles.sheetSurfaceCompact]}>
+                    <View style={[styles.handle, compactLayout && styles.handleCompact]} />
 
-                    <Text style={styles.sheetTitle}>Switch Experience</Text>
-                    <Text style={styles.sheetSubtitle}>Current subscription: {formatPlanLabel(currentPlan)}</Text>
+                    <Text style={[styles.sheetTitle, compactLayout && styles.sheetTitleCompact]}>Switch Experience</Text>
+                    <Text style={[styles.sheetSubtitle, compactLayout && styles.sheetSubtitleCompact]}>Current subscription: {formatPlanLabel(currentPlan)}</Text>
 
-                    <View style={styles.modeList}>
+                    <ScrollView
+                        style={[styles.modeListScroll, { maxHeight: modeListMaxHeight }]}
+                        contentContainerStyle={[styles.modeList, compactLayout && styles.modeListCompact]}
+                        showsVerticalScrollIndicator={false}
+                    >
                         {VIEW_MODES.map((mode) => {
                             const accessible = isModeAccessible(mode.id);
                             const isActive = mode.id === currentMode;
@@ -165,6 +178,7 @@ export default function ModeSelectorSheet({
                                     key={mode.id}
                                     style={[
                                         styles.modeRow,
+                                        compactLayout && styles.modeRowCompact,
                                         isActive && { borderColor: mode.color + '55', backgroundColor: mode.color + '10' },
                                         !accessible && { opacity: 0.72 },
                                     ]}
@@ -178,21 +192,21 @@ export default function ModeSelectorSheet({
                                     }}
                                     activeOpacity={0.7}
                                 >
-                                    <View style={[styles.modeIconBg, { backgroundColor: mode.color + '18' }]}>
-                                        <mode.Icon size={22} color={mode.color} />
+                                    <View style={[styles.modeIconBg, compactLayout && styles.modeIconBgCompact, { backgroundColor: mode.color + '18' }]}> 
+                                        <mode.Icon size={compactLayout ? 19 : 22} color={mode.color} />
                                     </View>
 
                                     <View style={styles.modeInfo}>
                                         <View style={styles.modeLabelRow}>
-                                            <Text style={styles.modeLabel}>{mode.label}</Text>
+                                            <Text style={[styles.modeLabel, compactLayout && styles.modeLabelCompact]}>{mode.label}</Text>
                                             {!accessible ? (
                                                 <View style={[styles.planBadge, { backgroundColor: mode.color + '22' }]}>
                                                     <Text style={[styles.planBadgeText, { color: mode.color }]}>Locked</Text>
                                                 </View>
                                             ) : null}
                                         </View>
-                                        <Text style={styles.modeDesc}>{mode.description}</Text>
-                                        <Text style={styles.modePrice}>
+                                        <Text style={[styles.modeDesc, compactLayout && styles.modeDescCompact]}>{mode.description}</Text>
+                                        <Text style={[styles.modePrice, compactLayout && styles.modePriceCompact]}>
                                             {plan.monthlyPriceUsd === 0 ? 'Free' : `$${plan.monthlyPriceUsd.toFixed(2)}/mo`}
                                         </Text>
                                     </View>
@@ -214,8 +228,8 @@ export default function ModeSelectorSheet({
                                 </TouchableOpacity>
                             );
                         })}
-                    </View>
-                </BlurView>
+                    </ScrollView>
+                </View>
             </Animated.View>
         </Modal>
     );
@@ -237,14 +251,18 @@ const styles = StyleSheet.create({
         borderColor: 'rgba(255,255,255,0.07)',
         overflow: 'hidden',
     },
-    sheetBlur: {
+    sheetCompact: {
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+    },
+    sheetSurface: {
         paddingTop: 12,
         paddingHorizontal: 20,
-        backgroundColor: 'rgba(26, 21, 22, 0.78)',
+        backgroundColor: '#151112',
     },
-    sheetChrome: {
-        ...StyleSheet.absoluteFillObject,
-        backgroundColor: 'rgba(255,255,255,0.03)',
+    sheetSurfaceCompact: {
+        paddingTop: 8,
+        paddingHorizontal: 14,
     },
     handle: {
         width: 40,
@@ -254,11 +272,19 @@ const styles = StyleSheet.create({
         alignSelf: 'center',
         marginBottom: 20,
     },
+    handleCompact: {
+        width: 34,
+        marginBottom: 12,
+    },
     sheetTitle: {
         color: '#FFF',
         fontSize: 20,
         fontFamily: 'Poppins-Bold',
         marginBottom: 4,
+    },
+    sheetTitleCompact: {
+        fontSize: 18,
+        marginBottom: 2,
     },
     sheetSubtitle: {
         color: 'rgba(255,255,255,0.4)',
@@ -266,8 +292,18 @@ const styles = StyleSheet.create({
         fontFamily: 'Poppins-Regular',
         marginBottom: 20,
     },
+    sheetSubtitleCompact: {
+        fontSize: 12,
+        marginBottom: 12,
+    },
+    modeListScroll: {
+        width: '100%',
+    },
     modeList: {
         gap: 12,
+    },
+    modeListCompact: {
+        gap: 8,
     },
     planBadge: {
         alignSelf: 'flex-start',
@@ -289,12 +325,22 @@ const styles = StyleSheet.create({
         borderColor: 'rgba(255,255,255,0.06)',
         gap: 14,
     },
+    modeRowCompact: {
+        borderRadius: 14,
+        padding: 10,
+        gap: 10,
+    },
     modeIconBg: {
         width: 48,
         height: 48,
         borderRadius: 14,
         alignItems: 'center',
         justifyContent: 'center',
+    },
+    modeIconBgCompact: {
+        width: 40,
+        height: 40,
+        borderRadius: 12,
     },
     modeInfo: {
         flex: 1,
@@ -310,17 +356,27 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontFamily: 'Poppins-SemiBold',
     },
+    modeLabelCompact: {
+        fontSize: 14,
+    },
     modeDesc: {
         color: 'rgba(255,255,255,0.45)',
         fontSize: 12,
         fontFamily: 'Poppins-Regular',
         lineHeight: 17,
     },
+    modeDescCompact: {
+        fontSize: 11,
+        lineHeight: 15,
+    },
     modePrice: {
         color: 'rgba(255,255,255,0.72)',
         fontSize: 11,
         fontFamily: 'Poppins-SemiBold',
         marginTop: 6,
+    },
+    modePriceCompact: {
+        marginTop: 4,
     },
     modeRight: {
         alignItems: 'center',

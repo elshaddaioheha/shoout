@@ -7,7 +7,7 @@ import { useUserStore } from '@/store/useUserStore';
 import { formatPlanLabel } from '@/utils/subscriptions';
 import { useRouter } from 'expo-router';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
-import { Archive, Bell, FolderPlus, Link2, Music4, RefreshCw, Search, User } from 'lucide-react-native';
+import { Archive, Bell, FolderPlus, Music4, RefreshCw, Search, User } from 'lucide-react-native';
 import React, { useMemo, useRef, useState } from 'react';
 import { Animated, Dimensions, Easing, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -53,6 +53,9 @@ export default function VaultHomeScreen() {
   const searchSheetTranslateY = useRef(new Animated.Value(SEARCH_SHEET_OFFSET)).current;
 
   const currentPlanLabel = formatPlanLabel(actualRole || role);
+  const accentColor = viewMode === 'hybrid' ? '#FFD700' : '#EC5C39';
+  const accentTint = viewMode === 'hybrid' ? 'rgba(255,215,0,0.2)' : 'rgba(236,92,57,0.2)';
+  const accentSoft = viewMode === 'hybrid' ? 'rgba(255,215,0,0.1)' : 'rgba(236,92,57,0.1)';
   const storageSummary = `${formatStorage(usedStorageGB)} / ${formatStorage(storageLimitGB)}`;
   const uploadSummary = `${uploads.length} / ${maxVaultUploads}`;
   const uploadLimitReached = maxVaultUploads > 0 && uploads.length >= maxVaultUploads;
@@ -139,13 +142,13 @@ export default function VaultHomeScreen() {
     },
     {
       key: 'convert',
-      label: 'Convert',
-      onPress: () => showToast('Audio convert tools are coming soon.', 'info'),
+      label: 'Links',
+      onPress: () => router.push('/vault/links' as any),
     },
     {
       key: 'project',
-      label: 'Project',
-      onPress: () => showToast('Projects are coming soon.', 'info'),
+      label: 'Updates',
+      onPress: () => router.push('/vault/updates' as any),
     },
     {
       key: 'folder',
@@ -277,29 +280,26 @@ export default function VaultHomeScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 168 }]}
       >
-        <View style={styles.heroCard}>
+        <View style={[styles.heroCard, { borderColor: accentTint, backgroundColor: accentSoft }]}>
           <View style={styles.heroHeaderRow}>
             <View style={styles.heroTextBlock}>
-              <Text style={styles.heroEyebrow}>Vault Workspace</Text>
+              <Text style={[styles.heroEyebrow, { color: accentColor }]}>Vault Workspace</Text>
               <Text style={styles.heroTitle}>Your private uploads, folders, and share links</Text>
             </View>
-            <View style={styles.planPill}>
-              <Text style={styles.planPillText}>{currentPlanLabel}</Text>
+            <View style={[styles.planPill, { borderColor: accentTint, backgroundColor: accentSoft }]}>
+              <Text style={[styles.planPillText, { color: accentColor }]}>{currentPlanLabel}</Text>
             </View>
           </View>
 
           <View style={styles.statRow}>
-            <View style={styles.statCard}>
+            <View style={[styles.statCard, styles.statCardFull]}>
               <Text style={styles.statLabel}>Storage</Text>
               <Text style={styles.statValue}>{storageSummary}</Text>
-            </View>
-            <View style={styles.statCard}>
-              <Text style={styles.statLabel}>Uploads</Text>
-              <Text style={styles.statValue}>{uploadSummary}</Text>
+              <Text style={styles.statMeta}>Uploads: {uploadSummary}</Text>
             </View>
           </View>
           {(uploadLimitReached || storageLimitReached) ? (
-            <Text style={styles.limitWarning}>
+            <Text style={[styles.limitWarning, { color: accentColor }] }>
               {uploadLimitReached ? 'Upload limit reached.' : 'Storage limit reached.'} Upgrade to Vault Pro for more room.
             </Text>
           ) : null}
@@ -308,43 +308,79 @@ export default function VaultHomeScreen() {
         {vaultIsEmpty ? (
           <View style={styles.emptyState}>
             <View style={styles.emptyIcon}>
-              <Archive size={44} color="#EC5C39" />
+              <Archive size={44} color={accentColor} />
             </View>
             <Text style={styles.emptyTitle}>Start building your Vault</Text>
             <Text style={styles.emptySubtitle}>
               Upload tracks, organize them into folders, create private links, and keep track of recent updates from one place.
             </Text>
-            <TouchableOpacity style={styles.emptyButton} onPress={() => router.push('/vault/upload' as any)} activeOpacity={0.9}>
+            <TouchableOpacity style={[styles.emptyButton, { backgroundColor: accentColor }]} onPress={() => router.push('/vault/upload' as any)} activeOpacity={0.9}>
               <Text style={styles.emptyButtonText}>Upload First Track</Text>
             </TouchableOpacity>
           </View>
         ) : null}
 
-        <SectionHeader title="Recent Uploads" actionLabel={uploads.length > 0 ? 'View all' : undefined} onPress={() => router.push('/vault/updates' as any)} />
-        <View style={styles.sectionCard}>
-          {loading ? <Text style={styles.placeholderText}>Loading uploads...</Text> : null}
-          {!loading && uploads.length === 0 ? <Text style={styles.placeholderText}>No private uploads yet.</Text> : null}
-          {!loading && uploads.slice(0, 5).map((upload) => (
-            <TouchableOpacity
-              key={upload.id}
-              style={styles.listRow}
-              onPress={() => router.push({ pathname: '/vault/track/[id]', params: { id: upload.id } } as any)}
-              activeOpacity={0.8}
-            >
-              <View style={styles.rowIconWrap}>
-                <Music4 size={18} color="#EC5C39" />
-              </View>
-              <View style={styles.rowInfo}>
-                <Text style={styles.rowTitle} numberOfLines={1}>{upload.title || 'Untitled Track'}</Text>
-                <Text style={styles.rowSubtitle} numberOfLines={1}>{upload.artist || upload.uploaderName || 'Private vault track'}</Text>
-              </View>
-              <Text style={styles.rowMeta}>{formatRelative(new Date(upload.updatedAt?.toDate?.() || upload.createdAt?.toDate?.() || Date.now()).getTime())}</Text>
-            </TouchableOpacity>
-          ))}
+        <SectionHeader title="Recent Activity" actionLabel={recentActivities.length > 0 ? 'Open updates' : undefined} onPress={() => router.push('/vault/updates' as any)} />
+        <View style={[styles.sectionCard, { borderColor: accentTint, backgroundColor: accentSoft }]}>
+          <View style={styles.sectionBlock}>
+            <View style={styles.sectionBlockHeader}>
+              <Text style={styles.sectionBlockTitle}>Recent Uploads</Text>
+              {uploads.length > 0 ? (
+                <TouchableOpacity onPress={() => router.push('/vault/updates' as any)} activeOpacity={0.8}>
+                  <Text style={[styles.sectionBlockAction, { color: accentColor }]}>View all</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+            {loading ? <Text style={styles.placeholderText}>Loading uploads...</Text> : null}
+            {!loading && uploads.length === 0 ? <Text style={styles.placeholderText}>No private uploads yet.</Text> : null}
+            {!loading && uploads.slice(0, 4).map((upload) => (
+              <TouchableOpacity
+                key={upload.id}
+                style={styles.listRow}
+                onPress={() => router.push({ pathname: '/vault/track/[id]', params: { id: upload.id } } as any)}
+                activeOpacity={0.8}
+              >
+                <View style={[styles.rowIconWrap, { backgroundColor: accentSoft }]}>
+                  <Music4 size={18} color={accentColor} />
+                </View>
+                <View style={styles.rowInfo}>
+                  <Text style={styles.rowTitle} numberOfLines={1}>{upload.title || 'Untitled Track'}</Text>
+                  <Text style={styles.rowSubtitle} numberOfLines={1}>{upload.artist || upload.uploaderName || 'Private vault track'}</Text>
+                </View>
+                <Text style={styles.rowMeta}>{formatRelative(new Date(upload.updatedAt?.toDate?.() || upload.createdAt?.toDate?.() || Date.now()).getTime())}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <View style={styles.sectionDivider} />
+
+          <View style={styles.sectionBlock}>
+            <View style={styles.sectionBlockHeader}>
+              <Text style={styles.sectionBlockTitle}>Recent Updates</Text>
+              {recentActivities.length > 0 ? (
+                <TouchableOpacity onPress={() => router.push('/vault/updates' as any)} activeOpacity={0.8}>
+                  <Text style={[styles.sectionBlockAction, { color: accentColor }]}>Open</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+            {recentActivities.length === 0 ? <Text style={styles.placeholderText}>Vault updates will appear here as you upload, edit, and share.</Text> : null}
+            {recentActivities.slice(0, 4).map((item) => (
+              <TouchableOpacity key={item.id} style={styles.listRow} onPress={() => router.push('/vault/updates' as any)} activeOpacity={0.8}>
+                <View style={[styles.rowIconWrap, { backgroundColor: accentSoft }]}>
+                  <RefreshCw size={18} color={accentColor} />
+                </View>
+                <View style={styles.rowInfo}>
+                  <Text style={styles.rowTitle} numberOfLines={1}>{item.title}</Text>
+                  <Text style={styles.rowSubtitle} numberOfLines={1}>{item.subtitle}</Text>
+                </View>
+                <Text style={styles.rowMeta}>{formatRelative(item.createdAtMs)}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
 
         <SectionHeader title="Folders" actionLabel={folders.length > 0 ? 'Create' : undefined} onPress={() => setShowCreateFolderSheet(true)} />
-        <View style={styles.sectionCard}>
+        <View style={[styles.sectionCard, { borderColor: accentTint, backgroundColor: accentSoft }]}>
           {folders.length === 0 ? <Text style={styles.placeholderText}>No folders yet. Create one to organize your uploads.</Text> : null}
           {folders.slice(0, 5).map((folder) => (
             <TouchableOpacity
@@ -353,8 +389,8 @@ export default function VaultHomeScreen() {
               onPress={() => router.push({ pathname: '/vault/folder/[id]', params: { id: folder.id, name: folder.name } } as any)}
               activeOpacity={0.8}
             >
-              <View style={styles.rowIconWrap}>
-                <FolderPlus size={18} color="#EC5C39" />
+              <View style={[styles.rowIconWrap, { backgroundColor: accentSoft }]}>
+                <FolderPlus size={18} color={accentColor} />
               </View>
               <View style={styles.rowInfo}>
                 <Text style={styles.rowTitle} numberOfLines={1}>{folder.name}</Text>
@@ -365,39 +401,6 @@ export default function VaultHomeScreen() {
           ))}
         </View>
 
-        <SectionHeader title="Shared Links" actionLabel={shareLinks.length > 0 ? 'Manage' : undefined} onPress={() => router.push('/vault/links' as any)} />
-        <View style={styles.sectionCard}>
-          {shareLinks.length === 0 ? <Text style={styles.placeholderText}>No private share links yet.</Text> : null}
-          {shareLinks.slice(0, 4).map((link) => (
-            <TouchableOpacity key={link.id} style={styles.listRow} onPress={() => router.push('/vault/links' as any)} activeOpacity={0.8}>
-              <View style={styles.rowIconWrap}>
-                <Link2 size={18} color="#EC5C39" />
-              </View>
-              <View style={styles.rowInfo}>
-                <Text style={styles.rowTitle} numberOfLines={1}>{link.title || 'Private link'}</Text>
-                <Text style={styles.rowSubtitle}>{link.type === 'folder' ? 'Folder link' : 'Track link'}</Text>
-              </View>
-              <Text style={styles.rowMeta}>{formatRelative(new Date(link.updatedAt?.toDate?.() || link.createdAt?.toDate?.() || Date.now()).getTime())}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        <SectionHeader title="Recent Updates" actionLabel={recentActivities.length > 0 ? 'Open' : undefined} onPress={() => router.push('/vault/updates' as any)} />
-        <View style={styles.sectionCard}>
-          {recentActivities.length === 0 ? <Text style={styles.placeholderText}>Vault updates will appear here as you upload, edit, and share.</Text> : null}
-          {recentActivities.slice(0, 5).map((item) => (
-            <TouchableOpacity key={item.id} style={styles.listRow} onPress={() => router.push('/vault/updates' as any)} activeOpacity={0.8}>
-              <View style={styles.rowIconWrap}>
-                <RefreshCw size={18} color="#EC5C39" />
-              </View>
-              <View style={styles.rowInfo}>
-                <Text style={styles.rowTitle} numberOfLines={1}>{item.title}</Text>
-                <Text style={styles.rowSubtitle} numberOfLines={1}>{item.subtitle}</Text>
-              </View>
-              <Text style={styles.rowMeta}>{formatRelative(item.createdAtMs)}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
       </ScrollView>
 
       <VaultFloatingActionMenu actions={quickActions} />
@@ -576,6 +579,10 @@ const styles = StyleSheet.create({
     padding: 14,
     gap: 4,
   },
+  statCardFull: {
+    flex: undefined,
+    width: '100%',
+  },
   statLabel: {
     color: 'rgba(255,255,255,0.55)',
     fontFamily: 'Poppins-Regular',
@@ -585,6 +592,11 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontFamily: 'Poppins-SemiBold',
     fontSize: 16,
+  },
+  statMeta: {
+    color: 'rgba(255,255,255,0.55)',
+    fontFamily: 'Poppins-Regular',
+    fontSize: 11,
   },
   limitWarning: {
     color: '#F8B6A7',
@@ -657,6 +669,33 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.06)',
     paddingVertical: 6,
     overflow: 'hidden',
+  },
+  sectionBlock: {
+    paddingVertical: 2,
+  },
+  sectionBlockHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 6,
+  },
+  sectionBlockTitle: {
+    color: '#FFFFFF',
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: 14,
+  },
+  sectionBlockAction: {
+    color: '#EC5C39',
+    fontFamily: 'Poppins-Medium',
+    fontSize: 12,
+  },
+  sectionDivider: {
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    marginHorizontal: 16,
+    marginTop: 6,
   },
   placeholderText: {
     color: 'rgba(255,255,255,0.5)',

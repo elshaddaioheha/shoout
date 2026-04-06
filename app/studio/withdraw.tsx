@@ -18,6 +18,7 @@ import {
     ActivityIndicator,
     Dimensions,
     ScrollView,
+    Share,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -91,6 +92,32 @@ export default function WithdrawalScreen() {
             return;
         }
         showToast("Withdrawal processing is being integrated with local African payment gateways.", "info");
+    };
+
+    const handleExportHistory = async () => {
+        if (!history.length) {
+            showToast('No payout history to export yet.', 'info');
+            return;
+        }
+
+        try {
+            const header = 'id,amount,status,date,method';
+            const rows = history.map((item) => {
+                const amount = Number(item.amount || 0).toFixed(2);
+                const status = String(item.status || 'Unknown').replace(/,/g, ' ');
+                const date = String(item.date || '').replace(/,/g, ' ');
+                return `${item.id},${amount},${status},${date},Bank Transfer`;
+            });
+            const csv = [header, ...rows].join('\n');
+
+            await Share.share({
+                title: 'Shoouts Payout History',
+                message: `Shoouts payout history export\n\n${csv}`,
+            });
+        } catch (error) {
+            console.error('Export payout history failed:', error);
+            showToast('Could not export history right now.', 'error');
+        }
     };
 
     return (
@@ -177,8 +204,8 @@ export default function WithdrawalScreen() {
                         {/* History Section */}
                         <View style={styles.historyHeader}>
                             <Text style={styles.sectionTitle}>Payout History</Text>
-                            <TouchableOpacity onPress={() => showToast(`You have ${history.length} payout record${history.length !== 1 ? 's' : ''}. Full history export coming soon.`, 'info')}>
-                                <Text style={styles.seeAll}>See All</Text>
+                            <TouchableOpacity onPress={handleExportHistory}>
+                                <Text style={styles.seeAll}>Export</Text>
                             </TouchableOpacity>
                         </View>
 

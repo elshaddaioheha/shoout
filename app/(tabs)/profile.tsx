@@ -5,10 +5,12 @@ import { useCartStore } from '@/store/useCartStore';
 import { useNotificationStore } from '@/store/useNotificationStore';
 import { usePlaybackStore } from '@/store/usePlaybackStore';
 import { useUserStore } from '@/store/useUserStore';
+import { getModeTheme } from '@/utils/appModeTheme';
+import { updateProfile } from 'firebase/auth';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { collection, doc, getDocs, onSnapshot } from 'firebase/firestore';
+import { collection, doc, getDocs, onSnapshot, setDoc } from 'firebase/firestore';
 import {
     Bell,
     ChevronLeft,
@@ -29,10 +31,12 @@ import {
     Alert,
     Animated,
     Dimensions,
+    Modal,
     ScrollView,
     Share,
     StyleSheet,
     Text,
+    TextInput,
     TouchableOpacity,
     View
 } from 'react-native';
@@ -41,21 +45,31 @@ const { width } = Dimensions.get('window');
 
 export default function ProfileScreen() {
     const router = useRouter();
-    const { name, role, isPremium, reset } = useUserStore();
+    const { name, role, isPremium, reset, setName, activeAppMode } = useUserStore();
     const { actualRole } = useAuthStore();
-        const [followingCount, setFollowingCount] = React.useState(0);
-        const [followersCount, setFollowersCount] = React.useState(0);
-        const [playlistCount, setPlaylistCount] = React.useState(0);
+    const [followingCount, setFollowingCount] = React.useState(0);
+    const [followersCount, setFollowersCount] = React.useState(0);
+    const [playlistCount, setPlaylistCount] = React.useState(0);
+    const [profileBio, setProfileBio] = React.useState('');
+    const [editModalVisible, setEditModalVisible] = React.useState(false);
+    const [editName, setEditName] = React.useState(name);
+    const [editBio, setEditBio] = React.useState('');
+    const [isSavingProfile, setIsSavingProfile] = React.useState(false);
 
     const isStudioPaid = (actualRole?.startsWith('studio') || actualRole?.startsWith('hybrid')) ?? false;
+    const modeTheme = getModeTheme(activeAppMode);
+    const accentColor = modeTheme.accent;
+    const accentTint = modeTheme.accentTint;
+    const accentSoft = modeTheme.accentSoft;
 
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const scaleAnim = useRef(new Animated.Value(0.96)).current;
 
     const getRoleGradient = () => {
-        if (role === 'vault_pro') return ['rgba(236, 92, 57, 0.15)', 'rgba(0,0,0,0)'];
-        if (role.startsWith('studio')) return ['rgba(76, 175, 80, 0.15)', 'rgba(0,0,0,0)'];
-        if (role.startsWith('hybrid')) return ['rgba(255, 215, 0, 0.15)', 'rgba(0,0,0,0)'];
+        if (activeAppMode === 'vault' || activeAppMode === 'vault_pro') return ['rgba(236, 92, 57, 0.15)', 'rgba(0,0,0,0)'];
+        if (activeAppMode === 'studio') return ['rgba(76, 175, 80, 0.15)', 'rgba(0,0,0,0)'];
+        if (activeAppMode === 'hybrid') return ['rgba(255, 215, 0, 0.15)', 'rgba(0,0,0,0)'];
+        if (activeAppMode === 'shoout') return ['rgba(106, 167, 255, 0.15)', 'rgba(0,0,0,0)'];
         return ['rgba(255,255,255,0.02)', 'rgba(0,0,0,0)'];
     };
 
@@ -93,6 +107,9 @@ export default function ProfileScreen() {
 
                     setFollowersCount(nextFollowers);
                     setFollowingCount(nextFollowing);
+                    setProfileBio(String(userData.bio || userData.profileBio || ''));
+                    setEditBio(String(userData.bio || userData.profileBio || ''));
+                    setEditName(String(userData.fullName || userData.displayName || auth.currentUser?.displayName || name));
 
                     if (playlistCount === 0) {
                         setPlaylistCount(Number(userData.playlists) || 0);
@@ -139,7 +156,49 @@ export default function ProfileScreen() {
     };
 
     const handleEditProfile = () => {
-        Alert.alert('Edit Profile', "Profile editing coming soon. You'll be able to update your photo, bio, and display name.");
+        setEditName(name || auth.currentUser?.displayName || '');
+        setEditBio(profileBio || '');
+        setEditModalVisible(true);
+    };
+
+    const handleSaveProfile = async () => {
+        const uid = auth.currentUser?.uid;
+        const nextName = editName.trim();
+        const nextBio = editBio.trim();
+
+        if (!uid) {
+            Alert.alert('Sign in required', 'Please sign in to update your profile.');
+            return;
+        }
+        if (!nextName) {
+            Alert.alert('Name required', 'Display name cannot be empty.');
+            return;
+        }
+
+        try {
+            setIsSavingProfile(true);
+            if (auth.currentUser) {
+                await updateProfile(auth.currentUser, { displayName: nextName });
+            }
+
+            await setDoc(doc(db, 'users', uid), {
+                fullName: nextName,
+                displayName: nextName,
+                bio: nextBio,
+                profileBio: nextBio,
+                updatedAt: new Date().toISOString(),
+            }, { merge: true });
+
+            setName(nextName);
+            setProfileBio(nextBio);
+            setEditModalVisible(false);
+            Alert.alert('Profile updated', 'Your profile changes were saved successfully.');
+        } catch (error) {
+            console.error('Failed to save profile', error);
+            Alert.alert('Update failed', 'Could not save your profile right now. Please try again.');
+        } finally {
+            setIsSavingProfile(false);
+        }
     };
 
     const performLogout = async () => {
@@ -223,25 +282,29 @@ export default function ProfileScreen() {
                         end={{ x: 0, y: 1 }}
                     />
                     <View style={styles.avatarContainer}>
-                        <View style={styles.avatar}>
+                        <View style={[styles.avatar, { backgroundColor: accentSoft, borderColor: accentColor }]}>
                             <User size={40} color="#FFF" />
                         </View>
-                        <TouchableOpacity style={styles.editBadge} onPress={handleEditProfile}>
+                        <TouchableOpacity style={[styles.editBadge, { backgroundColor: accentColor }]} onPress={handleEditProfile}>
                             <Settings size={14} color="#FFF" />
                         </TouchableOpacity>
                     </View>
 
                     <Text style={styles.userName}>{name}</Text>
+                    {!!profileBio && <Text style={styles.profileBio}>{profileBio}</Text>}
                     <View style={[
                         styles.roleBadge,
                         isPremium && styles.rolePremium,
-                        (role.startsWith('studio') || role.startsWith('hybrid')) && styles.roleArtist
+                        ((role.startsWith('studio') || role.startsWith('hybrid') || role === 'shoout') || isPremium) && {
+                            backgroundColor: accentSoft,
+                            borderWidth: 1,
+                            borderColor: accentTint,
+                        }
                     ]}>
-                        {isPremium && <Crown size={12} color="#FFD700" style={{ marginRight: 4 }} />}
+                        {isPremium && <Crown size={12} color={accentColor} style={{ marginRight: 4 }} />}
                         <Text style={[
                             styles.roleText,
-                            isPremium && { color: '#FFD700' },
-                            (role.startsWith('studio') || role.startsWith('hybrid')) && { color: '#C084FC' }
+                            ((role.startsWith('studio') || role.startsWith('hybrid') || role === 'shoout') || isPremium) && { color: accentColor },
                         ]}>
                             {role.replace('_', ' ').charAt(0).toUpperCase() + role.replace('_', ' ').slice(1)} Member
                         </Text>
@@ -272,19 +335,19 @@ export default function ProfileScreen() {
                         icon={Crown}
                         label="Subscription"
                         value={role.replace('_', ' ').toUpperCase()}
-                        color="#FFD700"
+                        color={accentColor}
                         onPress={() => router.push('/settings/subscriptions' as any)}
                     />
                     <MenuItem
                         icon={CreditCard}
                         label="Payment Methods"
-                        color="#3B82F6"
+                        color={accentColor}
                         onPress={() => router.push('/settings/payment-methods' as any)}
                     />
                     <MenuItem
                         icon={Music}
                         label="Artist Dashboard"
-                        color="#9333EA"
+                        color={accentColor}
                         onPress={() => {
                             if (isStudioPaid) {
                                 router.push('/studio/analytics' as any);
@@ -305,20 +368,60 @@ export default function ProfileScreen() {
                 {/* Preferences Section */}
                 <Text style={styles.sectionTitle}>Preferences</Text>
                 <View style={styles.menuContainer}>
-                    <MenuItem icon={Bell} label="Notifications" color="#EC5C39" onPress={() => router.push('/settings/notifications' as any)} />
-                    <MenuItem icon={Download} label="Downloads" color="#10B981" />
-                    <MenuItem icon={Shield} label="Privacy & Security" color="#64748B" onPress={() => router.push('/settings/privacy' as any)} />
+                    <MenuItem icon={Bell} label="Notifications" color={accentColor} onPress={() => router.push('/settings/notifications' as any)} />
+                    <MenuItem icon={Download} label="Downloads" color={accentColor} onPress={() => router.push('/settings/downloads' as any)} />
+                    <MenuItem icon={Shield} label="Privacy & Security" color={accentColor} onPress={() => router.push('/settings/privacy' as any)} />
                 </View>
 
                 {/* Support Section */}
                 <Text style={styles.sectionTitle}>Support</Text>
                 <View style={styles.menuContainer}>
-                    <MenuItem icon={Sparkles} label="Help Center" color="#EC5C39" />
+                    <MenuItem icon={Sparkles} label="Help Center" color={accentColor} onPress={() => router.push('/settings/help-center' as any)} />
                     <MenuItem icon={LogOut} label="Log Out" color="#EF4444" onPress={handleLogout} hideChevron />
                 </View>
 
                 <View style={{ height: 100 }} />
             </ScrollView>
+
+            <Modal visible={editModalVisible} transparent animationType="slide" onRequestClose={() => setEditModalVisible(false)}>
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalCard}>
+                        <Text style={styles.modalTitle}>Edit Profile</Text>
+
+                        <Text style={styles.inputLabel}>Display name</Text>
+                        <TextInput
+                            value={editName}
+                            onChangeText={setEditName}
+                            style={styles.textInput}
+                            placeholder="Your display name"
+                            placeholderTextColor="rgba(255,255,255,0.35)"
+                            editable={!isSavingProfile}
+                            maxLength={40}
+                        />
+
+                        <Text style={styles.inputLabel}>Bio</Text>
+                        <TextInput
+                            value={editBio}
+                            onChangeText={setEditBio}
+                            style={[styles.textInput, styles.bioInput]}
+                            placeholder="Tell people about your music"
+                            placeholderTextColor="rgba(255,255,255,0.35)"
+                            editable={!isSavingProfile}
+                            multiline
+                            maxLength={180}
+                        />
+
+                        <View style={styles.modalActionsRow}>
+                            <TouchableOpacity style={styles.modalGhostButton} onPress={() => setEditModalVisible(false)} disabled={isSavingProfile}>
+                                <Text style={styles.modalGhostLabel}>Cancel</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={[styles.modalSaveButton, { backgroundColor: accentColor }, isSavingProfile && styles.modalSaveButtonDisabled]} onPress={handleSaveProfile} disabled={isSavingProfile}>
+                                <Text style={styles.modalSaveLabel}>{isSavingProfile ? 'Saving...' : 'Save'}</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
         </SafeScreenWrapper>
     );
 }
@@ -407,6 +510,14 @@ const styles = StyleSheet.create({
         fontFamily: 'Poppins-Bold',
         color: '#FFF',
     },
+    profileBio: {
+        fontSize: 13,
+        fontFamily: 'Poppins-Regular',
+        color: 'rgba(255,255,255,0.65)',
+        textAlign: 'center',
+        marginTop: 8,
+        paddingHorizontal: 8,
+    },
     roleBadge: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -420,11 +531,6 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(255, 215, 0, 0.1)',
         borderWidth: 1,
         borderColor: 'rgba(255, 215, 0, 0.2)',
-    },
-    roleArtist: {
-        backgroundColor: 'rgba(147, 51, 234, 0.1)',
-        borderWidth: 1,
-        borderColor: 'rgba(147, 51, 234, 0.2)',
     },
     roleText: {
         fontSize: 12,
@@ -497,5 +603,81 @@ const styles = StyleSheet.create({
         fontFamily: 'Poppins-Regular',
         color: 'rgba(255,255,255,0.4)',
         marginTop: 1,
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.62)',
+        justifyContent: 'flex-end',
+    },
+    modalCard: {
+        backgroundColor: '#1D1818',
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        paddingHorizontal: 20,
+        paddingTop: 22,
+        paddingBottom: 30,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.09)',
+    },
+    modalTitle: {
+        fontSize: 20,
+        fontFamily: 'Poppins-Bold',
+        color: '#FFF',
+        marginBottom: 16,
+    },
+    inputLabel: {
+        fontSize: 12,
+        fontFamily: 'Poppins-SemiBold',
+        color: 'rgba(255,255,255,0.62)',
+        marginBottom: 8,
+    },
+    textInput: {
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.12)',
+        backgroundColor: 'rgba(255,255,255,0.05)',
+        color: '#FFF',
+        borderRadius: 14,
+        paddingHorizontal: 14,
+        paddingVertical: 12,
+        fontSize: 14,
+        fontFamily: 'Poppins-Regular',
+        marginBottom: 14,
+    },
+    bioInput: {
+        minHeight: 92,
+        textAlignVertical: 'top',
+    },
+    modalActionsRow: {
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        gap: 10,
+        marginTop: 8,
+    },
+    modalGhostButton: {
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.16)',
+        backgroundColor: 'rgba(255,255,255,0.04)',
+        paddingHorizontal: 18,
+        paddingVertical: 10,
+        borderRadius: 12,
+    },
+    modalGhostLabel: {
+        color: 'rgba(255,255,255,0.85)',
+        fontFamily: 'Poppins-SemiBold',
+        fontSize: 13,
+    },
+    modalSaveButton: {
+        backgroundColor: '#EC5C39',
+        paddingHorizontal: 22,
+        paddingVertical: 10,
+        borderRadius: 12,
+    },
+    modalSaveButtonDisabled: {
+        opacity: 0.55,
+    },
+    modalSaveLabel: {
+        color: '#FFF',
+        fontFamily: 'Poppins-Bold',
+        fontSize: 13,
     },
 });

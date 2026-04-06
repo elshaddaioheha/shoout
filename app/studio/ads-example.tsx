@@ -2,7 +2,7 @@ import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ArrowLeft, MoreHorizontal, Play, Repeat2, Shuffle, SkipBack, SkipForward } from 'lucide-react-native';
 import React from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import SettingsHeader from '@/components/settings/SettingsHeader';
 
 export default function AdsExampleScreen() {
@@ -17,7 +17,7 @@ export default function AdsExampleScreen() {
           title="Ads Example"
           onBack={() => router.back()}
           rightElement={
-            <TouchableOpacity style={styles.iconBtn} activeOpacity={0.85} onPress={() => Alert.alert('Coming Soon')}>
+            <TouchableOpacity style={styles.iconBtn} activeOpacity={0.85} onPress={() => router.push('/studio/ads-creation' as any)}>
               <MoreHorizontal size={22} color="#FFFFFF" />
             </TouchableOpacity>
           }
@@ -66,7 +66,7 @@ export default function AdsExampleScreen() {
             </View>
           </View>
 
-          <TouchableOpacity style={styles.listenBtn} activeOpacity={0.9} onPress={() => Alert.alert('Coming Soon')}>
+          <TouchableOpacity style={styles.listenBtn} activeOpacity={0.9} onPress={() => router.push('/studio/ads-creation' as any)}>
             <Text style={styles.listenText}>Listen</Text>
           </TouchableOpacity>
         </View>

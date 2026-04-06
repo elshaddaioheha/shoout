@@ -55,6 +55,9 @@ const spacing = {
   xxl: 32,
 } as const;
 
+const SHOOUT_ACCENT = '#6AA7FF';
+const SHOOUT_ACCENT_SOFT = '#D8E8FF';
+
 // ─── Local favourite hook (no Firestore) ───────────────────────────────────────
 function useLocalFavourite(_trackId: string) {
   const [isFav, setIsFav] = useState(false);
@@ -176,7 +179,7 @@ const TrendingCard = React.memo(function TrendingCard({ song, bgColor, onPlay }:
           style={{ paddingHorizontal: 8 }}
           onPress={() => toggle()}
         >
-          <Heart size={18} color={isFav ? '#EC5C39' : 'white'} fill={isFav ? '#EC5C39' : 'transparent'} />
+          <Heart size={18} color={isFav ? SHOOUT_ACCENT : 'white'} fill={isFav ? SHOOUT_ACCENT : 'transparent'} />
         </TouchableOpacity>
         <TouchableOpacity style={styles.playButton} onPress={onPlay}>
           <Play size={20} color="white" fill="white" />
@@ -290,10 +293,10 @@ const FreeMusicCard = React.memo(function FreeMusicCard({ song, onPlay }: { song
         <Text style={styles.itemSubtitle}>{song.artist}</Text>
         <View style={styles.itemActionsSafe}>
           <TouchableOpacity onPress={(e) => { e.stopPropagation?.(); addItem({ id: song.id, title: song.title, artist: song.artist, price: song.price || 0, uploaderId: song.uploaderId || '', coverUrl: song.artworkUrl }); }}>
-            <ShoppingCart size={14} color={inCart ? '#4CAF50' : '#EC5C39'} />
+            <ShoppingCart size={14} color={inCart ? '#4CAF50' : SHOOUT_ACCENT} />
           </TouchableOpacity>
           <TouchableOpacity onPress={(e) => { e.stopPropagation?.(); toggle(); }}>
-            <Heart size={12} color="#EC5C39" fill={isFav ? '#EC5C39' : 'transparent'} />
+            <Heart size={12} color={SHOOUT_ACCENT} fill={isFav ? SHOOUT_ACCENT : 'transparent'} />
           </TouchableOpacity>
         </View>
       </View>
@@ -647,10 +650,10 @@ const BeatRow = React.memo(function BeatRow({
 
         <View style={styles.beatActions}>
           <TouchableOpacity style={styles.beatActionIconButton} onPress={handleAddToCart} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <ShoppingCart size={18} color={inCart ? '#4CAF50' : '#EC5C39'} />
+            <ShoppingCart size={18} color={inCart ? '#4CAF50' : SHOOUT_ACCENT} />
           </TouchableOpacity>
           <TouchableOpacity style={styles.beatActionIconButton} onPress={handleToggleFavorite} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Heart size={18} color="#EC5C39" fill={isFav ? '#EC5C39' : 'transparent'} />
+            <Heart size={18} color={SHOOUT_ACCENT} fill={isFav ? SHOOUT_ACCENT : 'transparent'} />
           </TouchableOpacity>
         </View>
 
@@ -696,7 +699,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   seeAllText: {
-    color: '#EC5C39',
+    color: SHOOUT_ACCENT,
     fontSize: 13,
     lineHeight: 18,
     fontFamily: 'Poppins-Medium',
@@ -746,7 +749,7 @@ const styles = StyleSheet.create({
   playButton: {
     width: 40,
     height: 40,
-    backgroundColor: '#EC5C39',
+    backgroundColor: SHOOUT_ACCENT,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
@@ -784,7 +787,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins-Regular',
   },
   playlistPrice: {
-    color: '#F8B6A7',
+    color: SHOOUT_ACCENT_SOFT,
     fontSize: 11,
     lineHeight: 16,
     fontFamily: 'Poppins-Medium',
@@ -853,7 +856,7 @@ const styles = StyleSheet.create({
   beatRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
+    gap: spacing.sm,
   },
   beatMainTap: {
     flex: 1,
@@ -871,7 +874,7 @@ const styles = StyleSheet.create({
   beatActions: {
     flexDirection: 'row',
     gap: spacing.xs,
-    marginRight: spacing.md,
+    marginRight: 0,
   },
   beatActionIconButton: {
     width: 30,
@@ -880,10 +883,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   moreActionButton: {
-    paddingLeft: spacing.xs,
+    paddingLeft: 0,
   },
   beatPriceText: {
-    color: '#F8B6A7',
+    color: SHOOUT_ACCENT_SOFT,
     fontSize: 12,
     lineHeight: 18,
     fontFamily: 'Poppins-Medium',
@@ -947,13 +950,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   modalBtnSolid: {
-    backgroundColor: '#EC5C39',
+    backgroundColor: SHOOUT_ACCENT,
     borderWidth: 1,
     borderColor: '#767676',
   },
   modalBtnOutline: {
     borderWidth: 1.5,
-    borderColor: '#EC5C39',
+    borderColor: SHOOUT_ACCENT,
   },
   modalBtnText: {
     fontSize: 16,

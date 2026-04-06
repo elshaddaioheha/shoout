@@ -5,8 +5,8 @@ import { Home, Library, Megaphone, MoreHorizontal, Search, ShoppingCart, Upload 
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { BlurView } from 'expo-blur';
 import { usePathname, useRouter } from 'expo-router';
-import { colors } from '@/constants/colors';
 import { useUserStore } from '@/store/useUserStore';
+import { getModeTheme } from '@/utils/appModeTheme';
 
 interface TabConfig {
     key: string;
@@ -121,6 +121,7 @@ export default function ResponsiveBottomTabBar(props: BottomTabBarProps) {
                             isFocused={isFocused}
                             tabKey={tab.key}
                             isCompact={isVaultMode}
+                            activeAppMode={activeAppMode}
                             onPress={onPress}
                         />
                     );
@@ -130,15 +131,17 @@ export default function ResponsiveBottomTabBar(props: BottomTabBarProps) {
     );
 }
 
-function TabButton({ Icon, label, isFocused, tabKey, isCompact, onPress }: any) {
+function TabButton({ Icon, label, isFocused, tabKey, isCompact, activeAppMode, onPress }: any) {
     const inactiveColor = 'rgba(255, 255, 255, 0.65)';
+    const activeBgColor = getModeTheme(activeAppMode).accent;
+    const activeFgColor = activeAppMode === 'hybrid' ? '#140F10' : '#FFFFFF';
 
     return (
         <TouchableOpacity
             style={[
                 styles.tab,
                 isCompact && styles.compactTab,
-                isFocused ? styles.activeTab : styles.inactiveTab,
+                isFocused ? [styles.activeTab, { backgroundColor: activeBgColor }] : styles.inactiveTab,
                 isCompact && isFocused && styles.compactActiveTab,
                 isCompact && !isFocused && styles.compactInactiveTab,
             ]}
@@ -147,10 +150,10 @@ function TabButton({ Icon, label, isFocused, tabKey, isCompact, onPress }: any) 
         >
             <Icon
                 size={isCompact ? 18 : 21}
-                color={isFocused ? '#FFFFFF' : inactiveColor}
-                fill={isFocused && tabKey === 'index' ? '#FFFFFF' : 'none'}
+                color={isFocused ? activeFgColor : inactiveColor}
+                fill={isFocused && tabKey === 'index' ? activeFgColor : 'none'}
             />
-            {isFocused ? <Text style={[styles.labelActive, isCompact && styles.compactLabelActive]}>{label}</Text> : null}
+            {isFocused ? <Text style={[styles.labelActive, { color: activeFgColor }, isCompact && styles.compactLabelActive]}>{label}</Text> : null}
         </TouchableOpacity>
     );
 }
@@ -214,7 +217,6 @@ const styles = StyleSheet.create({
     },
     activeTab: {
         minWidth: 83,
-        backgroundColor: colors.primary,
     },
     compactActiveTab: {
         minWidth: 74,

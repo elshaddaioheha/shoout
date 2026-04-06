@@ -64,7 +64,7 @@ export default function StudioMessagesScreen() {
           title="Message"
           onBack={() => router.back()}
           rightElement={
-            <TouchableOpacity activeOpacity={0.85} onPress={() => Alert.alert('Coming Soon')}>
+            <TouchableOpacity activeOpacity={0.85} onPress={() => router.push('/chat/index' as any)}>
               <MessageSquarePlus size={22} color="#FFFFFF" />
             </TouchableOpacity>
           }
@@ -75,8 +75,8 @@ export default function StudioMessagesScreen() {
           <View style={styles.emptyWrap}>
             <UserRound size={44} color="rgba(255,255,255,0.37)" />
             <Text style={styles.emptyTitle}>No chats yet</Text>
-            <Text style={styles.emptySub}>Send a message and turn conversations into shoutouts</Text>
-            <TouchableOpacity style={styles.startBtn} onPress={() => Alert.alert('Coming Soon')}>
+            <Text style={styles.emptySub}>Chats appear here when buyers message you about tracks and purchases.</Text>
+            <TouchableOpacity style={styles.startBtn} onPress={() => router.push('/chat/index' as any)}>
               <Text style={styles.startBtnText}>Send</Text>
             </TouchableOpacity>
           </View>

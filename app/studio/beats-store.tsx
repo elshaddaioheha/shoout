@@ -68,7 +68,7 @@ export default function BeatsStoreManagement() {
 
     const filteredBeats = beats.filter(beat => {
         const matchesSearch = beat.title?.toLowerCase().includes(searchQuery.toLowerCase());
-        const status = beat.price > 0 ? 'Active' : 'Draft'; // Derived logic for MVP
+        const status = beat.published === true ? 'Published' : 'Unpublished';
         const matchesTab = activeTab === 'All' || status === activeTab;
         return matchesSearch && matchesTab;
     });
@@ -140,7 +140,7 @@ export default function BeatsStoreManagement() {
 
                 {/* Tabs */}
                 <View style={styles.tabsContainer}>
-                    {['All', 'Active', 'Draft'].map((tab) => (
+                    {['All', 'Published', 'Unpublished'].map((tab) => (
                         <TouchableOpacity
                             key={tab}
                             onPress={() => setActiveTab(tab)}
@@ -205,7 +205,7 @@ export default function BeatsStoreManagement() {
 
 function BeatCard({ beat, onDelete }: any) {
     const setTrack = usePlaybackStore(state => state.setTrack);
-    const status = beat.price > 0 ? 'Active' : 'Draft';
+    const status = beat.published === true ? 'Published' : 'Unpublished';
     const [menuOpen, setMenuOpen] = useState(false);
 
     return (
@@ -248,14 +248,14 @@ function BeatCard({ beat, onDelete }: any) {
                     <Text style={styles.beatStatText}>{beat.salesCount || 0} Sales</Text>
                 </View>
                 <View style={styles.beatStat}>
-                    {status === 'Active' ? (
+                    {status === 'Published' ? (
                         <CheckCircle2 size={14} color="#4CAF50" />
                     ) : (
                         <Clock size={14} color="#FFC107" />
                     )}
                     <Text style={[
                         styles.beatStatText,
-                        { color: status === 'Active' ? '#4CAF50' : '#FFC107' }
+                        { color: status === 'Published' ? '#4CAF50' : '#FFC107' }
                     ]}>
                         {status}
                     </Text>

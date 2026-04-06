@@ -5,7 +5,7 @@ import { ViewMode } from '@/store/useUserStore';
 import { Image } from 'expo-image';
 import { ChevronDown } from 'lucide-react-native';
 import React, { useEffect, useRef } from 'react';
-import { Animated, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 
 interface ModePillButtonProps {
     viewMode: ViewMode;
@@ -51,8 +51,10 @@ const MODE_COLORS: Record<ViewMode, { border: string; text: string; arrowBg: str
 
 export default function ModePillButton({ viewMode, isOpen, onPress }: ModePillButtonProps) {
     const chevronAnim = useRef(new Animated.Value(0)).current;
+    const { width } = useWindowDimensions();
     const modeStyle = MODE_COLORS[viewMode];
     const modeLabel = MODE_LABELS[viewMode];
+    const isCompact = width < 390;
 
     useEffect(() => {
         Animated.spring(chevronAnim, {
@@ -70,25 +72,30 @@ export default function ModePillButton({ viewMode, isOpen, onPress }: ModePillBu
 
     return (
         <TouchableOpacity
-            style={[styles.pill, { borderColor: modeStyle.border }]}
+            style={[
+                styles.pill,
+                isCompact && styles.pillCompact,
+                { borderColor: modeStyle.border },
+            ]}
             onPress={onPress}
             activeOpacity={0.75}
         >
-            <View style={styles.logoSlot}>
+            <View style={[styles.logoSlot, isCompact && styles.logoSlotCompact]}>
                 <Image
                     source={require('@/assets/images/logo-rings.png')}
-                    style={styles.logoImage}
+                    style={[styles.logoImage, isCompact && styles.logoImageCompact]}
                     contentFit="contain"
                 />
             </View>
-            <Text style={[styles.label, { color: modeStyle.text }]}>{modeLabel}</Text>
+            <Text style={[styles.label, isCompact && styles.labelCompact, { color: modeStyle.text }]}>{modeLabel}</Text>
             <Animated.View
                 style={[
                     styles.chevronCircle,
+                    isCompact && styles.chevronCircleCompact,
                     { backgroundColor: modeStyle.arrowBg, transform: [{ rotate: chevronRotate }] },
                 ]}
             >
-                <ChevronDown size={12} color={modeStyle.text} strokeWidth={2.5} />
+                <ChevronDown size={isCompact ? 11 : 12} color={modeStyle.text} strokeWidth={2.5} />
             </Animated.View>
         </TouchableOpacity>
     );
@@ -106,6 +113,12 @@ const styles = StyleSheet.create({
         paddingVertical: 5,
         minHeight: 42,
     },
+    pillCompact: {
+        paddingLeft: 4,
+        paddingRight: 8,
+        paddingVertical: 4,
+        minHeight: 36,
+    },
     logoSlot: {
         width: 30,
         height: 30,
@@ -115,14 +128,28 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(255,255,255,0.08)',
         marginRight: 8,
     },
+    logoSlotCompact: {
+        width: 26,
+        height: 26,
+        borderRadius: 13,
+        marginRight: 6,
+    },
     logoImage: {
         width: 21,
         height: 21,
+    },
+    logoImageCompact: {
+        width: 18,
+        height: 18,
     },
     label: {
         fontSize: 14,
         fontFamily: 'Poppins-SemiBold',
         marginRight: 8,
+    },
+    labelCompact: {
+        fontSize: 12,
+        marginRight: 6,
     },
     chevronCircle: {
         width: 24,
@@ -130,5 +157,10 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         alignItems: 'center',
         justifyContent: 'center',
+    },
+    chevronCircleCompact: {
+        width: 20,
+        height: 20,
+        borderRadius: 10,
     },
 });
