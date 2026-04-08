@@ -21,10 +21,10 @@ const MODE_THEME: Record<AppMode, ThemeSwatch> = {
     accentSoft: 'rgba(76,175,80,0.12)',
   },
   hybrid: {
-    accent: '#FFD700',
-    accentStrong: '#A67C00',
-    accentTint: 'rgba(255,215,0,0.24)',
-    accentSoft: 'rgba(255,215,0,0.12)',
+    accent: '#D4AF37',
+    accentStrong: '#AA771C',
+    accentTint: 'rgba(212,175,55,0.24)',
+    accentSoft: 'rgba(212,175,55,0.12)',
   },
   vault: {
     accent: '#EC5C39',

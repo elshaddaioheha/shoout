@@ -23,7 +23,7 @@ const CATEGORY_TABS: { id: PlanCategory; label: string; color: string }[] = [
     { id: 'Shoout', label: 'Shoout', color: '#6AA7FF' },
     { id: 'Vault', label: 'Vault', color: '#EC5C39' },
     { id: 'Studio', label: 'Studio', color: '#4CAF50' },
-    { id: 'Hybrid', label: 'Hybrid', color: '#FFD700' },
+    { id: 'Hybrid', label: 'Hybrid', color: '#D4AF37' },
 ];
 
 const PLANS = SUBSCRIPTION_PLANS.map((plan) => ({
@@ -211,20 +211,29 @@ export default function SubscriptionsScreen() {
 
                     {visiblePlans.map((plan) => {
                         const isCurrentPlan = currentPlan === plan.id;
+                        const isHybridPlan = plan.id === 'hybrid';
+                        const planColor = isHybridPlan ? (appTheme.isDark ? '#E5C158' : '#D4AF37') : plan.color;
+                        const planTextAccent = isHybridPlan ? (appTheme.isDark ? '#F4D03F' : '#B8860B') : plan.color;
+                        const planBorderColor = isHybridPlan ? planColor : plan.borderColor;
+                        const planGradient = isHybridPlan
+                            ? (appTheme.isDark
+                                ? (['rgba(244, 208, 63, 0.22)', 'rgba(212, 175, 55, 0.1)', 'rgba(0,0,0,0)'] as const)
+                                : (['rgba(212, 175, 55, 0.18)', 'rgba(170, 119, 28, 0.08)', 'rgba(0,0,0,0)'] as const))
+                            : plan.gradient;
                         const dueUsd = isAnnual ? plan.annualTotalUsd : plan.monthlyPriceUsd;
                         const priceDisplay = dueUsd === 0 ? 'Free' : `${formatUsd(isAnnual ? plan.annualPerMonthUsd : plan.monthlyPriceUsd)}`;
 
                         return (
-                            <View key={plan.id} style={[styles.cardWrapper, { borderColor: plan.borderColor }]}> 
+                            <View key={plan.id} style={[styles.cardWrapper, { borderColor: planBorderColor }]}> 
                                 <LinearGradient
-                                    colors={plan.gradient as readonly [string, string, ...string[]]}
+                                    colors={planGradient as readonly [string, string, ...string[]]}
                                     style={StyleSheet.absoluteFillObject}
                                     start={{ x: 0, y: 0 }}
                                     end={{ x: 1, y: 1 }}
                                 />
 
                                 {plan.recommended && (
-                                    <View style={[styles.recommendedBadge, { backgroundColor: plan.color }]}>
+                                    <View style={[styles.recommendedBadge, { backgroundColor: planColor }]}> 
                                         <Star
                                             size={12}
                                             color={adaptLegacyColor('#140F10', 'color', appTheme)}
@@ -235,8 +244,8 @@ export default function SubscriptionsScreen() {
                                 )}
 
                                 <View style={styles.planHeader}>
-                                    <View style={[styles.categoryBadge, { backgroundColor: plan.color + '20' }]}>
-                                        <Text style={[styles.categoryText, { color: plan.color }]}>{plan.category}</Text>
+                                    <View style={[styles.categoryBadge, { backgroundColor: planColor + '20' }]}> 
+                                        <Text style={[styles.categoryText, { color: planTextAccent }]}>{plan.category}</Text>
                                     </View>
                                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                                         <Text style={styles.planName}>{plan.name}</Text>
@@ -253,15 +262,15 @@ export default function SubscriptionsScreen() {
                                         {dueUsd > 0 && <Text style={styles.planPeriod}>/{isAnnual ? 'month (annual billing)' : 'month'}</Text>}
                                     </View>
                                     {isAnnual && plan.annualTotalUsd > 0 ? (
-                                        <Text style={[styles.annualTotalText, { color: hexToRgba(plan.color, 0.95) }]}>Billed as {formatUsd(plan.annualTotalUsd)} per year (charged in NGN)</Text>
+                                        <Text style={[styles.annualTotalText, { color: hexToRgba(planTextAccent, 0.95) }]}>Billed as {formatUsd(plan.annualTotalUsd)} per year (charged in NGN)</Text>
                                     ) : null}
                                 </View>
 
                                 <View style={styles.featuresList}>
                                     {plan.features.map((feature, idx) => (
                                         <View key={idx} style={styles.featureItem}>
-                                            <View style={[styles.checkCircle, { backgroundColor: plan.color + '15' }]}>
-                                                <Check size={14} color={plan.color} strokeWidth={3} />
+                                            <View style={[styles.checkCircle, { backgroundColor: planColor + '15' }]}> 
+                                                <Check size={14} color={planTextAccent} strokeWidth={3} />
                                             </View>
                                             <Text style={styles.featureText}>{feature}</Text>
                                         </View>
@@ -271,12 +280,20 @@ export default function SubscriptionsScreen() {
                                 <TouchableOpacity
                                     style={[
                                         styles.actionButton,
-                                        isCurrentPlan ? styles.disabledButton : { backgroundColor: plan.color }
+                                        isCurrentPlan ? styles.disabledButton : (isHybridPlan ? styles.hybridActionButton : { backgroundColor: planColor })
                                     ]}
                                     onPress={() => handleUpgradePress(plan, dueUsd)}
                                     disabled={isCurrentPlan}
                                 >
-                                    <Text style={[styles.actionButtonText, isCurrentPlan && { color: appTheme.colors.textDisabled }]}> 
+                                    {!isCurrentPlan && isHybridPlan && appTheme.isDark ? (
+                                        <LinearGradient
+                                            colors={['#F4D03F', '#D4AF37']}
+                                            style={StyleSheet.absoluteFillObject}
+                                            start={{ x: 0, y: 0 }}
+                                            end={{ x: 1, y: 1 }}
+                                        />
+                                    ) : null}
+                                    <Text style={[styles.actionButtonText, isCurrentPlan && { color: appTheme.colors.textDisabled }, isHybridPlan && !isCurrentPlan ? { color: '#121212' } : null]}> 
                                         {isCurrentPlan ? 'Current Plan' : plan.id === 'shoout' ? 'Switch to Shoout' : 'Select Plan'}
                                     </Text>
                                 </TouchableOpacity>
@@ -415,6 +432,7 @@ const legacyStyles = {
     checkCircle: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
     featureText: { fontSize: 15, fontFamily: 'Poppins-Regular', color: 'rgba(255,255,255,0.85)' },
     actionButton: { height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+    hybridActionButton: { backgroundColor: '#D4AF37', overflow: 'hidden' },
     disabledButton: { backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
     actionButtonText: { color: '#FFF', fontSize: 16, fontFamily: 'Poppins-Bold' },
     footerInfo: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, marginTop: 20, backgroundColor: 'rgba(255,255,255,0.03)', padding: 18, borderRadius: 16 },
@@ -451,7 +469,7 @@ const legacyStyles = {
     loadingText: { color: '#FFF', fontFamily: 'Poppins-Bold', marginTop: 16, fontSize: 16 },
     splashOverlay: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', zIndex: 1000, backgroundColor: '#140F10' },
     splashTitle: { color: '#FFF', fontSize: 28, fontFamily: 'Poppins-Bold', textAlign: 'center', marginHorizontal: 20 },
-    splashSub: { color: '#FFD700', fontSize: 16, fontFamily: 'Poppins-Medium', textAlign: 'center', marginTop: 10, marginHorizontal: 20 },
+    splashSub: { color: '#D4AF37', fontSize: 16, fontFamily: 'Poppins-Medium', textAlign: 'center', marginTop: 10, marginHorizontal: 20 },
     webPaymentNotice: { backgroundColor: 'rgba(236, 92, 57, 0.08)', borderWidth: 1, borderColor: 'rgba(236, 92, 57, 0.25)', borderRadius: 16, padding: 20, alignItems: 'center', marginBottom: 16, gap: 10 },
     webPaymentTitle: { fontSize: 16, fontFamily: 'Poppins-Bold', color: '#FFF', textAlign: 'center' },
     webPaymentSub: { fontSize: 13, fontFamily: 'Poppins-Regular', color: 'rgba(255,255,255,0.6)', textAlign: 'center', lineHeight: 20 },

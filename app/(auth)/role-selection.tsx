@@ -39,6 +39,9 @@ const SUBSCRIPTION_TIERS = [
         id: 'vault' as UserRole,
         title: 'Vault',
         subtitle: `For Active Creators (${formatUsd(ngnToUsd(6981))}/mo)`,
+        welcomeTitle: 'Welcome to Vault',
+        welcomeLine: 'Private space for your masters, demos, and folders.',
+        illustrationAssetName: 'welcome-tier-vault.png',
         icon: Headphones,
         gradient: [theme.colors.surface, '#3D2A1F'] as [string, string],
         accentColor: theme.colors.primary,
@@ -49,6 +52,9 @@ const SUBSCRIPTION_TIERS = [
         id: 'vault_pro' as UserRole,
         title: 'Vault Pro',
         subtitle: `Professional tier (${formatUsd(ngnToUsd(13962))}/mo)`,
+        welcomeTitle: 'Welcome to Vault Pro',
+        welcomeLine: 'Higher limits and deeper control for your private catalog.',
+        illustrationAssetName: 'welcome-tier-vault-pro.png',
         icon: Crown,
         gradient: ['#863420', '#4A1D13'] as [string, string],
         accentColor: '#FFD700',
@@ -59,6 +65,9 @@ const SUBSCRIPTION_TIERS = [
         id: 'studio' as UserRole,
         title: 'Studio',
         subtitle: `Active Sellers (${formatUsd(ngnToUsd(27000))}/mo)`,
+        welcomeTitle: 'Welcome to Studio',
+        welcomeLine: 'Publish, sell, and scale your beat business.',
+        illustrationAssetName: 'welcome-tier-studio.png',
         icon: TrendingUp,
         gradient: ['#7C3AED', '#4C1D95'] as [string, string],
         accentColor: '#C4B5FD',
@@ -71,6 +80,9 @@ const SUBSCRIPTION_TIERS = [
         id: 'hybrid' as UserRole,
         title: 'Hybrid',
         subtitle: `The Ultimate Plan (${formatUsd(ngnToUsd(34906))}/mo)`,
+        welcomeTitle: 'Welcome to Hybrid',
+        welcomeLine: 'One workspace to publish, promote, and manage your vault.',
+        illustrationAssetName: 'welcome-tier-hybrid.png',
         icon: Zap,
         gradient: ['#221133', '#4A0E17'] as [string, string],
         accentColor: '#FFD700',
@@ -78,6 +90,13 @@ const SUBSCRIPTION_TIERS = [
         featureIcons: [Download, Crown, Star, TrendingUp],
     },
 ];
+
+const TIER_ILLUSTRATIONS: Record<UserRole, number> = {
+    vault: require('@/assets/images/welcome-1.png'),
+    vault_pro: require('@/assets/images/welcome-2.png'),
+    studio: require('@/assets/images/welcome-3.png'),
+    hybrid: require('@/assets/images/welcome-3.png'),
+};
 
 function useRoleSelectionStyles() {
     const appTheme = useAppTheme();
@@ -128,6 +147,7 @@ export default function RoleSelectionScreen() {
     }, []);
 
     const pulseAnim = useRef(new Animated.Value(1)).current;
+    const selectedTier = SUBSCRIPTION_TIERS.find((tier) => tier.id === selectedRole) || null;
     useEffect(() => {
         if (selectedRole) {
             Animated.sequence([
@@ -165,6 +185,8 @@ export default function RoleSelectionScreen() {
         router.replace('/(tabs)');
     };
 
+    const selectedTierImage = selectedTier ? TIER_ILLUSTRATIONS[selectedTier.id] : null;
+
     return (
         <SafeScreenWrapper>
             <StatusBar barStyle={appTheme.isDark ? 'light-content' : 'dark-content'} />
@@ -187,6 +209,31 @@ export default function RoleSelectionScreen() {
                     <Text style={styles.title} allowFontScaling={false}>How will you use{'\n'}ShooutS?</Text>
                     <Text style={styles.subtitle} allowFontScaling={false}>Choose your experience. You can always change this later.</Text>
                 </Animated.View>
+
+                {selectedTier ? (
+                    <View style={styles.selectedWelcomeWrap}>
+                        <LinearGradient
+                            colors={selectedTier.gradient}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                            style={styles.selectedWelcomeGradient}
+                        >
+                            <View style={styles.selectedWelcomeHeader}>
+                                <Text style={styles.selectedWelcomeTitle}>{selectedTier.welcomeTitle}</Text>
+                                <Text style={styles.selectedWelcomeLine}>{selectedTier.welcomeLine}</Text>
+                            </View>
+                            {selectedTierImage ? (
+                                <View style={[styles.illustrationImageCard, { borderColor: `${selectedTier.accentColor}66` }]}>
+                                    <Image
+                                        source={selectedTierImage}
+                                        style={styles.illustrationImage}
+                                        contentFit="contain"
+                                    />
+                                </View>
+                            ) : null}
+                        </LinearGradient>
+                    </View>
+                ) : null}
 
                 {/* Role Cards */}
                 <View style={styles.cardsContainer}>
@@ -338,6 +385,42 @@ const legacyStyles = {
     },
     cardsContainer: {
         gap: theme.spacing.md,
+    },
+    selectedWelcomeWrap: {
+        marginBottom: theme.spacing.lg,
+    },
+    selectedWelcomeGradient: {
+        borderRadius: theme.radius.xl,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.12)',
+        padding: theme.spacing.md,
+        gap: theme.spacing.md,
+    },
+    selectedWelcomeHeader: {
+        gap: 4,
+    },
+    selectedWelcomeTitle: {
+        color: '#FFFFFF',
+        fontFamily: 'Poppins-Bold',
+        fontSize: theme.typography.h3.fontSize,
+    },
+    selectedWelcomeLine: {
+        color: 'rgba(255,255,255,0.82)',
+        fontFamily: 'Poppins-Regular',
+        fontSize: theme.typography.caption.fontSize,
+    },
+    illustrationImageCard: {
+        borderWidth: 1,
+        borderRadius: theme.radius.lg,
+        backgroundColor: 'rgba(20,15,16,0.46)',
+        paddingVertical: theme.spacing.sm,
+        paddingHorizontal: theme.spacing.sm,
+        alignItems: 'center',
+    },
+    illustrationImage: {
+        width: '100%',
+        height: normalize(170),
+        borderRadius: theme.radius.md,
     },
     roleCard: {
         borderRadius: theme.radius.xl,

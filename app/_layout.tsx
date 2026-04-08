@@ -73,7 +73,7 @@ export default function RootLayout() {
         authNavigationHandled.current = false;
       } else {
         if (isFirstAuthEvent.current) {
-          router.replace('/(auth)/onboarding');
+          router.replace('/(auth)/role-selection');
         }
       }
 
@@ -85,7 +85,7 @@ export default function RootLayout() {
       setAuthResolved((prev) => {
         if (!prev) {
           console.warn('[layout] Auth timeout - forcing render. User may not be logged in.');
-          router.replace('/(auth)/onboarding');
+          router.replace('/(auth)/role-selection');
         }
         return true;
       });
@@ -139,6 +139,7 @@ export default function RootLayout() {
         >
           <Stack.Screen name="index" />
           <Stack.Screen name="(auth)/onboarding" />
+          <Stack.Screen name="(auth)/role-selection" />
           <Stack.Screen name="(auth)/login" />
           <Stack.Screen name="(auth)/signup" />
           <Stack.Screen name="(auth)/studio-creation" />

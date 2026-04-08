@@ -126,7 +126,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
                     <View style={styles.divider} />
 
-                    <TouchableOpacity style={styles.profileLink} onPress={() => { router.push('/profile'); onClose(); }}>
+                    <TouchableOpacity style={styles.profileLink} onPress={() => { router.push('/(tabs)/profile' as any); onClose(); }}>
                         <View style={styles.profileIcon}>
                             <User size={20} color={appTheme.colors.textPrimary} />
                         </View>

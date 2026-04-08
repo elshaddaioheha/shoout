@@ -30,7 +30,7 @@ export default function MoreScreen() {
     const styles = useMoreStyles();
 
     const router = useRouter();
-    const { role, name, reset, activeAppMode } = useUserStore();
+    const { role, name, reset, activeAppMode, setActiveAppMode } = useUserStore();
     const currentPlan = getEffectivePlan(useAuthStore((state) => state.actualRole || state.subscriptionTier || role));
     const { showToast } = useToastStore();
     const { openSheet, isModeSheetOpen, viewMode } = useAppSwitcherContext();
@@ -50,6 +50,10 @@ export default function MoreScreen() {
     const accentColor = modeTheme.accent;
 
     const pushSubscriptions = () => router.push('/settings/subscriptions' as any);
+    const goHybridHome = () => {
+        setActiveAppMode('hybrid');
+        router.push('/' as any);
+    };
 
     const performLogout = async () => {
         useNotificationStore.getState().stopListening();
@@ -133,21 +137,21 @@ export default function MoreScreen() {
                     <View style={styles.menuContainer}>
                         {isVaultMode ? (
                             <>
-                                <MenuItem icon={Library} label="Vault Home" color={accentColor} onPress={() => router.push('/(tabs)/index' as any)} />
+                                <MenuItem icon={Library} label="Vault Home" color={accentColor} onPress={() => router.push('/' as any)} />
                                 <MenuItem icon={UploadCloud} label="Upload Track" color={accentColor} onPress={() => router.push('/vault/upload' as any)} />
                                 <MenuItem icon={Link2} label="Shared Links" color={accentColor} onPress={() => router.push('/vault/links' as any)} />
                                 <MenuItem icon={Bell} label="Vault Updates" color={accentColor} onPress={() => router.push('/vault/updates' as any)} />
                             </>
                         ) : isStudioMode ? (
                             <>
-                                <MenuItem icon={Library} label="Studio Home" color={accentColor} onPress={() => router.push('/(tabs)/index' as any)} />
+                                <MenuItem icon={Library} label="Studio Home" color={accentColor} onPress={() => router.push('/' as any)} />
                                 <MenuItem icon={UploadCloud} label="Publish" color={accentColor} onPress={() => canUseStudioTools ? router.push('/(tabs)/search' as any) : pushSubscriptions()} />
                                 <MenuItem icon={Banknote} label="Royalties & Earnings" color={accentColor} onPress={() => canUseStudioTools ? router.push('/studio/earnings' as any) : pushSubscriptions()} />
                                 <MenuItem icon={Bell} label="Promote & Ads" color={accentColor} onPress={() => canUseStudioTools ? router.push('/(tabs)/marketplace' as any) : pushSubscriptions()} />
                             </>
                         ) : isHybridMode ? (
                             <>
-                                <MenuItem icon={Library} label="Hybrid Home" color={accentColor} onPress={() => router.push('/(tabs)/index' as any)} />
+                                <MenuItem icon={Library} label="Hybrid Home" color={accentColor} onPress={goHybridHome} />
                                 <MenuItem icon={UploadCloud} label="Publish" color={accentColor} onPress={() => canUseHybridTools ? router.push('/(tabs)/search' as any) : pushSubscriptions()} />
                                 <MenuItem icon={Banknote} label="Creator Earnings" color={accentColor} onPress={() => canUseHybridTools ? router.push('/studio/earnings' as any) : pushSubscriptions()} />
                                 <MenuItem icon={Bell} label="Promote & Ads" color={accentColor} onPress={() => canUseHybridTools ? router.push('/(tabs)/marketplace' as any) : pushSubscriptions()} />

@@ -74,7 +74,7 @@ export default function StudioMessagesScreen() {
           title="Message"
           onBack={() => router.back()}
           rightElement={
-            <TouchableOpacity activeOpacity={0.85} onPress={() => router.push('/chat/index' as any)}>
+            <TouchableOpacity activeOpacity={0.85} onPress={() => router.push('/chat' as any)}>
               <MessageSquarePlus size={22} color={appTheme.colors.textPrimary} />
             </TouchableOpacity>
           }
@@ -86,7 +86,7 @@ export default function StudioMessagesScreen() {
             <UserRound size={44} color={appTheme.colors.textDisabled} />
             <Text style={styles.emptyTitle}>No chats yet</Text>
             <Text style={styles.emptySub}>Chats appear here when buyers message you about tracks and purchases.</Text>
-            <TouchableOpacity style={styles.startBtn} onPress={() => router.push('/chat/index' as any)}>
+            <TouchableOpacity style={styles.startBtn} onPress={() => router.push('/chat' as any)}>
               <Text style={styles.startBtnText}>Send</Text>
             </TouchableOpacity>
           </View>

@@ -73,7 +73,7 @@ const VIEW_MODES: ViewModeEntry[] = [
         label: 'Hybrid',
         description: 'Combined creator mode across Vault and Studio',
         Icon: Layers3,
-        color: '#FFD700',
+        color: '#D4AF37',
     },
 ];
 
@@ -103,6 +103,14 @@ export default function ModeSelectorSheet({
 }: ModeSelectorSheetProps) {
     const appTheme = useAppTheme();
     const styles = useModeSelectorStyles();
+    const sheetBackgroundColor = appTheme.colors.backgroundElevated;
+    const sheetBorderColor = appTheme.colors.borderStrong;
+    const sheetTextColor = appTheme.colors.textPrimary;
+    const sheetSubTextColor = appTheme.colors.textSecondary;
+    const rowBackgroundColor = appTheme.colors.surface;
+    const rowBorderColor = appTheme.colors.border;
+    const handleColor = appTheme.colors.borderStrong;
+    const radioBorderColor = appTheme.colors.borderStrong;
 
     const insets = useSafeAreaInsets();
     const router = useRouter();
@@ -156,7 +164,7 @@ export default function ModeSelectorSheet({
             <Animated.View style={[StyleSheet.absoluteFill, { opacity: fadeAnim }]}>
                 <Pressable style={StyleSheet.absoluteFill} onPress={onClose}>
                     <BlurView intensity={30} tint={appTheme.isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
-                    <View style={styles.backdropDim} />
+                    <View style={[styles.backdropDim, { backgroundColor: appTheme.colors.overlay }]} />
                 </Pressable>
             </Animated.View>
 
@@ -164,14 +172,19 @@ export default function ModeSelectorSheet({
                 style={[
                     styles.sheet,
                     compactLayout && styles.sheetCompact,
-                    { paddingBottom: insets.bottom + (compactLayout ? 14 : 24), transform: [{ translateY: slideAnim }] },
+                    {
+                        paddingBottom: insets.bottom + (compactLayout ? 14 : 24),
+                        transform: [{ translateY: slideAnim }],
+                        backgroundColor: sheetBackgroundColor,
+                        borderColor: sheetBorderColor,
+                    },
                 ]}
             >
                 <View style={[styles.sheetSurface, compactLayout && styles.sheetSurfaceCompact]}>
-                    <View style={[styles.handle, compactLayout && styles.handleCompact]} />
+                    <View style={[styles.handle, compactLayout && styles.handleCompact, { backgroundColor: handleColor }]} />
 
-                    <Text style={[styles.sheetTitle, compactLayout && styles.sheetTitleCompact]}>Switch Experience</Text>
-                    <Text style={[styles.sheetSubtitle, compactLayout && styles.sheetSubtitleCompact]}>Current subscription: {formatPlanLabel(currentPlan)}</Text>
+                    <Text style={[styles.sheetTitle, compactLayout && styles.sheetTitleCompact, { color: sheetTextColor }]}>Switch Experience</Text>
+                    <Text style={[styles.sheetSubtitle, compactLayout && styles.sheetSubtitleCompact, { color: sheetSubTextColor }]}>Current subscription: {formatPlanLabel(currentPlan)}</Text>
 
                     <ScrollView
                         style={[styles.modeListScroll, { maxHeight: modeListMaxHeight }]}
@@ -189,6 +202,7 @@ export default function ModeSelectorSheet({
                                     style={[
                                         styles.modeRow,
                                         compactLayout && styles.modeRowCompact,
+                                        { backgroundColor: rowBackgroundColor, borderColor: rowBorderColor },
                                         isActive && { borderColor: mode.color + '55', backgroundColor: mode.color + '10' },
                                         !accessible && { opacity: 0.72 },
                                     ]}
@@ -208,15 +222,15 @@ export default function ModeSelectorSheet({
 
                                     <View style={styles.modeInfo}>
                                         <View style={styles.modeLabelRow}>
-                                            <Text style={[styles.modeLabel, compactLayout && styles.modeLabelCompact]}>{mode.label}</Text>
+                                            <Text style={[styles.modeLabel, compactLayout && styles.modeLabelCompact, { color: sheetTextColor }]}>{mode.label}</Text>
                                             {!accessible ? (
                                                 <View style={[styles.planBadge, { backgroundColor: mode.color + '22' }]}>
                                                     <Text style={[styles.planBadgeText, { color: mode.color }]}>Locked</Text>
                                                 </View>
                                             ) : null}
                                         </View>
-                                        <Text style={[styles.modeDesc, compactLayout && styles.modeDescCompact]}>{mode.description}</Text>
-                                        <Text style={[styles.modePrice, compactLayout && styles.modePriceCompact]}>
+                                        <Text style={[styles.modeDesc, compactLayout && styles.modeDescCompact, { color: sheetSubTextColor }]}>{mode.description}</Text>
+                                        <Text style={[styles.modePrice, compactLayout && styles.modePriceCompact, { color: sheetSubTextColor }] }>
                                             {plan.monthlyPriceUsd === 0 ? 'Free' : `$${plan.monthlyPriceUsd.toFixed(2)}/mo`}
                                         </Text>
                                     </View>
@@ -230,7 +244,7 @@ export default function ModeSelectorSheet({
                                                 <Text style={[styles.unlockText, { color: mode.color }]}>Unlock</Text>
                                             </View>
                                         ) : (
-                                            <View style={styles.radioOuter}>
+                                            <View style={[styles.radioOuter, { borderColor: radioBorderColor }]}> 
                                                 <View style={styles.radioInner} />
                                             </View>
                                         )}
@@ -248,7 +262,6 @@ export default function ModeSelectorSheet({
 const legacyStyles = {
     backdropDim: {
         ...StyleSheet.absoluteFillObject,
-        backgroundColor: 'rgba(10,10,20,0.55)',
     },
     sheet: {
         position: 'absolute',
@@ -258,7 +271,6 @@ const legacyStyles = {
         borderTopLeftRadius: 28,
         borderTopRightRadius: 28,
         borderTopWidth: 1,
-        borderColor: 'rgba(255,255,255,0.07)',
         overflow: 'hidden',
     },
     sheetCompact: {
@@ -268,7 +280,6 @@ const legacyStyles = {
     sheetSurface: {
         paddingTop: 12,
         paddingHorizontal: 20,
-        backgroundColor: '#151112',
     },
     sheetSurfaceCompact: {
         paddingTop: 8,
@@ -278,7 +289,6 @@ const legacyStyles = {
         width: 40,
         height: 4,
         borderRadius: 2,
-        backgroundColor: 'rgba(255,255,255,0.15)',
         alignSelf: 'center',
         marginBottom: 20,
     },
@@ -287,7 +297,6 @@ const legacyStyles = {
         marginBottom: 12,
     },
     sheetTitle: {
-        color: '#FFF',
         fontSize: 20,
         fontFamily: 'Poppins-Bold',
         marginBottom: 4,
@@ -297,7 +306,6 @@ const legacyStyles = {
         marginBottom: 2,
     },
     sheetSubtitle: {
-        color: 'rgba(255,255,255,0.4)',
         fontSize: 13,
         fontFamily: 'Poppins-Regular',
         marginBottom: 20,
@@ -328,11 +336,9 @@ const legacyStyles = {
     modeRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: 'rgba(255,255,255,0.03)',
         borderRadius: 18,
         padding: 14,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.06)',
         gap: 14,
     },
     modeRowCompact: {
@@ -362,7 +368,6 @@ const legacyStyles = {
         marginBottom: 3,
     },
     modeLabel: {
-        color: '#FFF',
         fontSize: 16,
         fontFamily: 'Poppins-SemiBold',
     },
@@ -370,7 +375,6 @@ const legacyStyles = {
         fontSize: 14,
     },
     modeDesc: {
-        color: 'rgba(255,255,255,0.45)',
         fontSize: 12,
         fontFamily: 'Poppins-Regular',
         lineHeight: 17,
@@ -380,7 +384,6 @@ const legacyStyles = {
         lineHeight: 15,
     },
     modePrice: {
-        color: 'rgba(255,255,255,0.72)',
         fontSize: 11,
         fontFamily: 'Poppins-SemiBold',
         marginTop: 6,
@@ -410,7 +413,6 @@ const legacyStyles = {
         height: 22,
         borderRadius: 11,
         borderWidth: 2,
-        borderColor: 'rgba(255,255,255,0.25)',
         alignItems: 'center',
         justifyContent: 'center',
     },
