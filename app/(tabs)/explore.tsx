@@ -7,6 +7,7 @@ import { useAppTheme } from '@/hooks/use-app-theme';
 import { useCartStore } from '@/store/useCartStore';
 import { usePlaybackStore } from '@/store/usePlaybackStore';
 import { useToastStore } from '@/store/useToastStore';
+import { getModeSurfaceTheme } from '@/utils/appModeTheme';
 import { adaptLegacyColor, adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
@@ -15,6 +16,7 @@ import { Clock3, Music, Play, Search, ShoppingCart } from 'lucide-react-native';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  GestureResponderEvent,
   ScrollView,
   StyleSheet,
   Text,
@@ -51,6 +53,9 @@ export default function ExploreScreen() {
   const placeholderColor = appTheme.colors.textPlaceholder;
   const emptyArtworkColor = adaptLegacyColor('rgba(255,255,255,0.25)', 'color', appTheme);
   const preOrderIconColor = adaptLegacyColor('#140F10', 'color', appTheme);
+  const shooutTheme = getModeSurfaceTheme('shoout', appTheme.isDark);
+  const warningSurface = appTheme.isDark ? 'rgba(245,166,35,0.18)' : 'rgba(210,138,20,0.12)';
+  const warningBorder = appTheme.isDark ? 'rgba(245,166,35,0.32)' : 'rgba(210,138,20,0.24)';
 
   const router = useRouter();
   const { openSheet, isModeSheetOpen, viewMode } = useAppSwitcherContext();
@@ -63,6 +68,13 @@ export default function ExploreScreen() {
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<ExploreItem[]>([]);
   const previewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearPreviewTimer = () => {
+    if (previewTimerRef.current) {
+      clearTimeout(previewTimerRef.current);
+      previewTimerRef.current = null;
+    }
+  };
 
   const resolveScheduledMs = (item: ExploreItem): number | null => {
     const raw = item.scheduledReleaseAtMs;
@@ -179,47 +191,73 @@ export default function ExploreScreen() {
     [upcomingItems, mixedFeedItems]
   );
 
-  const playPreview = (item: ExploreItem) => {
+  const playPreview = async (item: ExploreItem) => {
     if (!item.audioUrl) {
       showToast('Preview is unavailable for this track.', 'info');
       return;
     }
-    setTrack({
-      id: item.id,
-      title: item.title,
-      artist: item.uploaderName,
-      url: item.audioUrl,
-      uploaderId: item.userId,
-      artworkUrl: item.artworkUrl,
-    });
 
-    if (previewTimerRef.current) {
-      clearTimeout(previewTimerRef.current);
-      previewTimerRef.current = null;
-    }
+    try {
+      await setTrack({
+        id: item.id,
+        title: item.title,
+        artist: item.uploaderName,
+        url: item.audioUrl,
+        uploaderId: item.userId,
+        artworkUrl: item.artworkUrl,
+      });
 
-    previewTimerRef.current = setTimeout(async () => {
       const playback = usePlaybackStore.getState();
-      if (playback.currentTrack?.id !== item.id) return;
-      if (playback.isPlaying) {
-        await playback.togglePlayPause();
+      if (playback.currentTrack?.id !== item.id) {
+        showToast('Could not start this preview right now.', 'error');
+        return;
       }
-      await playback.seekTo(0);
-      showToast('30-second preview ended.', 'info');
-    }, 30_000);
+
+      clearPreviewTimer();
+      previewTimerRef.current = setTimeout(async () => {
+        const activePlayback = usePlaybackStore.getState();
+        if (activePlayback.currentTrack?.id !== item.id) return;
+        try {
+          if (activePlayback.isPlaying) {
+            await activePlayback.togglePlayPause();
+          }
+          await activePlayback.seekTo(0);
+          showToast('30-second preview ended.', 'info');
+        } catch (error) {
+          console.error('Failed to finish preview cleanly:', error);
+          showToast('Preview ended, but playback could not reset cleanly.', 'info');
+        } finally {
+          previewTimerRef.current = null;
+        }
+      }, 30_000);
+    } catch (error) {
+      console.error('Failed to start preview:', error);
+      showToast('Could not start this preview right now.', 'error');
+    }
   };
 
   useEffect(() => {
     return () => {
-      if (previewTimerRef.current) {
-        clearTimeout(previewTimerRef.current);
-        previewTimerRef.current = null;
-      }
+      clearPreviewTimer();
     };
   }, []);
 
   const openListing = (item: ExploreItem) => {
+    if (!item.id || !item.userId) {
+      showToast('Track details are unavailable right now.', 'info');
+      return;
+    }
     router.push({ pathname: '/listing/[id]' as any, params: { id: item.id, uploaderId: item.userId } });
+  };
+
+  const handlePreviewPress = (event: GestureResponderEvent, item: ExploreItem) => {
+    event.stopPropagation();
+    playPreview(item);
+  };
+
+  const handleListingPress = (event: GestureResponderEvent, item: ExploreItem) => {
+    event.stopPropagation();
+    openListing(item);
   };
 
   const renderTrackRow = (item: ExploreItem) => {
@@ -232,9 +270,9 @@ export default function ExploreScreen() {
           {item.artworkUrl ? <Image source={{ uri: item.artworkUrl }} style={styles.artworkImage} contentFit="cover" /> : null}
           {!item.artworkUrl && <Music size={22} color={emptyArtworkColor} />}
           {upcoming && (
-            <View style={styles.upcomingTag}>
-              <Clock3 size={12} color="#FCD2C5" />
-              <Text style={styles.upcomingTagText}>Upcoming</Text>
+            <View style={[styles.upcomingTag, { backgroundColor: warningSurface, borderColor: warningBorder }]}>
+              <Clock3 size={12} color={appTheme.colors.warning} />
+              <Text style={[styles.upcomingTagText, { color: appTheme.colors.warning }]}>Upcoming</Text>
             </View>
           )}
         </View>
@@ -246,18 +284,20 @@ export default function ExploreScreen() {
             {upcoming && releaseMs ? ` • ${new Date(releaseMs).toLocaleDateString()}` : ''}
           </Text>
           <View style={styles.rowActionLine}>
-            <TouchableOpacity style={styles.previewBtn} onPress={() => playPreview(item)}>
+            <TouchableOpacity style={styles.previewBtn} onPress={(event) => handlePreviewPress(event, item)}>
               <Play size={13} color={appTheme.colors.textPrimary} />
               <Text style={styles.previewBtnText}>Preview</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.preOrderBtn} onPress={() => openListing(item)}>
+            <TouchableOpacity style={styles.preOrderBtn} onPress={(event) => handleListingPress(event, item)}>
               <ShoppingCart size={13} color={preOrderIconColor} />
               <Text style={styles.preOrderBtnText}>{upcoming ? 'Pre-order' : 'View listing'}</Text>
             </TouchableOpacity>
           </View>
         </View>
 
-        <Text style={styles.priceText}>{upcoming ? 'Pre-order ' : ''}${item.price.toFixed(2)}</Text>
+        <Text style={[styles.priceText, { color: upcoming ? appTheme.colors.warning : shooutTheme.accentLabel }]}>
+          {upcoming ? 'Pre-order ' : ''}${item.price.toFixed(2)}
+        </Text>
       </TouchableOpacity>
     );
   };
@@ -303,14 +343,20 @@ export default function ExploreScreen() {
                 return (
                   <TouchableOpacity
                     key={genre}
-                    style={[styles.genreChip, active && styles.genreChipActive]}
+                    style={[
+                      styles.genreChip,
+                      active && styles.genreChipActive,
+                      active && { backgroundColor: shooutTheme.actionSurface, borderColor: shooutTheme.actionBorder },
+                    ]}
                     onPress={() => {
                       const next = active ? null : genre;
                       setSelectedGenreChip(next);
                       setSearchQuery('');
                     }}
                   >
-                    <Text style={[styles.genreChipText, active && styles.genreChipTextActive]}>{genre}</Text>
+                    <Text style={[styles.genreChipText, active && styles.genreChipTextActive, active && { color: shooutTheme.accentLabel }]}>
+                      {genre}
+                    </Text>
                   </TouchableOpacity>
                 );
               })}
@@ -354,12 +400,25 @@ export default function ExploreScreen() {
                             ) : (
                               <Music size={28} color={adaptLegacyColor('rgba(255,255,255,0.2)', 'color', appTheme)} />
                             )}
-                            {upcoming && <View style={styles.carouselUpcomingPill}><Text style={styles.carouselUpcomingText}>Upcoming</Text></View>}
+                            {upcoming && (
+                              <View style={[styles.carouselUpcomingPill, { backgroundColor: warningSurface, borderColor: warningBorder }]}>
+                                <Text style={[styles.carouselUpcomingText, { color: appTheme.colors.warning }]}>Upcoming</Text>
+                              </View>
+                            )}
                           </View>
                           <Text style={styles.carouselTitle} numberOfLines={1}>{item.title}</Text>
                           <Text style={styles.carouselMeta} numberOfLines={1}>{item.uploaderName}</Text>
-                          <TouchableOpacity style={styles.carouselCta} onPress={() => openListing(item)}>
-                            <Text style={styles.carouselCtaText}>{upcoming ? 'Pre-order' : 'Details'}</Text>
+                          <TouchableOpacity
+                            style={[
+                              styles.carouselCta,
+                              { backgroundColor: upcoming ? warningSurface : shooutTheme.accent },
+                              { borderColor: upcoming ? warningBorder : shooutTheme.actionBorder },
+                            ]}
+                            onPress={(event) => handleListingPress(event, item)}
+                          >
+                            <Text style={[styles.carouselCtaText, { color: upcoming ? appTheme.colors.warning : shooutTheme.onAccent }]}>
+                              {upcoming ? 'Pre-order' : 'Details'}
+                            </Text>
                           </TouchableOpacity>
                         </TouchableOpacity>
                       );
@@ -441,8 +500,8 @@ const legacyStyles = {
     justifyContent: 'center',
   },
   genreChipActive: {
-    backgroundColor: 'rgba(236,92,57,0.2)',
-    borderColor: 'rgba(236,92,57,0.7)',
+    backgroundColor: 'rgba(106,167,255,0.14)',
+    borderColor: 'rgba(106,167,255,0.28)',
   },
   genreChipText: {
     color: 'rgba(255,255,255,0.75)',
@@ -450,7 +509,7 @@ const legacyStyles = {
     fontSize: 12,
   },
   genreChipTextActive: {
-    color: '#FCD2C5',
+    color: '#D8E8FF',
   },
   loadingBox: {
     paddingVertical: 42,
@@ -458,7 +517,7 @@ const legacyStyles = {
     gap: 10,
   },
   loadingText: {
-    color: 'rgba(255,255,255,0.5)',
+    color: 'rgba(255,255,255,0.62)',
     fontFamily: 'Poppins-Regular',
     fontSize: 13,
   },
@@ -475,7 +534,7 @@ const legacyStyles = {
     fontFamily: 'Poppins-Bold',
   },
   sectionHint: {
-    color: 'rgba(255,255,255,0.45)',
+    color: 'rgba(255,255,255,0.6)',
     fontSize: 12,
     fontFamily: 'Poppins-Regular',
   },
@@ -527,14 +586,16 @@ const legacyStyles = {
   },
   carouselMeta: {
     marginTop: 2,
-    color: 'rgba(255,255,255,0.5)',
+    color: 'rgba(255,255,255,0.66)',
     fontFamily: 'Poppins-Regular',
     fontSize: 12,
   },
   carouselCta: {
     marginTop: 8,
     borderRadius: 10,
-    backgroundColor: '#EC5C39',
+    backgroundColor: '#6AA7FF',
+    borderWidth: 1,
+    borderColor: 'rgba(106,167,255,0.28)',
     paddingVertical: 8,
     alignItems: 'center',
   },
@@ -593,7 +654,7 @@ const legacyStyles = {
     fontSize: 14,
   },
   trackMeta: {
-    color: 'rgba(255,255,255,0.45)',
+    color: 'rgba(255,255,255,0.62)',
     fontFamily: 'Poppins-Regular',
     fontSize: 11,
     marginTop: 2,
@@ -633,14 +694,14 @@ const legacyStyles = {
     fontSize: 11,
   },
   priceText: {
-    color: '#EC5C39',
+    color: '#6AA7FF',
     fontFamily: 'Poppins-Bold',
     fontSize: 12,
     maxWidth: 72,
     textAlign: 'right',
   },
   emptyText: {
-    color: 'rgba(255,255,255,0.45)',
+    color: 'rgba(255,255,255,0.6)',
     fontFamily: 'Poppins-Regular',
     fontSize: 13,
     marginBottom: 8,

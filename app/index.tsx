@@ -1,1 +1,1 @@
-export { default } from './(auth)/onboarding';
+export { default } from './(auth)/role-selection';

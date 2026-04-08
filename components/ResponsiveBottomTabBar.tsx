@@ -7,7 +7,7 @@ import { BlurView } from 'expo-blur';
 import { usePathname, useRouter } from 'expo-router';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { useUserStore } from '@/store/useUserStore';
-import { getModeTheme } from '@/utils/appModeTheme';
+import { getModeSurfaceTheme } from '@/utils/appModeTheme';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 
 interface TabConfig {
@@ -153,28 +153,27 @@ export default function ResponsiveBottomTabBar(props: BottomTabBarProps) {
 }
 
 function TabButton({ Icon, label, isFocused, tabKey, isCompact, activeAppMode, appTheme, styles, onPress }: any) {
-    const inactiveColor = appTheme.colors.icon;
-    const activeBgColor = getModeTheme(activeAppMode).accent;
-    const activeFgColor = activeAppMode === 'hybrid' ? appTheme.colors.background : appTheme.colors.textPrimary;
+    const modeTheme = getModeSurfaceTheme(activeAppMode, appTheme.isDark);
+    const inactiveColor = appTheme.colors.textTertiary;
+    const activeFgColor = modeTheme.accentLabel;
 
     return (
         <TouchableOpacity
             style={[
                 styles.tab,
-                isCompact && styles.compactTab,
-                isFocused ? [styles.activeTab, { backgroundColor: activeBgColor }] : styles.inactiveTab,
-                isCompact && isFocused && styles.compactActiveTab,
-                isCompact && !isFocused && styles.compactInactiveTab,
+                isFocused ? [styles.activeTab, { backgroundColor: modeTheme.actionSurface, borderColor: modeTheme.actionBorder }] : styles.inactiveTab,
             ]}
             onPress={onPress}
             activeOpacity={0.7}
         >
             <Icon
-                size={isCompact ? 18 : 21}
+                size={18}
                 color={isFocused ? activeFgColor : inactiveColor}
                 fill={isFocused && tabKey === 'index' ? activeFgColor : 'none'}
             />
-            {isFocused ? <Text style={[styles.labelActive, { color: activeFgColor }, isCompact && styles.compactLabelActive]}>{label}</Text> : null}
+            <Text style={[styles.labelActive, { color: isFocused ? activeFgColor : inactiveColor }]} numberOfLines={1}>
+                {label}
+            </Text>
         </TouchableOpacity>
     );
 }
@@ -220,39 +219,28 @@ const legacyStyles = {
         ...StyleSheet.absoluteFillObject,
     },
     tab: {
-        height: 36,
-        borderRadius: 20,
+        flex: 1,
+        minWidth: 0,
+        height: 44,
+        borderRadius: 16,
         alignItems: 'center',
         justifyContent: 'center',
-        flexDirection: 'row',
+        flexDirection: 'column',
         gap: 2,
-        paddingHorizontal: 6,
-        paddingVertical: 2,
-    },
-    compactTab: {
-        height: 30,
-        gap: 4,
-        paddingHorizontal: 8,
+        paddingHorizontal: 4,
+        paddingVertical: 5,
+        borderWidth: 1,
+        borderColor: 'transparent',
     },
     activeTab: {
-        minWidth: 83,
-    },
-    compactActiveTab: {
-        minWidth: 74,
+        backgroundColor: 'rgba(255,255,255,0.08)',
     },
     inactiveTab: {
-        width: 36,
-    },
-    compactInactiveTab: {
-        width: 30,
+        backgroundColor: 'transparent',
     },
     labelActive: {
         fontFamily: 'Poppins-Medium',
-        fontSize: 12,
+        fontSize: 10,
         lineHeight: 12,
-    },
-    compactLabelActive: {
-        fontSize: 11,
-        lineHeight: 11,
     },
 };

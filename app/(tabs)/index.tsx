@@ -758,7 +758,7 @@ const legacyStyles = {
     fontFamily: 'Poppins-SemiBold',
   },
   playlistSubtitle: {
-    color: 'rgba(255,255,255,0.78)',
+    color: 'rgba(255,255,255,0.68)',
     fontSize: 11,
     lineHeight: 16,
     fontFamily: 'Poppins-Regular',
@@ -790,7 +790,7 @@ const legacyStyles = {
     fontFamily: 'Poppins-SemiBold',
   },
   itemSubtitle: {
-    color: 'rgba(255,255,255,0.9)',
+    color: 'rgba(255,255,255,0.72)',
     fontSize: 12,
     lineHeight: 17,
     fontFamily: 'Poppins-Regular',
@@ -871,7 +871,7 @@ const legacyStyles = {
   },
   beatDivider: {
     height: 1,
-    backgroundColor: '#464646',
+    backgroundColor: 'rgba(255,255,255,0.08)',
     marginTop: 10,
   },
   modalOverlay: {

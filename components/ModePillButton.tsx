@@ -5,6 +5,7 @@ import { ViewMode } from '@/store/useUserStore';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
 import { ChevronDown } from 'lucide-react-native';
 import React, { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
@@ -51,6 +52,19 @@ const MODE_COLORS: Record<ViewMode, { border: string; text: string; arrowBg: str
     },
 };
 
+const HYBRID_LIGHT = {
+    primary: '#D4AF37',
+    text: '#B8860B',
+    subtleBg: '#F9F6ED',
+};
+
+const HYBRID_DARK = {
+    primary: '#E5C158',
+    textOnPremium: '#121212',
+    charcoal: '#18181B',
+    gradient: ['#F4D03F', '#D4AF37'] as const,
+};
+
 function useModePillStyles() {
     const appTheme = useAppTheme();
     return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
@@ -64,9 +78,20 @@ export default function ModePillButton({ viewMode, isOpen, onPress }: ModePillBu
     const { width } = useWindowDimensions();
     const modeStyle = MODE_COLORS[viewMode];
     const modeLabel = MODE_LABELS[viewMode];
+    const isHybridMode = viewMode === 'hybrid';
     const isCompact = width < 390;
-    const labelColor = appTheme.isDark ? modeStyle.text : appTheme.colors.textPrimary;
-    const chevronBgColor = appTheme.isDark ? modeStyle.arrowBg : appTheme.colors.surfaceMuted;
+    const isHybridDark = isHybridMode && appTheme.isDark;
+    const labelColor = isHybridMode ? (isHybridDark ? HYBRID_DARK.textOnPremium : HYBRID_LIGHT.text) : appTheme.colors.textPrimary;
+    const chevronBgColor = isHybridMode
+        ? (isHybridDark ? 'rgba(18,18,18,0.16)' : 'rgba(184,134,11,0.12)')
+        : appTheme.colors.surfaceMuted;
+    const pillBackgroundColor = isHybridMode
+        ? (isHybridDark ? 'transparent' : HYBRID_LIGHT.subtleBg)
+        : appTheme.colors.backgroundElevated;
+    const logoBackgroundColor = isHybridMode
+        ? (isHybridDark ? HYBRID_DARK.charcoal : 'rgba(212,175,55,0.18)')
+        : appTheme.colors.surfaceMuted;
+    const pillBorderColor = isHybridMode ? (isHybridDark ? HYBRID_DARK.primary : HYBRID_LIGHT.primary) : modeStyle.border;
 
     useEffect(() => {
         Animated.spring(chevronAnim, {
@@ -87,12 +112,21 @@ export default function ModePillButton({ viewMode, isOpen, onPress }: ModePillBu
             style={[
                 styles.pill,
                 isCompact && styles.pillCompact,
-                { borderColor: modeStyle.border },
+                { backgroundColor: pillBackgroundColor },
+                { borderColor: pillBorderColor },
             ]}
             onPress={onPress}
             activeOpacity={0.75}
         >
-            <View style={[styles.logoSlot, isCompact && styles.logoSlotCompact]}>
+            {isHybridDark ? (
+                <LinearGradient
+                    colors={HYBRID_DARK.gradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={StyleSheet.absoluteFillObject}
+                />
+            ) : null}
+            <View style={[styles.logoSlot, isCompact && styles.logoSlotCompact, { backgroundColor: logoBackgroundColor }]}>
                 <Image
                     source={require('@/assets/images/logo-rings.png')}
                     style={[styles.logoImage, isCompact && styles.logoImageCompact]}
@@ -118,12 +152,14 @@ const legacyStyles = {
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: 'rgba(255,255,255,0.06)',
+        overflow: 'hidden',
         borderWidth: 1,
         borderRadius: 999,
         paddingLeft: 5,
         paddingRight: 9,
         paddingVertical: 5,
         minHeight: 42,
+        color: '#FFFFFF',
     },
     pillCompact: {
         paddingLeft: 4,
@@ -158,6 +194,7 @@ const legacyStyles = {
         fontSize: 14,
         fontFamily: 'Poppins-SemiBold',
         marginRight: 8,
+        color: '#FFFFFF',
     },
     labelCompact: {
         fontSize: 12,
