@@ -582,12 +582,12 @@ const legacyStyles = {
     gap: 10,
   },
   vaultHeaderButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     backgroundColor: 'rgba(255,255,255,0.07)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: 'rgba(255,255,255,0.1)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -692,7 +692,7 @@ const legacyStyles = {
     width: '100%',
   },
   statLabel: {
-    color: 'rgba(255,255,255,0.55)',
+    color: 'rgba(255,255,255,0.68)',
     fontFamily: 'Poppins-Regular',
     fontSize: 12,
   },
@@ -702,7 +702,7 @@ const legacyStyles = {
     fontSize: 16,
   },
   statMeta: {
-    color: 'rgba(255,255,255,0.55)',
+    color: 'rgba(255,255,255,0.66)',
     fontFamily: 'Poppins-Regular',
     fontSize: 11,
   },
@@ -736,7 +736,7 @@ const legacyStyles = {
     textAlign: 'center',
   },
   emptySubtitle: {
-    color: 'rgba(255,255,255,0.62)',
+    color: 'rgba(255,255,255,0.7)',
     fontFamily: 'Poppins-Regular',
     fontSize: 13,
     lineHeight: 20,
@@ -801,12 +801,12 @@ const legacyStyles = {
   },
   sectionDivider: {
     height: 1,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: 'rgba(255,255,255,0.08)',
     marginHorizontal: 16,
     marginTop: 6,
   },
   placeholderText: {
-    color: 'rgba(255,255,255,0.5)',
+    color: 'rgba(255,255,255,0.64)',
     fontFamily: 'Poppins-Regular',
     fontSize: 13,
     paddingHorizontal: 16,
@@ -818,7 +818,7 @@ const legacyStyles = {
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.04)',
+    borderBottomColor: 'rgba(255,255,255,0.07)',
     gap: 12,
   },
   rowIconWrap: {
@@ -838,13 +838,13 @@ const legacyStyles = {
     fontSize: 13,
   },
   rowSubtitle: {
-    color: 'rgba(255,255,255,0.55)',
+    color: 'rgba(255,255,255,0.68)',
     fontFamily: 'Poppins-Regular',
     fontSize: 11,
     marginTop: 2,
   },
   rowMeta: {
-    color: 'rgba(255,255,255,0.42)',
+    color: 'rgba(255,255,255,0.56)',
     fontFamily: 'Poppins-Regular',
     fontSize: 11,
   },
@@ -893,7 +893,7 @@ const legacyStyles = {
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.04)',
+    borderBottomColor: 'rgba(255,255,255,0.07)',
   },
   modalTitle: {
     color: '#FFFFFF',
@@ -901,7 +901,7 @@ const legacyStyles = {
     fontSize: 20,
   },
   modalSubtitle: {
-    color: 'rgba(255,255,255,0.58)',
+    color: 'rgba(255,255,255,0.68)',
     fontFamily: 'Poppins-Regular',
     fontSize: 13,
     lineHeight: 20,

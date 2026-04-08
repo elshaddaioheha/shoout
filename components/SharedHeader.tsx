@@ -1,9 +1,9 @@
 import ModePillButton from '@/components/ModePillButton';
 import { useNotificationStore } from '@/store/useNotificationStore';
-import { ViewMode, useUserStore } from '@/store/useUserStore';
+import { ViewMode } from '@/store/useUserStore';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
-import { getModeTheme } from '@/utils/appModeTheme';
+import { getModeSurfaceTheme } from '@/utils/appModeTheme';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { Bell, MessageSquare, ShoppingCart } from 'lucide-react-native';
@@ -29,7 +29,6 @@ interface SharedHeaderProps {
     showCart?: boolean;
     cartCount?: number;
     showMessages?: boolean;
-    role?: string;
     customRightContent?: React.ReactNode;
 }
 
@@ -40,23 +39,21 @@ export default function SharedHeader({
     showCart,
     cartCount,
     showMessages,
-    role,
     customRightContent,
 }: SharedHeaderProps) {
     const router = useRouter();
     const styles = useSharedHeaderStyles();
     const { unreadCount } = useNotificationStore();
     const appTheme = useAppTheme();
-    const userRole = useUserStore((state) => state.role);
-    const effectiveRole = role ?? userRole;
     const isVaultMode = viewMode === 'vault' || viewMode === 'vault_pro';
     const modeKey = viewMode === 'vault_pro' ? 'vault' : viewMode;
-    const accentColor = getModeTheme(modeKey as any).accent || appTheme.colors.primary;
+    const modeTheme = getModeSurfaceTheme(modeKey as any, appTheme.isDark);
+    const accentColor = modeTheme.accent || appTheme.colors.primary;
     const shouldShowCart = Boolean(showCart) && !isVaultMode;
     const shouldShowMessages = Boolean(showMessages) && !isVaultMode;
 
     const getRoleGradient = (): readonly [string, string, ...string[]] => {
-        const startColor = withAlpha(accentColor, appTheme.isDark ? '40' : '22');
+        const startColor = withAlpha(accentColor, appTheme.isDark ? '30' : '18');
         return [startColor, appTheme.colors.background];
     };
 
@@ -77,7 +74,7 @@ export default function SharedHeader({
                         <>
                             {shouldShowMessages && (
                                 <TouchableOpacity
-                                    style={[styles.iconButton, { marginRight: 8, backgroundColor: appTheme.colors.surfaceMuted }]}
+                                    style={[styles.iconButton, { marginRight: 8, backgroundColor: modeTheme.actionSurface, borderColor: modeTheme.actionBorder }]}
                                     onPress={() => router.push('/chat' as any)}
                                 >
                                     <MessageSquare size={18} color={appTheme.colors.textPrimary} />
@@ -85,7 +82,7 @@ export default function SharedHeader({
                             )}
                             {shouldShowCart && (
                                 <TouchableOpacity
-                                    style={[styles.iconButton, { marginRight: 8, backgroundColor: appTheme.colors.surfaceMuted }]}
+                                    style={[styles.iconButton, { marginRight: 8, backgroundColor: modeTheme.actionSurface, borderColor: modeTheme.actionBorder }]}
                                     onPress={() => router.push('/cart' as any)}
                                 >
                                     <ShoppingCart size={18} color={appTheme.colors.textPrimary} />
@@ -95,7 +92,7 @@ export default function SharedHeader({
                                 </TouchableOpacity>
                             )}
                             <TouchableOpacity
-                                style={[styles.iconButton, { backgroundColor: appTheme.colors.surfaceMuted }]}
+                                style={[styles.iconButton, { backgroundColor: modeTheme.actionSurface, borderColor: modeTheme.actionBorder }]}
                                 onPress={() => router.push('/notifications' as any)}
                             >
                                 <Bell size={18} color={appTheme.colors.textPrimary} />
@@ -129,10 +126,10 @@ const legacyStyles = {
         alignItems: 'center',
     },
     iconButton: {
-        padding: 6,
-        borderRadius: 20,
-        width: 34,
-        height: 34,
+        borderWidth: 1,
+        borderRadius: 21,
+        width: 42,
+        height: 42,
         alignItems: 'center',
         justifyContent: 'center',
     },

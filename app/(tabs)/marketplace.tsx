@@ -9,8 +9,8 @@ import { usePlaybackStore } from '@/store/usePlaybackStore';
 import { useToastStore } from '@/store/useToastStore';
 import { useUserStore } from '@/store/useUserStore';
 import { useAuthStore } from '@/store/useAuthStore';
+import { getModeSurfaceTheme } from '@/utils/appModeTheme';
 import { adaptLegacyColor, adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
-import { getModeTheme } from '@/utils/appModeTheme';
 import { getEffectivePlan } from '@/utils/subscriptions';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -139,7 +139,7 @@ export default function MarketplaceScreen() {
     const [filterCategory, setFilterCategory] = useState('All');
 
     const isStudioMode = activeAppMode === 'studio' || activeAppMode === 'hybrid';
-    const modeTheme = getModeTheme(activeAppMode);
+    const modeTheme = getModeSurfaceTheme(activeAppMode, appTheme.isDark);
     const accentColor = modeTheme.accent;
     const accentStrong = modeTheme.accentStrong;
     const accentTint = modeTheme.accentTint;
@@ -308,6 +308,8 @@ function MarketplaceSection({ title, items, accentColor, accentStrong }: any) {
     const styles = useMarketplaceStyles();
     const setTrack = usePlaybackStore(state => state.setTrack);
     const router = useRouter();
+    const warningSurface = appTheme.isDark ? 'rgba(245,166,35,0.18)' : 'rgba(210,138,20,0.12)';
+    const warningBorder = appTheme.isDark ? 'rgba(245,166,35,0.32)' : 'rgba(210,138,20,0.24)';
 
     const resolveScheduledMs = (item: any): number | null => {
         const raw = item?.scheduledReleaseAtMs;
@@ -357,8 +359,8 @@ function MarketplaceSection({ title, items, accentColor, accentStrong }: any) {
                                 </Text>
                             </View>
                             {isUpcoming && (
-                                <View style={styles.upcomingBadge}>
-                                    <Text style={styles.upcomingBadgeText}>Upcoming</Text>
+                                <View style={[styles.upcomingBadge, { backgroundColor: warningSurface, borderColor: warningBorder }]}>
+                                    <Text style={[styles.upcomingBadgeText, { color: appTheme.colors.warning }]}>Upcoming</Text>
                                 </View>
                             )}
                             {/* Play Preview Fast Action */}
@@ -407,7 +409,7 @@ const legacyStyles = {
     filterButton: { width: 50, height: 50, borderRadius: 16, backgroundColor: 'rgba(106, 167, 255, 0.1)', alignItems: 'center', justifyContent: 'center' },
     studioBanner: { marginHorizontal: 24, padding: 20, borderRadius: 24, marginBottom: 32, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
     studioTitle: { fontSize: 16, fontFamily: 'Poppins-Bold', color: '#FFF' },
-    studioSubtitle: { fontSize: 12, fontFamily: 'Poppins-Regular', color: 'rgba(255,255,255,0.4)', marginBottom: 16 },
+    studioSubtitle: { fontSize: 12, fontFamily: 'Poppins-Regular', color: 'rgba(255,255,255,0.62)', marginBottom: 16 },
     studioActions: { flexDirection: 'row', gap: 12 },
     studioActionBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: 'rgba(255,255,255,0.05)', height: 44, borderRadius: 12 },
     studioActionText: { color: '#FFF', fontSize: 13, fontFamily: 'Poppins-SemiBold' },
@@ -423,7 +425,7 @@ const legacyStyles = {
     priceBadge: { position: 'absolute', bottom: 12, right: 12, backgroundColor: '#6AA7FF', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
     priceText: { color: '#FFF', fontSize: 12, fontFamily: 'Poppins-Bold' },
     itemTitle: { color: '#FFF', fontSize: 15, fontFamily: 'Poppins-SemiBold' },
-    itemArtist: { color: 'rgba(255,255,255,0.4)', fontSize: 12, fontFamily: 'Poppins-Regular' },
+    itemArtist: { color: 'rgba(255,255,255,0.62)', fontSize: 12, fontFamily: 'Poppins-Regular' },
     previewPlay: {
         position: 'absolute',
         top: 12,
@@ -447,15 +449,12 @@ const legacyStyles = {
         position: 'absolute',
         top: 12,
         right: 12,
-        backgroundColor: 'rgba(20,15,16,0.88)',
         borderWidth: 1,
-        borderColor: 'rgba(236,92,57,0.7)',
         borderRadius: 10,
         paddingHorizontal: 8,
         paddingVertical: 4,
     },
     upcomingBadgeText: {
-        color: '#FCD2C5',
         fontSize: 10,
         fontFamily: 'Poppins-Bold',
         letterSpacing: 0.4,
