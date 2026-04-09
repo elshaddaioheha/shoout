@@ -1,7 +1,48 @@
 import { Audio } from 'expo-av';
+import * as FileSystem from 'expo-file-system';
 import { doc, increment, updateDoc } from 'firebase/firestore';
 import { create } from 'zustand';
 import { db } from '../firebaseConfig';
+import { useDownloadQueueStore } from './useDownloadQueueStore';
+
+let isAudioModeConfigured = false;
+
+async function ensureAudioModeConfigured() {
+  if (isAudioModeConfigured) {
+    return;
+  }
+
+  await Audio.setAudioModeAsync({
+    allowsRecordingIOS: false,
+    staysActiveInBackground: true,
+    playsInSilentModeIOS: true,
+    shouldDuckAndroid: true,
+    playThroughEarpieceAndroid: false,
+  });
+
+  isAudioModeConfigured = true;
+}
+
+async function resolveTrackUri(track: Track): Promise<string> {
+  const cached = useDownloadQueueStore
+    .getState()
+    .items.find((item) => item.trackId === track.id && item.status === 'completed' && item.localUri);
+
+  if (!cached?.localUri) {
+    return track.url;
+  }
+
+  try {
+    const fileInfo = await FileSystem.getInfoAsync(cached.localUri);
+    if (fileInfo.exists) {
+      return cached.localUri;
+    }
+  } catch {
+    // Fall back to the remote URL when local file checks fail.
+  }
+
+  return track.url;
+}
 
 export interface Track {
   id: string;
@@ -75,17 +116,12 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => ({
       set({ isBuffering: true, currentTrack: track, position: 0, duration: 0, isPlaying: false, sound: null });
 
       // 2. Configure Audio Category
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: false,
-        staysActiveInBackground: true,
-        playsInSilentModeIOS: true,
-        shouldDuckAndroid: true,
-        playThroughEarpieceAndroid: false,
-      });
+      await ensureAudioModeConfigured();
 
       // 3. Load new sound
+      const sourceUri = await resolveTrackUri(track);
       const { sound } = await Audio.Sound.createAsync(
-        { uri: track.url },
+        { uri: sourceUri },
         { shouldPlay: true, volume: get().volume },
         (status) => {
           if (!status.isLoaded) return;

@@ -2,6 +2,7 @@ import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import SettingsHeader from '@/components/settings/SettingsHeader';
 import { auth, db } from '@/firebaseConfig';
 import { useAppTheme } from '@/hooks/use-app-theme';
+import { useDownloadQueueStore } from '@/store/useDownloadQueueStore';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { useRouter } from 'expo-router';
 import { collection, getDocs, query } from 'firebase/firestore';
@@ -11,8 +12,10 @@ import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacit
 
 type DownloadRow = {
   id: string;
+  trackId: string;
   title: string;
   artist: string;
+  audioUrl: string;
   purchasedAt?: string;
 };
 
@@ -26,6 +29,11 @@ export default function DownloadsScreen() {
   const styles = useDownloadsStyles();
 
   const router = useRouter();
+  const queueItems = useDownloadQueueStore((state) => state.items);
+  const isProcessing = useDownloadQueueStore((state) => state.isProcessing);
+  const enqueueTrack = useDownloadQueueStore((state) => state.enqueueTrack);
+  const retryDownload = useDownloadQueueStore((state) => state.retryDownload);
+  const processQueue = useDownloadQueueStore((state) => state.processQueue);
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<DownloadRow[]>([]);
 
@@ -45,8 +53,10 @@ export default function DownloadsScreen() {
         const data: any = item.data();
         return {
           id: item.id,
+          trackId: String(data.trackId || data.uploadId || item.id),
           title: String(data.trackTitle || data.title || 'Purchased track'),
           artist: String(data.artist || data.trackArtist || 'Unknown artist'),
+          audioUrl: String(data.audioUrl || data.trackAudioUrl || ''),
           purchasedAt: data.purchasedAt?.toDate?.()?.toLocaleDateString?.() || '',
         } as DownloadRow;
       });
@@ -63,10 +73,56 @@ export default function DownloadsScreen() {
     loadRows();
   }, []);
 
+  useEffect(() => {
+    processQueue();
+  }, [processQueue]);
+
+  const queueByTrackId = useMemo(() => {
+    return queueItems.reduce<Record<string, (typeof queueItems)[number]>>((acc, item) => {
+      acc[item.trackId] = item;
+      return acc;
+    }, {});
+  }, [queueItems]);
+
   const subtitle = useMemo(() => {
     if (rows.length === 0) return 'No purchased tracks ready for offline download yet.';
-    return `${rows.length} track${rows.length === 1 ? '' : 's'} available from your purchases.`;
-  }, [rows]);
+    const completed = queueItems.filter((item) => item.status === 'completed').length;
+    return `${rows.length} track${rows.length === 1 ? '' : 's'} available, ${completed} cached offline.`;
+  }, [rows, queueItems]);
+
+  const onRowPress = async (row: DownloadRow) => {
+    const queueItem = queueByTrackId[row.trackId];
+
+    if (queueItem?.status === 'failed') {
+      await retryDownload(queueItem.id);
+      return;
+    }
+
+    if (queueItem) {
+      return;
+    }
+
+    if (!row.audioUrl) {
+      Alert.alert('Audio unavailable', 'This purchase does not include a downloadable audio URL yet.');
+      return;
+    }
+
+    await enqueueTrack({
+      trackId: row.trackId,
+      title: row.title,
+      artist: row.artist,
+      audioUrl: row.audioUrl,
+    });
+  };
+
+  const getRowStatusLabel = (row: DownloadRow) => {
+    const queueItem = queueByTrackId[row.trackId];
+    if (!queueItem) return 'Tap to download';
+    if (queueItem.status === 'completed') return 'Available offline';
+    if (queueItem.status === 'downloading') return `Downloading ${Math.round(queueItem.progress * 100)}%`;
+    if (queueItem.status === 'failed') return 'Download failed - tap to retry';
+    return 'Queued';
+  };
 
   return (
     <SafeScreenWrapper>
@@ -89,6 +145,7 @@ export default function DownloadsScreen() {
                 <RefreshCw size={16} color={appTheme.colors.textPrimary} />
                 <Text style={styles.refreshText}>Refresh</Text>
               </TouchableOpacity>
+              {isProcessing ? <Text style={styles.processingText}>Processing download queue...</Text> : null}
             </View>
 
             <View style={styles.listCard}>
@@ -100,7 +157,7 @@ export default function DownloadsScreen() {
                     key={row.id}
                     style={styles.row}
                     activeOpacity={0.85}
-                    onPress={() => Alert.alert('Download queue', `${row.title} will be available for offline caching in the next update.`)}
+                    onPress={() => onRowPress(row)}
                   >
                     <View style={styles.rowIcon}>
                       <Music4 size={16} color={appTheme.colors.primary} />
@@ -108,6 +165,7 @@ export default function DownloadsScreen() {
                     <View style={styles.rowTextWrap}>
                       <Text style={styles.rowTitle} numberOfLines={1}>{row.title}</Text>
                       <Text style={styles.rowSub} numberOfLines={1}>{row.artist}{row.purchasedAt ? ` • ${row.purchasedAt}` : ''}</Text>
+                      <Text style={styles.rowStatus} numberOfLines={1}>{getRowStatusLabel(row)}</Text>
                     </View>
                   </TouchableOpacity>
                 ))
@@ -156,6 +214,7 @@ const legacyStyles = {
     paddingVertical: 8,
   },
   refreshText: { color: '#FFF', fontFamily: 'Poppins-SemiBold', fontSize: 12 },
+  processingText: { color: 'rgba(255,255,255,0.7)', fontFamily: 'Poppins-Regular', fontSize: 12, marginTop: 10 },
   listCard: {
     marginTop: 14,
     borderRadius: 18,
@@ -190,4 +249,5 @@ const legacyStyles = {
   rowTextWrap: { flex: 1 },
   rowTitle: { color: '#FFF', fontFamily: 'Poppins-SemiBold', fontSize: 13 },
   rowSub: { color: 'rgba(255,255,255,0.6)', fontFamily: 'Poppins-Regular', fontSize: 11, marginTop: 1 },
+  rowStatus: { color: '#EC5C39', fontFamily: 'Poppins-Medium', fontSize: 11, marginTop: 4 },
 };
