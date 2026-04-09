@@ -1,0 +1,80 @@
+import * as Notifications from 'expo-notifications';
+import { Platform } from 'react-native';
+
+/**
+ * Initialize notifications system: set handler and request permissions.
+ */
+export async function initNotifications() {
+  // Set notification handler to define how to handle notifications
+  Notifications.setNotificationHandler({
+    handleNotification: async (notification) => {
+      return {
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: true,
+      };
+    },
+  });
+
+  // Request permissions (iOS) or verify permissions (Android auto-granted)
+  if (Platform.OS === 'ios') {
+    const { status } = await Notifications.requestPermissionsAsync();
+    if (status !== 'granted') {
+      console.log('iOS notification permission denied');
+    }
+  } else if (Platform.OS === 'android') {
+    // Android 13+ requires runtime permission
+    try {
+      const { status } = await Notifications.requestPermissionsAsync();
+      if (status !== 'granted') {
+        console.log('Android notification permission denied');
+      }
+    } catch (error) {
+      console.log('Android notification permission error:', error);
+    }
+  }
+}
+
+/**
+ * Get or fetch the Expo push token.
+ * Must be called after initNotifications().
+ */
+export async function getExpoPushToken(): Promise<string | null> {
+  try {
+    const token = await Notifications.getExpoPushTokenAsync();
+    console.log('Expo push token:', token.data);
+    return token.data;
+  } catch (error) {
+    console.error('Failed to get Expo push token:', error);
+    return null;
+  }
+}
+
+/**
+ * Subscribe to incoming notifications (foreground).
+ * Call this in your root layout effect.
+ */
+export function subscribeToNotifications(
+  onNotification: (notification: Notifications.Notification) => void
+): () => void {
+  const subscription = Notifications.addNotificationResponseReceivedListener(
+    ({ notification }) => {
+      onNotification(notification);
+    }
+  );
+
+  return () => subscription.remove();
+}
+
+/**
+ * Get last notification received (e.g., when app was backgrounded).
+ * Useful for handling deep-link navigation on app resume.
+ */
+export async function getLastNotification(): Promise<Notifications.NotificationResponse | null> {
+  try {
+    return await Notifications.getLastNotificationResponseAsync();
+  } catch (error) {
+    console.error('Failed to get last notification:', error);
+    return null;
+  }
+}

@@ -40,7 +40,15 @@
       ],
       "expo-font",
       "@sentry/react-native/expo",
-      "@react-native-google-signin/google-signin"
+      "@react-native-google-signin/google-signin",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#EC5C39",
+          "modes": ["production"]
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

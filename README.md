@@ -65,6 +65,13 @@ Set legal document URLs as public env variables so they are visible in-app:
 
 If omitted, the app falls back to `https://shoouts.com/privacy` and `https://shoouts.com/terms`.
 
+### 1d. Push Notifications (Expo Notifications + FCM/APNs)
+Push notifications are powered by Expo Notifications with Firebase Cloud Messaging (FCM) on Android and APNs on iOS.
+- **Setup:** Notifications are initialized on app startup (`initNotifications()` in `app/_layout.tsx`).
+- **Permissions:** The app requests notification permissions automatically on the `ios` platform; Android permissions are configured in `app.json`.
+- **Deep Linking:** Push notifications can carry a `route` parameter to deep-link users into specific screens.
+- **Firebase Functions:** Use `admin.messaging()` in Cloud Functions to send notifications to device tokens retrieved at login/signup.
+
 ### 2. Native App Files (`google-services.json` / `GoogleService-Info.plist`)
 Native Firebase integration requires the strict configuration files to avoid runtime crashing.
 - Do not commit these files to GitHub (they are specified in `.gitignore`).

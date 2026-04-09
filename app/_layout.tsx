@@ -3,7 +3,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Poppins_400Regular, Poppins_500Medium, Poppins_600SemiBold, Poppins_700Bold, useFonts } from '@expo-google-fonts/poppins';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -16,11 +16,13 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { useUserStore } from '@/store/useUserStore';
 import { getDefaultAppModeForPlan } from '@/utils/subscriptions';
 import { initMonitoring } from './monitoring';
+import { initNotifications, subscribeToNotifications, getLastNotification } from './notifications';
 
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+  const router = useRouter();
   const { setVerifying, setAuthResolved, setHasAuthenticatedUser, reset: resetAuthState } = useAuthStore();
   const splashHidden = useRef(false);
   const contentOpacity = useRef(new Animated.Value(0)).current;
@@ -34,7 +36,28 @@ export default function RootLayout() {
 
   useEffect(() => {
     initMonitoring();
+    initNotifications();
   }, []);
+
+  useEffect(() => {
+    const unsubscribe = subscribeToNotifications((notification) => {
+      const data = notification.request.content.data as any;
+      if (data?.route) {
+        router.push(data.route);
+      }
+    });
+
+    getLastNotification().then((response) => {
+      if (response) {
+        const data = response.notification.request.content.data as any;
+        if (data?.route) {
+          router.push(data.route);
+        }
+      }
+    });
+
+    return unsubscribe;
+  }, [router]);
 
   useEffect(() => {
     if (!loaded && !error) return;
