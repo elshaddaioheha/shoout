@@ -1,0 +1,71 @@
+{
+  "common": {
+    "appName": "Shoouts",
+    "loading": "Loading...",
+    "error": "Error",
+    "retry": "Retry",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "back": "Back",
+    "close": "Close",
+    "search": "Search",
+    "edit": "Edit",
+    "copy": "Copy",
+    "download": "Download"
+  },
+  "settings": {
+    "title": "Settings",
+    "language": "Language",
+    "theme": "Theme",
+    "accessibility": "Accessibility",
+    "notifications": "Notifications",
+    "privacy": "Privacy",
+    "terms": "Terms of Service",
+    "about": "About",
+    "darkMode": "Dark Mode",
+    "lightMode": "Light Mode",
+    "systemDefault": "System Default",
+    "enableNotifications": "Enable Notifications",
+    "reduceMotion": "Reduce Motion",
+    "largeText": "Large Text"
+  },
+  "auth": {
+    "signIn": "Sign In",
+    "signUp": "Sign Up",
+    "signOut": "Sign Out",
+    "email": "Email",
+    "password": "Password",
+    "confirmPassword": "Confirm Password",
+    "forgotPassword": "Forgot Password?",
+    "newToApp": "New to Shoouts?",
+    "haveAccount": "Already have an account?",
+    "invalidEmail": "Please enter a valid email",
+    "passwordMismatch": "Passwords do not match",
+    "passwordTooShort": "Password must be at least 8 characters"
+  },
+  "home": {
+    "title": "Home",
+    "trending": "Trending",
+    "recent": "Recent",
+    "recommended": "Recommended for You"
+  },
+  "downloads": {
+    "title": "Downloads",
+    "noDownloads": "No downloads yet.",
+    "available": "Available for Offline",
+    "queued": "Queued",
+    "downloading": "Downloading",
+    "failed": "Failed",
+    "retry": "Retry Download",
+    "tapToDownload": "Tap to download"
+  },
+  "accessibility": {
+    "screenReaderHint": "Double-tap to activate",
+    "buttonLabel": "Button",
+    "menuLabel": "Menu",
+    "dismissLabel": "Dismiss",
+    "expandLabel": "Expand",
+    "collapseLabel": "Collapse"
+  }
+}

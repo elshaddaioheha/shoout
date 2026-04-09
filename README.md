@@ -91,6 +91,35 @@ firebase functions:secrets:set UPLOAD_BUCKET_NAME
 
 ---
 
+## 🌍 Localization & Accessibility
+
+### Localization (i18n)
+The app supports multiple languages and includes a language selector in Settings.
+
+- **Current Support:** English (en), Spanish (es), French (fr), Portuguese (pt) — en is the default; others are placeholders.
+- **Storage:** User language preference is persisted in AsyncStorage via `useLocalizationStore`.
+- **Usage:** Import `useTranslation()` hook to access translated strings:
+  ```tsx
+  const t = useTranslation();
+  const label = t('common.appName'); // Returns "Shoouts"
+  ```
+- **Translation Files:** Located in `utils/i18n/` (JSON format with dot-notation keys).
+- **Adding New Locales:** Add a new JSON file (e.g., `utils/i18n/es.json`) and import it in `useLocalizationStore.ts`.
+
+### Accessibility (A11y)
+The app includes built-in accessibility features and settings.
+
+- **Text Scaling:** Users can increase/decrease text size in Settings → Localization & Accessibility (small/normal/large/extra-large).
+- **Motion Reduction:** Users can disable animations and transitions to reduce motion sickness.
+- **High Contrast Mode:** Option to enable high-contrast colors for better visibility.
+- **Screen Reader Support:** Notifications, navigation, and interactive elements include proper accessibility labels and hints.
+- **Utilities:**
+  - `useTextScale()` — Get current text scale multiplier to apply to font sizes.
+  - `useReducedMotion()` — Check if animations should be disabled.
+  - `useScreenReaderEnabled()` — Detect if screen reader is active.
+
+---
+
 ## 🛠 Project Architecture
 
 ```

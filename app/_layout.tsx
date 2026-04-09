@@ -17,6 +17,7 @@ import { useUserStore } from '@/store/useUserStore';
 import { getDefaultAppModeForPlan } from '@/utils/subscriptions';
 import { initMonitoring } from './monitoring';
 import { initNotifications, subscribeToNotifications, getLastNotification } from './notifications';
+import { useAccessibilityStore } from '@/store/useAccessibilityStore';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -37,6 +38,7 @@ export default function RootLayout() {
   useEffect(() => {
     initMonitoring();
     initNotifications();
+    useAccessibilityStore.getState().initScreenReaderState();
   }, []);
 
   useEffect(() => {
