@@ -385,12 +385,6 @@ export default function FullPlayer({ visible, onClose }: FullPlayerProps) {
     const handlePurchase = () => {
         if (!currentTrack) return;
 
-        if (!auth.currentUser) {
-            showToast('Please sign in to purchase tracks.', 'error');
-            router.push({ pathname: '/(auth)/login', params: { redirectTo: '/cart' } });
-            return;
-        }
-
         if (alreadyPurchased) {
             showToast('You already purchased this track.', 'info');
             return;

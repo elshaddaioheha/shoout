@@ -40,21 +40,15 @@ exports.flutterwaveWebhook = void 0;
 const functions = __importStar(require("firebase-functions"));
 const flutterwaveService = __importStar(require("../services/flutterwave"));
 const invoicing = __importStar(require("../services/invoicing"));
-const firebase_1 = require("../utils/firebase");
 const types_1 = require("../types");
-/**
- * flutterwaveWebhook - Processes Flutterwave charge.completed webhooks
- */
+const repositories_1 = require("../repositories");
 exports.flutterwaveWebhook = functions.https.onRequest(async (req, res) => {
     if (req.method !== 'POST') {
         res.status(405).send('Method Not Allowed');
         return;
     }
     try {
-        // Verify webhook signature
-        const signature = (req.header('verif-hash') ||
-            req.header('x-flutterwave-signature') ||
-            '').trim();
+        const signature = (req.header('verif-hash') || req.header('x-flutterwave-signature') || '').trim();
         const rawBody = (req.rawBody || Buffer.from(JSON.stringify(req.body))).toString('utf8');
         if (!flutterwaveService.validateWebhookSignature(rawBody, signature)) {
             functions.logger.warn('Invalid Flutterwave webhook signature');
@@ -65,43 +59,37 @@ exports.flutterwaveWebhook = functions.https.onRequest(async (req, res) => {
         const event = payload?.event;
         const data = payload?.data;
         const txRef = String(data?.tx_ref || '');
-        // Only process charge.completed events
         if (event !== 'charge.completed' || !txRef) {
             res.status(200).send('Ignored');
             return;
         }
-        const db = (0, firebase_1.getDb)();
         // Handle failed charges
         if (data?.status !== 'successful') {
-            await db.collection('checkoutSessions').doc(txRef).set({
+            await repositories_1.checkoutRepo.merge(txRef, {
                 status: 'failed',
-                updatedAt: (0, firebase_1.serverTimestamp)(),
+                updatedAt: (0, repositories_1.serverTimestamp)(),
                 providerPayload: data || null,
-            }, { merge: true });
+            });
             res.status(200).send('Recorded failed payment');
             return;
         }
         // Get checkout session
-        const sessionRef = db.collection('checkoutSessions').doc(txRef);
-        const sessionSnap = await sessionRef.get();
+        const sessionSnap = await repositories_1.checkoutRepo.getSnapByTxRef(txRef);
         if (!sessionSnap.exists) {
             functions.logger.error('No checkout session for txRef', { txRef });
             res.status(404).send('Session not found');
             return;
         }
         const session = sessionSnap.data();
-        // Check if already processed
-        if (session.status === 'completed') {
+        // Check if already processed or in progress
+        if (session.status === 'completed' || session.status === 'processing') {
             res.status(200).send('Already processed');
             return;
         }
         // Check if session expired
         if (session.expiresAt && typeof session.expiresAt.toMillis === 'function') {
             if (session.expiresAt.toMillis() < Date.now()) {
-                await sessionRef.set({
-                    status: 'expired',
-                    updatedAt: (0, firebase_1.serverTimestamp)(),
-                }, { merge: true });
+                await repositories_1.checkoutRepo.merge(txRef, { status: 'expired', updatedAt: (0, repositories_1.serverTimestamp)() });
                 res.status(200).send('Session expired');
                 return;
             }
@@ -109,21 +97,23 @@ exports.flutterwaveWebhook = functions.https.onRequest(async (req, res) => {
         // Validate payment details
         const paymentCurrency = String(data?.currency || '').toUpperCase();
         if (paymentCurrency !== 'NGN') {
-            await sessionRef.set({
+            await repositories_1.checkoutRepo.merge(txRef, {
                 status: 'invalid_currency',
-                updatedAt: (0, firebase_1.serverTimestamp)(),
+                updatedAt: (0, repositories_1.serverTimestamp)(),
                 providerPayload: data || null,
-            }, { merge: true });
+            });
             res.status(400).send('Invalid currency');
             return;
         }
-        const paidAmount = Number(data?.amount || 0);
-        if (!Number.isFinite(paidAmount) || paidAmount < session.totalAmountNgn) {
-            await sessionRef.set({
+        // Round to integer NGN to avoid float comparison issues from Flutterwave
+        const paidAmount = Math.round(Number(data?.amount || 0));
+        const maxAcceptable = Math.round(session.totalAmountNgn * types_1.OVERPAYMENT_TOLERANCE_FACTOR);
+        if (!Number.isFinite(paidAmount) || paidAmount < session.totalAmountNgn || paidAmount > maxAcceptable) {
+            await repositories_1.checkoutRepo.merge(txRef, {
                 status: 'amount_mismatch',
-                updatedAt: (0, firebase_1.serverTimestamp)(),
+                updatedAt: (0, repositories_1.serverTimestamp)(),
                 paidAmount,
-            }, { merge: true });
+            });
             functions.logger.error('Amount mismatch', {
                 txRef,
                 expected: session.totalAmountNgn,
@@ -132,56 +122,60 @@ exports.flutterwaveWebhook = functions.https.onRequest(async (req, res) => {
             res.status(400).send('Amount mismatch');
             return;
         }
-        // Create purchase records
-        const batchWrite = (0, firebase_1.batch)();
-        const now = (0, firebase_1.serverTimestamp)();
+        // Mark session as processing to prevent retry loops
+        await repositories_1.checkoutRepo.merge(txRef, { status: 'processing', updatedAt: (0, repositories_1.serverTimestamp)() });
+        // Create purchase records with deterministic IDs
+        const batchWrite = (0, repositories_1.newBatch)();
+        const now = (0, repositories_1.serverTimestamp)();
+        // Exchange rate used at checkout time (stored in session for audit trail)
+        const exchangeRate = session.exchangeRateNgnPerUsd || types_1.NAIRA_RATE;
         for (const item of session.items) {
-            const txnRef = db.collection('transactions').doc();
-            batchWrite.set(txnRef, {
+            const txnId = `${txRef}_${item.id}`;
+            const itemPriceUsd = Number(item.price || 0);
+            const itemPriceNgn = Math.round(itemPriceUsd * exchangeRate);
+            batchWrite.set(repositories_1.transactionRepo.ref(txnId), {
                 trackId: item.id,
                 buyerId: session.userId,
                 sellerId: item.uploaderId,
-                amount: item.price,
+                priceUsd: itemPriceUsd,
+                amountNgn: itemPriceNgn,
+                exchangeRateNgnPerUsd: exchangeRate,
                 trackTitle: item.title,
                 status: 'completed',
                 paymentProvider: 'flutterwave',
                 flutterwaveTxRef: txRef,
                 createdAt: now,
             });
-            const purchaseRef = db
-                .collection('users')
-                .doc(session.userId)
-                .collection('purchases')
-                .doc();
-            batchWrite.set(purchaseRef, {
+            batchWrite.set(repositories_1.userRepo.purchaseRef(session.userId, txnId), {
                 trackId: item.id,
                 title: item.title,
                 artist: item.artist,
-                price: item.price,
+                priceUsd: itemPriceUsd,
+                amountNgn: itemPriceNgn,
+                exchangeRateNgnPerUsd: exchangeRate,
                 uploaderId: item.uploaderId,
                 audioUrl: item.audioUrl || '',
                 coverUrl: item.coverUrl || '',
                 purchasedAt: now,
             });
         }
-        batchWrite.set(sessionRef, {
+        batchWrite.set(repositories_1.checkoutRepo.ref(txRef), {
             status: 'completed',
             providerTransactionId: data?.id || null,
             paidAmount,
             updatedAt: now,
         }, { merge: true });
         await batchWrite.commit();
-        // Send receipt email
+        // Send receipt email (non-blocking)
         try {
-            const userRef = db.collection('users').doc(session.userId);
-            const userSnap = await userRef.get();
-            const userData = userSnap.data();
+            const userData = await repositories_1.userRepo.getById(session.userId);
             const recipientEmail = String(userData?.email || '').trim();
             const recipientName = String(userData?.fullName || userData?.name || 'Shoouts User').trim();
             if (recipientEmail) {
+                const exchangeRateForEmail = session.exchangeRateNgnPerUsd || types_1.NAIRA_RATE;
                 const lineItems = session.items.map((item) => {
                     const usd = Number(item.price || 0);
-                    const lineNgn = Math.round(usd * types_1.NAIRA_RATE);
+                    const lineNgn = Math.round(usd * exchangeRateForEmail);
                     return {
                         description: `${item.title} by ${item.artist}`,
                         qty: 1,
@@ -189,15 +183,13 @@ exports.flutterwaveWebhook = functions.https.onRequest(async (req, res) => {
                         totalAmountNgn: lineNgn,
                     };
                 });
-                const subtotal = lineItems.reduce((sum, line) => sum + line.totalAmountNgn, 0);
-                const vat = Math.round(subtotal * 0.075);
-                const total = subtotal + vat;
-                await invoicing.createInvoiceAndSendEmail({
+                await invoicing.createReceiptEmail({
                     userId: session.userId,
                     recipientEmail,
                     recipientName,
                     lineItems,
-                    subject: 'Shoouts Purchase Receipt & Invoice',
+                    totalChargedNgn: paidAmount,
+                    subject: 'Shoouts Purchase Receipt',
                     invoicePrefix: 'PUR',
                     notes: `Payment reference: ${txRef}`,
                 });
@@ -205,7 +197,6 @@ exports.flutterwaveWebhook = functions.https.onRequest(async (req, res) => {
         }
         catch (emailError) {
             functions.logger.error('Purchase email/invoice generation failed', emailError);
-            // Don't fail the webhook if email fails
         }
         res.status(200).send('Processed');
     }

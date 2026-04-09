@@ -102,6 +102,7 @@ function formatNairaAmount(amountNgn) {
  */
 function formatPlanName(planId) {
     const names = {
+        shoout: 'Shoout',
         vault: 'Vault',
         vault_pro: 'Vault Pro',
         studio: 'Studio',

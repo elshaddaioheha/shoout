@@ -39,17 +39,10 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.aggregateBestSellers = aggregateBestSellers;
 exports.aggregateTrending = aggregateTrending;
 exports.promoteUpcomingUploads = promoteUpcomingUploads;
-exports.downgradeExpiredSubscriptions = downgradeExpiredSubscriptions;
 const functions = __importStar(require("firebase-functions"));
-const admin = __importStar(require("firebase-admin"));
-const firebase_1 = require("../utils/firebase");
-/**
- * Aggregates top 12 best-selling tracks
- */
+const repositories_1 = require("../repositories");
 async function aggregateBestSellers() {
-    const db = (0, firebase_1.getDb)();
-    const uploadsSnap = await db
-        .collectionGroup('uploads')
+    const uploadsSnap = await repositories_1.systemRepo.uploadsCollectionGroup()
         .where('isPublic', '==', true)
         .orderBy('listenCount', 'desc')
         .limit(12)
@@ -64,21 +57,16 @@ async function aggregateBestSellers() {
         listenCount: doc.data().listenCount || 0,
         audioUrl: doc.data().audioUrl || '',
     }));
-    await db.collection('system').doc('bestSellers').set({
+    await repositories_1.systemRepo.setBestSellers({
         items: bestSellers,
-        updatedAt: (0, firebase_1.serverTimestamp)(),
+        updatedAt: (0, repositories_1.serverTimestamp)(),
         itemCount: bestSellers.length,
     });
     functions.logger.info('Best sellers updated', { count: bestSellers.length });
     return bestSellers.length;
 }
-/**
- * Aggregates top 10 trending tracks
- */
 async function aggregateTrending() {
-    const db = (0, firebase_1.getDb)();
-    const uploadsSnap = await db
-        .collectionGroup('uploads')
+    const uploadsSnap = await repositories_1.systemRepo.uploadsCollectionGroup()
         .where('isPublic', '==', true)
         .orderBy('listenCount', 'desc')
         .limit(10)
@@ -88,34 +76,27 @@ async function aggregateTrending() {
         ...doc.data(),
         audioUrl: doc.data().audioUrl || '',
     }));
-    await db.collection('system').doc('trending').set({
+    await repositories_1.systemRepo.setTrending({
         items,
-        updatedAt: (0, firebase_1.serverTimestamp)(),
+        updatedAt: (0, repositories_1.serverTimestamp)(),
     });
     functions.logger.info('Trending cache updated', { count: items.length });
     return items.length;
 }
-/**
- * Promotes scheduled uploads that are due for release
- */
 async function promoteUpcomingUploads() {
-    const db = (0, firebase_1.getDb)();
     const nowMs = Date.now();
-    const dueSnap = await db
-        .collectionGroup('uploads')
+    const dueSnap = await repositories_1.systemRepo.uploadsCollectionGroup()
         .where('isPublic', '==', true)
         .where('lifecycleStatus', '==', 'upcoming')
         .limit(500)
         .get();
-    if (dueSnap.empty) {
+    if (dueSnap.empty)
         return 0;
-    }
     let promoted = 0;
-    let batchWrite = (0, firebase_1.batch)();
+    let batchWrite = (0, repositories_1.newBatch)();
     let batchOps = 0;
     for (const docSnap of dueSnap.docs) {
         const data = docSnap.data();
-        // Parse scheduled release time
         let scheduledMs = null;
         if (typeof data.scheduledReleaseAtMs === 'number' && Number.isFinite(data.scheduledReleaseAtMs)) {
             scheduledMs = data.scheduledReleaseAtMs;
@@ -130,11 +111,8 @@ async function promoteUpcomingUploads() {
             if (Number.isFinite(parsedIso))
                 scheduledMs = parsedIso;
         }
-        // Skip if scheduled time is in the future
-        if (scheduledMs != null && scheduledMs > nowMs) {
+        if (scheduledMs != null && scheduledMs > nowMs)
             continue;
-        }
-        // Create publish snapshot
         const publishSnapshot = {
             title: String(data.title || ''),
             genre: String(data.genre || ''),
@@ -153,74 +131,25 @@ async function promoteUpcomingUploads() {
             capturedAtMs: nowMs,
             capturedAtIso: new Date(nowMs).toISOString(),
         };
-        // Update upload to published
         batchWrite.update(docSnap.ref, {
             lifecycleStatus: 'published',
             published: true,
             isPublic: true,
-            publishedAt: (0, firebase_1.serverTimestamp)(),
-            updatedAt: (0, firebase_1.serverTimestamp)(),
+            publishedAt: (0, repositories_1.serverTimestamp)(),
+            updatedAt: (0, repositories_1.serverTimestamp)(),
             publishSnapshot,
         });
         batchOps += 1;
         promoted += 1;
-        // Commit batch if reaching limit
         if (batchOps >= 400) {
             await batchWrite.commit();
-            batchWrite = (0, firebase_1.batch)();
+            batchWrite = (0, repositories_1.newBatch)();
             batchOps = 0;
         }
     }
-    // Commit remaining
-    if (batchOps > 0) {
+    if (batchOps > 0)
         await batchWrite.commit();
-    }
     functions.logger.info('Promoted due upcoming uploads', { promoted });
     return promoted;
 }
-/**
- * Downgrades expired subscriptions
- */
-async function downgradeExpiredSubscriptions() {
-    const db = (0, firebase_1.getDb)();
-    const now = admin.firestore.Timestamp.now();
-    const expiredSnap = await db
-        .collectionGroup('subscription')
-        .where('status', '==', 'active')
-        .where('expiresAt', '<=', now)
-        .get();
-    if (expiredSnap.empty) {
-        return 0;
-    }
-    let downgraded = 0;
-    let batchWrite = (0, firebase_1.batch)();
-    let batchOps = 0;
-    for (const docSnap of expiredSnap.docs) {
-        const userRef = docSnap.ref.parent.parent;
-        if (!userRef)
-            continue;
-        // Import helpers from subscriptionLifecycle
-        const { firestoreExpiredSubscriptionDocPatch, firestoreExpiredUserRolePatch } = await Promise.resolve().then(() => __importStar(require('../subscriptionLifecycle')));
-        batchWrite.set(docSnap.ref, {
-            ...firestoreExpiredSubscriptionDocPatch(),
-            updatedAt: (0, firebase_1.serverTimestamp)(),
-            downgradedAt: (0, firebase_1.serverTimestamp)(),
-        }, { merge: true });
-        batchWrite.set(userRef, {
-            ...firestoreExpiredUserRolePatch(),
-            downgradedAt: (0, firebase_1.serverTimestamp)(),
-        }, { merge: true });
-        batchOps += 2;
-        downgraded += 1;
-        if (batchOps >= 400) {
-            await batchWrite.commit();
-            batchWrite = (0, firebase_1.batch)();
-            batchOps = 0;
-        }
-    }
-    if (batchOps > 0) {
-        await batchWrite.commit();
-    }
-    functions.logger.info('Downgraded expired subscriptions', { downgraded });
-    return downgraded;
-}
+// downgradeExpiredSubscriptions has moved to subscriptions/lifecycle.ts

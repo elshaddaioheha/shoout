@@ -207,8 +207,8 @@ export default function ListingLicenseModal() {
 
     const handleBuyNow = async () => {
         if (!auth.currentUser) {
-            showToast('Please sign in or create an account to purchase tracks.', 'error');
-            router.push({ pathname: '/(auth)/login', params: { redirectTo: '/cart' } });
+            showToast('Create your account to complete purchase.', 'info');
+            router.push({ pathname: '/(auth)/signup', params: { redirectTo: '/cart' } });
             return;
         }
 

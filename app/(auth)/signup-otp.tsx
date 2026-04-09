@@ -9,14 +9,14 @@ import { KeyboardAvoidingView, Platform, StatusBar, StyleSheet, Text, TextInput,
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import { auth, db } from '@/firebaseConfig';
 import { useAppTheme } from '@/hooks/use-app-theme';
-import { authNavigationHandled } from '../_layout';
 import { useToastStore } from '@/store/useToastStore';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { getFriendlyErrorMessage } from '@/utils/errorHandler';
 import { sendEmailOtp, verifyEmailOtp } from '@/utils/emailOtp';
 import { hydrateSubscriptionTier } from '@/utils/subscriptionVerification';
+import { markUserNeedsRoleSelection, PENDING_SIGNUP_KEY, resolveAuthenticatedDestination } from '@/utils/authFlow';
 
-type SignupSubscriptionTier = 'vault' | 'vault_pro' | 'studio' | 'hybrid';
+type SignupSubscriptionTier = 'shoout' | 'vault' | 'vault_pro' | 'studio' | 'hybrid';
 
 type PendingSignupPayload = {
   fullName: string;
@@ -24,8 +24,6 @@ type PendingSignupPayload = {
   password: string;
   redirectTo?: string;
 };
-
-const PENDING_SIGNUP_KEY = 'pendingSignupPayload';
 
 function useSignupOtpStyles() {
   const appTheme = useAppTheme();
@@ -107,20 +105,17 @@ export default function SignupOtpScreen() {
       const userCred = await createUserWithEmailAndPassword(auth, targetEmail, pending.password);
 
       await updateProfile(userCred.user, { displayName: pending.fullName });
-      await setDoc(doc(db, 'users', userCred.user.uid), {
+      await markUserNeedsRoleSelection(userCred.user.uid, {
         fullName: pending.fullName,
         email: targetEmail,
         createdAt: new Date().toISOString(),
       });
 
-      await writeSubscriptionDoc(userCred.user.uid, 'vault');
+      await writeSubscriptionDoc(userCred.user.uid, 'shoout');
       await hydrateSubscriptionTier();
       await AsyncStorage.removeItem(PENDING_SIGNUP_KEY);
-
-      authNavigationHandled.current = true;
-      router.replace('/(tabs)');
+      router.replace(await resolveAuthenticatedDestination() as any);
     } catch (error: any) {
-      authNavigationHandled.current = false;
       showToast(getFriendlyErrorMessage(error), 'error');
     } finally {
       setLoading(false);

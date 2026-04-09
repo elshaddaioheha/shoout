@@ -1,6 +1,7 @@
 import { ViewMode, useUserStore } from '@/store/useUserStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { usePlaybackStore } from '@/store/usePlaybackStore';
+import { useToastStore } from '@/store/useToastStore';
 import { canAccessAppMode, canUseStudioServices, formatPlanLabel, getDefaultAppModeForPlan, getEffectivePlan } from '@/utils/subscriptions';
 import { useRouter } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
@@ -20,7 +21,10 @@ export function useAppSwitcher() {
     const welcomeOpacityAnim = useRef(new Animated.Value(0)).current;
     const contentFadeAnim = useRef(new Animated.Value(1)).current;
 
-    const openSheet = useCallback(() => setSheetVisible(true), []);
+    const openSheet = useCallback(() => {
+        if (transitioning) return;
+        setSheetVisible(true);
+    }, [transitioning]);
     const closeSheet = useCallback(() => setSheetVisible(false), []);
 
     const currentPlan = getEffectivePlan(serverVerifiedRole);
@@ -32,6 +36,9 @@ export function useAppSwitcher() {
     }, [currentPlan]);
 
     const switchMode = useCallback(async (targetViewMode: ViewMode) => {
+        if (transitioning) {
+            return;
+        }
         if (targetViewMode === activeAppMode) {
             setSheetVisible(false);
             return;
@@ -50,41 +57,55 @@ export function useAppSwitcher() {
         welcomeOpacityAnim.setValue(0);
         contentFadeAnim.setValue(1);
 
-        await new Promise<void>((resolve) => {
+        try {
+            await new Promise<void>((resolve) => {
+                Animated.parallel([
+                    Animated.timing(overlayAnim, { toValue: 1, duration: 240, useNativeDriver: true }),
+                    Animated.timing(contentFadeAnim, { toValue: 0, duration: 220, useNativeDriver: true }),
+                ]).start(() => resolve());
+            });
+
             Animated.parallel([
-                Animated.timing(overlayAnim, { toValue: 1, duration: 240, useNativeDriver: true }),
-                Animated.timing(contentFadeAnim, { toValue: 0, duration: 220, useNativeDriver: true }),
-            ]).start(() => resolve());
-        });
+                Animated.spring(welcomeSlideAnim, { toValue: 0, useNativeDriver: true, speed: 16, bounciness: 4 }),
+                Animated.timing(welcomeOpacityAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
+            ]).start();
 
-        Animated.parallel([
-            Animated.spring(welcomeSlideAnim, { toValue: 0, useNativeDriver: true, speed: 16, bounciness: 4 }),
-            Animated.timing(welcomeOpacityAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
-        ]).start();
+            await new Promise<void>((r) => setTimeout(r, 700));
 
-        await new Promise<void>((r) => setTimeout(r, 700));
-
-        if (targetViewMode === 'vault' || targetViewMode === 'vault_pro') {
-            try {
-                await usePlaybackStore.getState().clearTrack();
-            } catch (error) {
-                console.warn('Failed to clear playback when entering Vault mode:', error);
+            if (targetViewMode === 'vault' || targetViewMode === 'vault_pro') {
+                try {
+                    await usePlaybackStore.getState().clearTrack();
+                } catch (error) {
+                    console.warn('Failed to clear playback when entering Vault mode:', error);
+                }
             }
+
+            setActiveAppMode(targetViewMode);
+
+            await new Promise<void>((resolve) => {
+                Animated.parallel([
+                    Animated.timing(overlayAnim, { toValue: 0, duration: 240, useNativeDriver: true }),
+                    Animated.timing(welcomeOpacityAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
+                    Animated.timing(contentFadeAnim, { toValue: 1, duration: 260, useNativeDriver: true }),
+                ]).start(() => resolve());
+            });
+
+            setTransitionTargetMode(targetViewMode);
+        } catch (error) {
+            console.error('Failed to switch app mode:', error);
+            useToastStore.getState().showToast('Could not switch experience right now. Please try again.', 'error');
+            overlayAnim.stopAnimation();
+            welcomeOpacityAnim.stopAnimation();
+            welcomeSlideAnim.stopAnimation();
+            contentFadeAnim.stopAnimation();
+            overlayAnim.setValue(0);
+            welcomeOpacityAnim.setValue(0);
+            welcomeSlideAnim.setValue(40);
+            contentFadeAnim.setValue(1);
+        } finally {
+            setTransitioning(false);
         }
-
-        setActiveAppMode(targetViewMode);
-
-        await new Promise<void>((resolve) => {
-            Animated.parallel([
-                Animated.timing(overlayAnim, { toValue: 0, duration: 240, useNativeDriver: true }),
-                Animated.timing(welcomeOpacityAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
-                Animated.timing(contentFadeAnim, { toValue: 1, duration: 260, useNativeDriver: true }),
-            ]).start(() => resolve());
-        });
-
-        setTransitioning(false);
-        setTransitionTargetMode(targetViewMode);
-    }, [activeAppMode, isModeAccessible, setActiveAppMode, overlayAnim, contentFadeAnim, router, welcomeOpacityAnim, welcomeSlideAnim]);
+    }, [activeAppMode, isModeAccessible, setActiveAppMode, overlayAnim, contentFadeAnim, router, transitioning, welcomeOpacityAnim, welcomeSlideAnim]);
 
     return {
         sheetVisible,

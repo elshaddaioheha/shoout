@@ -2,9 +2,9 @@ import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-si
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { GoogleAuthProvider, OAuthProvider, signInWithCredential, signInWithEmailAndPassword } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { Eye, EyeOff } from 'lucide-react-native';
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
     Dimensions,
     KeyboardAvoidingView,
@@ -18,16 +18,17 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import Svg, { Path } from 'react-native-svg';
 import { auth, db } from '../../firebaseConfig';
-import { authNavigationHandled } from '../_layout';
 import { useToastStore } from '../../store/useToastStore';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { ensureDefaultSubscriptionDoc, hydrateSubscriptionTier } from '../../utils/subscriptionVerification';
 import { getFriendlyErrorMessage } from '../../utils/errorHandler';
+import { markUserNeedsRoleSelection, resolveAuthenticatedDestination } from '@/utils/authFlow';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
 function useLoginStyles() {
     const appTheme = useAppTheme();
@@ -46,6 +47,18 @@ export default function LoginScreen() {
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const { showToast } = useToastStore();
+    const passwordInputRef = useRef<TextInput>(null);
+
+    const emailFocused = useSharedValue(0);
+    const passwordFocused = useSharedValue(0);
+
+    const emailInputAnimatedStyle = useAnimatedStyle(() => ({
+        borderColor: emailFocused.value ? '#007AFF' : '#464646',
+    }));
+
+    const passwordInputAnimatedStyle = useAnimatedStyle(() => ({
+        borderColor: passwordFocused.value ? '#007AFF' : '#464646',
+    }));
 
     const getPostAuthRoute = () => {
         if (typeof redirectTo === 'string' && redirectTo.trim().length > 0) {
@@ -72,13 +85,8 @@ export default function LoginScreen() {
         setLoading(true);
         try {
             await signInWithEmailAndPassword(auth, email, password);
-            // Hydration and navigation are handled by onAuthStateChanged in _layout.tsx.
-            // Setting the flag here tells the listener that THIS screen will navigate,
-            // so it should use the redirectTo param rather than the default '/(tabs)'.
-            authNavigationHandled.current = true;
-            router.replace(getPostAuthRoute() as any);
+            router.replace(await resolveAuthenticatedDestination(getPostAuthRoute()) as any);
         } catch (error: any) {
-            authNavigationHandled.current = false;
             console.error('Login error:', error.message);
             showToast(getFriendlyErrorMessage(error), "error");
         } finally {
@@ -100,34 +108,23 @@ export default function LoginScreen() {
             const idToken = userInfo?.data?.idToken;
             if (!idToken) throw new Error("No ID Token found");
 
-            // Create a Google credential with the token
             const googleCredential = GoogleAuthProvider.credential(idToken);
-
-            // Sign-in the user with the credential
             const userCred = await signInWithCredential(auth, googleCredential);
-
-            // Fetch or create user document in Firestore
             const userDoc = await getDoc(doc(db, "users", userCred.user.uid));
 
             if (!userDoc.exists()) {
-                await setDoc(doc(db, "users", userCred.user.uid), {
+                await markUserNeedsRoleSelection(userCred.user.uid, {
                     fullName: userCred.user.displayName || "Google User",
                     email: userCred.user.email,
                     createdAt: new Date().toISOString()
                 });
                 await ensureDefaultSubscriptionDoc(userCred.user.uid);
                 await hydrateSubscriptionTier();
-                // New user — navigate to role selection.
-                // Flag prevents onAuthStateChanged from firing a second redirect.
-                authNavigationHandled.current = true;
-                router.replace(getPostAuthRoute() as any);
+                router.replace(await resolveAuthenticatedDestination() as any);
             } else {
                 await hydrateSubscriptionTier();
-                // Existing user — honour redirectTo param if present.
-                authNavigationHandled.current = true;
-                router.replace(getPostAuthRoute() as any);
+                router.replace(await resolveAuthenticatedDestination(getPostAuthRoute()) as any);
             }
-
         } catch (error: any) {
             console.error('Google Sign-In error:', error.message);
             const code = String(error?.code || '');
@@ -174,19 +171,17 @@ export default function LoginScreen() {
                     .join(' ')
                     .trim();
 
-                await setDoc(doc(db, 'users', userCred.user.uid), {
+                await markUserNeedsRoleSelection(userCred.user.uid, {
                     fullName: fullNameFromApple || userCred.user.displayName || 'Apple User',
                     email: userCred.user.email || '',
                     createdAt: new Date().toISOString(),
                 });
                 await ensureDefaultSubscriptionDoc(userCred.user.uid);
                 await hydrateSubscriptionTier();
-                authNavigationHandled.current = true;
-                router.replace(getPostAuthRoute() as any);
+                router.replace(await resolveAuthenticatedDestination() as any);
             } else {
                 await hydrateSubscriptionTier();
-                authNavigationHandled.current = true;
-                router.replace(getPostAuthRoute() as any);
+                router.replace(await resolveAuthenticatedDestination(getPostAuthRoute()) as any);
             }
         } catch (error: any) {
             if (error?.code === 'ERR_REQUEST_CANCELED') {
@@ -213,16 +208,13 @@ export default function LoginScreen() {
                         </TouchableOpacity>
                     </View>
 
-                    {/* Logo Section */}
                     <View style={styles.logoContainer}>
                         <Text style={styles.logoText}>ShooutS</Text>
                     </View>
 
-                    {/* Welcome Text */}
                     <Text style={styles.title}>Welcome Back</Text>
                     <Text style={styles.subtitle}>Log in to your account using email or social networks</Text>
 
-                    {/* Social Login Buttons */}
                     <View style={styles.socialContainer}>
                         {Platform.OS === 'ios' ? (
                             <SocialButton icon={<AppleIcon />} text="Login with Apple" onPress={handleAppleLogin} />
@@ -230,33 +222,48 @@ export default function LoginScreen() {
                         <SocialButton icon={<GoogleIcon />} text="Login with Google" onPress={handleGoogleLogin} />
                     </View>
 
-                    {/* Divider */}
                     <View style={styles.dividerContainer}>
                         <View style={styles.dividerLine} />
                         <Text style={styles.dividerText}>Or continue with social account</Text>
                         <View style={styles.dividerLine} />
                     </View>
 
-                    {/* Form */}
                     <View style={styles.form}>
-                        <TextInput
-                            style={styles.input}
-                            placeholder="Email Address"
-                            placeholderTextColor={placeholderColor}
-                            value={email}
-                            onChangeText={setEmail}
-                            keyboardType="email-address"
-                            autoCapitalize="none"
-                        />
-
-                        <View style={styles.passwordContainer}>
+                        <Animated.View style={[styles.input, emailInputAnimatedStyle]}>
                             <TextInput
-                                style={[styles.input, { paddingRight: 50 }]}
+                                style={styles.inputText}
+                                placeholder="Email Address"
+                                placeholderTextColor={placeholderColor}
+                                value={email}
+                                onChangeText={setEmail}
+                                keyboardType="email-address"
+                                autoCapitalize="none"
+                                returnKeyType="next"
+                                onFocus={() => {
+                                    emailFocused.value = withTiming(1, { duration: 180 });
+                                }}
+                                onBlur={() => {
+                                    emailFocused.value = withTiming(0, { duration: 180 });
+                                }}
+                                onSubmitEditing={() => passwordInputRef.current?.focus()}
+                            />
+                        </Animated.View>
+
+                        <Animated.View style={[styles.passwordContainer, passwordInputAnimatedStyle]}>
+                            <TextInput
+                                ref={passwordInputRef}
+                                style={[styles.inputText, { paddingRight: 50 }]}
                                 placeholder="Password"
                                 placeholderTextColor={placeholderColor}
                                 value={password}
                                 onChangeText={setPassword}
                                 secureTextEntry={!showPassword}
+                                onFocus={() => {
+                                    passwordFocused.value = withTiming(1, { duration: 180 });
+                                }}
+                                onBlur={() => {
+                                    passwordFocused.value = withTiming(0, { duration: 180 });
+                                }}
                             />
                             <TouchableOpacity
                                 onPress={() => setShowPassword(!showPassword)}
@@ -264,10 +271,9 @@ export default function LoginScreen() {
                             >
                                 {showPassword ? <Eye color={appTheme.colors.textPrimary} size={24} /> : <EyeOff color={appTheme.colors.textPrimary} size={24} />}
                             </TouchableOpacity>
-                        </View>
+                        </Animated.View>
                     </View>
 
-                    {/* Forgot Password & Login */}
                     <View style={styles.actionContainer}>
                         <TouchableOpacity onPress={handleForgotPassword}>
                             <Text style={styles.forgotPasswordText}>Forgot Password ?</Text>
@@ -283,7 +289,6 @@ export default function LoginScreen() {
                         </TouchableOpacity>
                     </View>
 
-                    {/* Register Link */}
                     <View style={styles.footer}>
                         <Text style={styles.footerText}>Didn't have an account? </Text>
                         <TouchableOpacity onPress={() => router.push('/(auth)/signup')}>
@@ -292,13 +297,10 @@ export default function LoginScreen() {
                     </View>
                 </ScrollView>
             </KeyboardAvoidingView>
-
-            {/* Modals Removed for Firebase Auth Native UI */}
         </View>
     );
 }
 
-// Sub-components
 function SocialButton({ icon, text, onPress }: { icon: React.ReactNode, text: string, onPress?: () => void }) {
     const styles = useLoginStyles();
 
@@ -454,13 +456,25 @@ const legacyStyles = {
         borderWidth: 1.5,
         borderColor: '#464646',
         borderRadius: 10,
+        justifyContent: 'center',
+    },
+    inputText: {
         color: 'white',
         fontSize: 15,
         fontFamily: 'Poppins-Regular',
+        height: '100%',
+        paddingVertical: 0,
     },
     passwordContainer: {
         position: 'relative',
         width: '100%',
+        height: 56,
+        paddingHorizontal: 16,
+        backgroundColor: 'transparent',
+        borderWidth: 1.5,
+        borderColor: '#464646',
+        borderRadius: 10,
+        justifyContent: 'center',
     },
     eyeIcon: {
         position: 'absolute',
@@ -661,4 +675,3 @@ const legacyStyles = {
         marginBottom: 10,
     },
 };
-

@@ -37,13 +37,40 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.schedulePromoteUpcomingUploads = exports.scheduleAggregateTrending = exports.scheduleAggregateBestSellers = exports.aggregateTrending = exports.aggregateBestSellers = void 0;
+const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions"));
 const scheduler_1 = require("firebase-functions/v2/scheduler");
 const aggregation = __importStar(require("../services/aggregation"));
 /**
- * aggregateBestSellers - Manually triggered aggregation of best sellers
+ * Verifies bearer token on HTTP onRequest endpoints.
+ * Returns the decoded token or sends an error response and returns null.
+ */
+async function verifyBearerToken(req, res) {
+    const authHeader = String(req.header('authorization') || '');
+    if (!authHeader.startsWith('Bearer ')) {
+        res.status(401).json({ error: 'Missing bearer token' });
+        return null;
+    }
+    try {
+        return await admin.auth().verifyIdToken(authHeader.slice('Bearer '.length).trim());
+    }
+    catch {
+        res.status(403).json({ error: 'Invalid or expired token' });
+        return null;
+    }
+}
+/**
+ * aggregateBestSellers - Manually triggered aggregation of best sellers (admin auth required)
  */
 exports.aggregateBestSellers = functions.https.onRequest({ timeoutSeconds: 540, memory: '512MiB' }, async (req, res) => {
+    const decoded = await verifyBearerToken(req, res);
+    if (!decoded)
+        return;
+    const role = decoded.role;
+    if (!role || !['admin', 'moderator'].includes(role)) {
+        res.status(403).json({ error: 'Insufficient privileges' });
+        return;
+    }
     try {
         const count = await aggregation.aggregateBestSellers();
         res.status(200).json({ success: true, count });
@@ -54,9 +81,17 @@ exports.aggregateBestSellers = functions.https.onRequest({ timeoutSeconds: 540, 
     }
 });
 /**
- * aggregateTrending - Manually triggered aggregation of trending tracks
+ * aggregateTrending - Manually triggered aggregation of trending tracks (admin auth required)
  */
 exports.aggregateTrending = functions.https.onRequest({ timeoutSeconds: 300, memory: '256MiB' }, async (req, res) => {
+    const decoded = await verifyBearerToken(req, res);
+    if (!decoded)
+        return;
+    const role = decoded.role;
+    if (!role || !['admin', 'moderator'].includes(role)) {
+        res.status(403).json({ error: 'Insufficient privileges' });
+        return;
+    }
     try {
         const count = await aggregation.aggregateTrending();
         res.status(200).json({ success: true, count });

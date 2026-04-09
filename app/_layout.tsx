@@ -3,11 +3,11 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Poppins_400Regular, Poppins_500Medium, Poppins_600SemiBold, Poppins_700Bold, useFonts } from '@expo-google-fonts/poppins';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack, useRouter } from 'expo-router';
+import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { onAuthStateChanged } from 'firebase/auth';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { Animated, Platform } from 'react-native';
 import 'react-native-reanimated';
 import { auth } from '../firebaseConfig';
@@ -16,16 +16,11 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { useUserStore } from '@/store/useUserStore';
 import { getDefaultAppModeForPlan } from '@/utils/subscriptions';
 
-export const authNavigationHandled = { current: false };
-
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
-  const router = useRouter();
-  const [, setAuthResolved] = useState(false);
-  const { setVerifying } = useAuthStore();
-  const isFirstAuthEvent = useRef(true);
+  const { setVerifying, setAuthResolved, setHasAuthenticatedUser, reset: resetAuthState } = useAuthStore();
   const splashHidden = useRef(false);
   const contentOpacity = useRef(new Animated.Value(0)).current;
 
@@ -41,61 +36,53 @@ export default function RootLayout() {
 
     const unsub = onAuthStateChanged(auth, async (user) => {
       if (user) {
+        setHasAuthenticatedUser(true);
         try {
           setVerifying(true);
           await hydrateSubscriptionTier();
         } catch (verifyError) {
           console.error('Failed to verify subscription tier:', verifyError);
-          useAuthStore.getState().setActualRole('vault');
+          useAuthStore.getState().setActualRole('shoout');
           useAuthStore.getState().setSubscriptionData({
-            tier: 'vault',
+            tier: 'shoout',
             isSubscribed: false,
             expiresAt: null,
           });
-          useUserStore.getState().setActualRole('vault');
-          useUserStore.getState().setRole('vault');
+          useUserStore.getState().setActualRole('shoout');
+          useUserStore.getState().setRole('shoout');
           useUserStore.getState().setActiveAppMode('shoout');
         } finally {
           setVerifying(false);
         }
 
-        const verifiedPlan = useAuthStore.getState().actualRole || 'vault';
+        const verifiedPlan = useAuthStore.getState().actualRole || 'shoout';
         const currentMode = useUserStore.getState().activeAppMode;
         const preferredMode = currentMode === 'shoout' ? currentMode : getDefaultAppModeForPlan(verifiedPlan);
         useUserStore.getState().setActiveAppMode(preferredMode);
 
         const displayName = user.displayName?.trim() || 'User';
         useUserStore.getState().setName(displayName);
-
-        if (!authNavigationHandled.current) {
-          router.replace('/(tabs)');
-        }
-        authNavigationHandled.current = false;
       } else {
-        if (isFirstAuthEvent.current) {
-          router.replace('/(auth)/role-selection');
-        }
+        resetAuthState();
+        setHasAuthenticatedUser(false);
+        useUserStore.getState().reset();
       }
 
-      isFirstAuthEvent.current = false;
       setAuthResolved(true);
     });
 
     const authTimeout = setTimeout(() => {
-      setAuthResolved((prev) => {
-        if (!prev) {
-          console.warn('[layout] Auth timeout - forcing render. User may not be logged in.');
-          router.replace('/(auth)/role-selection');
-        }
-        return true;
-      });
+      console.warn('[layout] Auth timeout - forcing render. User may not be logged in.');
+      setHasAuthenticatedUser(Boolean(auth.currentUser));
+      setAuthResolved(true);
+      setVerifying(false);
     }, 3000);
 
     return () => {
       unsub();
       clearTimeout(authTimeout);
     };
-  }, [loaded, error, router, setVerifying]);
+  }, [loaded, error, resetAuthState, setAuthResolved, setHasAuthenticatedUser, setVerifying]);
 
   useEffect(() => {
     if (Platform.OS !== 'web') {
@@ -132,21 +119,21 @@ export default function RootLayout() {
           initialRouteName="index"
           screenOptions={{
             headerShown: false,
-            animation: 'slide_from_right',
+            animation: 'fade',
             gestureEnabled: true,
             fullScreenGestureEnabled: true,
           }}
         >
-          <Stack.Screen name="index" />
-          <Stack.Screen name="(auth)/onboarding" />
-          <Stack.Screen name="(auth)/role-selection" />
-          <Stack.Screen name="(auth)/login" />
-          <Stack.Screen name="(auth)/signup" />
-          <Stack.Screen name="(auth)/studio-creation" />
+          <Stack.Screen name="index" options={{ animation: 'none' }} />
+          <Stack.Screen name="(auth)/onboarding" options={{ animation: 'fade_from_bottom' }} />
+          <Stack.Screen name="(auth)/role-selection" options={{ animation: 'fade_from_bottom' }} />
+          <Stack.Screen name="(auth)/login" options={{ animation: 'fade_from_bottom' }} />
+          <Stack.Screen name="(auth)/signup" options={{ animation: 'fade_from_bottom' }} />
+          <Stack.Screen name="(auth)/studio-creation" options={{ animation: 'fade_from_bottom' }} />
           <Stack.Screen name="(auth)/forgot-password" />
           <Stack.Screen name="(auth)/forgot-password-code" />
           <Stack.Screen name="(auth)/reset-password" />
-          <Stack.Screen name="(auth)/signup-otp" />
+          <Stack.Screen name="(auth)/signup-otp" options={{ animation: 'fade_from_bottom' }} />
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="admin" />
           <Stack.Screen name="settings/payment-methods" />

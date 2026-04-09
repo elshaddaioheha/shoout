@@ -41,6 +41,7 @@ extensions/*.env
 *.tsbuildinfo
 GoogleService-Info.plist
 serviceAccountKey.json
+google-services.json
 
 app-example
 

@@ -1,25 +1,22 @@
 import type { UserRole } from '@/store/useUserStore';
+import { useToastStore } from '@/store/useToastStore';
 import { hydrateSubscriptionTier } from '@/utils/subscriptionVerification';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
-import { Image } from 'expo-image';
+import { SUBSCRIPTION_TIERS } from '@/constants/subscriptionTiers';
+import { markSelectedExperience } from '@/utils/authFlow';
+import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { auth, db } from '@/firebaseConfig';
-import { doc, setDoc } from 'firebase/firestore';
+import { auth } from '@/firebaseConfig';
 import {
     ChevronRight,
-    Crown,
-    Download,
-    Headphones,
-    Mic2,
-    Star,
-    TrendingUp,
-    Zap
+    CheckCircle,
 } from 'lucide-react-native';
 import React, { useEffect, useRef, useState } from 'react';
 import {
     Animated,
+    ActivityIndicator,
     Easing,
     ScrollView,
     StatusBar,
@@ -30,73 +27,11 @@ import {
 } from 'react-native';
 import SafeScreenWrapper from '../../components/SafeScreenWrapper';
 import { theme } from '../../constants/theme';
-import { formatUsd, ngnToUsd } from '../../utils/pricing';
 import { normalize } from '../../utils/responsive';
 
-const SUBSCRIPTION_TIERS = [
-    // --- VAULT PLANS ---
-    {
-        id: 'vault' as UserRole,
-        title: 'Vault',
-        subtitle: `For Active Creators (${formatUsd(ngnToUsd(6981))}/mo)`,
-        welcomeTitle: 'Welcome to Vault',
-        welcomeLine: 'Private space for your masters, demos, and folders.',
-        illustrationAssetName: 'welcome-tier-vault.png',
-        icon: Headphones,
-        gradient: [theme.colors.surface, '#3D2A1F'] as [string, string],
-        accentColor: theme.colors.primary,
-        features: ['Private Folder Sharing', 'Shareable Secure Links', 'Basic Tracking'],
-        featureIcons: [Download, Mic2, Zap, TrendingUp],
-    },
-    {
-        id: 'vault_pro' as UserRole,
-        title: 'Vault Pro',
-        subtitle: `Professional tier (${formatUsd(ngnToUsd(13962))}/mo)`,
-        welcomeTitle: 'Welcome to Vault Pro',
-        welcomeLine: 'Higher limits and deeper control for your private catalog.',
-        illustrationAssetName: 'welcome-tier-vault-pro.png',
-        icon: Crown,
-        gradient: ['#863420', '#4A1D13'] as [string, string],
-        accentColor: '#FFD700',
-        features: ['Advanced Tracking', 'File Locking & Permissions'],
-        featureIcons: [Zap, TrendingUp, Crown],
-    },
-    {
-        id: 'studio' as UserRole,
-        title: 'Studio',
-        subtitle: `Active Sellers (${formatUsd(ngnToUsd(27000))}/mo)`,
-        welcomeTitle: 'Welcome to Studio',
-        welcomeLine: 'Publish, sell, and scale your beat business.',
-        illustrationAssetName: 'welcome-tier-studio.png',
-        icon: TrendingUp,
-        gradient: ['#7C3AED', '#4C1D95'] as [string, string],
-        accentColor: '#C4B5FD',
-        features: ['Unlimited Listings', 'Buyer-Seller Chat', 'Pricing & License Control', 'Payout Access', 'Standard Visibility'],
-        featureIcons: [Zap, Mic2, Star, Download, TrendingUp],
-    },
-
-    // --- HYBRID PLANS ---
-    {
-        id: 'hybrid' as UserRole,
-        title: 'Hybrid',
-        subtitle: `The Ultimate Plan (${formatUsd(ngnToUsd(34906))}/mo)`,
-        welcomeTitle: 'Welcome to Hybrid',
-        welcomeLine: 'One workspace to publish, promote, and manage your vault.',
-        illustrationAssetName: 'welcome-tier-hybrid.png',
-        icon: Zap,
-        gradient: ['#221133', '#4A0E17'] as [string, string],
-        accentColor: '#FFD700',
-        features: ['Team Collaboration', 'Dedicated Support', '10% Transaction Fee'],
-        featureIcons: [Download, Crown, Star, TrendingUp],
-    },
-];
-
-const TIER_ILLUSTRATIONS: Record<UserRole, number> = {
-    vault: require('@/assets/images/welcome-1.png'),
-    vault_pro: require('@/assets/images/welcome-2.png'),
-    studio: require('@/assets/images/welcome-3.png'),
-    hybrid: require('@/assets/images/welcome-3.png'),
-};
+const SUBSCRIPTION_VERIFY_URL =
+    process.env.EXPO_PUBLIC_SUBSCRIPTION_VERIFY_URL ||
+    `${String(process.env.EXPO_PUBLIC_FUNCTIONS_URL || '').replace(/\/$/, '')}/activateSubscriptionTier`;
 
 function useRoleSelectionStyles() {
     const appTheme = useAppTheme();
@@ -108,14 +43,18 @@ export default function RoleSelectionScreen() {
     const styles = useRoleSelectionStyles();
 
     const router = useRouter();
+    const { showToast } = useToastStore();
     const [selectedRole, setSelectedRole] = useState<UserRole | null>(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     // Staggered entry animations
     const headerAnim = useRef(new Animated.Value(0)).current;
-    const cardAnims = useRef(SUBSCRIPTION_TIERS.map(() => new Animated.Value(0))).current;
+    const cardAnimsRef = useRef(SUBSCRIPTION_TIERS.map(() => new Animated.Value(0)));
     const buttonAnim = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
+        const cardAnims = cardAnimsRef.current;
+
         // Header fades in first
         Animated.timing(headerAnim, {
             toValue: 1,
@@ -148,6 +87,8 @@ export default function RoleSelectionScreen() {
 
     const pulseAnim = useRef(new Animated.Value(1)).current;
     const selectedTier = SUBSCRIPTION_TIERS.find((tier) => tier.id === selectedRole) || null;
+    const SelectedTierIcon = selectedTier?.icon;
+
     useEffect(() => {
         if (selectedRole) {
             Animated.sequence([
@@ -157,35 +98,68 @@ export default function RoleSelectionScreen() {
         }
     }, [selectedRole]);
 
-    const handleContinue = async () => {
-        if (!selectedRole) return;
-
-        if (selectedRole === 'studio' || selectedRole === 'hybrid') {
-            router.push({
-                pathname: '/(auth)/studio-creation',
-                params: { role: selectedRole },
-            });
-            return;
-        }
-
-        if (auth.currentUser) {
-            await setDoc(
-                doc(db, 'users', auth.currentUser.uid, 'subscription', 'current'),
-                {
-                    tier: selectedRole,
-                    isSubscribed: false,
-                    expiresAt: null,
-                    updatedAt: new Date().toISOString(),
-                },
-                { merge: true }
-            );
-        }
-
-        await hydrateSubscriptionTier();
-        router.replace('/(tabs)');
+    const handleRolePress = (roleId: UserRole) => {
+        if (isSubmitting) return;
+        setSelectedRole(roleId);
+        Haptics.selectionAsync().catch(() => null);
     };
 
-    const selectedTierImage = selectedTier ? TIER_ILLUSTRATIONS[selectedTier.id] : null;
+    const activatePlanOnServer = async (planId: UserRole) => {
+        if (!auth.currentUser) {
+            throw new Error('Please sign in again to continue.');
+        }
+
+        if (!SUBSCRIPTION_VERIFY_URL) {
+            throw new Error('Subscription verification endpoint is not configured.');
+        }
+
+        const idToken = await auth.currentUser.getIdToken();
+        const response = await fetch(SUBSCRIPTION_VERIFY_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${idToken}`,
+            },
+            body: JSON.stringify({
+                planId,
+                billingCycle: 'monthly',
+            }),
+        });
+
+        const payload = await response.json().catch(() => null);
+        if (!response.ok || !payload?.success) {
+            throw new Error(payload?.error || 'Subscription activation failed.');
+        }
+    };
+
+    const handleContinue = async () => {
+        if (!selectedRole || isSubmitting) return;
+
+        setIsSubmitting(true);
+        try {
+            if (!auth.currentUser) {
+                throw new Error('Please sign in again to continue.');
+            }
+
+            if (selectedRole === 'studio' || selectedRole === 'hybrid') {
+                await markSelectedExperience(auth.currentUser.uid, selectedRole);
+                router.push({
+                    pathname: '/(auth)/studio-creation',
+                    params: { role: selectedRole },
+                });
+                return;
+            }
+
+            await activatePlanOnServer(selectedRole);
+            await markSelectedExperience(auth.currentUser.uid, selectedRole);
+            await hydrateSubscriptionTier();
+            router.replace('/(tabs)');
+        } catch (error: any) {
+            showToast(error?.message || 'Could not continue right now. Please try again.', 'error');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
 
     return (
         <SafeScreenWrapper>
@@ -219,18 +193,51 @@ export default function RoleSelectionScreen() {
                             style={styles.selectedWelcomeGradient}
                         >
                             <View style={styles.selectedWelcomeHeader}>
-                                <Text style={styles.selectedWelcomeTitle}>{selectedTier.welcomeTitle}</Text>
-                                <Text style={styles.selectedWelcomeLine}>{selectedTier.welcomeLine}</Text>
-                            </View>
-                            {selectedTierImage ? (
-                                <View style={[styles.illustrationImageCard, { borderColor: `${selectedTier.accentColor}66` }]}>
-                                    <Image
-                                        source={selectedTierImage}
-                                        style={styles.illustrationImage}
-                                        contentFit="contain"
-                                    />
+                                <View style={[styles.selectedWelcomeBadge, { backgroundColor: `${selectedTier.accentColor}22` }]}>
+                                    <Text style={[styles.selectedWelcomeBadgeText, { color: selectedTier.accentColor }]}>Selected Experience</Text>
                                 </View>
-                            ) : null}
+                                <Text style={[styles.selectedWelcomeTitle, { color: appTheme.colors.textPrimary }]}>{selectedTier.welcomeTitle}</Text>
+                                <Text style={[styles.selectedWelcomeLine, { color: appTheme.isDark ? 'rgba(255,255,255,0.82)' : 'rgba(23,18,19,0.72)' }]}>{selectedTier.welcomeLine}</Text>
+                            </View>
+                            <View
+                                style={[
+                                    styles.selectedHeroCard,
+                                    {
+                                        borderColor: `${selectedTier.accentColor}55`,
+                                        backgroundColor: appTheme.isDark ? 'rgba(20,15,16,0.34)' : 'rgba(255,255,255,0.56)',
+                                    },
+                                ]}
+                            >
+                                <View style={[styles.selectedHeroBackdrop, { backgroundColor: appTheme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(23,18,19,0.05)' }]} />
+                                <View style={[styles.selectedHeroOrb, { backgroundColor: `${selectedTier.accentColor}20`, borderColor: `${selectedTier.accentColor}40` }]}>
+                                    {SelectedTierIcon ? <SelectedTierIcon size={normalize(34)} color={selectedTier.accentColor} /> : null}
+                                </View>
+                                <View style={styles.selectedHeroTextWrap}>
+                                    <Text style={[styles.selectedHeroEyebrow, { color: appTheme.isDark ? 'rgba(255,255,255,0.72)' : 'rgba(23,18,19,0.56)' }]}>{selectedTier.title}</Text>
+                                    <Text style={[styles.selectedHeroSubhead, { color: appTheme.colors.textPrimary }]}>{selectedTier.subtitle}</Text>
+                                </View>
+                            </View>
+                            <View style={styles.selectedFeatureGrid}>
+                                {/* Keep the welcome preview concise so the cards remain visible above the fold. */}
+                                {selectedTier.features.slice(0, 3).map((feature, index) => {
+                                    const FeatureIcon = selectedTier.featureIcons[index] || selectedTier.icon;
+                                    return (
+                                        <View
+                                            key={`${selectedTier.id}-${feature}`}
+                                            style={[
+                                                styles.selectedFeaturePill,
+                                                {
+                                                    borderColor: `${selectedTier.accentColor}33`,
+                                                    backgroundColor: appTheme.isDark ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.5)',
+                                                },
+                                            ]}
+                                        >
+                                            <FeatureIcon size={theme.iconSize.sm} color={selectedTier.accentColor} />
+                                            <Text style={[styles.selectedFeatureText, { color: appTheme.colors.textPrimary }]}>{feature}</Text>
+                                        </View>
+                                    );
+                                })}
+                            </View>
                         </LinearGradient>
                     </View>
                 ) : null}
@@ -240,9 +247,9 @@ export default function RoleSelectionScreen() {
                     {SUBSCRIPTION_TIERS.map((role, index) => {
                         const isSelected = selectedRole === role.id;
                         const Icon = role.icon;
-                        const cardAnim = cardAnims[index];
-                        const selectedGradient: readonly [string, string] = role.id === 'vault'
-                            ? [appTheme.colors.surface, appTheme.isDark ? '#3D2A1F' : '#F1D8D0']
+                        const cardAnim = cardAnimsRef.current[index];
+                        const selectedGradient: readonly [string, string] = role.selectedGradientOverride && !appTheme.isDark
+                            ? role.selectedGradientOverride
                             : role.gradient;
                         const cardGradient: readonly [string, string] = isSelected
                             ? selectedGradient
@@ -260,8 +267,12 @@ export default function RoleSelectionScreen() {
                                 }]}
                             >
                                 <TouchableOpacity
+                                    accessibilityRole="radio"
+                                    accessibilityState={{ selected: isSelected, disabled: isSubmitting }}
+                                    accessibilityLabel={`${role.title} subscription option`}
                                     activeOpacity={0.85}
-                                    onPress={() => setSelectedRole(role.id)}
+                                    disabled={isSubmitting}
+                                    onPress={() => handleRolePress(role.id)}
                                 >
                                     <LinearGradient
                                         colors={cardGradient}
@@ -284,10 +295,10 @@ export default function RoleSelectionScreen() {
                                             </View>
                                             <View style={styles.checkIndicatorContainer}>
                                                 {isSelected && (
-                                                    <Image
-                                                        source={require('@/assets/images/check-circle.png')}
-                                                        style={styles.checkImage}
-                                                        contentFit="contain"
+                                                    <CheckCircle
+                                                        size={normalize(24)}
+                                                        color={role.accentColor}
+                                                        fill={appTheme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.9)'}
                                                     />
                                                 )}
                                             </View>
@@ -320,10 +331,11 @@ export default function RoleSelectionScreen() {
                     transform: [{ translateY: buttonAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }]
                 }]}>
                     <TouchableOpacity
+                        accessibilityLabel={selectedRole ? `Continue with ${selectedRole} plan` : 'Select a plan to continue'}
                         onPress={handleContinue}
                         activeOpacity={0.85}
-                        disabled={!selectedRole}
-                        style={[styles.continueButton, !selectedRole && { opacity: 0.4 }]}
+                        disabled={!selectedRole || isSubmitting}
+                        style={[styles.continueButton, (!selectedRole || isSubmitting) && { opacity: 0.4 }]}
                     >
                         <LinearGradient
                             colors={selectedRole ? [appTheme.colors.primary, appTheme.isDark ? '#863420' : '#B74227'] : [appTheme.colors.borderLight, appTheme.colors.border]}
@@ -331,8 +343,17 @@ export default function RoleSelectionScreen() {
                             start={{ x: 0, y: 0 }}
                             end={{ x: 1, y: 0 }}
                         >
-                            <Text style={styles.continueText} allowFontScaling={false}>Continue</Text>
-                            <ChevronRight size={theme.iconSize.md} color={appTheme.colors.textPrimary} />
+                            {isSubmitting ? (
+                                <>
+                                    <ActivityIndicator color={appTheme.colors.textPrimary} size="small" />
+                                    <Text style={styles.continueText} allowFontScaling={false}>Loading...</Text>
+                                </>
+                            ) : (
+                                <>
+                                    <Text style={styles.continueText} allowFontScaling={false}>Continue</Text>
+                                    <ChevronRight size={theme.iconSize.md} color={appTheme.colors.textPrimary} />
+                                </>
+                            )}
                         </LinearGradient>
                     </TouchableOpacity>
                 </Animated.View>
@@ -399,28 +420,83 @@ const legacyStyles = {
     selectedWelcomeHeader: {
         gap: 4,
     },
+    selectedWelcomeBadge: {
+        alignSelf: 'flex-start',
+        paddingHorizontal: theme.spacing.sm,
+        paddingVertical: 6,
+        borderRadius: theme.radius.full,
+        marginBottom: theme.spacing.xs,
+    },
+    selectedWelcomeBadgeText: {
+        fontFamily: 'Poppins-SemiBold',
+        fontSize: theme.typography.caption.fontSize,
+    },
     selectedWelcomeTitle: {
-        color: '#FFFFFF',
         fontFamily: 'Poppins-Bold',
         fontSize: theme.typography.h3.fontSize,
     },
     selectedWelcomeLine: {
-        color: 'rgba(255,255,255,0.82)',
         fontFamily: 'Poppins-Regular',
         fontSize: theme.typography.caption.fontSize,
     },
-    illustrationImageCard: {
+    selectedHeroCard: {
         borderWidth: 1,
         borderRadius: theme.radius.lg,
-        backgroundColor: 'rgba(20,15,16,0.46)',
-        paddingVertical: theme.spacing.sm,
-        paddingHorizontal: theme.spacing.sm,
+        padding: theme.spacing.md,
+        overflow: 'hidden',
+        flexDirection: 'row',
         alignItems: 'center',
+        gap: theme.spacing.md,
+        minHeight: normalize(120),
     },
-    illustrationImage: {
-        width: '100%',
-        height: normalize(170),
-        borderRadius: theme.radius.md,
+    selectedHeroBackdrop: {
+        position: 'absolute',
+        right: -normalize(22),
+        top: -normalize(20),
+        width: normalize(120),
+        height: normalize(120),
+        borderRadius: theme.radius.full,
+        backgroundColor: 'rgba(255,255,255,0.05)',
+    },
+    selectedHeroOrb: {
+        width: normalize(72),
+        height: normalize(72),
+        borderRadius: theme.radius.full,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+    },
+    selectedHeroTextWrap: {
+        flex: 1,
+        gap: 6,
+    },
+    selectedHeroEyebrow: {
+        fontFamily: 'Poppins-SemiBold',
+        fontSize: theme.typography.caption.fontSize,
+        textTransform: 'uppercase',
+        letterSpacing: 0.6,
+    },
+    selectedHeroSubhead: {
+        fontFamily: 'Poppins-Bold',
+        fontSize: theme.typography.body.fontSize,
+        lineHeight: theme.typography.body.lineHeight,
+    },
+    selectedFeatureGrid: {
+        gap: theme.spacing.sm,
+    },
+    selectedFeaturePill: {
+        borderWidth: 1,
+        borderRadius: theme.radius.lg,
+        paddingHorizontal: theme.spacing.md,
+        paddingVertical: theme.spacing.sm,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: theme.spacing.sm,
+    },
+    selectedFeatureText: {
+        flex: 1,
+        fontFamily: 'Poppins-Medium',
+        fontSize: theme.typography.caption.fontSize,
     },
     roleCard: {
         borderRadius: theme.radius.xl,
@@ -468,10 +544,6 @@ const legacyStyles = {
         height: normalize(32),
         alignItems: 'center',
         justifyContent: 'center',
-    },
-    checkImage: {
-        width: normalize(32),
-        height: normalize(32),
     },
     featuresContainer: {
         marginTop: theme.spacing.md,

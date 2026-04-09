@@ -8,6 +8,7 @@ import { Tabs } from 'expo-router';
 import React from 'react';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { createContext, useContext } from 'react';
+import { Animated, StyleSheet } from 'react-native';
 
 type SwitcherMode = 'shoout' | 'vault' | 'vault_pro' | 'studio' | 'hybrid';
 
@@ -28,7 +29,7 @@ export const AppSwitcherContext = createContext<AppSwitcherContextValue>({
   openSheet: () => { },
   isModeSheetOpen: false,
   viewMode: 'shoout',
-  currentPlan: 'vault',
+  currentPlan: 'shoout',
   studioAccessLevel: 'free',
   isStudioPaid: false,
   overlayAnim: null,
@@ -75,47 +76,70 @@ export default function TabLayout() {
 
   return (
     <AppSwitcherContext.Provider value={contextValue}>
-      <Tabs
-        tabBar={(props: BottomTabBarProps) => <ResponsiveBottomTabBar {...props} />}
-        screenOptions={{
-          headerShown: false,
-        }}
+      <Animated.View
+        style={[
+          styles.contentShell,
+          {
+            opacity: contentFadeAnim,
+            transform: [
+              {
+                scale: contentFadeAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0.985, 1],
+                }),
+              },
+            ],
+          },
+        ]}
       >
-        <Tabs.Screen
-          name="index"
-          options={{
-            title: 'Home',
+        <Tabs
+          tabBar={(props: BottomTabBarProps) => <ResponsiveBottomTabBar {...props} />}
+          screenOptions={{
+            headerShown: false,
           }}
-        />
-        <Tabs.Screen
-          name="search"
-          options={{
-            title: 'Explore',
-          }}
-        />
-        <Tabs.Screen
-          name="marketplace"
-          options={{
-            title: 'Market Place',
-          }}
-        />
-        <Tabs.Screen
-          name="library"
-          options={{
-            title: 'Creator',
-          }}
-        />
-        <Tabs.Screen
-          name="more"
-          options={{
-            title: 'More',
-          }}
-        />
-        <Tabs.Screen name="profile" options={{ href: null }} />
-        <Tabs.Screen name="explore" options={{ href: null }} />
-      </Tabs>
+        >
+          <Tabs.Screen
+            name="index"
+            options={{
+              title: 'Home',
+            }}
+          />
+          <Tabs.Screen
+            name="search"
+            options={{
+              title: 'Explore',
+            }}
+          />
+          <Tabs.Screen
+            name="cart"
+            options={{
+              title: 'Cart',
+            }}
+          />
+          <Tabs.Screen
+            name="marketplace"
+            options={{
+              title: 'Market Place',
+            }}
+          />
+          <Tabs.Screen
+            name="library"
+            options={{
+              title: 'Creator',
+            }}
+          />
+          <Tabs.Screen
+            name="more"
+            options={{
+              title: 'More',
+            }}
+          />
+          <Tabs.Screen name="profile" options={{ href: null }} />
+          <Tabs.Screen name="explore" options={{ href: null }} />
+        </Tabs>
 
-      {(viewMode === 'vault' || viewMode === 'vault_pro') ? <VaultMiniPlayer /> : <MiniPlayer />}
+        {(viewMode === 'vault' || viewMode === 'vault_pro') ? <VaultMiniPlayer /> : <MiniPlayer />}
+      </Animated.View>
 
       <ModeSelectorSheet
         visible={sheetVisible}
@@ -138,3 +162,9 @@ export default function TabLayout() {
     </AppSwitcherContext.Provider>
   );
 }
+
+const styles = StyleSheet.create({
+  contentShell: {
+    flex: 1,
+  },
+});

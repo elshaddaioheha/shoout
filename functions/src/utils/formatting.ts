@@ -96,6 +96,7 @@ export function formatNairaAmount(amountNgn: number): string {
  */
 export function formatPlanName(planId: string): string {
   const names: Record<string, string> = {
+    shoout: 'Shoout',
     vault: 'Vault',
     vault_pro: 'Vault Pro',
     studio: 'Studio',

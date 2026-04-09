@@ -6,6 +6,7 @@ import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { BlurView } from 'expo-blur';
 import { usePathname, useRouter } from 'expo-router';
 import { useAppTheme } from '@/hooks/use-app-theme';
+import { useCartStore } from '@/store/useCartStore';
 import { useUserStore } from '@/store/useUserStore';
 import { getModeSurfaceTheme } from '@/utils/appModeTheme';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
@@ -33,6 +34,7 @@ export default function ResponsiveBottomTabBar(props: BottomTabBarProps) {
     const { width } = useWindowDimensions();
     const activeAppMode = useUserStore((s) => s.activeAppMode);
     const role = useUserStore((s) => s.role);
+    const cartCount = useCartStore((s) => s.items.length);
     const bottomPadding = insets.bottom > 0 ? insets.bottom : 10;
     const isVaultMode = activeAppMode === 'vault' || activeAppMode === 'vault_pro';
 
@@ -64,7 +66,7 @@ export default function ResponsiveBottomTabBar(props: BottomTabBarProps) {
         ? [
             { key: 'index', name: 'index', icon: Home, label: 'Home' },
             { key: 'search', name: 'search', icon: Search, label: 'Search' },
-            { key: 'cart', routePath: '/cart', icon: ShoppingCart, label: 'Cart' },
+            { key: 'cart', name: 'cart', icon: ShoppingCart, label: 'Cart' },
             { key: 'more', name: 'more', icon: MoreHorizontal, label: 'More' },
         ]
         : [
@@ -137,6 +139,7 @@ export default function ResponsiveBottomTabBar(props: BottomTabBarProps) {
                             key={tab.key}
                             Icon={Icon}
                             label={tab.label}
+                            badgeCount={tab.key === 'cart' ? cartCount : 0}
                             isFocused={isFocused}
                             tabKey={tab.key}
                             isCompact={isVaultMode}
@@ -152,7 +155,7 @@ export default function ResponsiveBottomTabBar(props: BottomTabBarProps) {
     );
 }
 
-function TabButton({ Icon, label, isFocused, tabKey, isCompact, activeAppMode, appTheme, styles, onPress }: any) {
+function TabButton({ Icon, label, badgeCount, isFocused, tabKey, isCompact, activeAppMode, appTheme, styles, onPress }: any) {
     const modeTheme = getModeSurfaceTheme(activeAppMode, appTheme.isDark);
     const inactiveColor = appTheme.colors.textTertiary;
     const activeFgColor = modeTheme.accentLabel;
@@ -174,6 +177,11 @@ function TabButton({ Icon, label, isFocused, tabKey, isCompact, activeAppMode, a
             <Text style={[styles.labelActive, { color: isFocused ? activeFgColor : inactiveColor }]} numberOfLines={1}>
                 {label}
             </Text>
+            {badgeCount > 0 && (
+                <View style={[styles.cartBadge, { backgroundColor: modeTheme.accent, borderColor: appTheme.colors.background }]}> 
+                    <Text style={styles.cartBadgeText}>{badgeCount > 99 ? '99+' : String(badgeCount)}</Text>
+                </View>
+            )}
         </TouchableOpacity>
     );
 }
@@ -242,5 +250,23 @@ const legacyStyles = {
         fontFamily: 'Poppins-Medium',
         fontSize: 10,
         lineHeight: 12,
+    },
+    cartBadge: {
+        position: 'absolute',
+        top: 2,
+        right: 8,
+        minWidth: 16,
+        height: 16,
+        borderRadius: 8,
+        paddingHorizontal: 4,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+    },
+    cartBadgeText: {
+        color: '#FFFFFF',
+        fontFamily: 'Poppins-SemiBold',
+        fontSize: 9,
+        lineHeight: 11,
     },
 };

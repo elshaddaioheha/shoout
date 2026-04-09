@@ -37,7 +37,7 @@ export function isValidOtpPurpose(purpose: string): boolean {
  * Validates plan ID exists in known plans
  */
 export function isValidPlanId(planId: string): boolean {
-  const validPlans = ['vault', 'vault_pro', 'studio', 'hybrid'];
+  const validPlans = ['shoout', 'vault', 'vault_pro', 'studio', 'hybrid'];
   return validPlans.includes(planId);
 }
 

@@ -8,6 +8,11 @@ type SubscriptionPlan = {
   tier: UserRole;
   isSubscribed: boolean;
   expiresAt: Timestamp | null;
+  serviceEntitlements?: {
+    canVault?: boolean;
+    canStudio?: boolean;
+    canSell?: boolean;
+  };
 };
 
 /**
@@ -34,17 +39,17 @@ export async function fetchVerifiedSubscriptionTier(): Promise<UserRole> {
 
     if (!subscriptionSnap.exists()) {
       // New user without subscription record — default to vault trial tier
-      console.warn('No subscription document found for user, defaulting to vault');
-      updateAuthStore('vault', {
-        tier: 'vault',
+      console.warn('No subscription document found for user, defaulting to shoout');
+      updateAuthStore('shoout', {
+        tier: 'shoout',
         isSubscribed: false,
         expiresAt: null,
       });
-      return 'vault';
+      return 'shoout';
     }
 
     const subscriptionData = subscriptionSnap.data() as SubscriptionPlan;
-    const tier = subscriptionData.tier || 'vault';
+    const tier = subscriptionData.tier || 'shoout';
     const isSubscribed = subscriptionData.isSubscribed ?? false;
     const expiresAt = subscriptionData.expiresAt
       ? (subscriptionData.expiresAt as Timestamp).toMillis()
@@ -52,13 +57,13 @@ export async function fetchVerifiedSubscriptionTier(): Promise<UserRole> {
 
     // Check if subscription has expired
     if (isSubscribed && expiresAt && Date.now() > expiresAt) {
-      console.warn('User subscription has expired, downgrading to vault');
-      updateAuthStore('vault', {
-        tier: 'vault',
+      console.warn('User subscription has expired, downgrading to shoout');
+      updateAuthStore('shoout', {
+        tier: 'shoout',
         isSubscribed: false,
         expiresAt: null,
       });
-      return 'vault';
+      return 'shoout';
     }
 
     // Update store with verified subscription data
@@ -78,7 +83,7 @@ export async function fetchVerifiedSubscriptionTier(): Promise<UserRole> {
 }
 
 /**
- * Ensures `users/{uid}/subscription/current` exists with a default vault record.
+ * Ensures `users/{uid}/subscription/current` exists with a default shoout record.
  * Call after creating a new Auth user so tier reads stay canonical on subscription/current.
  */
 export async function ensureDefaultSubscriptionDoc(uid: string): Promise<void> {
@@ -88,11 +93,16 @@ export async function ensureDefaultSubscriptionDoc(uid: string): Promise<void> {
   if (snap.exists()) return;
 
   await setDoc(subscriptionRef, {
-    tier: 'vault' as UserRole,
+    tier: 'shoout' as UserRole,
     status: 'trial',
     isSubscribed: false,
     billingCycle: null,
     expiresAt: null,
+    serviceEntitlements: {
+      canVault: false,
+      canStudio: false,
+      canSell: false,
+    },
     updatedAt: new Date().toISOString(),
   });
 }
@@ -140,6 +150,10 @@ export async function verifyRoleViaCustomClaims(): Promise<UserRole | null> {
     // Force token refresh to get latest custom claims
     const idTokenResult = await user.getIdTokenResult(true);
     const customClaims = idTokenResult.claims;
+
+    if (customClaims?.plan) {
+      return customClaims.plan as UserRole;
+    }
 
     if (customClaims?.role) {
       return customClaims.role as UserRole;

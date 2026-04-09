@@ -1,6 +1,7 @@
 "use strict";
 /**
- * Upload handlers - Storage validation, streaming URLs, and audio processing
+ * Upload handlers - Storage validation, streaming URLs, and audio processing.
+ * Uses subscription guards for ledger-aware access control.
  */
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
@@ -40,8 +41,12 @@ exports.processAudioUpload = exports.getStreamingUrl = exports.validateStorageLi
 const functions = __importStar(require("firebase-functions"));
 const functionsV1 = __importStar(require("firebase-functions/v1"));
 const uploadGuard = __importStar(require("../services/uploadGuard"));
+const subscriptions_1 = require("../subscriptions");
+const types_1 = require("../types");
 /**
- * validateStorageLimit - Checks if user can upload file of given size
+ * validateStorageLimit - Checks if user can upload to vault or studio.
+ * Requires: vault, vault_pro, studio, or hybrid subscription.
+ * Enforces ledger-aware storage + upload count limits.
  */
 exports.validateStorageLimit = functions.https.onCall(async (data, context) => {
     if (!context?.auth) {
@@ -49,20 +54,43 @@ exports.validateStorageLimit = functions.https.onCall(async (data, context) => {
     }
     const userId = context.auth.uid;
     const fileSizeBytes = Number(data?.fileSizeBytes || 0);
+    const ledger = String(data?.storageLedger || 'vault');
     if (!Number.isFinite(fileSizeBytes) || fileSizeBytes <= 0) {
         throw new functions.https.HttpsError('invalid-argument', 'Invalid file size');
     }
-    if (fileSizeBytes > 50 * 1024 * 1024) {
-        throw new functions.https.HttpsError('invalid-argument', 'File exceeds 50MB limit');
+    if (fileSizeBytes > types_1.MAX_FILE_SIZE_BYTES) {
+        throw new functions.https.HttpsError('invalid-argument', `File exceeds ${types_1.MAX_FILE_SIZE_BYTES / (1024 * 1024)}MB limit`);
     }
-    const result = await uploadGuard.validateStorageQuota(userId, fileSizeBytes);
-    if (!result.allowed) {
-        throw new functions.https.HttpsError('resource-exhausted', `Storage limit exceeded. Available: ${(result.availableBytes / (1024 * 1024)).toFixed(2)}MB`);
+    // Use ledger-aware guards instead of legacy single-pool check
+    if (ledger === 'studio') {
+        const { entitlements, usage } = await subscriptions_1.guards.assertStudioUploadAllowed(userId, fileSizeBytes);
+        return {
+            allowed: true,
+            ledger: 'studio',
+            usedBytes: usage.usedBytes,
+            limitBytes: entitlements.studioStorageLimitBytes,
+            availableBytes: Math.max(0, entitlements.studioStorageLimitBytes - usage.usedBytes),
+        };
     }
-    return result;
+    else {
+        const { entitlements, usage } = await subscriptions_1.guards.assertVaultUploadAllowed(userId, fileSizeBytes);
+        return {
+            allowed: true,
+            ledger: 'vault',
+            usedBytes: usage.usedBytes,
+            usedCount: usage.usedCount,
+            limitBytes: entitlements.vaultStorageLimitBytes,
+            maxUploads: entitlements.maxVaultUploads,
+            availableBytes: entitlements.vaultStorageLimitBytes === Infinity
+                ? Infinity
+                : Math.max(0, entitlements.vaultStorageLimitBytes - usage.usedBytes),
+        };
+    }
 });
 /**
- * getStreamingUrl - Returns signed URL for audio streaming
+ * getStreamingUrl - Returns signed URL for audio streaming.
+ * Public streaming (marketplace preview) = any authenticated user.
+ * Library access (purchased content) = verified purchase required.
  */
 exports.getStreamingUrl = functions.https.onCall(async (data, context) => {
     if (!context?.auth) {
@@ -83,12 +111,11 @@ exports.getStreamingUrl = functions.https.onCall(async (data, context) => {
     }
 });
 /**
- * Handler for Cloud Storage upload events
+ * processAudioUpload - Cloud Storage trigger for new audio uploads.
+ * Fires when a file is uploaded to vaults/{userId}/{filename}.
  */
 async function processAudioUploadHandler(event) {
     const filePath = event.data.name || '';
-    const bucketName = event.data.bucket;
-    // Only process files in vaults/ directory
     if (!filePath.startsWith('vaults/')) {
         functions.logger.info('Skipping non-vault file:', filePath);
         return;
@@ -104,9 +131,6 @@ async function processAudioUploadHandler(event) {
         throw error;
     }
 }
-/**
- * processAudioUpload - Cloud Storage trigger for new audio uploads
- */
 const uploadBucket = process.env.UPLOAD_BUCKET_NAME;
 exports.processAudioUpload = uploadBucket
     ? functionsV1.storage.bucket(uploadBucket).object().onFinalize(processAudioUploadHandler)

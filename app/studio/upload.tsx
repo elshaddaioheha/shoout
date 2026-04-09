@@ -125,7 +125,7 @@ export default function UploadScreen() {
     const [artworkPreviewUri, setArtworkPreviewUri] = useState<string | null>(null);
 
     const { showToast } = useToastStore();
-    const effectiveRole = String(authRole || authTier || 'vault').toLowerCase();
+    const effectiveRole = String(authRole || authTier || 'shoout').toLowerCase();
     const canMonetize = effectiveRole.startsWith('studio') || effectiveRole.startsWith('hybrid');
 
     const parseScheduledRelease = () => {
@@ -473,7 +473,7 @@ export default function UploadScreen() {
                 try {
                     const functions = getFunctions(app);
                     const validateStorageLimitFn = httpsCallable(functions, 'validateStorageLimit');
-                    const storageValidation = await validateStorageLimitFn({ fileSizeBytes: audioFile.size });
+                    const storageValidation = await validateStorageLimitFn({ fileSizeBytes: audioFile.size, storageLedger: 'studio' });
                     const validationData = storageValidation.data as { allowed: boolean };
                     if (!validationData.allowed) {
                         showToast('Storage limit exceeded. Please upgrade your plan.', 'error');
@@ -561,7 +561,12 @@ export default function UploadScreen() {
                 const storageRef = ref(storage, `vaults/${auth.currentUser.uid}/${safeFileName}`);
 
                 // 3. Upload bytes to bucket
-                const uploadTask = await uploadBytesResumable(storageRef, blob);
+                const uploadTask = await uploadBytesResumable(storageRef, blob, {
+                    contentType: blob.type || 'audio/mpeg',
+                    customMetadata: {
+                        storageLedger: 'studio',
+                    },
+                });
 
                 // 4. Get the permanent streamable URL
                 downloadUrl = await getDownloadURL(uploadTask.ref);
@@ -597,6 +602,7 @@ export default function UploadScreen() {
                 coverUrl,
                 fileName,
                 fileSizeBytes,
+                storageLedger: 'studio',
                 folderId: selectedFolderId || null,
                 sourceChoice: sourceChoice || 'local',
                 useExistingCover,

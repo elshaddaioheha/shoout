@@ -9,15 +9,13 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.renderInvoicePdfBuffer = renderInvoicePdfBuffer;
 exports.createInvoiceAndGetUrl = createInvoiceAndGetUrl;
 exports.queueEmail = queueEmail;
+exports.createReceiptEmail = createReceiptEmail;
 exports.createInvoiceAndSendEmail = createInvoiceAndSendEmail;
 const pdfkit_1 = __importDefault(require("pdfkit"));
 const types_1 = require("../types");
-const firebase_1 = require("../utils/firebase");
+const repositories_1 = require("../repositories");
 const formatting_1 = require("../utils/formatting");
 const subscriptionLifecycle_1 = require("../subscriptionLifecycle");
-/**
- * Renders an invoice PDF as a Buffer
- */
 async function renderInvoicePdfBuffer(params) {
     return new Promise((resolve, reject) => {
         const doc = new pdfkit_1.default({ margin: 50, size: 'A4' });
@@ -35,30 +33,21 @@ async function renderInvoicePdfBuffer(params) {
         doc.fontSize(12).text('Items', { underline: true });
         doc.moveDown(0.4);
         params.lineItems.forEach((line) => {
-            doc
-                .fontSize(10)
-                .text(`${line.description}  | Qty: ${line.qty}  | Unit: NGN ${(0, formatting_1.formatNairaAmount)(line.unitAmountNgn)}  | Total: NGN ${(0, formatting_1.formatNairaAmount)(line.totalAmountNgn)}`);
+            doc.fontSize(10).text(`${line.description}  | Qty: ${line.qty}  | Unit: NGN ${(0, formatting_1.formatNairaAmount)(line.unitAmountNgn)}  | Total: NGN ${(0, formatting_1.formatNairaAmount)(line.totalAmountNgn)}`);
         });
         doc.moveDown(1);
         doc.fontSize(11).text(`Subtotal: NGN ${(0, formatting_1.formatNairaAmount)(params.subtotalNgn)}`);
-        doc.text(`VAT (7.5%): NGN ${(0, formatting_1.formatNairaAmount)(params.vatNgn)}`);
-        doc
-            .fontSize(13)
-            .text(`Grand Total: NGN ${(0, formatting_1.formatNairaAmount)(params.totalNgn)}`, { underline: true });
+        doc.text(`VAT (${(types_1.VAT_RATE * 100).toFixed(1)}%): NGN ${(0, formatting_1.formatNairaAmount)(params.vatNgn)}`);
+        doc.fontSize(13).text(`Grand Total: NGN ${(0, formatting_1.formatNairaAmount)(params.totalNgn)}`, { underline: true });
         if (params.notes) {
             doc.moveDown(1);
             doc.fontSize(10).text(`Notes: ${params.notes}`);
         }
         doc.moveDown(1);
-        doc
-            .fontSize(9)
-            .text('Shoouts Finance • This document is system generated.', { align: 'left' });
+        doc.fontSize(9).text('Shoouts Finance • This document is system generated.', { align: 'left' });
         doc.end();
     });
 }
-/**
- * Uploads invoice PDF to Cloud Storage and returns signed URL
- */
 async function createInvoiceAndGetUrl(params) {
     const buffer = await renderInvoicePdfBuffer({
         invoiceNumber: params.invoiceNumber,
@@ -71,40 +60,50 @@ async function createInvoiceAndGetUrl(params) {
         totalNgn: params.totalNgn,
         notes: params.notes,
     });
-    const storage = (0, firebase_1.getStorage)();
-    const bucket = storage.bucket();
     const filePath = (0, subscriptionLifecycle_1.invoiceStoragePath)(params.userId, params.invoiceNumber);
-    const file = bucket.file(filePath);
-    await file.save(buffer, {
-        resumable: false,
-        contentType: 'application/pdf',
-        metadata: { cacheControl: 'private, max-age=3600' },
-    });
-    const [signedUrl] = await file.getSignedUrl({
-        action: 'read',
-        expires: Date.now() + 1000 * 60 * 60 * 24 * 30, // 30 days
-    });
-    return signedUrl;
+    await repositories_1.storageRepo.saveFile(filePath, buffer, 'application/pdf');
+    return repositories_1.storageRepo.getSignedUrl(filePath, 1000 * 60 * 60 * 24 * 30);
 }
 /**
- * Queues an email for sending via Firestore Send Email extension
+ * Queues an email via the Trigger Email extension.
  */
 async function queueEmail(params) {
-    const db = (0, firebase_1.getDb)();
-    await db.collection(types_1.EMAIL_COLLECTION).add({
-        ...(0, subscriptionLifecycle_1.buildMailQueuePayload)(params),
-        createdAt: (0, firebase_1.serverTimestamp)(),
-    });
+    await repositories_1.emailRepo.queueEmail(params);
 }
 /**
- * Creates invoice and sends it via email (end-to-end)
+ * Creates a receipt (no VAT) and sends via email.
+ * Use for payment confirmations where the charged amount is the total — no separate VAT line.
+ */
+async function createReceiptEmail(params) {
+    const invoiceNumber = (0, formatting_1.generateInvoiceNumber)(params.invoicePrefix || 'RCT');
+    const invoiceUrl = await createInvoiceAndGetUrl({
+        userId: params.userId,
+        invoiceNumber,
+        issuedTo: params.recipientName,
+        email: params.recipientEmail,
+        lineItems: params.lineItems,
+        subtotalNgn: params.totalChargedNgn,
+        vatNgn: 0,
+        totalNgn: params.totalChargedNgn,
+        notes: params.notes,
+    });
+    await repositories_1.emailRepo.queueEmail({
+        to: params.recipientEmail,
+        subject: params.subject,
+        text: `Hi ${params.recipientName}, ${params.subject}. Receipt: ${invoiceUrl}`,
+        html: `<p>Hi ${params.recipientName},</p><p>${params.subject}.</p><p>Receipt: <a href="${invoiceUrl}">Download PDF receipt</a></p>`,
+    });
+    return invoiceUrl;
+}
+/**
+ * Creates an invoice WITH VAT and sends via email.
+ * Use only when VAT is actually included in the charged amount.
  */
 async function createInvoiceAndSendEmail(params) {
     const subtotal = params.lineItems.reduce((sum, line) => sum + line.totalAmountNgn, 0);
     const vat = (0, formatting_1.calculateVat)(subtotal);
     const total = subtotal + vat;
     const invoiceNumber = (0, formatting_1.generateInvoiceNumber)(params.invoicePrefix || 'INV');
-    // Generate PDF and get signed URL
     const invoiceUrl = await createInvoiceAndGetUrl({
         userId: params.userId,
         invoiceNumber,
@@ -116,8 +115,7 @@ async function createInvoiceAndSendEmail(params) {
         totalNgn: total,
         notes: params.notes,
     });
-    // Queue email notification
-    await queueEmail({
+    await repositories_1.emailRepo.queueEmail({
         to: params.recipientEmail,
         subject: params.subject,
         text: `Hi ${params.recipientName}, ${params.subject}. Invoice: ${invoiceUrl}`,

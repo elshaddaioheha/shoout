@@ -113,7 +113,7 @@ service cloud.firestore {
       // - Public publish with price > 0 requires active studio/hybrid subscription.
       // - Vault users can still publish free tracks.
       match /uploads/{uploadId} {
-        allow read: if isAuthenticated();
+        allow read: if isAuthenticated() || resource.data.isPublic == true;
 
         allow create: if isOwner(uid)
           && isValidString(request.resource.data.title)

@@ -8,18 +8,18 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import React from 'react';
-import { Animated, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Animated, KeyboardAvoidingView, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import Reanimated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import { auth, db } from '../../firebaseConfig';
-import { authNavigationHandled } from '../_layout';
 import { useToastStore } from '../../store/useToastStore';
 import { sendEmailOtp } from '../../utils/emailOtp';
 import { hydrateSubscriptionTier } from '../../utils/subscriptionVerification';
 import { getFriendlyErrorMessage } from '../../utils/errorHandler';
+import { markUserNeedsRoleSelection, PENDING_SIGNUP_KEY, resolveAuthenticatedDestination } from '@/utils/authFlow';
 
-type SignupSubscriptionTier = 'vault' | 'vault_pro' | 'studio' | 'hybrid';
-
-const PENDING_SIGNUP_KEY = 'pendingSignupPayload';
+type SignupSubscriptionTier = 'shoout' | 'vault' | 'vault_pro' | 'studio' | 'hybrid';
 
 function useSignupStyles() {
     const appTheme = useAppTheme();
@@ -41,6 +41,30 @@ export default function SignupScreen() {
     const { showToast } = useToastStore();
     const slideAnim = React.useRef(new Animated.Value(-40)).current;
     const opacityAnim = React.useRef(new Animated.Value(0)).current;
+    const emailInputRef = React.useRef<TextInput>(null);
+    const passwordInputRef = React.useRef<TextInput>(null);
+    const confirmPasswordInputRef = React.useRef<TextInput>(null);
+
+    const fullNameFocused = useSharedValue(0);
+    const emailFocused = useSharedValue(0);
+    const passwordFocused = useSharedValue(0);
+    const confirmPasswordFocused = useSharedValue(0);
+
+    const fullNameInputAnimatedStyle = useAnimatedStyle(() => ({
+        borderColor: fullNameFocused.value ? '#007AFF' : '#464646',
+    }));
+
+    const emailInputAnimatedStyle = useAnimatedStyle(() => ({
+        borderColor: emailFocused.value ? '#007AFF' : '#464646',
+    }));
+
+    const passwordInputAnimatedStyle = useAnimatedStyle(() => ({
+        borderColor: passwordFocused.value ? '#007AFF' : '#464646',
+    }));
+
+    const confirmPasswordInputAnimatedStyle = useAnimatedStyle(() => ({
+        borderColor: confirmPasswordFocused.value ? '#007AFF' : '#464646',
+    }));
 
     React.useEffect(() => {
         Animated.parallel([
@@ -103,7 +127,6 @@ export default function SignupScreen() {
             showToast('Verification code sent to your email.', 'success');
             router.push('/(auth)/signup-otp');
         } catch (error: any) {
-            authNavigationHandled.current = false;
             console.error('Signup error:', error.message);
             showToast(getFriendlyErrorMessage(error), "error");
         } finally {
@@ -130,20 +153,18 @@ export default function SignupScreen() {
             const userDoc = await getDoc(doc(db, "users", userCred.user.uid));
 
             if (!userDoc.exists()) {
-                await setDoc(doc(db, "users", userCred.user.uid), {
+                await markUserNeedsRoleSelection(userCred.user.uid, {
                     fullName: userCred.user.displayName || "Google User",
                     email: userCred.user.email,
                     createdAt: new Date().toISOString()
                 });
 
-                await writeSubscriptionDoc(userCred.user.uid, 'vault');
+                await writeSubscriptionDoc(userCred.user.uid, 'shoout');
                 await hydrateSubscriptionTier();
-                authNavigationHandled.current = true;
-                router.replace('/(tabs)');
+                router.replace(await resolveAuthenticatedDestination() as any);
             } else {
                 await hydrateSubscriptionTier();
-                authNavigationHandled.current = true;
-                router.replace('/(tabs)');
+                router.replace(await resolveAuthenticatedDestination(typeof redirectTo === 'string' ? redirectTo : undefined) as any);
             }
         } catch (error: any) {
             console.error('Google Sign-In error:', error.message);
@@ -191,20 +212,18 @@ export default function SignupScreen() {
                     .join(' ')
                     .trim();
 
-                await setDoc(doc(db, 'users', userCred.user.uid), {
+                await markUserNeedsRoleSelection(userCred.user.uid, {
                     fullName: fullNameFromApple || userCred.user.displayName || 'Apple User',
                     email: userCred.user.email || '',
                     createdAt: new Date().toISOString(),
                 });
 
-                await writeSubscriptionDoc(userCred.user.uid, 'vault');
+                await writeSubscriptionDoc(userCred.user.uid, 'shoout');
                 await hydrateSubscriptionTier();
-                authNavigationHandled.current = true;
-                router.replace('/(tabs)');
+                router.replace(await resolveAuthenticatedDestination() as any);
             } else {
                 await hydrateSubscriptionTier();
-                authNavigationHandled.current = true;
-                router.replace('/(tabs)');
+                router.replace(await resolveAuthenticatedDestination(typeof redirectTo === 'string' ? redirectTo : undefined) as any);
             }
         } catch (error: any) {
             if (error?.code === 'ERR_REQUEST_CANCELED') {
@@ -251,38 +270,81 @@ export default function SignupScreen() {
                     </View>
 
                     <View style={styles.form}>
-                        <TextInput
-                            style={styles.input}
-                            placeholder="Full Name"
-                            placeholderTextColor={placeholderColor}
-                            value={fullName}
-                            onChangeText={setFullName}
-                        />
-                        <TextInput
-                            style={styles.input}
-                            placeholder="Email"
-                            placeholderTextColor={placeholderColor}
-                            keyboardType="email-address"
-                            autoCapitalize="none"
-                            value={email}
-                            onChangeText={setEmail}
-                        />
-                        <TextInput
-                            style={styles.input}
-                            placeholder="Password"
-                            placeholderTextColor={placeholderColor}
-                            secureTextEntry
-                            value={password}
-                            onChangeText={setPassword}
-                        />
-                        <TextInput
-                            style={styles.input}
-                            placeholder="Confirm Password"
-                            placeholderTextColor={placeholderColor}
-                            secureTextEntry
-                            value={confirmPassword}
-                            onChangeText={setConfirmPassword}
-                        />
+                        <Reanimated.View style={[styles.input, fullNameInputAnimatedStyle]}>
+                            <TextInput
+                                style={styles.inputText}
+                                placeholder="Full Name"
+                                placeholderTextColor={placeholderColor}
+                                value={fullName}
+                                onChangeText={setFullName}
+                                returnKeyType="next"
+                                onFocus={() => {
+                                    fullNameFocused.value = withTiming(1, { duration: 180 });
+                                }}
+                                onBlur={() => {
+                                    fullNameFocused.value = withTiming(0, { duration: 180 });
+                                }}
+                                onSubmitEditing={() => emailInputRef.current?.focus()}
+                            />
+                        </Reanimated.View>
+                        <Reanimated.View style={[styles.input, emailInputAnimatedStyle]}>
+                            <TextInput
+                                ref={emailInputRef}
+                                style={styles.inputText}
+                                placeholder="Email"
+                                placeholderTextColor={placeholderColor}
+                                keyboardType="email-address"
+                                autoCapitalize="none"
+                                value={email}
+                                onChangeText={setEmail}
+                                returnKeyType="next"
+                                onFocus={() => {
+                                    emailFocused.value = withTiming(1, { duration: 180 });
+                                }}
+                                onBlur={() => {
+                                    emailFocused.value = withTiming(0, { duration: 180 });
+                                }}
+                                onSubmitEditing={() => passwordInputRef.current?.focus()}
+                            />
+                        </Reanimated.View>
+                        <Reanimated.View style={[styles.input, passwordInputAnimatedStyle]}>
+                            <TextInput
+                                ref={passwordInputRef}
+                                style={styles.inputText}
+                                placeholder="Password"
+                                placeholderTextColor={placeholderColor}
+                                secureTextEntry
+                                value={password}
+                                onChangeText={setPassword}
+                                returnKeyType="next"
+                                onFocus={() => {
+                                    passwordFocused.value = withTiming(1, { duration: 180 });
+                                }}
+                                onBlur={() => {
+                                    passwordFocused.value = withTiming(0, { duration: 180 });
+                                }}
+                                onSubmitEditing={() => confirmPasswordInputRef.current?.focus()}
+                            />
+                        </Reanimated.View>
+                        <Reanimated.View style={[styles.input, confirmPasswordInputAnimatedStyle]}>
+                            <TextInput
+                                ref={confirmPasswordInputRef}
+                                style={styles.inputText}
+                                placeholder="Confirm Password"
+                                placeholderTextColor={placeholderColor}
+                                secureTextEntry
+                                value={confirmPassword}
+                                onChangeText={setConfirmPassword}
+                                returnKeyType="done"
+                                onFocus={() => {
+                                    confirmPasswordFocused.value = withTiming(1, { duration: 180 });
+                                }}
+                                onBlur={() => {
+                                    confirmPasswordFocused.value = withTiming(0, { duration: 180 });
+                                }}
+                                onSubmitEditing={handleSignup}
+                            />
+                        </Reanimated.View>
 
                         <TouchableOpacity
                             onPress={handleSignup}
@@ -357,10 +419,15 @@ const legacyStyles = {
         borderColor: '#464646',
         backgroundColor: 'transparent',
         paddingHorizontal: 14,
+        justifyContent: 'center',
+    },
+    inputText: {
         color: '#FFFFFF',
+        height: '100%',
         fontSize: 15,
         lineHeight: 20,
         fontFamily: 'Poppins-Regular',
+        paddingVertical: 0,
     },
     button: {
         height: 50,

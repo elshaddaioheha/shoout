@@ -1,6 +1,6 @@
 "use strict";
 /**
- * Flutterwave service - Payment verification and transaction handling
+ * Flutterwave service - Payment verification and webhook validation
  */
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
@@ -38,16 +38,17 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.verifyFlutterwaveTransaction = verifyFlutterwaveTransaction;
 exports.validateWebhookSignature = validateWebhookSignature;
-exports.processChargeCompletedEvent = processChargeCompletedEvent;
-exports.validatePaymentAmount = validatePaymentAmount;
 const functions = __importStar(require("firebase-functions"));
-const firebase_1 = require("../utils/firebase");
+const types_1 = require("../types");
 const crypto_1 = require("../utils/crypto");
-/**
- * Verifies a payment transaction with Flutterwave API
- */
+function getSecretKey() {
+    return types_1.FLUTTERWAVE_SECRET_KEY || '';
+}
+function getSecretHash() {
+    return types_1.FLUTTERWAVE_SECRET_HASH || '';
+}
 async function verifyFlutterwaveTransaction(txRef) {
-    const secretKey = (0, firebase_1.getFlutterwaveSecretKey)();
+    const secretKey = getSecretKey();
     if (!secretKey) {
         throw new functions.https.HttpsError('unavailable', 'Flutterwave is not configured');
     }
@@ -60,10 +61,7 @@ async function verifyFlutterwaveTransaction(txRef) {
         },
     });
     if (!response.ok) {
-        functions.logger.error('Flutterwave verify request failed', {
-            status: response.status,
-            txRef,
-        });
+        functions.logger.error('Flutterwave verify request failed', { status: response.status, txRef });
         throw new functions.https.HttpsError('internal', 'Payment verification failed');
     }
     const payload = (await response.json());
@@ -72,47 +70,7 @@ async function verifyFlutterwaveTransaction(txRef) {
     }
     return payload;
 }
-/**
- * Validates Flutterwave webhook signature
- */
 function validateWebhookSignature(rawBody, signature) {
-    const secret = (0, firebase_1.getFlutterwaveSecret)();
+    const secret = getSecretHash();
     return (0, crypto_1.verifyWebhookSignature)(rawBody, signature, secret);
-}
-/**
- * Processes a charge.completed webhook event
- */
-async function processChargeCompletedEvent(data) {
-    const errors = [];
-    const txRef = String(data?.tx_ref || '');
-    const chargeStatus = String(data?.status || '').toLowerCase();
-    const currency = String(data?.currency || '').toUpperCase();
-    const amount = Number(data?.amount || 0);
-    if (!txRef) {
-        errors.push('Missing tx_ref');
-    }
-    if (chargeStatus !== 'successful') {
-        errors.push(`Charge status is not successful: ${chargeStatus}`);
-    }
-    if (currency !== 'NGN') {
-        errors.push(`Invalid currency: ${currency}, expected NGN`);
-    }
-    if (!Number.isFinite(amount) || amount <= 0) {
-        errors.push(`Invalid amount: ${amount}`);
-    }
-    if (errors.length > 0) {
-        return { isValid: false, errors };
-    }
-    return {
-        isValid: true,
-        txRef,
-        amountNgn: amount,
-        transactionId: data?.id,
-    };
-}
-/**
- * Validates the expected amount matches paid amount
- */
-function validatePaymentAmount(expectedNgn, paidNgn, toleranceNgn = 0) {
-    return paidNgn >= expectedNgn - toleranceNgn;
 }

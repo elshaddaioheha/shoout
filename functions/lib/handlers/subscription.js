@@ -40,21 +40,17 @@ exports.downgradeExpiredSubscriptions = exports.activateSubscriptionTier = void 
 const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions"));
 const scheduler_1 = require("firebase-functions/v2/scheduler");
-const pricing = __importStar(require("../services/pricing"));
 const invoicing = __importStar(require("../services/invoicing"));
-const aggregation = __importStar(require("../services/aggregation"));
 const types_1 = require("../types");
-const firebase_1 = require("../utils/firebase");
-/**
- * activateSubscriptionTier - Activates paid or free subscription for user
- */
+const repositories_1 = require("../repositories");
+const catalog_1 = require("../subscriptions/catalog");
+const lifecycle_1 = require("../subscriptions/lifecycle");
 exports.activateSubscriptionTier = functions.https.onRequest(async (req, res) => {
     if (req.method !== 'POST') {
         res.status(405).json({ success: false, error: 'Method Not Allowed' });
         return;
     }
     try {
-        // Verify bearer token
         const authHeader = String(req.header('authorization') || '');
         if (!authHeader.startsWith('Bearer ')) {
             res.status(401).json({ success: false, error: 'Missing bearer token' });
@@ -63,50 +59,50 @@ exports.activateSubscriptionTier = functions.https.onRequest(async (req, res) =>
         const idToken = authHeader.slice('Bearer '.length).trim();
         const decoded = await admin.auth().verifyIdToken(idToken);
         const userId = decoded.uid;
-        // Parse request
         const planId = String(req.body?.planId || '').trim();
         const billingCycleRaw = String(req.body?.billingCycle || 'monthly').toLowerCase();
         const billingCycle = billingCycleRaw === 'annual' ? 'annual' : 'monthly';
         const txRef = String(req.body?.txRef || '').trim();
-        if (!planId) {
-            res.status(400).json({ success: false, error: 'planId is required' });
+        if (!planId || !(0, catalog_1.isValidPlan)(planId)) {
+            res.status(400).json({ success: false, error: 'Invalid or missing planId' });
             return;
         }
-        const expectedAmountNgn = pricing.getExpectedSubscriptionAmountNgn(planId, billingCycle);
-        const isFreeTier = expectedAmountNgn === 0 && types_1.FREE_SUBSCRIPTION_PLANS.has(planId);
-        if (expectedAmountNgn > 0 && !txRef) {
+        const plan = planId;
+        const expectedAmountNgn = (0, lifecycle_1.getExpectedAmountNgn)(plan, billingCycle);
+        const free = (0, catalog_1.isFreePlan)(plan);
+        if (!free && !txRef) {
             res.status(400).json({ success: false, error: 'txRef is required for paid plans' });
             return;
         }
-        // For paid tiers, verify payment
         let verifiedAmountNgn = expectedAmountNgn;
         let providerTransactionId = null;
-        if (!isFreeTier) {
+        if (!free) {
             const flutterwaveService = await Promise.resolve().then(() => __importStar(require('../services/flutterwave')));
-            const secretKey = require('../utils/firebase').getFlutterwaveSecretKey();
-            if (!secretKey) {
-                functions.logger.error('FLUTTERWAVE_SECRET_KEY is not configured');
-                res.status(500).json({ success: false, error: 'Payment verification is unavailable' });
-                return;
-            }
-            // Check if already processed
-            const db = (0, firebase_1.getDb)();
-            const paymentRef = db.collection('subscriptionPayments').doc(txRef);
-            const existingPaymentSnap = await paymentRef.get();
-            if (existingPaymentSnap.exists) {
-                const existing = existingPaymentSnap.data();
-                if (existing.userId === userId && existing.planId === planId && existing.status === 'completed') {
-                    res.status(200).json({ success: true, alreadyProcessed: true, planId });
+            // Idempotency: only skip if fully completed. Re-verify if stuck in processing.
+            const existing = await repositories_1.paymentRepo.getByTxRef(txRef);
+            if (existing) {
+                const e = existing;
+                if (e.status === 'completed') {
+                    res.status(200).json({ success: true, alreadyProcessed: true, planId: e.planId });
                     return;
                 }
+                // processing status = previous attempt may have failed mid-flight. Re-verify below.
             }
-            // Verify with Flutterwave
+            // Mark as processing before verification
+            await repositories_1.paymentRepo.merge(txRef, {
+                userId, planId, billingCycle,
+                status: 'processing',
+                updatedAt: (0, repositories_1.serverTimestamp)(),
+                createdAt: (0, repositories_1.serverTimestamp)(),
+            });
             try {
                 const verifyPayload = await flutterwaveService.verifyFlutterwaveTransaction(txRef);
-                const paymentData = verifyPayload?.data || {};
+                const paymentData = verifyPayload?.data;
                 const paymentStatus = String(paymentData?.status || '').toLowerCase();
                 const paymentCurrency = String(paymentData?.currency || '').toUpperCase();
-                const paidAmount = Number(paymentData?.amount || 0);
+                // Round to integer NGN to avoid float comparison issues
+                const paidAmount = Math.round(Number(paymentData?.amount || 0));
+                const maxAcceptable = Math.round(expectedAmountNgn * types_1.OVERPAYMENT_TOLERANCE_FACTOR);
                 if (paymentStatus !== 'successful') {
                     res.status(400).json({ success: false, error: 'Payment not successful' });
                     return;
@@ -115,12 +111,12 @@ exports.activateSubscriptionTier = functions.https.onRequest(async (req, res) =>
                     res.status(400).json({ success: false, error: 'txRef mismatch' });
                     return;
                 }
-                if (!Number.isFinite(paidAmount) || paidAmount < expectedAmountNgn) {
-                    res.status(400).json({ success: false, error: 'Paid amount is invalid' });
-                    return;
-                }
                 if (paymentCurrency !== 'NGN') {
                     res.status(400).json({ success: false, error: 'Invalid payment currency' });
+                    return;
+                }
+                if (!Number.isFinite(paidAmount) || paidAmount < expectedAmountNgn || paidAmount > maxAcceptable) {
+                    res.status(400).json({ success: false, error: 'Paid amount is invalid or out of range' });
                     return;
                 }
                 verifiedAmountNgn = paidAmount;
@@ -132,51 +128,48 @@ exports.activateSubscriptionTier = functions.https.onRequest(async (req, res) =>
                 return;
             }
         }
-        // Activate subscription
-        await pricing.activateSubscriptionTier(userId, {
-            planId,
-            billingCycle,
-            txRef: isFreeTier ? undefined : txRef,
-            verifiedAmountNgn,
-            providerTransactionId,
-        });
-        // Send invoice and confirmation email
+        // Activate via lifecycle module — rollback on failure
         try {
-            const db = (0, firebase_1.getDb)();
-            const userSnap = await db.collection('users').doc(userId).get();
-            const userData = userSnap.data();
+            await (0, lifecycle_1.activate)(userId, {
+                planId: plan,
+                billingCycle,
+                txRef: free ? undefined : txRef,
+                verifiedAmountNgn,
+                providerTransactionId,
+                actor: 'user',
+            });
+        }
+        catch (activationError) {
+            if (!free && txRef) {
+                await repositories_1.paymentRepo.merge(txRef, { status: 'failed', updatedAt: (0, repositories_1.serverTimestamp)() });
+            }
+            throw activationError;
+        }
+        // Send invoice (non-blocking)
+        try {
+            const userData = await repositories_1.userRepo.getById(userId);
             const recipientEmail = String(userData?.email || decoded.email || '').trim();
             const recipientName = String(userData?.fullName || userData?.name || 'Shoouts User').trim();
-            if (recipientEmail) {
-                const subtotal = verifiedAmountNgn;
-                const vat = Math.round(subtotal * 0.075);
-                const total = subtotal + vat;
-                await invoicing.createInvoiceAndSendEmail({
+            if (recipientEmail && !free) {
+                await invoicing.createReceiptEmail({
                     userId,
                     recipientEmail,
                     recipientName,
-                    lineItems: [
-                        {
-                            description: `Subscription: ${planId} (${isFreeTier ? 'trial' : billingCycle})`,
+                    lineItems: [{
+                            description: `Subscription: ${planId} (${billingCycle})`,
                             qty: 1,
-                            unitAmountNgn: subtotal,
-                            totalAmountNgn: subtotal,
-                        },
-                    ],
+                            unitAmountNgn: verifiedAmountNgn,
+                            totalAmountNgn: verifiedAmountNgn,
+                        }],
+                    totalChargedNgn: verifiedAmountNgn,
                     subject: `Shoouts Subscription Update: ${planId}`,
                     invoicePrefix: 'SUB',
-                    notes: isFreeTier
-                        ? 'Your account is currently on the free/trial Vault tier.'
-                        : `Your plan is active until ${pricing
-                            .calculateSubscriptionExpiry(billingCycle)
-                            .toDate()
-                            .toISOString()}.`,
+                    notes: `Your plan is active until ${(0, lifecycle_1.calculateExpiryDate)(billingCycle).toISOString()}.`,
                 });
             }
         }
         catch (emailError) {
             functions.logger.error('Subscription email/invoice generation failed', emailError);
-            // Don't fail the request if email fails
         }
         res.status(200).json({ success: true, planId, billingCycle });
     }
@@ -185,9 +178,6 @@ exports.activateSubscriptionTier = functions.https.onRequest(async (req, res) =>
         res.status(500).json({ success: false, error: error?.message || 'Internal error' });
     }
 });
-/**
- * downgradeExpiredSubscriptions - Scheduled function to downgrade expired subscriptions (24 hours)
- */
 exports.downgradeExpiredSubscriptions = (0, scheduler_1.onSchedule)({ schedule: 'every 24 hours' }, async () => {
-    await aggregation.downgradeExpiredSubscriptions();
+    await (0, lifecycle_1.downgradeExpiredSubscriptions)();
 });

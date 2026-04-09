@@ -57,7 +57,7 @@ const getRoleCapabilities = (role: UserRole) => {
 };
 
 const createBaseState = (): Omit<UserState, 'setRole' | 'setActualRole' | 'setName' | 'setPremium' | 'setViewMode' | 'setActiveAppMode' | 'reset'> => {
-    const role: UserRole = 'vault';
+    const role: UserRole = 'shoout';
     return {
         role,
         actualRole: role,

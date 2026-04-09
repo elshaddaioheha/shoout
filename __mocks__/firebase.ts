@@ -30,10 +30,19 @@ export const mockSetDoc = jest.fn(() => Promise.resolve());
 export const initializeApp = jest.fn(() => ({}));
 export const getApps = jest.fn(() => []);
 export const mockDeleteDoc = jest.fn(() => Promise.resolve());
+export const getStorage = jest.fn(() => ({}));
+export const getFunctions = jest.fn(() => ({}));
+export const httpsCallable = jest.fn(() => jest.fn(async () => ({ data: { ok: true, expiresInSeconds: 300, resendInSeconds: 30, verificationToken: 'mock-token' } })));
+export const initializeAuth = jest.fn(() => ({ currentUser: null }));
+export const getReactNativePersistence = jest.fn(() => ({}));
 
 /** Modular entrypoints (`firebase/auth`, `firebase/firestore`) resolve here via Jest moduleNameMapper. */
 export const getAuth = jest.fn(() => ({ currentUser: null }));
 export const getFirestore = jest.fn(() => ({}));
+export const onAuthStateChanged = jest.fn((instance: any, callback: (user: any) => void) => {
+    callback(instance?.currentUser || null);
+    return jest.fn();
+});
 export const Timestamp = {
   fromMillis: (ms: number) => ({ toMillis: () => ms }),
 };
@@ -66,6 +75,9 @@ export const createUserWithEmailAndPassword = jest.fn(() => Promise.resolve({ us
 export const updateProfile = jest.fn(() => Promise.resolve());
 export const signInWithCredential = jest.fn(() => Promise.resolve({ user: { uid: 'google-uid' } }));
 export const GoogleAuthProvider = { credential: jest.fn(() => 'mock-cred') };
+export const OAuthProvider = jest.fn(() => ({
+    credential: jest.fn(() => 'mock-oauth-cred'),
+}));
 export const getDoc = jest.fn(() =>
     Promise.resolve({
         exists: () => true,

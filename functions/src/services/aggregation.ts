@@ -3,18 +3,10 @@
  */
 
 import * as functions from 'firebase-functions';
-import * as admin from 'firebase-admin';
-import { getDb, batch, serverTimestamp } from '../utils/firebase';
-import { parseTimestamp } from '../utils/formatting';
+import { systemRepo, serverTimestamp, newBatch } from '../repositories';
 
-/**
- * Aggregates top 12 best-selling tracks
- */
 export async function aggregateBestSellers(): Promise<number> {
-  const db = getDb();
-
-  const uploadsSnap = await db
-    .collectionGroup('uploads')
+  const uploadsSnap = await systemRepo.uploadsCollectionGroup()
     .where('isPublic', '==', true)
     .orderBy('listenCount', 'desc')
     .limit(12)
@@ -31,7 +23,7 @@ export async function aggregateBestSellers(): Promise<number> {
     audioUrl: doc.data().audioUrl || '',
   }));
 
-  await db.collection('system').doc('bestSellers').set({
+  await systemRepo.setBestSellers({
     items: bestSellers,
     updatedAt: serverTimestamp(),
     itemCount: bestSellers.length,
@@ -41,14 +33,8 @@ export async function aggregateBestSellers(): Promise<number> {
   return bestSellers.length;
 }
 
-/**
- * Aggregates top 10 trending tracks
- */
 export async function aggregateTrending(): Promise<number> {
-  const db = getDb();
-
-  const uploadsSnap = await db
-    .collectionGroup('uploads')
+  const uploadsSnap = await systemRepo.uploadsCollectionGroup()
     .where('isPublic', '==', true)
     .orderBy('listenCount', 'desc')
     .limit(10)
@@ -60,7 +46,7 @@ export async function aggregateTrending(): Promise<number> {
     audioUrl: doc.data().audioUrl || '',
   }));
 
-  await db.collection('system').doc('trending').set({
+  await systemRepo.setTrending({
     items,
     updatedAt: serverTimestamp(),
   });
@@ -69,32 +55,24 @@ export async function aggregateTrending(): Promise<number> {
   return items.length;
 }
 
-/**
- * Promotes scheduled uploads that are due for release
- */
 export async function promoteUpcomingUploads(): Promise<number> {
-  const db = getDb();
   const nowMs = Date.now();
 
-  const dueSnap = await db
-    .collectionGroup('uploads')
+  const dueSnap = await systemRepo.uploadsCollectionGroup()
     .where('isPublic', '==', true)
     .where('lifecycleStatus', '==', 'upcoming')
     .limit(500)
     .get();
 
-  if (dueSnap.empty) {
-    return 0;
-  }
+  if (dueSnap.empty) return 0;
 
   let promoted = 0;
-  let batchWrite = batch();
+  let batchWrite = newBatch();
   let batchOps = 0;
 
   for (const docSnap of dueSnap.docs) {
     const data = docSnap.data() as Record<string, any>;
 
-    // Parse scheduled release time
     let scheduledMs: number | null = null;
     if (typeof data.scheduledReleaseAtMs === 'number' && Number.isFinite(data.scheduledReleaseAtMs)) {
       scheduledMs = data.scheduledReleaseAtMs;
@@ -106,12 +84,8 @@ export async function promoteUpcomingUploads(): Promise<number> {
       if (Number.isFinite(parsedIso)) scheduledMs = parsedIso;
     }
 
-    // Skip if scheduled time is in the future
-    if (scheduledMs != null && scheduledMs > nowMs) {
-      continue;
-    }
+    if (scheduledMs != null && scheduledMs > nowMs) continue;
 
-    // Create publish snapshot
     const publishSnapshot = {
       title: String(data.title || ''),
       genre: String(data.genre || ''),
@@ -131,7 +105,6 @@ export async function promoteUpcomingUploads(): Promise<number> {
       capturedAtIso: new Date(nowMs).toISOString(),
     };
 
-    // Update upload to published
     batchWrite.update(docSnap.ref, {
       lifecycleStatus: 'published',
       published: true,
@@ -144,86 +117,17 @@ export async function promoteUpcomingUploads(): Promise<number> {
     batchOps += 1;
     promoted += 1;
 
-    // Commit batch if reaching limit
     if (batchOps >= 400) {
       await batchWrite.commit();
-      batchWrite = batch();
+      batchWrite = newBatch();
       batchOps = 0;
     }
   }
 
-  // Commit remaining
-  if (batchOps > 0) {
-    await batchWrite.commit();
-  }
+  if (batchOps > 0) await batchWrite.commit();
 
   functions.logger.info('Promoted due upcoming uploads', { promoted });
   return promoted;
 }
 
-/**
- * Downgrades expired subscriptions
- */
-export async function downgradeExpiredSubscriptions(): Promise<number> {
-  const db = getDb();
-  const now = admin.firestore.Timestamp.now();
-
-  const expiredSnap = await db
-    .collectionGroup('subscription')
-    .where('status', '==', 'active')
-    .where('expiresAt', '<=', now)
-    .get();
-
-  if (expiredSnap.empty) {
-    return 0;
-  }
-
-  let downgraded = 0;
-  let batchWrite = batch();
-  let batchOps = 0;
-
-  for (const docSnap of expiredSnap.docs) {
-    const userRef = docSnap.ref.parent.parent;
-    if (!userRef) continue;
-
-    // Import helpers from subscriptionLifecycle
-    const { firestoreExpiredSubscriptionDocPatch, firestoreExpiredUserRolePatch } = await import(
-      '../subscriptionLifecycle'
-    );
-
-    batchWrite.set(
-      docSnap.ref,
-      {
-        ...firestoreExpiredSubscriptionDocPatch(),
-        updatedAt: serverTimestamp(),
-        downgradedAt: serverTimestamp(),
-      },
-      { merge: true }
-    );
-
-    batchWrite.set(
-      userRef,
-      {
-        ...firestoreExpiredUserRolePatch(),
-        downgradedAt: serverTimestamp(),
-      },
-      { merge: true }
-    );
-
-    batchOps += 2;
-    downgraded += 1;
-
-    if (batchOps >= 400) {
-      await batchWrite.commit();
-      batchWrite = batch();
-      batchOps = 0;
-    }
-  }
-
-  if (batchOps > 0) {
-    await batchWrite.commit();
-  }
-
-  functions.logger.info('Downgraded expired subscriptions', { downgraded });
-  return downgraded;
-}
+// downgradeExpiredSubscriptions has moved to subscriptions/lifecycle.ts

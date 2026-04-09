@@ -24,7 +24,7 @@ admin.initializeApp();
 export * from './handlers/auth';
 
 // ============================================================================
-// Checkout Handlers
+// Checkout Handlers for payment gating
 // ============================================================================
 
 export * from './handlers/checkout';
@@ -58,4 +58,16 @@ export * from './handlers/aggregation';
 // ============================================================================
 
 export * from './handlers/admin';
+
+// ============================================================================
+// Bootstrap Handlers (Auth triggers)
+// ============================================================================
+
+export * from './handlers/bootstrap';
+
+// ============================================================================
+// Migration Handlers (one-time admin tools)
+// ============================================================================
+
+export * from './handlers/migration';
 

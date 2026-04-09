@@ -14,6 +14,10 @@ import type { UserRole } from './useUserStore';
 interface AuthState {
   // Server-verified role (never persisted locally)
   actualRole: UserRole | null;
+
+  // Bootstrap state for app entry routing
+  isAuthResolved: boolean;
+  hasAuthenticatedUser: boolean;
   
   // Subscription details fetched from Firestore
   subscriptionTier: string | null;
@@ -31,6 +35,8 @@ interface AuthState {
     isSubscribed: boolean;
     expiresAt: number | null;
   }) => void;
+  setAuthResolved: (isResolved: boolean) => void;
+  setHasAuthenticatedUser: (hasUser: boolean) => void;
   setVerifying: (isVerifying: boolean) => void;
   setVerificationError: (error: Error | null) => void;
   reset: () => void;
@@ -38,6 +44,8 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>((set) => ({
   actualRole: null,
+  isAuthResolved: false,
+  hasAuthenticatedUser: false,
   subscriptionTier: null,
   isSubscribed: false,
   subscriptionExpiresAt: null,
@@ -53,6 +61,10 @@ export const useAuthStore = create<AuthState>((set) => ({
       subscriptionExpiresAt: expiresAt,
     }),
 
+  setAuthResolved: (isAuthResolved) => set({ isAuthResolved }),
+
+  setHasAuthenticatedUser: (hasAuthenticatedUser) => set({ hasAuthenticatedUser }),
+
   setVerifying: (isVerifyingRole) => set({ isVerifyingRole }),
   
   setVerificationError: (verificationError) => set({ verificationError }),
@@ -60,6 +72,8 @@ export const useAuthStore = create<AuthState>((set) => ({
   reset: () =>
     set({
       actualRole: null,
+      isAuthResolved: false,
+      hasAuthenticatedUser: false,
       subscriptionTier: null,
       isSubscribed: false,
       subscriptionExpiresAt: null,

@@ -56,7 +56,7 @@ admin.initializeApp();
 // ============================================================================
 __exportStar(require("./handlers/auth"), exports);
 // ============================================================================
-// Checkout Handlers
+// Checkout Handlers for payment gating
 // ============================================================================
 __exportStar(require("./handlers/checkout"), exports);
 // ============================================================================
@@ -79,3 +79,11 @@ __exportStar(require("./handlers/aggregation"), exports);
 // Admin Handlers
 // ============================================================================
 __exportStar(require("./handlers/admin"), exports);
+// ============================================================================
+// Bootstrap Handlers (Auth triggers)
+// ============================================================================
+__exportStar(require("./handlers/bootstrap"), exports);
+// ============================================================================
+// Migration Handlers (one-time admin tools)
+// ============================================================================
+__exportStar(require("./handlers/migration"), exports);

@@ -39,11 +39,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.getCheckoutStatus = exports.createCheckoutSession = void 0;
 const functions = __importStar(require("firebase-functions"));
 const pricing = __importStar(require("../services/pricing"));
-const firebase_1 = require("../utils/firebase");
+const types_1 = require("../types");
+const repositories_1 = require("../repositories");
 const formatting_1 = require("../utils/formatting");
-/**
- * createCheckoutSession - Creates a new checkout session
- */
 exports.createCheckoutSession = functions.https.onCall(async (data, context) => {
     if (!context?.auth) {
         throw new functions.https.HttpsError('unauthenticated', 'Authentication required');
@@ -57,33 +55,23 @@ exports.createCheckoutSession = functions.https.onCall(async (data, context) => 
     if (!Number.isFinite(clientTotalUsd) || clientTotalUsd <= 0) {
         throw new functions.https.HttpsError('invalid-argument', 'Invalid cart total');
     }
-    // Resolve and validate all items
     const { items, totalUsd } = await pricing.calculateCartTotal(rawItems);
-    // Verify client and server totals match
     pricing.validateCartTotalMatch(totalUsd, clientTotalUsd);
-    // Create checkout session
     const txRef = `shoouts_cart_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
     const totalAmountNgn = (0, formatting_1.convertUsdToNgn)(totalUsd);
-    const db = (0, firebase_1.getDb)();
-    await db.collection('checkoutSessions').doc(txRef).set({
+    await repositories_1.checkoutRepo.create(txRef, {
         userId,
         items,
         totalAmountUsd: totalUsd,
         totalAmountNgn,
+        exchangeRateNgnPerUsd: types_1.NAIRA_RATE,
         status: 'pending',
-        createdAt: (0, firebase_1.serverTimestamp)(),
-        updatedAt: (0, firebase_1.serverTimestamp)(),
-        expiresAt: require('firebase-admin').firestore.Timestamp.fromMillis(Date.now() + 1000 * 60 * 30),
+        createdAt: (0, repositories_1.serverTimestamp)(),
+        updatedAt: (0, repositories_1.serverTimestamp)(),
+        expiresAt: (0, repositories_1.timestampFromMs)(Date.now() + types_1.CHECKOUT_SESSION_TTL_MS),
     });
-    return {
-        txRef,
-        amountNgn: totalAmountNgn,
-        currency: 'NGN',
-    };
+    return { txRef, amountNgn: totalAmountNgn, currency: 'NGN' };
 });
-/**
- * getCheckoutStatus - Gets status of a checkout session
- */
 exports.getCheckoutStatus = functions.https.onCall(async (data, context) => {
     if (!context?.auth) {
         throw new functions.https.HttpsError('unauthenticated', 'Authentication required');
@@ -93,17 +81,12 @@ exports.getCheckoutStatus = functions.https.onCall(async (data, context) => {
     if (!txRef) {
         throw new functions.https.HttpsError('invalid-argument', 'txRef is required');
     }
-    const db = (0, firebase_1.getDb)();
-    const sessionSnap = await db.collection('checkoutSessions').doc(txRef).get();
-    if (!sessionSnap.exists) {
+    const session = await repositories_1.checkoutRepo.getByTxRef(txRef);
+    if (!session) {
         throw new functions.https.HttpsError('not-found', 'Checkout session not found');
     }
-    const session = sessionSnap.data();
     if (session.userId !== userId) {
         throw new functions.https.HttpsError('permission-denied', 'Not allowed to view this session');
     }
-    return {
-        status: session.status,
-        txRef,
-    };
+    return { status: session.status, txRef };
 });

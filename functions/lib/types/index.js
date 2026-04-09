@@ -3,20 +3,22 @@
  * Shared type definitions across all layers
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.UPLOAD_BUCKET_NAME = exports.FLUTTERWAVE_SECRET_KEY = exports.FLUTTERWAVE_SECRET_HASH = exports.COLLECTIONS = exports.INVOICE_PDF_EXPIRY_MS = exports.MAX_FILE_SIZE_BYTES = exports.PLATFORM_FEE_RATE = exports.VAT_RATE = exports.OTP_HASH_SALT = exports.OTP_PURPOSES = exports.OTP_MAX_ATTEMPTS = exports.OTP_RESEND_INTERVAL_MS = exports.OTP_TOKEN_EXPIRY_MS = exports.OTP_EXPIRY_MS = exports.OTP_TOKEN_COLLECTION = exports.OTP_CHALLENGE_COLLECTION = exports.EMAIL_COLLECTION = exports.TIER_STORAGE_LIMITS = exports.FREE_SUBSCRIPTION_PLANS = exports.CART_TOTAL_EPSILON = exports.LICENSE_SKUS_ORDERED = exports.LICENSE_USD_PRICES = exports.SUBSCRIPTION_PLAN_PRICING_USD = exports.NAIRA_RATE = void 0;
+exports.UPLOAD_BUCKET_NAME = exports.FLUTTERWAVE_SECRET_KEY = exports.FLUTTERWAVE_SECRET_HASH = exports.COLLECTIONS = exports.SUSPENSION_DURATION_MS = exports.OVERPAYMENT_TOLERANCE_FACTOR = exports.CHECKOUT_SESSION_TTL_MS = exports.INVOICE_PDF_EXPIRY_MS = exports.MAX_FILE_SIZE_BYTES = exports.PLATFORM_FEE_RATE = exports.VAT_RATE = exports.OTP_HASH_SALT = exports.OTP_PURPOSES = exports.OTP_MAX_ATTEMPTS = exports.OTP_RESEND_INTERVAL_MS = exports.OTP_TOKEN_EXPIRY_MS = exports.OTP_EXPIRY_MS = exports.OTP_TOKEN_COLLECTION = exports.OTP_CHALLENGE_COLLECTION = exports.EMAIL_COLLECTION = exports.CART_TOTAL_EPSILON = exports.LICENSE_SKUS_ORDERED = exports.LICENSE_USD_PRICES = exports.NAIRA_RATE = void 0;
 // ============================================================================
 // Pricing Constants
 // ============================================================================
 exports.NAIRA_RATE = 1600;
 /**
- * Canonical USD list prices; Flutterwave charges Math.round(usd * NAIRA_RATE) in NGN.
+ * Canonical USD list prices (source of truth).
+ * Flutterwave charges Math.round(usd * NAIRA_RATE) in NGN for settlement.
+ * USD is displayed client-side; NGN is internal for payment processing only.
+ *
+ * NOTE: Annual totals use a discounted base rate (not monthly * 12).
+ *   vault_pro annual base: $8.73/mo vs $8.73 monthly (no discount currently)
+ *   studio   annual base: $14.34/mo vs $16.88 monthly (~15% discount)
+ *   hybrid   annual base: $18.54/mo vs $21.82 monthly (~15% discount)
  */
-exports.SUBSCRIPTION_PLAN_PRICING_USD = {
-    vault: { monthly: 0, annualTotal: 0 },
-    vault_pro: { monthly: 13962 / exports.NAIRA_RATE, annualTotal: (13962 * 12) / exports.NAIRA_RATE },
-    studio: { monthly: 27000 / exports.NAIRA_RATE, annualTotal: (22950 * 12) / exports.NAIRA_RATE },
-    hybrid: { monthly: 34906 / exports.NAIRA_RATE, annualTotal: (29670 * 12) / exports.NAIRA_RATE },
-};
+// Pricing has moved to subscriptions/catalog.ts (PLAN_PRICING_USD)
 /**
  * License add-on SKUs must match `app/listing/[id].tsx` LICENSE_OPTIONS (USD).
  */
@@ -28,16 +30,11 @@ exports.LICENSE_USD_PRICES = {
 };
 exports.LICENSE_SKUS_ORDERED = Object.keys(exports.LICENSE_USD_PRICES).sort((a, b) => b.length - a.length);
 exports.CART_TOTAL_EPSILON = 0.02;
-exports.FREE_SUBSCRIPTION_PLANS = new Set(['vault']);
+// Free plans have moved to subscriptions/catalog.ts (FREE_PLANS)
 // ============================================================================
 // Storage Limits by Tier (in bytes)
 // ============================================================================
-exports.TIER_STORAGE_LIMITS = {
-    vault: 0.5 * 1024 * 1024 * 1024, // 500MB
-    vault_pro: 1 * 1024 * 1024 * 1024, // 1GB
-    studio: 2 * 1024 * 1024 * 1024, // 2GB
-    hybrid: 10 * 1024 * 1024 * 1024, // 10GB
-};
+// Storage limits have moved to subscriptions/catalog.ts (PLAN_QUOTAS)
 // ============================================================================
 // OTP Configuration
 // ============================================================================
@@ -57,6 +54,9 @@ exports.VAT_RATE = 0.075; // 7.5%
 exports.PLATFORM_FEE_RATE = 0.1; // 10%
 exports.MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024; // 50MB
 exports.INVOICE_PDF_EXPIRY_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+exports.CHECKOUT_SESSION_TTL_MS = 30 * 60 * 1000; // 30 minutes
+exports.OVERPAYMENT_TOLERANCE_FACTOR = 1.05; // reject payments > 5% above expected (FX rounding tolerance)
+exports.SUSPENSION_DURATION_MS = 7 * 24 * 60 * 60 * 1000; // 7 days default
 // ============================================================================
 // Collections
 // ============================================================================
@@ -64,6 +64,8 @@ exports.COLLECTIONS = {
     USERS: 'users',
     UPLOADS: 'uploads',
     PURCHASES: 'purchases',
+    SUBSCRIPTION: 'subscription',
+    PAYOUTS: 'payouts',
     TRANSACTIONS: 'transactions',
     SUBSCRIPTION_PAYMENTS: 'subscriptionPayments',
     CHECKOUT_SESSIONS: 'checkoutSessions',
@@ -72,6 +74,7 @@ exports.COLLECTIONS = {
     PAYOUT_LEDGER: 'payoutLedger',
     EMAIL_OTP_CHALLENGES: exports.OTP_CHALLENGE_COLLECTION,
     EMAIL_OTP_TOKENS: exports.OTP_TOKEN_COLLECTION,
+    SUBSCRIPTION_HISTORY: 'subscriptionHistory',
     SYSTEM: 'system',
 };
 // ============================================================================

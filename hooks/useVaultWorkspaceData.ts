@@ -16,6 +16,7 @@ export type VaultUploadItem = {
   updatedAt?: any;
   folderId?: string | null;
   shareUrl?: string | null;
+  storageLedger?: 'vault' | 'studio';
 };
 
 export type VaultFolder = {
@@ -85,7 +86,8 @@ export function useVaultWorkspaceData() {
     );
 
     const unsubUploads = onSnapshot(uploadsQuery, (snapshot) => {
-      setUploads(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })) as VaultUploadItem[]);
+      const rows = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })) as VaultUploadItem[];
+      setUploads(rows.filter((item) => (item.storageLedger || 'vault') === 'vault'));
       setLoading(false);
     });
 

@@ -1,6 +1,7 @@
 "use strict";
 /**
  * Upload Guard service - Storage limits, upload processing, and streaming URLs
+ * Less priority on streaming URLs
  */
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
@@ -44,138 +45,81 @@ exports.getStreamingUrl = getStreamingUrl;
 exports.verifyPurchase = verifyPurchase;
 exports.getLibraryStreamingUrl = getLibraryStreamingUrl;
 const functions = __importStar(require("firebase-functions"));
-const types_1 = require("../types");
-const firebase_1 = require("../utils/firebase");
-/**
- * Gets storage limit for a subscription tier
- */
+const catalog_1 = require("../subscriptions/catalog");
+const repositories_1 = require("../repositories");
 function getStorageLimitForTier(tier) {
-    return types_1.TIER_STORAGE_LIMITS[tier] || types_1.TIER_STORAGE_LIMITS.vault;
+    const quotas = catalog_1.PLAN_QUOTAS[tier];
+    return quotas ? quotas.vaultStorageBytes : catalog_1.PLAN_QUOTAS.vault.vaultStorageBytes;
 }
-/**
- * Validates if user can upload file of given size
- */
 async function validateStorageQuota(userId, fileSizeBytes) {
-    const db = (0, firebase_1.getDb)();
-    // Get user's subscription tier
-    const subscription = await (0, firebase_1.getUserSubscription)(userId);
+    const subscription = await repositories_1.userRepo.getSubscription(userId);
     const tier = subscription?.tier || 'vault';
     const storageLimit = getStorageLimitForTier(tier);
-    // Calculate total used storage
-    const uploadsSnap = await db
-        .collection('users')
-        .doc(userId)
-        .collection('uploads')
-        .get();
+    const uploadsSnap = await repositories_1.userRepo.getAllUploads(userId);
     let totalUsedBytes = 0;
     for (const doc of uploadsSnap.docs) {
-        const data = doc.data();
-        totalUsedBytes += data.fileSizeBytes || 0;
+        totalUsedBytes += doc.data().fileSizeBytes || 0;
     }
     const availableBytes = storageLimit - totalUsedBytes;
-    const allowed = fileSizeBytes <= availableBytes;
     return {
-        allowed,
+        allowed: fileSizeBytes <= availableBytes,
         usedBytes: totalUsedBytes,
         limitBytes: storageLimit,
         availableBytes: Math.max(0, availableBytes),
     };
 }
-/**
- * Gets storage stats for a user
- */
 async function getStorageStats(userId) {
-    const db = (0, firebase_1.getDb)();
-    const subscription = await (0, firebase_1.getUserSubscription)(userId);
+    const subscription = await repositories_1.userRepo.getSubscription(userId);
     const tier = subscription?.tier || 'vault';
     const limitBytes = getStorageLimitForTier(tier);
-    const uploadsSnap = await db
-        .collection('users')
-        .doc(userId)
-        .collection('uploads')
-        .get();
+    const uploadsSnap = await repositories_1.userRepo.getAllUploads(userId);
     let usedBytes = 0;
     for (const doc of uploadsSnap.docs) {
-        const data = doc.data();
-        usedBytes += data.fileSizeBytes || 0;
+        usedBytes += doc.data().fileSizeBytes || 0;
     }
     const availableBytes = Math.max(0, limitBytes - usedBytes);
     const percentageUsed = Math.round((usedBytes / limitBytes) * 100);
-    return {
-        usedBytes,
-        limitBytes,
-        availableBytes,
-        percentageUsed,
-    };
+    return { usedBytes, limitBytes, availableBytes, percentageUsed };
 }
-/**
- * Processes an audio upload - moves to protected originals folder
- */
 async function processAudioUpload(userId, fileName, originalPath) {
-    const db = (0, firebase_1.getDb)();
-    const storage = (0, firebase_1.getStorage)();
-    const bucket = storage.bucket();
-    // Normalize filename to .wav
     const originalFileName = fileName.replace(/\.[^.]+$/, '.wav');
     const protectedPath = `originals/${userId}/${originalFileName}`;
     const trackId = originalFileName.replace('.wav', '');
-    // Copy file to protected location
     try {
-        await bucket.file(originalPath).copy(bucket.file(protectedPath));
+        await repositories_1.storageRepo.copyFile(originalPath, protectedPath);
         functions.logger.info('Original file secured:', protectedPath);
     }
     catch (error) {
         functions.logger.error('Failed to copy file to protected location', error);
         throw error;
     }
-    // Record metadata
-    const uploadRef = db.collection('uploads').doc(trackId);
-    await uploadRef.set({
+    // Write to user's uploads subcollection (not root uploads)
+    const uploadDocRef = repositories_1.userRepo.uploadRef(userId, trackId);
+    await uploadDocRef.set({
         userId,
         fileName,
         originalStoragePath: protectedPath,
         transcodingStatus: 'complete',
-        createdAt: (0, firebase_1.serverTimestamp)(),
+        createdAt: (0, repositories_1.serverTimestamp)(),
     }, { merge: true });
     functions.logger.info('Audio upload processing complete:', trackId);
 }
-/**
- * Gets a signed URL for streaming audio
- */
-async function getStreamingUrl(uploaderId, trackId, expiryMs = 60 * 60 * 1000 // 1 hour default
-) {
+async function getStreamingUrl(uploaderId, trackId, expiryMs = 60 * 60 * 1000) {
     const originalPath = `originals/${uploaderId}/${trackId}.wav`;
-    const url = await (0, firebase_1.getSignedUrl)(originalPath, expiryMs);
-    return {
-        url,
-        type: 'signed-url',
-        expiresIn: Math.floor(expiryMs / 1000),
-        mimeType: 'audio/wav',
-    };
+    const url = await repositories_1.storageRepo.getSignedUrl(originalPath, expiryMs);
+    return { url, type: 'signed-url', expiresIn: Math.floor(expiryMs / 1000), mimeType: 'audio/wav' };
 }
-/**
- * Verifies purchase before granting library access
- */
 async function verifyPurchase(userId, trackId) {
-    const db = (0, firebase_1.getDb)();
-    const purchaseSnap = await db
-        .collection('users')
-        .doc(userId)
-        .collection('purchases')
+    const snap = await repositories_1.userRepo.purchasesQuery(userId)
         .where('trackId', '==', trackId)
         .limit(1)
         .get();
-    return !purchaseSnap.empty;
+    return !snap.empty;
 }
-/**
- * Gets library streaming URL (requires purchase verification)
- */
 async function getLibraryStreamingUrl(userId, uploaderId, trackId) {
-    // Verify purchase
     const hasPurchase = await verifyPurchase(userId, trackId);
     if (!hasPurchase) {
         throw new functions.https.HttpsError('permission-denied', 'No purchase found for this track');
     }
-    // Return signed URL with longer expiry for library access
-    return getStreamingUrl(uploaderId, trackId, 15 * 60 * 1000); // 15 minutes
+    return getStreamingUrl(uploaderId, trackId, 15 * 60 * 1000);
 }

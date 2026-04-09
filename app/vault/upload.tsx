@@ -1,5 +1,6 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import SettingsHeader from '@/components/settings/SettingsHeader';
+import { app, auth, db, storage } from '../../firebaseConfig';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { useVaultWorkspaceData } from '@/hooks/useVaultWorkspaceData';
 import { useToastStore } from '@/store/useToastStore';
@@ -8,23 +9,22 @@ import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import * as DocumentPicker from 'expo-document-picker';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { addDoc, collection, doc, getDocs, orderBy, query, serverTimestamp, setDoc } from 'firebase/firestore';
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 import { FolderPlus, Image as ImageIcon, Music4, UploadCloud } from 'lucide-react-native';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { auth, db, storage } from '../../firebaseConfig';
-
 type FolderOption = {
   id: string;
   name: string;
 };
 
-async function uploadFileFromUri(uri: string, path: string) {
+async function uploadFileFromUri(uri: string, path: string, metadata?: Record<string, string>) {
   const response = await fetch(uri);
   const blob = await response.blob();
   const storageRef = ref(storage, path);
-  await uploadBytes(storageRef, blob);
+  await uploadBytes(storageRef, blob, metadata ? { customMetadata: metadata } : undefined);
   return getDownloadURL(storageRef);
 }
 
@@ -147,8 +147,22 @@ export default function VaultUploadScreen() {
 
     try {
       setSubmitting(true);
+      if (audioFile?.size && Platform.OS !== 'web') {
+        try {
+          const functions = getFunctions(app);
+          const validateStorageLimitFn = httpsCallable(functions, 'validateStorageLimit');
+          await validateStorageLimitFn({ fileSizeBytes: audioFile.size, storageLedger: 'vault' });
+        } catch (error: any) {
+          console.warn('validateStorageLimit failed for vault upload:', error?.message);
+          if (error?.code === 'functions/resource-exhausted' || error?.code === 'resource-exhausted') {
+            showToast('Vault storage limit exceeded. Please upgrade your plan.', 'error');
+            return;
+          }
+        }
+      }
+
       const safeName = `${Date.now()}_${String(audioFile.name || 'vault-track').replace(/\s+/g, '_')}`;
-      const audioUrl = await uploadFileFromUri(audioFile.uri, `vaults/${auth.currentUser.uid}/${safeName}`);
+      const audioUrl = await uploadFileFromUri(audioFile.uri, `vaults/${auth.currentUser.uid}/${safeName}`, { storageLedger: 'vault' });
       let artworkUrl: string | null = null;
 
       if (artworkFile?.uri) {
@@ -166,6 +180,7 @@ export default function VaultUploadScreen() {
         coverUrl: artworkUrl,
         fileName: audioFile.name || null,
         fileSizeBytes: Number(audioFile.size || 0),
+        storageLedger: 'vault',
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
         folderId: folderId || null,

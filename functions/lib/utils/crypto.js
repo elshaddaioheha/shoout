@@ -72,10 +72,16 @@ function challengeDocId(purpose, emailLower) {
  * Verifies a webhook signature using HMAC SHA256
  */
 function verifyWebhookSignature(rawBody, signature, secret) {
-    if (!signature || !secret)
+    if (!secret) {
+        // Fail loudly — misconfigured secret should never silently reject all webhooks
+        throw new Error('FLUTTERWAVE_SECRET_HASH is not configured. All webhooks will be rejected.');
+    }
+    if (!signature)
         return false;
     const hash = crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
-    return hash === signature;
+    if (hash.length !== signature.length)
+        return false;
+    return crypto.timingSafeEqual(Buffer.from(hash), Buffer.from(signature));
 }
 /**
  * Generates a random verification token

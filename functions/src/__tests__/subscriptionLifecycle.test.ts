@@ -88,9 +88,9 @@ describe('subscription lifecycle helpers', () => {
   });
 
   describe('scheduled expiry downgrade', () => {
-    it('subscription doc resets to vault + expired + clears billing', () => {
+    it('subscription doc resets to shoout + expired + clears billing', () => {
       expect(firestoreExpiredSubscriptionDocPatch()).toEqual({
-        tier: 'vault',
+        tier: 'shoout',
         status: 'expired',
         isSubscribed: false,
         billingCycle: null,
@@ -98,9 +98,9 @@ describe('subscription lifecycle helpers', () => {
       });
     });
 
-    it('user doc resets role to vault with expired subscription status', () => {
+    it('user doc resets role to shoout with expired subscription status', () => {
       expect(firestoreExpiredUserRolePatch()).toEqual({
-        role: 'vault',
+        role: 'shoout',
         subscriptionStatus: 'expired',
       });
     });

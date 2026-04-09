@@ -84,7 +84,7 @@ function isValidOtpPurpose(purpose) {
  * Validates plan ID exists in known plans
  */
 function isValidPlanId(planId) {
-    const validPlans = ['vault', 'vault_pro', 'studio', 'hybrid'];
+    const validPlans = ['shoout', 'vault', 'vault_pro', 'studio', 'hybrid'];
     return validPlans.includes(planId);
 }
 /**

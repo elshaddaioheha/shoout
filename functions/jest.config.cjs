@@ -11,4 +11,19 @@ module.exports = {
       },
     ],
   },
+  collectCoverageFrom: [
+    'src/utils/**/*.ts',
+    'src/services/**/*.ts',
+    'src/repositories/**/*.ts',
+    'src/subscriptionLifecycle.ts',
+    '!src/**/__tests__/**',
+  ],
+  coverageThreshold: {
+    'src/utils/': {
+      statements: 60,
+      branches: 50,
+      functions: 60,
+      lines: 60,
+    },
+  },
 };

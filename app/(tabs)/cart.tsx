@@ -167,8 +167,8 @@ export default function CartScreen() {
     const handleCheckout = async () => {
         const user = auth.currentUser;
         if (!user) {
-            showToast('Please sign in or create an account to complete your purchase.', 'error');
-            router.push({ pathname: '/(auth)/login', params: { redirectTo: '/cart' } });
+            showToast('Create your account to complete purchase.', 'info');
+            router.push({ pathname: '/(auth)/signup', params: { redirectTo: '/cart' } });
             return;
         }
         if (!user.email) {
@@ -202,7 +202,7 @@ export default function CartScreen() {
             console.error('Checkout session init failed:', error);
             if (String((error as any)?.message || '').toLowerCase().includes('authentication required')) {
                 showToast('Session expired. Please sign in again.', 'error');
-                router.push({ pathname: '/(auth)/login', params: { redirectTo: '/cart' } });
+                router.push({ pathname: '/(auth)/signup', params: { redirectTo: '/cart' } });
                 return;
             }
             showToast('Unable to initialize secure checkout. Please try again.', 'error');

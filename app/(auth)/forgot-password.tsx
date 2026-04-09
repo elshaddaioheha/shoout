@@ -2,6 +2,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ChevronLeft } from 'lucide-react-native';
 import React, { useMemo, useState } from 'react';
 import { KeyboardAvoidingView, Platform, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { useToastStore } from '@/store/useToastStore';
@@ -24,6 +25,11 @@ export default function ForgotPasswordScreen() {
   const { showToast } = useToastStore();
   const [email, setEmail] = useState(String(emailParam || ''));
   const [loading, setLoading] = useState(false);
+  const emailFocused = useSharedValue(0);
+
+  const emailInputAnimatedStyle = useAnimatedStyle(() => ({
+    borderColor: emailFocused.value ? '#007AFF' : '#464646',
+  }));
 
   const trimmedEmail = useMemo(() => email.trim(), [email]);
 
@@ -64,16 +70,26 @@ export default function ForgotPasswordScreen() {
 
         <View style={styles.fieldWrap}>
           <Text style={styles.label}>Email Address</Text>
-          <TextInput
-            value={email}
-            onChangeText={setEmail}
-            placeholder="you@example.com"
-            placeholderTextColor={placeholderColor}
-            style={styles.input}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
+          <Animated.View style={[styles.input, emailInputAnimatedStyle]}>
+            <TextInput
+              value={email}
+              onChangeText={setEmail}
+              placeholder="you@example.com"
+              placeholderTextColor={placeholderColor}
+              style={styles.inputText}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              returnKeyType="done"
+              onFocus={() => {
+                emailFocused.value = withTiming(1, { duration: 180 });
+              }}
+              onBlur={() => {
+                emailFocused.value = withTiming(0, { duration: 180 });
+              }}
+              onSubmitEditing={handleContinue}
+            />
+          </Animated.View>
         </View>
 
         <TouchableOpacity
@@ -146,10 +162,16 @@ const legacyStyles = {
     borderRadius: 10,
     borderWidth: 1.5,
     borderColor: '#464646',
-    color: '#FFFFFF',
-    fontSize: 15,
+    backgroundColor: 'transparent',
+    justifyContent: 'center',
     paddingHorizontal: 14,
+  },
+  inputText: {
+    color: '#FFFFFF',
+    height: '100%',
+    fontSize: 15,
     fontFamily: 'Poppins-Regular',
+    paddingVertical: 0,
   },
   primaryBtn: {
     marginTop: 50,

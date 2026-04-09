@@ -15,6 +15,7 @@ type UploadTrack = {
   createdAt?: any;
   lifecycleStatus?: string;
   published?: boolean;
+  storageLedger?: 'vault' | 'studio';
 };
 
 type TransactionRow = {
@@ -60,7 +61,8 @@ export function useStudioWorkspaceData() {
     );
 
     const unsubUploads = onSnapshot(uploadsQuery, (snapshot) => {
-      setTracks(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })) as UploadTrack[]);
+      const rows = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })) as UploadTrack[];
+      setTracks(rows.filter((track) => (track.storageLedger || 'vault') === 'studio'));
       setLoading(false);
     });
 

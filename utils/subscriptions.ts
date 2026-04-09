@@ -118,9 +118,9 @@ export const SUBSCRIPTION_PLANS: SubscriptionConfig[] = [
     shortLabel: 'Vault Pro',
     description: 'The same private Vault workflow with much higher upload and storage limits.',
     category: 'Vault',
-    monthlyPriceUsd: 8.73,
-    annualPerMonthUsd: 8.73,
-    annualTotalUsd: 104.72,
+    monthlyPriceUsd: 5.99,
+    annualPerMonthUsd: 5.99,
+    annualTotalUsd: 71.88,
     color: '#EC5C39',
     gradient: ['rgba(236, 92, 57, 0.15)', 'rgba(236, 92, 57, 0.05)', 'rgba(0,0,0,0)'],
     borderColor: '#EC5C39',
@@ -147,9 +147,9 @@ export const SUBSCRIPTION_PLANS: SubscriptionConfig[] = [
     shortLabel: 'Studio',
     description: 'Seller tools, analytics, listings, and payouts.',
     category: 'Studio',
-    monthlyPriceUsd: 16.88,
-    annualPerMonthUsd: 14.34,
-    annualTotalUsd: 172.13,
+    monthlyPriceUsd: 18.99,
+    annualPerMonthUsd: 18.99,
+    annualTotalUsd: 227.88,
     color: '#4CAF50',
     gradient: ['rgba(76, 175, 80, 0.15)', 'rgba(76, 175, 80, 0.05)', 'rgba(0,0,0,0)'],
     borderColor: '#4CAF50',
@@ -175,9 +175,9 @@ export const SUBSCRIPTION_PLANS: SubscriptionConfig[] = [
     shortLabel: 'Hybrid',
     description: 'Combined creator mode with Publish, Promote, and Vault workflows.',
     category: 'Hybrid',
-    monthlyPriceUsd: 21.82,
-    annualPerMonthUsd: 18.54,
-    annualTotalUsd: 222.53,
+    monthlyPriceUsd: 24.99,
+    annualPerMonthUsd: 24.99,
+    annualTotalUsd: 299.88,
     color: '#FFD700',
     gradient: ['rgba(255, 215, 0, 0.15)', 'rgba(255, 215, 0, 0.05)', 'rgba(0,0,0,0)'],
     borderColor: '#FFD700',
@@ -215,7 +215,7 @@ export function getSubscriptionPlan(planId: SubscriptionPlanId): SubscriptionCon
 export function getEffectivePlan(planId: string | null | undefined): SubscriptionPlanId {
   const normalized = String(planId || '').trim().toLowerCase() as SubscriptionPlanId;
   if (SWITCHER_ORDER.includes(normalized)) return normalized;
-  return 'vault';
+  return 'shoout';
 }
 
 export function getFeatureFlags(planId: string | null | undefined): SubscriptionFeatureFlags {
@@ -237,13 +237,7 @@ export function getVaultCapabilities(planId: string | null | undefined) {
 }
 
 export function canAccessAppMode(currentPlan: string | null | undefined, targetMode: AppMode): boolean {
-  const plan = getEffectivePlan(currentPlan);
-  if (targetMode === 'shoout') return true;
-  if (targetMode === 'vault') return plan === 'vault' || plan === 'vault_pro' || plan === 'hybrid';
-  if (targetMode === 'vault_pro') return plan === 'vault_pro' || plan === 'hybrid';
-  if (targetMode === 'studio') return true;
-  if (targetMode === 'hybrid') return true;
-  return false;
+  return SWITCHER_ORDER.includes(targetMode);
 }
 
 export function canUseStudioServices(currentPlan: string | null | undefined): boolean {
@@ -267,4 +261,3 @@ export function getUpgradeTargetForMode(mode: AppMode): SubscriptionPlanId | nul
 export function formatPlanLabel(planId: string | null | undefined): string {
   return getSubscriptionPlan(getEffectivePlan(planId)).label;
 }
-

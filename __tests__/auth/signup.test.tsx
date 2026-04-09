@@ -1,32 +1,42 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
-import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
-import { setDoc } from 'firebase/firestore';
+import { signInWithCredential } from 'firebase/auth';
+import { getDoc } from 'firebase/firestore';
 import React from 'react';
 import SignupScreen from '../../app/(auth)/signup';
 import { useToastStore } from '../../store/useToastStore';
+import { sendEmailOtp } from '../../utils/emailOtp';
 import { hydrateSubscriptionTier } from '../../utils/subscriptionVerification';
+import { markUserNeedsRoleSelection, resolveAuthenticatedDestination } from '@/utils/authFlow';
 
-// Setup Mocks
+const mockReplace = jest.fn();
+const mockPush = jest.fn();
+const mockShowToast = jest.fn();
+
 jest.mock('expo-router', () => ({
-    useRouter: () => ({ replace: jest.fn(), push: jest.fn() }),
+    useRouter: () => ({ replace: mockReplace, push: mockPush }),
     useLocalSearchParams: () => ({})
 }));
 
+jest.mock('../../utils/emailOtp', () => ({
+    sendEmailOtp: jest.fn().mockResolvedValue({ ok: true, expiresInSeconds: 300, resendInSeconds: 30 }),
+}));
+
 jest.mock('../../utils/subscriptionVerification', () => ({
-    hydrateSubscriptionTier: jest.fn().mockResolvedValue('vault'),
-    ensureDefaultSubscriptionDoc: jest.fn().mockResolvedValue(undefined),
+    hydrateSubscriptionTier: jest.fn().mockResolvedValue('shoout'),
+}));
+
+jest.mock('@/utils/authFlow', () => ({
+    PENDING_SIGNUP_KEY: 'pendingSignupPayload',
+    markUserNeedsRoleSelection: jest.fn().mockResolvedValue(undefined),
+    resolveAuthenticatedDestination: jest.fn(),
 }));
 
 jest.mock('../../store/useToastStore', () => ({
     useToastStore: jest.fn()
 }));
 
-jest.mock('../../firebaseConfig', () => ({
-    auth: {},
-    db: {}
-}));
-
-// Mock out Sub-components dependencies
 jest.mock('react-native-svg', () => {
     const React = require('react');
     const { View } = require('react-native');
@@ -38,10 +48,6 @@ jest.mock('react-native-svg', () => {
     };
 });
 
-// Note: firebase/auth and firebase/firestore are globally mapped to __mocks__/firebase.ts
-// via package.json moduleNameMapper. No explicit local require mocks needed here to avoid stack overflow.
-
-// Mock Google Signin
 jest.mock('@react-native-google-signin/google-signin', () => ({
     GoogleSignin: {
         hasPlayServices: jest.fn(),
@@ -50,48 +56,39 @@ jest.mock('@react-native-google-signin/google-signin', () => ({
     statusCodes: { SIGN_IN_CANCELLED: 'SIGN_IN_CANCELLED' }
 }));
 
-describe('SignupScreen Authorization flows', () => {
-    const mockShowToast = jest.fn();
-
+describe('SignupScreen', () => {
     beforeEach(() => {
         jest.clearAllMocks();
+        process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID = 'test-web-client-id';
         (useToastStore as unknown as jest.Mock).mockReturnValue({
             showToast: mockShowToast,
         });
-        global.alert = jest.fn();
+        (resolveAuthenticatedDestination as jest.Mock).mockResolvedValue('/(auth)/role-selection');
     });
 
-    it('handles standard Email/Password authentication correctly', async () => {
+    it('sends OTP, persists pending signup payload, and routes to OTP verification', async () => {
         const { getByPlaceholderText, getByText } = render(<SignupScreen />);
 
-        // Mock dependencies
-        (createUserWithEmailAndPassword as jest.Mock).mockResolvedValue({
-            user: { uid: 'user-123' }
-        });
-
-        // Act — wrap all events + async side-effects in act
         fireEvent.changeText(getByPlaceholderText('Full Name'), 'Test Creator');
         fireEvent.changeText(getByPlaceholderText('Email'), 'test@shoouts.com');
         fireEvent.changeText(getByPlaceholderText('Password'), 'password123');
         fireEvent.changeText(getByPlaceholderText('Confirm Password'), 'password123');
+
         await act(async () => {
             fireEvent.press(getByText('Sign Up'));
         });
 
-        // Assert
         await waitFor(() => {
-            expect(createUserWithEmailAndPassword).toHaveBeenCalled();
-            expect(updateProfile).toHaveBeenCalledWith({ uid: 'user-123' }, { displayName: 'Test Creator' });
-            expect(setDoc).toHaveBeenCalledWith({ _path: 'users/user-123' }, {
-                fullName: 'Test Creator',
-                email: 'test@shoouts.com',
-                createdAt: expect.any(String)
-            });
-            expect(hydrateSubscriptionTier).toHaveBeenCalled();
-        }, { timeout: 12000 });
-    }, 15000);
+            expect(sendEmailOtp).toHaveBeenCalledWith('signup', 'test@shoouts.com');
+            expect(AsyncStorage.setItem).toHaveBeenCalledWith(
+                'pendingSignupPayload',
+                expect.stringContaining('"fullName":"Test Creator"')
+            );
+            expect(mockPush).toHaveBeenCalledWith('/(auth)/signup-otp');
+        });
+    });
 
-    it('rejects signup if passwords do not match', async () => {
+    it('rejects signup if passwords do not match', () => {
         const { getByPlaceholderText, getByText } = render(<SignupScreen />);
 
         fireEvent.changeText(getByPlaceholderText('Full Name'), 'Test Mismatch');
@@ -101,6 +98,35 @@ describe('SignupScreen Authorization flows', () => {
         fireEvent.press(getByText('Sign Up'));
 
         expect(mockShowToast).toHaveBeenCalledWith("Passwords don't match", 'error');
-        expect(createUserWithEmailAndPassword).not.toHaveBeenCalled();
+        expect(sendEmailOtp).not.toHaveBeenCalled();
+    });
+
+    it('routes first-time Google signup into role selection instead of tabs', async () => {
+        const { getByText } = render(<SignupScreen />);
+
+        (GoogleSignin.hasPlayServices as jest.Mock).mockResolvedValue(true);
+        (GoogleSignin.signIn as jest.Mock).mockResolvedValue({
+            data: { idToken: 'google-test-token' }
+        });
+        (signInWithCredential as jest.Mock).mockResolvedValue({
+            user: { uid: 'google-uid', email: 'g@gmail.com', displayName: 'G User' }
+        });
+        (getDoc as jest.Mock).mockResolvedValue({ exists: () => false });
+
+        await act(async () => {
+            fireEvent.press(getByText('Signup with Google'));
+        });
+
+        await waitFor(() => {
+            expect(markUserNeedsRoleSelection).toHaveBeenCalledWith(
+                'google-uid',
+                expect.objectContaining({
+                    fullName: 'G User',
+                    email: 'g@gmail.com',
+                })
+            );
+            expect(hydrateSubscriptionTier).toHaveBeenCalled();
+            expect(mockReplace).toHaveBeenCalledWith('/(auth)/role-selection');
+        });
     });
 });

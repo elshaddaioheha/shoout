@@ -82,26 +82,22 @@ describe('SubscriptionsScreen UI and flow tests', () => {
 
         expect(getByText('Select Payment Method')).toBeTruthy();
         expect(getByTestId('flutterwave-mock')).toBeTruthy();
-        expect(getByText('Pay with Stripe')).toBeTruthy();
+        expect(getByText('Stripe is temporarily unavailable. Flutterwave is currently the active checkout option.')).toBeTruthy();
     });
 
-    it('shows Stripe unavailable alert when Stripe option is tapped', async () => {
+    it('does not switch app mode just by opening the paid checkout modal', async () => {
         const { getByText, getAllByText } = render(<SubscriptionsScreen />);
 
         fireEvent.press(getByText('Vault'));
         const chooseButtons = getAllByText('Select Plan');
         fireEvent.press(chooseButtons[0]);
 
-        fireEvent.press(getByText('Pay with Stripe'));
-
         await waitFor(() => {
-            expect(Alert.alert).toHaveBeenCalledWith(
-                'Stripe unavailable',
-                'Stripe/Google Pay checkout is disabled until secure backend verification is deployed. Use Flutterwave for now.'
-            );
+            expect(getByText('Select Payment Method')).toBeTruthy();
         });
 
         expect(mockSetActiveAppMode).not.toHaveBeenCalled();
+        expect(Alert.alert).not.toHaveBeenCalled();
     });
 });
 

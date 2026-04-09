@@ -15,7 +15,9 @@ import { Check, CreditCard, PartyPopper, ShieldCheck, Sparkles, Star, ChevronLef
 import React, { useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Animated, Modal, Platform, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 
-const SUBSCRIPTION_VERIFY_URL = process.env.EXPO_PUBLIC_SUBSCRIPTION_VERIFY_URL;
+const SUBSCRIPTION_VERIFY_URL =
+    process.env.EXPO_PUBLIC_SUBSCRIPTION_VERIFY_URL ||
+    `${String(process.env.EXPO_PUBLIC_FUNCTIONS_URL || '').replace(/\/$/, '')}/activateSubscriptionTier`;
 
 type PlanCategory = 'Shoout' | 'Vault' | 'Studio' | 'Hybrid';
 
@@ -61,7 +63,7 @@ export default function SubscriptionsScreen() {
     const { role, activeAppMode, setActiveAppMode } = useUserStore();
     const { actualRole } = useAuthStore();
 
-    const currentPlan = (actualRole || role || 'vault') as SubscriptionPlanId;
+    const currentPlan = (actualRole || role || 'shoout') as SubscriptionPlanId;
     const [activeCategory, setActiveCategory] = useState<PlanCategory>('Shoout');
     const [selectedPlan, setSelectedPlan] = useState<(typeof PLANS)[0] | null>(null);
     const [isAnnual, setIsAnnual] = useState(false);
@@ -94,11 +96,6 @@ export default function SubscriptionsScreen() {
     };
 
     const activatePlanOnServer = async (planId: SubscriptionPlanId, txRef?: string) => {
-        if (planId === 'shoout') {
-            setActiveAppMode('shoout');
-            return;
-        }
-
         if (!auth.currentUser) {
             throw new Error('You must be logged in to upgrade.');
         }
@@ -132,9 +129,7 @@ export default function SubscriptionsScreen() {
             setIsVerifying(true);
             await activatePlanOnServer(planId, txRef);
             await hydrateSubscriptionTier();
-            if (planId !== 'shoout') {
-                setActiveAppMode(planId);
-            }
+            setActiveAppMode(planId);
             showUpgradeSuccess(planId);
         } catch (error: any) {
             Alert.alert('Payment verification failed', error?.message || 'Could not verify your payment.');

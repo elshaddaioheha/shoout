@@ -40,43 +40,31 @@ exports.getUserRoleFromContext = getUserRoleFromContext;
 exports.assertRole = assertRole;
 exports.logAdminAction = logAdminAction;
 exports.getUserRole = getUserRole;
+const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions"));
-const firebase_1 = require("../utils/firebase");
-/**
- * Extracts user role from Firebase Auth custom claims
- */
+const repositories_1 = require("../repositories");
 function getUserRoleFromContext(context) {
     return context?.auth?.token?.role ?? null;
 }
-/**
- * Asserts user has required role(s), throws error if not
- */
 function assertRole(context, allowedRoles, message) {
     const role = getUserRoleFromContext(context);
     if (!role || !allowedRoles.includes(role)) {
         throw new functions.https.HttpsError('permission-denied', message || 'Insufficient privileges');
     }
 }
-/**
- * Logs an admin action to the moderation log
- */
 async function logAdminAction(params) {
-    const db = (0, firebase_1.getDb)();
-    await db.collection('moderationLog').add({
+    await repositories_1.moderationRepo.addLogEntry({
         actorId: params.actorId,
         action: params.action,
         targetType: params.targetType,
         targetId: params.targetId,
         reason: params.reason || null,
         details: params.details || null,
-        createdAt: (0, firebase_1.serverTimestamp)(),
+        createdAt: (0, repositories_1.serverTimestamp)(),
     });
 }
-/**
- * Gets user's role for authorization checks
- */
 async function getUserRole(uid) {
-    const user = await require('firebase-admin').auth().getUser(uid).catch(() => null);
+    const user = await admin.auth().getUser(uid).catch(() => null);
     if (!user)
         return null;
     return user.customClaims?.role ?? null;

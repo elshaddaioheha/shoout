@@ -188,7 +188,7 @@ export default function LibraryScreen() {
     if (user.storageLimitGB > 0) return user.storageLimitGB;
     const fallbackMap: Record<string, number> = {
       vault: 0.5,
-      vault_pro: 1,
+      vault_pro: 5,
       studio: 2,
       hybrid: 10,
     };
@@ -234,7 +234,7 @@ export default function LibraryScreen() {
   }, [activeRole, isCreatorSurface]);
 
   const planLabel = useMemo(() => {
-    const tier = authState.subscriptionTier || activeRole || 'vault';
+    const tier = authState.subscriptionTier || activeRole || 'shoout';
     const subscribed = authState.isSubscribed;
     return `${String(tier).replace(/_/g, ' ')}${subscribed ? '' : ' (free)'}`;
   }, [activeRole, authState.isSubscribed, authState.subscriptionTier]);

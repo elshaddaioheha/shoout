@@ -37,7 +37,7 @@ export function invoiceStoragePath(userId: string, invoiceNumber: string): strin
 /** Static merge fields for `users/{uid}/subscription/current` when a paid subscription expires. */
 export function firestoreExpiredSubscriptionDocPatch(): Record<string, unknown> {
   return {
-    tier: 'vault',
+    tier: 'shoout',
     status: 'expired',
     isSubscribed: false,
     billingCycle: null,
@@ -48,7 +48,7 @@ export function firestoreExpiredSubscriptionDocPatch(): Record<string, unknown> 
 /** Static merge fields on `users/{uid}` when subscription is downgraded after expiry. */
 export function firestoreExpiredUserRolePatch(): Record<string, unknown> {
   return {
-    role: 'vault',
+    role: 'shoout',
     subscriptionStatus: 'expired',
   };
 }

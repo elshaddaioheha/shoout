@@ -11,6 +11,7 @@ import { getModeSurfaceTheme } from '@/utils/appModeTheme';
 import { adaptLegacyColor, adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
+import { FirebaseError } from 'firebase/app';
 import { collectionGroup, getDocs, limit, orderBy, query, where } from 'firebase/firestore';
 import { Clock3, Music, Play, Search, ShoppingCart } from 'lucide-react-native';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -91,6 +92,23 @@ export default function ExploreScreen() {
     return item.lifecycleStatus === 'upcoming' && (!scheduledMs || scheduledMs > Date.now());
   };
 
+  const getExploreLoadErrorMessage = (error: unknown) => {
+    if (error instanceof FirebaseError) {
+      if (error.code === 'permission-denied') {
+        return 'Explore is temporarily unavailable due to read permissions. Please try again shortly.';
+      }
+      if (error.code === 'failed-precondition') {
+        return 'Explore index is missing on backend. Please deploy Firestore indexes.';
+      }
+      if (error.code === 'unavailable') {
+        return 'Network issue while loading Explore. Check connection and retry.';
+      }
+      return `Explore failed: ${error.code}`;
+    }
+
+    return 'Could not load Explore right now.';
+  };
+
   useEffect(() => {
     let active = true;
 
@@ -129,7 +147,7 @@ export default function ExploreScreen() {
         setItems(mapped);
       } catch (error) {
         console.error('Failed to load explore feed:', error);
-        showToast('Could not load Explore right now.', 'error');
+        showToast(getExploreLoadErrorMessage(error), 'error');
       } finally {
         if (active) setLoading(false);
       }
