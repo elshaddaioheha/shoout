@@ -8,9 +8,9 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     android: {
       ...config.android,
       package: "com.shoouts",
-      // When building on EAS, this will use the temporary file path from the file secret.
-      // Locally, it defaults to looking for the file in the project root.
-      googleServicesFile: process.env.GOOGLE_SERVICES_JSON || "./google-services.json",
+      // When building on EAS, this uses the temporary file path from the file secret.
+      // Locally, it falls back to the repo-level file outside the Expo app folder.
+      googleServicesFile: process.env.GOOGLE_SERVICES_JSON || "../google-services.json",
     },
     // Same for iOS when you need it:
     // ios: {

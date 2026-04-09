@@ -46,13 +46,29 @@ Shoouts requires specific secrets for local development, CI/CD, and Native App B
 These variables (Firebase keys, Flutterwave Public Key, Google OAuth IDs) configure the frontend app.
 - **Local:** Define them in your `.env` file at the root.
 - **EAS Build:** Expose them directly in Expo using the `eas secret:create` CLI or via the [Expo Dashboard](https://expo.dev).
+- **Monitoring:** Set `EXPO_PUBLIC_SENTRY_DSN` for runtime crash/error capture.
 
 *Warning: Never bake private backend keys into `EXPO_PUBLIC_*` variables.*
+
+### 1b. Sentry Build Secrets (CI/EAS)
+Sentry source map uploads for release builds should use private build-time secrets:
+- `SENTRY_AUTH_TOKEN`
+- `SENTRY_ORG`
+- `SENTRY_PROJECT`
+
+These should be configured as EAS/GitHub secrets, never committed in source.
+
+### 1c. Legal URLs (App Store Readiness)
+Set legal document URLs as public env variables so they are visible in-app:
+- `EXPO_PUBLIC_PRIVACY_POLICY_URL`
+- `EXPO_PUBLIC_TERMS_URL`
+
+If omitted, the app falls back to `https://shoouts.com/privacy` and `https://shoouts.com/terms`.
 
 ### 2. Native App Files (`google-services.json` / `GoogleService-Info.plist`)
 Native Firebase integration requires the strict configuration files to avoid runtime crashing.
 - Do not commit these files to GitHub (they are specified in `.gitignore`).
-- For EAS Android builds, dynamic configuration is handled in `app.config.ts` via the `GOOGLE_SERVICES_JSON` variable.
+- For EAS Android builds, dynamic configuration is handled in `app.config.ts` via the `GOOGLE_SERVICES_JSON` variable, and each build profile maps to its matching EAS environment in `eas.json`.
 - Upload this file to Expo Secrets using:
   ```bash
   eas secret:create --scope project --name GOOGLE_SERVICES_JSON --type file --value google-services.json
@@ -114,8 +130,11 @@ The `.github/workflows/deploy.yml` pipeline strictly enforces quality before aut
 3. **security**: Checks `npm audit` and validates source code with `gitleaks` for any exposed private tokens.
 4. **deploy-dev** (Triggers on `push` to `dev` branch): Automatically uses `FIREBASE_TOKEN_DEV` to push Functions and Firestore rules to the development project.
 5. **deploy-prod** (Triggers on `push` to `master`/`main`): Extracts `proj` ID precisely via `.firebaserc` and uses a mapped GCP Service Account JSON to authorize and deploy to the explicit Production server.
+6. **eas-preview-builds** (Triggers on pull requests from this repository): Starts non-blocking EAS preview builds for both Android and iOS.
+7. **eas-release-builds** (Triggers on `v*` tags): Starts non-blocking EAS production builds for both Android and iOS.
 
 *Ensure all GitHub Repository Secrets listed in `.github/workflows/deploy.yml` are accurately populated before pushing.*
+*For EAS build jobs, add `EXPO_TOKEN` as a GitHub repository secret.*
 
 ---
 

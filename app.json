@@ -18,8 +18,7 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "versionCode": 18,
-      "googleServicesFile": "./google-services.json"
+      "versionCode": 18
     },
     "web": {
       "output": "static",
@@ -40,6 +39,7 @@
         }
       ],
       "expo-font",
+      "@sentry/react-native/expo",
       "@react-native-google-signin/google-signin"
     ],
     "experiments": {

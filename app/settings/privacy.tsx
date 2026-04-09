@@ -3,11 +3,12 @@ import SettingsCard from '@/components/settings/SettingsCard';
 import SettingsDivider from '@/components/settings/SettingsDivider';
 import SettingsHeader from '@/components/settings/SettingsHeader';
 import SettingsSwitchRow from '@/components/settings/SettingsSwitchRow';
+import { PRIVACY_POLICY_URL, TERMS_OF_SERVICE_URL } from '@/constants/legal';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { useRouter } from 'expo-router';
 import { ChevronRight, Lock, ShieldCheck, UserX } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 
 function usePrivacyStyles() {
@@ -22,6 +23,16 @@ export default function PrivacyScreen() {
     const router = useRouter();
     const [publicProfile, setPublicProfile] = useState(true);
     const [shareData, setShareData] = useState(false);
+
+    const openExternalUrl = async (url: string, label: string) => {
+        const canOpen = await Linking.canOpenURL(url);
+        if (!canOpen) {
+            Alert.alert('Unable to open link', `${label} URL is not available right now.`);
+            return;
+        }
+
+        await Linking.openURL(url);
+    };
 
     return (
         <SafeScreenWrapper>
@@ -49,6 +60,24 @@ export default function PrivacyScreen() {
                             value={shareData}
                             onValueChange={setShareData}
                         />
+                        <SettingsDivider />
+                        <TouchableOpacity style={styles.actionRow} onPress={() => openExternalUrl(PRIVACY_POLICY_URL, 'Privacy Policy')}>
+                            <View style={styles.actionIconCell}>
+                                <ShieldCheck size={20} color={appTheme.colors.textPrimary} />
+                            </View>
+                            <Text style={styles.actionTitle}>Privacy Policy</Text>
+                            <ChevronRight size={20} color={appTheme.colors.textDisabled} />
+                        </TouchableOpacity>
+
+                        <SettingsDivider />
+
+                        <TouchableOpacity style={styles.actionRow} onPress={() => openExternalUrl(TERMS_OF_SERVICE_URL, 'Terms of Service')}>
+                            <View style={styles.actionIconCell}>
+                                <Lock size={20} color={appTheme.colors.textPrimary} />
+                            </View>
+                            <Text style={styles.actionTitle}>Terms of Service</Text>
+                            <ChevronRight size={20} color={appTheme.colors.textDisabled} />
+                        </TouchableOpacity>
                     </SettingsCard>
 
                     <Text style={[styles.sectionTitle, { marginTop: 30 }]}>Security</Text>

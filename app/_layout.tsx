@@ -15,6 +15,7 @@ import { hydrateSubscriptionTier } from '@/utils/subscriptionVerification';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useUserStore } from '@/store/useUserStore';
 import { getDefaultAppModeForPlan } from '@/utils/subscriptions';
+import { initMonitoring } from './monitoring';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -30,6 +31,10 @@ export default function RootLayout() {
     'Poppins-SemiBold': Poppins_600SemiBold,
     'Poppins-Bold': Poppins_700Bold,
   });
+
+  useEffect(() => {
+    initMonitoring();
+  }, []);
 
   useEffect(() => {
     if (!loaded && !error) return;

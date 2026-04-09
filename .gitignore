@@ -40,8 +40,8 @@ extensions/*.env
 # typescript
 *.tsbuildinfo
 GoogleService-Info.plist
-serviceAccountKey.json
 google-services.json
+serviceAccountKey.json
 
 app-example
 
