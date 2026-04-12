@@ -65,8 +65,8 @@ const makeFlags = (flags: Partial<SubscriptionFeatureFlags>): SubscriptionFeatur
 export const SUBSCRIPTION_PLANS: SubscriptionConfig[] = [
   {
     id: 'shoout',
-    label: 'Shoout',
-    shortLabel: 'Shoout',
+    label: 'Shoouts',
+    shortLabel: 'Shoouts',
     description: 'Buyer and marketplace mode for discovery, cart, and messaging.',
     category: 'Shoout',
     monthlyPriceUsd: 0,

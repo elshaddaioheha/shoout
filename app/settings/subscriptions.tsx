@@ -22,7 +22,7 @@ const SUBSCRIPTION_VERIFY_URL =
 type PlanCategory = 'Shoout' | 'Vault' | 'Studio' | 'Hybrid';
 
 const CATEGORY_TABS: { id: PlanCategory; label: string; color: string }[] = [
-    { id: 'Shoout', label: 'Shoout', color: '#6AA7FF' },
+    { id: 'Shoout', label: 'Shoouts', color: '#6AA7FF' },
     { id: 'Vault', label: 'Vault', color: '#EC5C39' },
     { id: 'Studio', label: 'Studio', color: '#4CAF50' },
     { id: 'Hybrid', label: 'Hybrid', color: '#D4AF37' },
@@ -156,7 +156,7 @@ export default function SubscriptionsScreen() {
                 <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
                     <View style={styles.introSection}>
                         <Sparkles size={40} color={activeCategoryColor} />
-                        <Text style={styles.introTitle}>Choose Your Shoout Experience</Text>
+                        <Text style={styles.introTitle}>Choose Your Shoouts Experience</Text>
                         <Text style={styles.introSubtitle}>One switcher. Five experiences. Upgrade when you are ready.</Text>
 
                         <View style={styles.categoryTabsRow}>

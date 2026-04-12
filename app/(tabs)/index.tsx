@@ -6,20 +6,18 @@ import StudioDashboardScreen from '@/components/studio/StudioDashboardScreen';
 import VaultHomeScreen from '@/components/vault/VaultHomeScreen';
 import { theme } from '@/constants/theme';
 import { ARTISTS, FREE_MUSIC, HOME_SECTIONS, POPULAR_BEATS, TOP_PLAYLISTS, TRENDING_SONGS, type HomeSectionKey } from '@/constants/homeFeed';
-import { auth, db } from '@/firebaseConfig';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { formatUsd } from '@/utils/pricing';
-import { toggleArtistFollow } from '@/utils/followArtist';
 import { usePlaylists } from '@/hooks/usePlaylists';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useCartStore } from '@/store/useCartStore';
+import { useFollowingArtistsStore } from '@/store/useFollowingArtistsStore';
 import { usePlaybackStore } from '@/store/usePlaybackStore';
 import { useToastStore } from '@/store/useToastStore';
 import { useUserStore } from '@/store/useUserStore';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import { doc, onSnapshot } from 'firebase/firestore';
 import {
   Heart,
   MoreVertical,
@@ -392,32 +390,20 @@ function PopularBeatsSection() {
   const { addItem, items } = useCartStore();
   const { showToast } = useToastStore();
   const { addToPlaylist } = usePlaylists();
-  const [isFollowPending, setIsFollowPending] = useState(false);
-  const [followingArtistIds, setFollowingArtistIds] = useState<Record<string, boolean>>({});
+  const followingArtistIds = useFollowingArtistsStore((state) => state.followingArtistIds);
+  const pendingByArtistId = useFollowingArtistsStore((state) => state.pendingByArtistId);
+  const startFollowingListener = useFollowingArtistsStore((state) => state.startListening);
+  const stopFollowingListener = useFollowingArtistsStore((state) => state.stopListening);
+  const toggleFollow = useFollowingArtistsStore((state) => state.toggleFollow);
   const [hiddenBeatIds, setHiddenBeatIds] = useState<string[]>([]);
   const [selectedBeat, setSelectedBeat] = useState<any | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const beats = POPULAR_BEATS;
 
   useEffect(() => {
-    const uid = auth.currentUser?.uid;
-    if (!uid) {
-      setFollowingArtistIds({});
-      return;
-    }
-
-    const unsub = onSnapshot(doc(db, 'users', uid), (snapshot) => {
-      const row = snapshot.data() as any;
-      const following = Array.isArray(row?.following) ? row.following : [];
-      const map: Record<string, boolean> = {};
-      following.forEach((id: string) => {
-        map[id] = true;
-      });
-      setFollowingArtistIds(map);
-    });
-
-    return unsub;
-  }, []);
+    startFollowingListener();
+    return stopFollowingListener;
+  }, [startFollowingListener, stopFollowingListener]);
 
   const visibleBeats = useMemo(
     () => beats.filter((beat) => !hiddenBeatIds.includes(beat.id)),
@@ -465,21 +451,10 @@ function PopularBeatsSection() {
       return;
     }
 
-    const uid = auth.currentUser?.uid;
-    if (!uid) {
-      showToast('Log in to follow artists.', 'error');
-      return;
-    }
-
-    if (isFollowPending) return;
-    setIsFollowPending(true);
+    if (pendingByArtistId[artistId]) return;
 
     try {
-      const result = await toggleArtistFollow({
-        artistId,
-        currentUserId: uid,
-        isCurrentlyFollowing: !!followingArtistIds[artistId],
-      });
+      const result = await toggleFollow(artistId);
 
       showToast(
         result.isFollowing
@@ -490,10 +465,8 @@ function PopularBeatsSection() {
     } catch (error) {
       console.error('Follow artist from home failed:', error);
       showToast('Unable to update follow state right now.', 'error');
-    } finally {
-      setIsFollowPending(false);
     }
-  }, [followingArtistIds, isFollowPending, selectedBeat, showToast]);
+  }, [followingArtistIds, pendingByArtistId, selectedBeat, showToast, toggleFollow]);
 
   const renderItem = useCallback(({ item, index }: { item: any; index: number }) => (
     <BeatRow
@@ -550,7 +523,7 @@ function PopularBeatsSection() {
             },
           },
           {
-            label: isFollowPending
+            label: (selectedBeat?.uploaderId && pendingByArtistId[selectedBeat.uploaderId])
               ? 'Updating follow...'
               : (selectedBeat?.uploaderId && followingArtistIds[selectedBeat.uploaderId] ? 'Unfollow artist' : 'Follow artist'),
             onPress: handleFollowSelectedArtist,

@@ -55,13 +55,6 @@ const VIEW_MODES: ViewModeEntry[] = [
         color: '#EC5C39',
     },
     {
-        id: 'vault_pro',
-        label: 'Vault Pro',
-        description: 'The same private Vault workflow with much higher limits',
-        Icon: FolderLock,
-        color: '#EC5C39',
-    },
-    {
         id: 'studio',
         label: 'Studio',
         description: 'Sell beats, manage listings and earnings',

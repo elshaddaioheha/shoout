@@ -17,7 +17,6 @@ import { collectionGroup, getDocs, limit, orderBy, query, where } from 'firebase
 import { Heart, Music, Search, ShoppingCart, ThumbsDown } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   FlatList,
   StyleSheet,
   Text,
@@ -64,11 +63,44 @@ function mapFallbackDiscoverItems(): DiscoverItem[] {
   }));
 }
 
+function DiscoverTrackSkeletonCard({ styles }: { styles: ReturnType<typeof useExploreStyles> }) {
+  return (
+    <View style={styles.trackCard}>
+      <View style={[styles.trackArtwork, styles.skeletonBlock]} />
+      <View style={[styles.skeletonLine, styles.skeletonLineTitle]} />
+      <View style={[styles.skeletonLine, styles.skeletonLineMeta]} />
+      <View style={[styles.inlinePurchaseBtn, styles.skeletonInlineBtn]} />
+    </View>
+  );
+}
+
+function DiscoverySkeletonLoader({ styles }: { styles: ReturnType<typeof useExploreStyles> }) {
+  return (
+    <View style={styles.searchSections}>
+      {['Suggested Tracks', 'Trending Artists', 'Popular Beats'].map((section) => (
+        <View key={section} style={styles.sectionBlock}>
+          <View style={[styles.skeletonLine, styles.skeletonSectionTitle]} />
+          <FlatList
+            horizontal
+            data={[0, 1, 2]}
+            keyExtractor={(item) => `${section}-${item}`}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.horizontalPad}
+            renderItem={() => <DiscoverTrackSkeletonCard styles={styles} />}
+          />
+        </View>
+      ))}
+    </View>
+  );
+}
+
 function SearchDiscoveryContent({
   styles,
   appTheme,
   items,
   loading,
+  loadError,
+  onRetry,
   selectedGenre,
   setSelectedGenre,
   searchQuery,
@@ -80,6 +112,8 @@ function SearchDiscoveryContent({
   appTheme: ReturnType<typeof useAppTheme>;
   items: DiscoverItem[];
   loading: boolean;
+  loadError: string | null;
+  onRetry: () => void;
   selectedGenre: string | null;
   setSelectedGenre: (genre: string | null) => void;
   searchQuery: string;
@@ -165,11 +199,17 @@ function SearchDiscoveryContent({
         }}
       />
 
-      {loading ? (
-        <View style={styles.loadingBox}>
-          <ActivityIndicator color={appTheme.colors.primary} />
-          <Text style={styles.loadingText}>Loading discovery...</Text>
+      {loadError ? (
+        <View style={styles.errorBanner}>
+          <Text style={styles.errorBannerText}>{loadError}</Text>
+          <TouchableOpacity style={styles.retryBtn} onPress={onRetry} activeOpacity={0.85}>
+            <Text style={styles.retryBtnText}>Retry</Text>
+          </TouchableOpacity>
         </View>
+      ) : null}
+
+      {loading ? (
+        <DiscoverySkeletonLoader styles={styles} />
       ) : (
         <FlatList
           data={[
@@ -258,6 +298,7 @@ export default function ExploreScreen() {
 
   const [surfaceMode, setSurfaceMode] = useState<SurfaceMode>('search');
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [items, setItems] = useState<DiscoverItem[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
@@ -278,65 +319,87 @@ export default function ExploreScreen() {
     return 'Could not load live feed. Showing fallback tracks.';
   };
 
-  useEffect(() => {
-    let active = true;
+  const mapSnapshotRows = useCallback((snap: any): DiscoverItem[] => (
+    snap.docs
+      .map((docSnap: any) => {
+        const row = docSnap.data() as any;
+        const uploaderId = docSnap.ref.parent.parent?.id || row.userId || '';
+        const audioUrl = String(row.audioUrl || row.url || '');
+        if (!audioUrl) return null;
 
-    const load = async () => {
-      setLoading(true);
-      try {
-        const snap = await getDocs(
-          query(
-            collectionGroup(db, 'uploads'),
-            where('isPublic', '==', true),
-            orderBy('listenCount', 'desc'),
-            limit(180)
-          )
-        );
+        return {
+          id: docSnap.id,
+          title: String(row.title || 'Untitled Track'),
+          uploaderName: String(row.uploaderName || row.artist || 'Shoouter'),
+          userId: String(uploaderId),
+          genre: String(row.genre || 'Unknown'),
+          price: Number(row.price || 0),
+          audioUrl,
+          artworkUrl: String(row.artworkUrl || row.coverUrl || ''),
+          listenCount: Number(row.listenCount || 0),
+        } as DiscoverItem;
+      })
+      .filter((row: DiscoverItem | null): row is DiscoverItem => !!row)
+  ), []);
 
-        if (!active) return;
+  const loadFeed = useCallback(async () => {
+    setLoading(true);
+    setLoadError(null);
 
-        const mapped = snap.docs
-          .map((docSnap) => {
-            const row = docSnap.data() as any;
-            const uploaderId = docSnap.ref.parent.parent?.id || row.userId || '';
-            const audioUrl = String(row.audioUrl || row.url || '');
-            if (!audioUrl) return null;
+    try {
+      const primarySnap = await getDocs(
+        query(
+          collectionGroup(db, 'uploads'),
+          where('isPublic', '==', true),
+          orderBy('listenCount', 'desc'),
+          limit(180)
+        )
+      );
 
-            return {
-              id: docSnap.id,
-              title: String(row.title || 'Untitled Track'),
-              uploaderName: String(row.uploaderName || row.artist || 'Shoouter'),
-              userId: String(uploaderId),
-              genre: String(row.genre || 'Unknown'),
-              price: Number(row.price || 0),
-              audioUrl,
-              artworkUrl: String(row.artworkUrl || row.coverUrl || ''),
-              listenCount: Number(row.listenCount || 0),
-            } as DiscoverItem;
-          })
-          .filter((row): row is DiscoverItem => !!row);
-
-        if (mapped.length > 0) {
-          setItems(mapped);
-        } else {
-          setItems(mapFallbackDiscoverItems());
-        }
-      } catch (error) {
+      const mapped = mapSnapshotRows(primarySnap);
+      setItems(mapped.length > 0 ? mapped : mapFallbackDiscoverItems());
+      return;
+    } catch (error) {
+      const isIndexIssue = error instanceof FirebaseError && error.code === 'failed-precondition';
+      if (!isIndexIssue) {
         console.error('Failed to load explore feed:', error);
-        showToast(getLoadErrorMessage(error), 'info');
-        if (active) {
-          setItems(mapFallbackDiscoverItems());
-        }
-      } finally {
-        if (active) setLoading(false);
       }
-    };
 
-    load();
-    return () => {
-      active = false;
-    };
-  }, [showToast]);
+      if (isIndexIssue) {
+        try {
+          const fallbackSnap = await getDocs(
+            query(
+              collectionGroup(db, 'uploads'),
+              where('isPublic', '==', true),
+              limit(180)
+            )
+          );
+
+          const fallbackMapped = mapSnapshotRows(fallbackSnap)
+            .sort((a, b) => b.listenCount - a.listenCount)
+            .slice(0, 180);
+
+          setItems(fallbackMapped.length > 0 ? fallbackMapped : mapFallbackDiscoverItems());
+          setLoadError('Top feed ranking is temporarily unavailable. Showing fallback discovery order.');
+          showToast('Explore index missing. Showing fallback discovery order.', 'info');
+          return;
+        } catch (fallbackError) {
+          console.error('Explore fallback query failed:', fallbackError);
+        }
+      }
+
+      setItems(mapFallbackDiscoverItems());
+      const message = getLoadErrorMessage(error);
+      setLoadError(message);
+      showToast(message, 'info');
+    } finally {
+      setLoading(false);
+    }
+  }, [mapSnapshotRows, showToast]);
+
+  useEffect(() => {
+    loadFeed();
+  }, [loadFeed]);
 
   const buildFeedBatch = useCallback((source: DiscoverItem[], seed: number) => {
     const usable = source.filter((item) => !dislikedTracks[item.id]);
@@ -536,6 +599,8 @@ export default function ExploreScreen() {
             appTheme={appTheme}
             items={items}
             loading={loading}
+            loadError={loadError}
+            onRetry={loadFeed}
             selectedGenre={selectedGenre}
             setSelectedGenre={setSelectedGenre}
             searchQuery={searchQuery}
@@ -556,10 +621,7 @@ export default function ExploreScreen() {
             onPurchase={handlePurchase}
           />
         ) : loading ? (
-          <View style={styles.loadingBoxLarge}>
-            <ActivityIndicator color={appTheme.colors.primary} size="large" />
-            <Text style={styles.loadingText}>Preparing explore feed...</Text>
-          </View>
+          <DiscoverySkeletonLoader styles={styles} />
         ) : (
           <FlatList
             ref={feedRef}
@@ -673,6 +735,36 @@ const legacyStyles = {
   genreChipTextActive: {
     color: '#D8E8FF',
   },
+  errorBanner: {
+    marginHorizontal: 20,
+    marginBottom: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(236,92,57,0.45)',
+    backgroundColor: 'rgba(236,92,57,0.12)',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 8,
+  },
+  errorBannerText: {
+    color: '#FFD9CF',
+    fontFamily: 'Poppins-Regular',
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  retryBtn: {
+    alignSelf: 'flex-start',
+    height: 28,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    justifyContent: 'center',
+    backgroundColor: '#EC5C39',
+  },
+  retryBtnText: {
+    color: '#FFFFFF',
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: 11,
+  },
   loadingBox: {
     paddingVertical: 42,
     alignItems: 'center',
@@ -706,6 +798,33 @@ const legacyStyles = {
   horizontalPad: {
     paddingRight: 12,
     gap: 10,
+  },
+  skeletonBlock: {
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.07)',
+  },
+  skeletonLine: {
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+  },
+  skeletonSectionTitle: {
+    width: 144,
+    height: 16,
+    marginBottom: 10,
+  },
+  skeletonLineTitle: {
+    width: '86%',
+    height: 12,
+    marginTop: 8,
+  },
+  skeletonLineMeta: {
+    width: '64%',
+    height: 10,
+    marginTop: 6,
+  },
+  skeletonInlineBtn: {
+    backgroundColor: 'rgba(255,255,255,0.12)',
   },
   trackCard: {
     width: 148,

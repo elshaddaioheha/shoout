@@ -69,7 +69,7 @@ describe('SubscriptionsScreen UI and flow tests', () => {
         const { getByText, getAllByText } = render(<SubscriptionsScreen />);
 
         expect(getByText('Premium Plans')).toBeTruthy();
-        expect(getAllByText('Shoout').length).toBeGreaterThan(0);
+        expect(getAllByText('Shoouts').length).toBeGreaterThan(0);
         expect(getByText('Vault')).toBeTruthy();
     });
 

@@ -582,7 +582,7 @@ export default function FullPlayer({ visible, onClose }: FullPlayerProps) {
 
         showToast('Track added to cart. Complete purchase in cart.', 'success');
         onClose();
-        router.push('/cart');
+        router.push('/(tabs)/cart');
     };
 
     const knobScale = knobAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.5] });
