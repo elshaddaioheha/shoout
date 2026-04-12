@@ -19,6 +19,12 @@ export default function ForgotPasswordScreen() {
   const appTheme = useAppTheme();
   const styles = useForgotPasswordStyles();
   const placeholderColor = appTheme.colors.textPlaceholder;
+  const isLightMode = !appTheme.isDark;
+  const lightBackground = '#FFF4EE';
+  const lightSurface = '#FFF9F6';
+  const lightText = '#2F2624';
+  const lightMutedText = '#6F5A53';
+  const lightBorder = '#D8B9AD';
 
   const router = useRouter();
   const { email: emailParam } = useLocalSearchParams<{ email?: string }>();
@@ -28,7 +34,7 @@ export default function ForgotPasswordScreen() {
   const emailFocused = useSharedValue(0);
 
   const emailInputAnimatedStyle = useAnimatedStyle(() => ({
-    borderColor: emailFocused.value ? '#007AFF' : '#464646',
+    borderColor: emailFocused.value ? '#007AFF' : (isLightMode ? lightBorder : '#464646'),
   }));
 
   const trimmedEmail = useMemo(() => email.trim(), [email]);
@@ -52,7 +58,7 @@ export default function ForgotPasswordScreen() {
   };
 
   return (
-    <SafeScreenWrapper style={styles.container}>
+    <SafeScreenWrapper style={[styles.container, isLightMode && { backgroundColor: lightBackground }]}>
       <StatusBar barStyle={appTheme.isDark ? 'light-content' : 'dark-content'} />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -64,19 +70,19 @@ export default function ForgotPasswordScreen() {
         </TouchableOpacity>
 
         <View style={styles.headerWrap}>
-          <Text style={styles.headerTitle}>Forget Password</Text>
-          <Text style={styles.headerSub}>Enter your email tied to this account</Text>
+          <Text style={[styles.headerTitle, isLightMode && { color: lightText }]}>Forget Password</Text>
+          <Text style={[styles.headerSub, isLightMode && { color: lightMutedText }]}>Enter your email tied to this account</Text>
         </View>
 
         <View style={styles.fieldWrap}>
-          <Text style={styles.label}>Email Address</Text>
-          <Animated.View style={[styles.input, emailInputAnimatedStyle]}>
+          <Text style={[styles.label, isLightMode && { color: lightText }]}>Email Address</Text>
+          <Animated.View style={[styles.input, isLightMode && { borderColor: lightBorder, backgroundColor: lightSurface }, emailInputAnimatedStyle]}>
             <TextInput
               value={email}
               onChangeText={setEmail}
               placeholder="you@example.com"
               placeholderTextColor={placeholderColor}
-              style={styles.inputText}
+              style={[styles.inputText, isLightMode && { color: lightText }]}
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
@@ -102,7 +108,7 @@ export default function ForgotPasswordScreen() {
         </TouchableOpacity>
 
         <View style={styles.bottomRow}>
-          <Text style={styles.mutedText}>Back to</Text>
+          <Text style={[styles.mutedText, isLightMode && { color: lightMutedText }]}>Back to</Text>
           <TouchableOpacity onPress={() => router.replace('/(auth)/login')}>
             <Text style={styles.linkText}>Login</Text>
           </TouchableOpacity>

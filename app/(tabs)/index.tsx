@@ -177,27 +177,34 @@ const TrendingCard = React.memo(function TrendingCard({ song, bgColor, onPlay }:
   const appTheme = useAppTheme();
   const styles = useHomeStyles();
   const { isFav, toggle } = useLocalFavourite(song.id);
+  const isLightMode = !appTheme.isDark;
+  const overlayBg = isLightMode ? 'rgba(255, 248, 243, 0.82)' : 'rgba(20, 15, 16, 0.81)';
+  const overlayBorder = isLightMode ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.12)';
+  const titleColor = isLightMode ? '#2F2624' : theme.colors.textPrimary;
+  const metaColor = isLightMode ? '#5F4D47' : 'rgba(255,255,255,0.86)';
+  const playButtonBg = isLightMode ? '#4A8FE8' : SHOOUT_ACCENT;
+  const playGlyphColor = '#FFFFFF';
   return (
     <View style={[styles.trendingCard, { backgroundColor: bgColor }]}>
       {song.artworkUrl ? (
         <Image source={{ uri: song.artworkUrl }} style={styles.trendingArtwork} contentFit="cover" />
       ) : null}
-      <View style={styles.songInfoOverlay}>
+      <View style={[styles.songInfoOverlay, { backgroundColor: overlayBg, borderColor: overlayBorder, borderWidth: 1 }]}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.songTitle}>{song.title}</Text>
+          <Text style={[styles.songTitle, { color: titleColor }]}>{song.title}</Text>
           <View style={styles.artistRow}>
-              <Users size={14} color={appTheme.colors.textPrimary} />
-            <Text style={styles.artistName}>{song.artist || song.uploaderName}</Text>
+              <Users size={14} color={metaColor} />
+            <Text style={[styles.artistName, { color: metaColor }]}>{song.artist || song.uploaderName}</Text>
           </View>
         </View>
         <TouchableOpacity
           style={{ paddingHorizontal: 8 }}
           onPress={() => toggle()}
         >
-            <Heart size={18} color={isFav ? SHOOUT_ACCENT : appTheme.colors.textPrimary} fill={isFav ? SHOOUT_ACCENT : 'transparent'} />
+            <Heart size={18} color={isFav ? SHOOUT_ACCENT : metaColor} fill={isFav ? SHOOUT_ACCENT : 'transparent'} />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.playButton} onPress={onPlay}>
-            <Play size={20} color={appTheme.colors.textPrimary} fill={appTheme.colors.textPrimary} />
+        <TouchableOpacity style={[styles.playButton, { backgroundColor: playButtonBg }]} onPress={onPlay}>
+            <Play size={20} color={playGlyphColor} fill={playGlyphColor} />
         </TouchableOpacity>
       </View>
     </View>

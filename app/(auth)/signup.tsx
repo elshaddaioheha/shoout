@@ -1,7 +1,6 @@
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { GoogleAuthProvider, OAuthProvider, signInWithCredential } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
@@ -30,6 +29,12 @@ export default function SignupScreen() {
     const appTheme = useAppTheme();
     const styles = useSignupStyles();
     const placeholderColor = appTheme.colors.textPlaceholder;
+    const isLightMode = !appTheme.isDark;
+    const lightBackground = '#FFF4EE';
+    const lightSurface = '#FFF9F6';
+    const lightText = '#2F2624';
+    const lightMutedText = '#6F5A53';
+    const lightBorder = '#D8B9AD';
 
     const router = useRouter();
     const { redirectTo } = useLocalSearchParams<{ redirectTo?: string }>();
@@ -51,19 +56,19 @@ export default function SignupScreen() {
     const confirmPasswordFocused = useSharedValue(0);
 
     const fullNameInputAnimatedStyle = useAnimatedStyle(() => ({
-        borderColor: fullNameFocused.value ? '#007AFF' : '#464646',
+        borderColor: fullNameFocused.value ? '#007AFF' : (isLightMode ? lightBorder : '#464646'),
     }));
 
     const emailInputAnimatedStyle = useAnimatedStyle(() => ({
-        borderColor: emailFocused.value ? '#007AFF' : '#464646',
+        borderColor: emailFocused.value ? '#007AFF' : (isLightMode ? lightBorder : '#464646'),
     }));
 
     const passwordInputAnimatedStyle = useAnimatedStyle(() => ({
-        borderColor: passwordFocused.value ? '#007AFF' : '#464646',
+        borderColor: passwordFocused.value ? '#007AFF' : (isLightMode ? lightBorder : '#464646'),
     }));
 
     const confirmPasswordInputAnimatedStyle = useAnimatedStyle(() => ({
-        borderColor: confirmPasswordFocused.value ? '#007AFF' : '#464646',
+        borderColor: confirmPasswordFocused.value ? '#007AFF' : (isLightMode ? lightBorder : '#464646'),
     }));
 
     React.useEffect(() => {
@@ -237,7 +242,7 @@ export default function SignupScreen() {
     };
 
     return (
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView style={[styles.container, isLightMode && { backgroundColor: lightBackground }]}>
             <StatusBar barStyle={appTheme.isDark ? 'light-content' : 'dark-content'} />
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -247,12 +252,12 @@ export default function SignupScreen() {
                     <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
                     <View style={styles.guestRow}>
                         <TouchableOpacity onPress={goGuestHome}>
-                            <Text style={styles.guestText}>Continue as Guest</Text>
+                            <Text style={[styles.guestText, isLightMode && { color: lightMutedText }]}>Continue as Guest</Text>
                         </TouchableOpacity>
                     </View>
 
-                    <Text style={styles.title}>Join ShooutS</Text>
-                    <Text style={styles.subtitle}>Create an account to start sharing your sound</Text>
+                    <Text style={[styles.title, isLightMode && { color: lightText }]}>Join ShooutS</Text>
+                    <Text style={[styles.subtitle, isLightMode && { color: lightMutedText }]}>Create an account to start sharing your sound</Text>
 
                     {/* Social Login Buttons */}
                     <View style={styles.socialContainer}>
@@ -264,15 +269,15 @@ export default function SignupScreen() {
 
                     {/* Divider */}
                     <View style={styles.dividerContainer}>
-                        <View style={styles.dividerLine} />
-                        <Text style={styles.dividerText}>Or register with email</Text>
-                        <View style={styles.dividerLine} />
+                        <View style={[styles.dividerLine, isLightMode && { backgroundColor: lightBorder }]} />
+                        <Text style={[styles.dividerText, isLightMode && { color: lightMutedText }]}>Or register with email</Text>
+                        <View style={[styles.dividerLine, isLightMode && { backgroundColor: lightBorder }]} />
                     </View>
 
                     <View style={styles.form}>
-                        <Reanimated.View style={[styles.input, fullNameInputAnimatedStyle]}>
+                        <Reanimated.View style={[styles.input, isLightMode && { backgroundColor: lightSurface, borderColor: lightBorder }, fullNameInputAnimatedStyle]}>
                             <TextInput
-                                style={styles.inputText}
+                                style={[styles.inputText, isLightMode && { color: lightText }]}
                                 placeholder="Full Name"
                                 placeholderTextColor={placeholderColor}
                                 value={fullName}
@@ -287,10 +292,10 @@ export default function SignupScreen() {
                                 onSubmitEditing={() => emailInputRef.current?.focus()}
                             />
                         </Reanimated.View>
-                        <Reanimated.View style={[styles.input, emailInputAnimatedStyle]}>
+                        <Reanimated.View style={[styles.input, isLightMode && { backgroundColor: lightSurface, borderColor: lightBorder }, emailInputAnimatedStyle]}>
                             <TextInput
                                 ref={emailInputRef}
-                                style={styles.inputText}
+                                style={[styles.inputText, isLightMode && { color: lightText }]}
                                 placeholder="Email"
                                 placeholderTextColor={placeholderColor}
                                 keyboardType="email-address"
@@ -307,10 +312,10 @@ export default function SignupScreen() {
                                 onSubmitEditing={() => passwordInputRef.current?.focus()}
                             />
                         </Reanimated.View>
-                        <Reanimated.View style={[styles.input, passwordInputAnimatedStyle]}>
+                        <Reanimated.View style={[styles.input, isLightMode && { backgroundColor: lightSurface, borderColor: lightBorder }, passwordInputAnimatedStyle]}>
                             <TextInput
                                 ref={passwordInputRef}
-                                style={styles.inputText}
+                                style={[styles.inputText, isLightMode && { color: lightText }]}
                                 placeholder="Password"
                                 placeholderTextColor={placeholderColor}
                                 secureTextEntry
@@ -326,10 +331,10 @@ export default function SignupScreen() {
                                 onSubmitEditing={() => confirmPasswordInputRef.current?.focus()}
                             />
                         </Reanimated.View>
-                        <Reanimated.View style={[styles.input, confirmPasswordInputAnimatedStyle]}>
+                        <Reanimated.View style={[styles.input, isLightMode && { backgroundColor: lightSurface, borderColor: lightBorder }, confirmPasswordInputAnimatedStyle]}>
                             <TextInput
                                 ref={confirmPasswordInputRef}
-                                style={styles.inputText}
+                                style={[styles.inputText, isLightMode && { color: lightText }]}
                                 placeholder="Confirm Password"
                                 placeholderTextColor={placeholderColor}
                                 secureTextEntry
@@ -350,18 +355,14 @@ export default function SignupScreen() {
                             onPress={handleSignup}
                             activeOpacity={0.8}
                             disabled={loading}
+                            style={[styles.button, isLightMode && { backgroundColor: '#EC5C39' }]}
                         >
-                            <LinearGradient
-                                colors={['#ED5639', '#C96F6F']}
-                                style={styles.button}
-                            >
-                                <Text style={styles.buttonText}>{loading ? 'Signing Up...' : 'Sign Up'}</Text>
-                            </LinearGradient>
+                            <Text style={styles.buttonText}>{loading ? 'Signing Up...' : 'Sign Up'}</Text>
                         </TouchableOpacity>
                     </View>
 
                     <View style={styles.footer}>
-                        <Text style={styles.footerText}>Already have an account? </Text>
+                        <Text style={[styles.footerText, isLightMode && { color: lightMutedText }]}>Already have an account? </Text>
                         <TouchableOpacity onPress={() => router.push({ pathname: '/(auth)/login', params: redirectTo ? { redirectTo } : undefined })}>
                             <Text style={styles.linkText}>Log In</Text>
                         </TouchableOpacity>
@@ -432,6 +433,7 @@ const legacyStyles = {
     button: {
         height: 50,
         borderRadius: 10,
+        backgroundColor: '#EC5C39',
         alignItems: 'center',
         justifyContent: 'center',
         marginTop: 14,
@@ -505,12 +507,14 @@ const legacyStyles = {
 
 // Sub-components
 function SocialButton({ icon, text, onPress }: { icon: React.ReactNode, text: string, onPress?: () => void }) {
+    const appTheme = useAppTheme();
     const styles = useSignupStyles();
+    const isLightMode = !appTheme.isDark;
 
     return (
-        <TouchableOpacity style={styles.socialButton} onPress={onPress}>
+        <TouchableOpacity style={[styles.socialButton, isLightMode && { borderColor: '#D8B9AD', backgroundColor: '#FFF9F6' }]} onPress={onPress}>
             {icon}
-            <Text style={styles.socialButtonText}>{text}</Text>
+            <Text style={[styles.socialButtonText, isLightMode && { color: '#2F2624' }]}>{text}</Text>
         </TouchableOpacity>
     );
 }

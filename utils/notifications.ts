@@ -7,7 +7,7 @@ import { Platform } from 'react-native';
 export async function initNotifications() {
   // Set notification handler to define how to handle notifications
   Notifications.setNotificationHandler({
-    handleNotification: async (notification) => {
+    handleNotification: async (_notification) => {
       return {
         shouldShowAlert: true,
         shouldPlaySound: true,
@@ -16,14 +16,13 @@ export async function initNotifications() {
     },
   });
 
-  // Request permissions (iOS) or verify permissions (Android auto-granted)
+  // Request permissions (iOS) or verify permissions (Android runtime permission)
   if (Platform.OS === 'ios') {
     const { status } = await Notifications.requestPermissionsAsync();
     if (status !== 'granted') {
       console.log('iOS notification permission denied');
     }
   } else if (Platform.OS === 'android') {
-    // Android 13+ requires runtime permission
     try {
       const { status } = await Notifications.requestPermissionsAsync();
       if (status !== 'granted') {

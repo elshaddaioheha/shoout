@@ -1,5 +1,7 @@
 import { usePlaybackStore } from '@/store/usePlaybackStore';
+import { useToastStore } from '@/store/useToastStore';
 import { useAppTheme } from '@/hooks/use-app-theme';
+import { useReducedMotion } from '@/hooks/use-reduced-motion';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { BlurView } from 'expo-blur';
 import { Music, Pause, Play, SkipBack, SkipForward, X } from 'lucide-react-native';
@@ -23,37 +25,113 @@ function useMiniPlayerStyles() {
 
 export default function MiniPlayer() {
     const appTheme = useAppTheme();
+    const reduceMotion = useReducedMotion();
     const styles = useMiniPlayerStyles();
+    const { showToast } = useToastStore();
 
     const {
         currentTrack,
         isPlaying,
         isBuffering,
         togglePlayPause,
-        skipForward,
-        skipBack,
+        playNextTrack,
+        playPreviousTrack,
         clearTrack,
         position,
         duration,
     } = usePlaybackStore();
     const [isFullPlayerVisible, setIsFullPlayerVisible] = React.useState(false);
+    const previousTapTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
     const insets = useSafeAreaInsets();
+
+    const handlePreviousPress = () => {
+        const windowMs = 260;
+
+        if (previousTapTimeoutRef.current) {
+            clearTimeout(previousTapTimeoutRef.current);
+            previousTapTimeoutRef.current = null;
+            playPreviousTrack({ goToPreviousTrack: true }).catch((error) => {
+                console.error('MiniPlayer double-tap previous failed:', error);
+                showToast('Could not play previous track.', 'error');
+            });
+            showToast('Playing previous track.', 'info');
+            return;
+        }
+
+        previousTapTimeoutRef.current = setTimeout(() => {
+            previousTapTimeoutRef.current = null;
+            playPreviousTrack().catch((error) => {
+                console.error('MiniPlayer restart track failed:', error);
+                showToast('Could not restart track.', 'error');
+            });
+            showToast('Track restarted.', 'info');
+        }, windowMs);
+    };
+
+    const handlePlayPausePress = async () => {
+        try {
+            await togglePlayPause();
+            showToast(isPlaying ? 'Playback paused.' : 'Playback resumed.', 'info');
+        } catch (error) {
+            console.error('MiniPlayer play/pause failed:', error);
+            showToast('Could not change playback state.', 'error');
+        }
+    };
+
+    const handleNextPress = async () => {
+        try {
+            await playNextTrack();
+            showToast('Playing next track.', 'info');
+        } catch (error) {
+            console.error('MiniPlayer next track failed:', error);
+            showToast('Could not play next track.', 'error');
+        }
+    };
+
+    const handleClearTrack = async () => {
+        try {
+            await clearTrack();
+            showToast('Player cleared.', 'info');
+        } catch (error) {
+            console.error('MiniPlayer clear track failed:', error);
+            showToast('Could not clear track.', 'error');
+        }
+    };
+
+    React.useEffect(() => {
+        return () => {
+            if (previousTapTimeoutRef.current) {
+                clearTimeout(previousTapTimeoutRef.current);
+                previousTapTimeoutRef.current = null;
+            }
+        };
+    }, []);
 
     if (!currentTrack) return null;
 
     const tabHeight = Platform.OS === 'ios' ? 90 : (60 + insets.bottom);
     const bottomPos = tabHeight + 8;
     const progress = duration > 0 ? Math.min(100, (position / duration) * 100) : 0;
+    const glassBackground = appTheme.isDark ? 'rgba(20, 15, 16, 0.46)' : 'rgba(255,255,255,0.72)';
+    const glassBorder = appTheme.colors.borderStrong;
+    const blurIntensity = reduceMotion ? 0 : 34;
 
     return (
         <>
             {/* Mini Player bar */}
             <Pressable
-                style={[styles.container, { bottom: bottomPos }]}
+                style={[
+                    styles.container,
+                    {
+                        bottom: bottomPos,
+                        backgroundColor: glassBackground,
+                        borderColor: glassBorder,
+                    },
+                ]}
                 onPress={() => setIsFullPlayerVisible(true)}
                 android_ripple={{ color: appTheme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(23,18,19,0.06)' }}
             >
-                <BlurView intensity={80} tint={appTheme.isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
+                <BlurView intensity={blurIntensity} tint={appTheme.isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
 
                 {/* Content layer above BlurView */}
                 <View style={styles.content}>
@@ -77,7 +155,7 @@ export default function MiniPlayer() {
                         <TouchableOpacity
                             style={styles.controlButton}
                             hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
-                            onPress={(e) => { e.stopPropagation(); skipBack(15); }}
+                            onPress={(e) => { e.stopPropagation(); handlePreviousPress(); }}
                         >
                             <SkipBack size={20} color={appTheme.colors.textPrimary} fill={appTheme.colors.textPrimary} />
                         </TouchableOpacity>
@@ -85,7 +163,7 @@ export default function MiniPlayer() {
                         <TouchableOpacity
                             style={styles.controlButton}
                             hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
-                            onPress={(e) => { e.stopPropagation(); togglePlayPause(); }}
+                            onPress={(e) => { e.stopPropagation(); handlePlayPausePress(); }}
                         >
                             {isBuffering ? (
                                 <View style={styles.bufferingDot} />
@@ -99,7 +177,7 @@ export default function MiniPlayer() {
                         <TouchableOpacity
                             style={styles.controlButton}
                             hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
-                            onPress={(e) => { e.stopPropagation(); skipForward(15); }}
+                            onPress={(e) => { e.stopPropagation(); handleNextPress(); }}
                         >
                             <SkipForward size={20} color={appTheme.colors.textPrimary} fill={appTheme.colors.textPrimary} />
                         </TouchableOpacity>
@@ -107,7 +185,7 @@ export default function MiniPlayer() {
                         <TouchableOpacity
                             style={styles.controlButton}
                             hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
-                            onPress={(e) => { e.stopPropagation(); clearTrack(); }}
+                            onPress={(e) => { e.stopPropagation(); handleClearTrack(); }}
                         >
                             <X size={18} color={appTheme.colors.textDisabled} />
                         </TouchableOpacity>

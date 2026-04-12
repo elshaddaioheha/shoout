@@ -197,7 +197,7 @@ export default function ChatConversationScreen() {
             });
 
             // Trigger a live Notification for the recipient
-            await addDoc(collection(db, 'notifications'), {
+            await addDoc(collection(db, `users/${otherUserId}/notifications`), {
                 userId: otherUserId,
                 type: 'message',
                 title: 'New Message',

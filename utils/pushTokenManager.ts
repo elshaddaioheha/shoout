@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getExpoPushToken } from '@/app/notifications';
+import { getExpoPushToken } from '@/utils/notifications';
 
 const PUSH_TOKEN_STORAGE_KEY = 'shoouts-expo-push-token';
 

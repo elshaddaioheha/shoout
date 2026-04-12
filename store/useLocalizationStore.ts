@@ -4,7 +4,7 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 import { DEFAULT_LOCALE, Locale, flattenTranslations } from '@/utils/i18n/types';
 
 // Import translations
-import * as enJson from './en.json';
+import * as enJson from '@/utils/i18n/en.json';
 
 type Translations = Record<string, string>;
 

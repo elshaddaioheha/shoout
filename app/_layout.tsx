@@ -16,7 +16,7 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { useUserStore } from '@/store/useUserStore';
 import { getDefaultAppModeForPlan } from '@/utils/subscriptions';
 import { initMonitoring } from './monitoring';
-import { initNotifications, subscribeToNotifications, getLastNotification } from './notifications';
+import { initNotifications, subscribeToNotifications, getLastNotification } from '@/utils/notifications';
 import { useAccessibilityStore } from '@/store/useAccessibilityStore';
 
 SplashScreen.preventAutoHideAsync();

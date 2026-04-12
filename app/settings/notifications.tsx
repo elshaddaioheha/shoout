@@ -35,7 +35,7 @@ export default function NotificationsScreen() {
             const titles = ['New Chat Message', 'Wizkid dropped a new beat', 'Flash Sale on Market', 'Tier Upgraded', 'System Maintenance'];
             const randIdx = Math.floor(Math.random() * types.length);
 
-            await addDoc(collection(db, 'notifications'), {
+            await addDoc(collection(db, `users/${auth.currentUser.uid}/notifications`), {
                 userId: auth.currentUser.uid,
                 type: types[randIdx],
                 title: titles[randIdx],

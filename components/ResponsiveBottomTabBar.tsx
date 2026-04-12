@@ -7,6 +7,7 @@ import { BlurView } from 'expo-blur';
 import { usePathname, useRouter } from 'expo-router';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { useCartStore } from '@/store/useCartStore';
+import { useLayoutMetricsStore } from '@/store/useLayoutMetricsStore';
 import { useUserStore } from '@/store/useUserStore';
 import { getModeSurfaceTheme } from '@/utils/appModeTheme';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
@@ -34,6 +35,7 @@ export default function ResponsiveBottomTabBar(props: BottomTabBarProps) {
     const { width } = useWindowDimensions();
     const activeAppMode = useUserStore((s) => s.activeAppMode);
     const role = useUserStore((s) => s.role);
+    const setBottomTabBarHeight = useLayoutMetricsStore((s) => s.setBottomTabBarHeight);
     const cartCount = useCartStore((s) => s.items.length);
     const bottomPadding = insets.bottom > 0 ? insets.bottom : 10;
     const isVaultMode = activeAppMode === 'vault' || activeAppMode === 'vault_pro';
@@ -89,7 +91,12 @@ export default function ResponsiveBottomTabBar(props: BottomTabBarProps) {
     };
 
     return (
-        <View style={[styles.container, { paddingBottom: bottomPadding }]}>
+        <View
+            style={[styles.container, { paddingBottom: bottomPadding }]}
+            onLayout={(event) => {
+                setBottomTabBarHeight(event.nativeEvent.layout.height);
+            }}
+        >
             <View
                 style={[
                     styles.tabBar,

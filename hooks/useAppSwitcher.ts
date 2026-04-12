@@ -82,6 +82,12 @@ export function useAppSwitcher() {
 
             setActiveAppMode(targetViewMode);
 
+            // Ensure we navigate to the home tab to trigger proper page rendering
+            // This is critical for transitioning between modes
+            if (targetViewMode !== activeAppMode) {
+                router.push('/(tabs)' as any);
+            }
+
             await new Promise<void>((resolve) => {
                 Animated.parallel([
                     Animated.timing(overlayAnim, { toValue: 0, duration: 240, useNativeDriver: true }),

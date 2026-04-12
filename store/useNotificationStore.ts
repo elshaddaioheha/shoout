@@ -66,7 +66,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
         set({ loading: true });
 
         const q = query(
-            collection(db, 'notifications'),
+            collection(db, `users/${uid}/notifications`),
             where('userId', '==', uid),
             orderBy('createdAt', 'desc'),
             limit(50)
@@ -98,7 +98,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
 
     markAsRead: async (id: string) => {
         try {
-            await updateDoc(doc(db, 'notifications', id), { read: true });
+            await updateDoc(doc(db, `users/${auth.currentUser?.uid}/notifications`, id), { read: true });
         } catch (e) {
             console.error('[NotificationStore] markAsRead error:', e);
         }
@@ -109,7 +109,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
         if (!unread.length) return;
         const batch = writeBatch(db);
         unread.forEach(n => {
-            batch.update(doc(db, 'notifications', n.id), { read: true });
+            batch.update(doc(db, `users/${auth.currentUser?.uid}/notifications`, n.id), { read: true });
         });
         await batch.commit();
     },

@@ -3,6 +3,7 @@ import { useCartStore } from '@/store/useCartStore';
 import { useToastStore } from '@/store/useToastStore';
 import { auth, db } from '@/firebaseConfig';
 import { useAppTheme } from '@/hooks/use-app-theme';
+import { useReducedMotion } from '@/hooks/use-reduced-motion';
 import { adaptLegacyColor, adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { Image } from 'expo-image';
 import { BlurView } from 'expo-blur';
@@ -16,6 +17,7 @@ import {
     Pause,
     Play,
     Repeat,
+    Repeat1,
     Share2,
     Shuffle,
     SkipBack,
@@ -30,11 +32,14 @@ import {
     LayoutChangeEvent,
     Modal,
     PanResponder,
+    Pressable,
+    ScrollView,
     Share,
     StatusBar,
     StyleSheet,
     Text,
     TouchableOpacity,
+    useWindowDimensions,
     View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -53,9 +58,27 @@ function useFullPlayerStyles() {
 
 export default function FullPlayer({ visible, onClose }: FullPlayerProps) {
     const appTheme = useAppTheme();
+    const reduceMotion = useReducedMotion();
     const styles = useFullPlayerStyles();
+    const { width: screenWidth, height: screenHeight } = useWindowDimensions();
     const mutedControlColor = adaptLegacyColor('rgba(255,255,255,0.45)', 'color', appTheme);
     const darkIconOnLight = adaptLegacyColor('#140F10', 'color', appTheme);
+    const isLightMode = !appTheme.isDark;
+    const textPrimaryStrong = isLightMode ? '#2F2624' : appTheme.colors.textPrimary;
+    const textSecondaryStrong = isLightMode ? '#6F5A53' : appTheme.colors.textSecondary;
+    const textMutedStrong = isLightMode ? '#907B74' : appTheme.colors.textDisabled;
+    const optionBackdropBlur = reduceMotion ? 0 : 18;
+    const shortestSide = Math.min(screenWidth, screenHeight);
+    const isTabletLayout = shortestSide >= 700;
+    const isFoldLike = screenWidth >= 520 && shortestSide < 700;
+    const isCompactHeight = screenHeight < 760;
+    const horizontalPadding = isTabletLayout ? 54 : isFoldLike ? 42 : screenWidth < 360 ? 22 : 36;
+    const artworkSizeByWidth = Math.min(
+        screenWidth * (isTabletLayout ? 0.54 : isFoldLike ? 0.62 : 0.78),
+        isTabletLayout ? 440 : 360
+    );
+    const artworkSizeByHeight = Math.max(isCompactHeight ? 188 : 220, screenHeight * (isTabletLayout ? 0.36 : 0.33));
+    const artworkSize = Math.min(artworkSizeByWidth, artworkSizeByHeight);
 
     const router = useRouter();
     const { addItem } = useCartStore();
@@ -70,17 +93,20 @@ export default function FullPlayer({ visible, onClose }: FullPlayerProps) {
         seekTo,
         position,
         duration,
-        repeatActive,
-        setRepeat,
+        repeatMode,
+        cycleRepeatMode,
+        shuffleActive,
+        setShuffleMode,
         queue,
         currentTrackIndex,
     } = usePlaybackStore();
     const insets = useSafeAreaInsets();
 
-    const [shuffleActive, setShuffleActive] = useState(false);
     const [liked, setLiked] = useState(false);
     const [alreadyPurchased, setAlreadyPurchased] = useState(false);
     const [showTotalOnRight, setShowTotalOnRight] = useState(false);
+    const [showOptionsMenu, setShowOptionsMenu] = useState(false);
+    const [menuMounted, setMenuMounted] = useState(false);
 
     // Slider state
     const sliderWidth = useRef(0);
@@ -91,6 +117,8 @@ export default function FullPlayer({ visible, onClose }: FullPlayerProps) {
     const progressAnim = useRef(new Animated.Value(0)).current;
     const heartAnim = useRef(new Animated.Value(0)).current;
     const playPauseAnim = useRef(new Animated.Value(0)).current;
+    const menuAnim = useRef(new Animated.Value(0)).current;
+    const previousTapTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const displayProgress = dragProgress !== null ? dragProgress : (duration > 0 ? position / duration : 0);
     const clampedProgress = Math.min(1, Math.max(0, displayProgress));
@@ -216,11 +244,16 @@ export default function FullPlayer({ visible, onClose }: FullPlayerProps) {
     const handleShare = async () => {
         if (!currentTrack) return;
         try {
-            await Share.share({
+            const result = await Share.share({
                 message: `🎵 Listening to "${currentTrack.title}" by ${currentTrack.artist} on Shoouts!`,
                 title: currentTrack.title,
             });
-        } catch (_) { }
+            if ((result as any)?.action) {
+                showToast('Share options opened.', 'info');
+            }
+        } catch (_error) {
+            showToast('Could not open share options.', 'error');
+        }
     };
 
     const addCurrentTrackToPlaylist = async () => {
@@ -306,25 +339,104 @@ export default function FullPlayer({ visible, onClose }: FullPlayerProps) {
         showToast('Track added to cart.', 'success');
     };
 
+    const openTrackDetails = () => {
+        if (!currentTrack) return;
+        router.push({ pathname: '/vault/track/[id]', params: { id: currentTrack.id } } as any);
+    };
+
+    const goToArtist = () => {
+        if (!currentTrack?.uploaderId) {
+            showToast('Artist profile is unavailable for this track.', 'info');
+            return;
+        }
+        router.push({ pathname: '/profile/[id]', params: { id: currentTrack.uploaderId } } as any);
+    };
+
+    const reportTrack = () => {
+        if (!currentTrack) return;
+        router.push({ pathname: '/settings/privacy', params: { highlight: 'report-track', trackId: currentTrack.id } } as any);
+    };
+
+    const runMenuAction = (action: () => void | Promise<void>) => {
+        setShowOptionsMenu(false);
+        Promise.resolve(action()).catch((error) => {
+            console.error('Menu action failed:', error);
+            showToast('Action could not be completed.', 'error');
+        });
+    };
+
     const handleMoreOptions = () => {
         if (!currentTrack) return;
-        Alert.alert(currentTrack.title, 'Track Options', [
-            { text: liked ? 'Remove from Favourites' : 'Add to Favourites', onPress: () => { toggleFavourite(); } },
-            { text: 'Add to Playlist', onPress: () => { addCurrentTrackToPlaylist(); } },
-            { text: 'Add to Cart', onPress: quickAddToCart },
-            {
-                text: 'Go to Artist',
-                onPress: () => {
-                    if (!currentTrack.uploaderId) {
-                        showToast('Artist profile is unavailable for this track.', 'info');
-                        return;
-                    }
-                    router.push({ pathname: '/profile/[id]', params: { id: currentTrack.uploaderId } } as any);
-                }
-            },
-            { text: 'Share', onPress: handleShare },
-            { text: 'Cancel', style: 'cancel' },
-        ]);
+        setShowOptionsMenu(true);
+    };
+
+    const handlePreviousPress = () => {
+        const windowMs = 260;
+
+        if (previousTapTimeoutRef.current) {
+            clearTimeout(previousTapTimeoutRef.current);
+            previousTapTimeoutRef.current = null;
+            playPreviousTrack({ goToPreviousTrack: true }).catch((error) => {
+                console.error('Double-tap previous failed:', error);
+                showToast('Could not play previous track.', 'error');
+            });
+            showToast('Playing previous track.', 'info');
+            return;
+        }
+
+        previousTapTimeoutRef.current = setTimeout(() => {
+            previousTapTimeoutRef.current = null;
+            playPreviousTrack().catch((error) => {
+                console.error('Restart track failed:', error);
+                showToast('Could not restart track.', 'error');
+            });
+            showToast('Track restarted.', 'info');
+        }, windowMs);
+    };
+
+    const handlePlayPausePress = async () => {
+        try {
+            await togglePlayPause();
+            showToast(isPlaying ? 'Playback paused.' : 'Playback resumed.', 'info');
+        } catch (error) {
+            console.error('Play/pause failed:', error);
+            showToast('Could not change playback state.', 'error');
+        }
+    };
+
+    const handleNextPress = async () => {
+        try {
+            await playNextTrack();
+            showToast('Playing next track.', 'info');
+        } catch (error) {
+            console.error('Next track failed:', error);
+            showToast('Could not play next track.', 'error');
+        }
+    };
+
+    const handleShuffleToggle = async () => {
+        try {
+            await setShuffleMode(!shuffleActive);
+            showToast(!shuffleActive ? 'Shuffle enabled.' : 'Shuffle disabled.', 'info');
+        } catch (error) {
+            console.error('Shuffle toggle failed:', error);
+            showToast('Could not update shuffle mode.', 'error');
+        }
+    };
+
+    const handleRepeatCycle = () => {
+        try {
+            const nextMode = cycleRepeatMode();
+            const message = nextMode === 'off'
+                ? 'Repeat off.'
+                : nextMode === 'all'
+                    ? 'Repeat all enabled.'
+                    : 'Repeat one enabled.';
+            showToast(message, 'info');
+        } catch (error) {
+            console.error('Repeat toggle failed:', error);
+            showToast('Could not update repeat mode.', 'error');
+        }
     };
 
     useEffect(() => {
@@ -351,7 +463,75 @@ export default function FullPlayer({ visible, onClose }: FullPlayerProps) {
         };
     }, [currentTrack?.id]);
 
-    if (!currentTrack) return null;
+    useEffect(() => {
+        if (visible && !currentTrack) {
+            onClose();
+        }
+    }, [visible, currentTrack, onClose]);
+
+    useEffect(() => {
+        if (!visible) {
+            setShowOptionsMenu(false);
+        }
+    }, [visible]);
+
+    useEffect(() => {
+        if (showOptionsMenu) {
+            setMenuMounted(true);
+            Animated.timing(menuAnim, {
+                toValue: 1,
+                duration: reduceMotion ? 80 : 220,
+                useNativeDriver: true,
+            }).start();
+            return;
+        }
+
+        Animated.timing(menuAnim, {
+            toValue: 0,
+            duration: reduceMotion ? 80 : 180,
+            useNativeDriver: true,
+        }).start(({ finished }) => {
+            if (finished) {
+                setMenuMounted(false);
+            }
+        });
+    }, [menuAnim, reduceMotion, showOptionsMenu]);
+
+    useEffect(() => {
+        return () => {
+            if (previousTapTimeoutRef.current) {
+                clearTimeout(previousTapTimeoutRef.current);
+                previousTapTimeoutRef.current = null;
+            }
+        };
+    }, []);
+
+    if (!currentTrack) {
+        return (
+            <Modal
+                visible={visible}
+                animationType="slide"
+                transparent={false}
+                onRequestClose={onClose}
+                statusBarTranslucent
+            >
+                <View style={styles.container}>
+                    <StatusBar barStyle={appTheme.isDark ? 'light-content' : 'dark-content'} translucent backgroundColor="transparent" />
+                    <LinearGradient
+                        colors={[appTheme.colors.backgroundElevated, appTheme.colors.background, appTheme.colors.backgroundElevated]}
+                        style={StyleSheet.absoluteFill}
+                    />
+                    <View style={styles.emptyStateContainer}>
+                        <Text style={styles.emptyStateTitle}>No track selected</Text>
+                        <Text style={styles.emptyStateSubtitle}>Pick a track to continue playback.</Text>
+                        <TouchableOpacity style={styles.emptyStateButton} onPress={onClose} activeOpacity={0.85}>
+                            <Text style={styles.emptyStateButtonLabel}>Close Player</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
+        );
+    }
 
     const toggleFavourite = async () => {
         const uid = auth.currentUser?.uid;
@@ -411,8 +591,8 @@ export default function FullPlayer({ visible, onClose }: FullPlayerProps) {
     const playScale = playPauseAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 0.96] });
     const animatedFillWidth = Animated.multiply(progressAnim, sliderTrackWidth || 1);
     const animatedKnobX = Animated.multiply(progressAnim, sliderTrackWidth || 1);
-    const albumMeta = ((currentTrack as any)?.albumName as string | undefined) || 'Single';
-    const releaseYear = ((currentTrack as any)?.releaseYear as string | number | undefined) || '2025';
+    const albumMeta = ((currentTrack as any)?.albumName as string | undefined) || 'Single' || 'Unknown Album';
+    const releaseYear = ((currentTrack as any)?.releaseYear as string | number | undefined) || '2025' || 'Unknown Year';
 
     return (
         <Modal
@@ -431,208 +611,277 @@ export default function FullPlayer({ visible, onClose }: FullPlayerProps) {
                     style={StyleSheet.absoluteFill}
                 />
 
-                {/* Header */}
-                <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
-                    <TouchableOpacity
-                        onPress={onClose}
-                        style={styles.headerButton}
-                        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                    >
-                        <ChevronDown size={30} color={appTheme.colors.textPrimary} />
-                    </TouchableOpacity>
-                    <View style={styles.headerTitleContainer}>
-                        <Text style={styles.headerLabel}>NOW PLAYING</Text>
-                        <Text style={styles.headerTrackName} numberOfLines={1}>{currentTrack.title}</Text>
+                <ScrollView
+                    contentContainerStyle={[
+                        styles.scrollContent,
+                        {
+                            paddingBottom: Math.max(insets.bottom + 10, 16),
+                        },
+                    ]}
+                    showsVerticalScrollIndicator={false}
+                    bounces={false}
+                >
+                    {/* Header */}
+                    <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
                         <TouchableOpacity
-                            style={styles.queueChip}
-                            onPress={() => Alert.alert('Up Next', nextTrack ? `${nextTrack.title} • ${nextTrack.artist}` : 'No track queued next yet.')}
-                            activeOpacity={0.82}
-                        >
-                            <Text style={[styles.queueChipText, { color: accents.textSoft }]}>Up Next</Text>
-                        </TouchableOpacity>
-                    </View>
-                    <TouchableOpacity
-                        style={styles.headerButton}
-                        onPress={handleMoreOptions}
-                        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                    >
-                        <MoreHorizontal size={26} color={appTheme.colors.textPrimary} />
-                    </TouchableOpacity>
-                </View>
-
-                {/* Artwork */}
-                <View style={styles.artworkContainer}>
-                    <View style={styles.artworkShadow} />
-                    <View style={styles.artworkCard}>
-                        <LinearGradient
-                            colors={[accents.warmA, accents.warmB]}
-                            style={StyleSheet.absoluteFill}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 1 }}
-                        />
-                        {currentTrack.artworkUrl ? (
-                            <Image source={{ uri: currentTrack.artworkUrl }} style={styles.artworkImage} contentFit="cover" />
-                        ) : null}
-                        {isBuffering && (
-                            <View style={styles.bufferingOverlay}>
-                                <ActivityIndicator size="large" color={appTheme.colors.textPrimary} />
-                                <Text style={styles.bufferingText}>Loading...</Text>
-                            </View>
-                        )}
-                    </View>
-                </View>
-
-                {/* Track Info & Like */}
-                <View style={styles.trackInfoContainer}>
-                    <View style={styles.trackInfoLeft}>
-                        <Text numberOfLines={1} style={styles.trackTitle}>{currentTrack.title}</Text>
-                        <Text numberOfLines={1} style={styles.trackArtist}>{currentTrack.artist}</Text>
-                        <Text numberOfLines={1} style={[styles.trackMeta, { color: accents.textSoft }]}>{`${albumMeta} • ${releaseYear}`}</Text>
-                    </View>
-                    <Animated.View style={{ transform: [{ scale: heartScale }] }}>
-                        <TouchableOpacity
-                            onPress={toggleFavourite}
+                            onPress={onClose}
+                            style={styles.headerButton}
                             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                            style={styles.likeButton}
                         >
-                            <Heart
-                                size={30}
-                                color={liked ? accents.warmA : appTheme.colors.textPrimary}
-                                fill={liked ? accents.warmB : 'none'}
-                            />
+                            <ChevronDown size={30} color={appTheme.colors.textPrimary} />
                         </TouchableOpacity>
-                    </Animated.View>
-                </View>
+                        <View style={styles.headerTitleContainer}>
+                            <Text style={[styles.headerLabel, { color: textMutedStrong }]}>NOW PLAYING</Text>
+                            <Text style={[styles.headerTrackName, { color: textPrimaryStrong }]} numberOfLines={1}>{currentTrack.title}</Text>
+                            <TouchableOpacity
+                                style={styles.queueChip}
+                                onPress={() => Alert.alert('Up Next', nextTrack ? `${nextTrack.title} • ${nextTrack.artist}` : 'No track queued next yet.')}
+                                activeOpacity={0.82}
+                            >
+                                <Text style={[styles.queueChipText, { color: isLightMode ? textMutedStrong : accents.textSoft }]}>Up Next</Text>
+                            </TouchableOpacity>
+                        </View>
+                        <TouchableOpacity
+                            style={styles.headerButton}
+                            onPress={handleMoreOptions}
+                            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                        >
+                            <MoreHorizontal size={26} color={appTheme.colors.textPrimary} />
+                        </TouchableOpacity>
+                    </View>
 
-                {/* Seekable Progress Slider */}
-                <View style={styles.sliderContainer}>
-                    <View
-                        ref={sliderRef}
-                        style={styles.sliderTouchArea}
-                        onLayout={handleSliderLayout}
-                        onStartShouldSetResponder={() => true}
-                        {...panResponder.panHandlers}
-                        onResponderGrant={measureSlider}
-                    >
-                        <View style={styles.sliderTrack}>
-                            {/* Filled portion */}
-                            <Animated.View style={[styles.sliderFill, { width: animatedFillWidth }]}> 
-                                <LinearGradient
-                                    colors={[accents.warmA, accents.warmB]}
-                                    start={{ x: 0, y: 0.5 }}
-                                    end={{ x: 1, y: 0.5 }}
-                                    style={StyleSheet.absoluteFill}
-                                />
-                            </Animated.View>
-                            {/* Draggable knob */}
-                            <Animated.View
-                                style={[
-                                    styles.sliderKnob,
-                                    {
-                                        left: animatedKnobX,
-                                        transform: [{ translateX: -10 }, { scale: knobScale }],
-                                        borderColor: accents.warmA,
-                                        shadowColor: accents.warmA,
-                                        opacity: knobGlow,
-                                    },
-                                ]}
+                    {/* Artwork */}
+                    <View style={[styles.artworkContainer, isCompactHeight && { marginVertical: 14 }]}>
+                        <View style={[styles.artworkShadow, { width: artworkSize * 0.98, height: artworkSize * 0.98 }]} />
+                        <View style={[styles.artworkCard, { width: artworkSize, height: artworkSize }]}>
+                            <LinearGradient
+                                colors={[accents.warmA, accents.warmB]}
+                                style={StyleSheet.absoluteFill}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 1 }}
                             />
+                            {currentTrack.artworkUrl ? (
+                                <Image source={{ uri: currentTrack.artworkUrl }} style={styles.artworkImage} contentFit="cover" />
+                            ) : null}
+                            {isBuffering && (
+                                <View style={styles.bufferingOverlay}>
+                                    <ActivityIndicator size="large" color={appTheme.colors.textPrimary} />
+                                    <Text style={styles.bufferingText}>Loading...</Text>
+                                </View>
+                            )}
                         </View>
                     </View>
 
-                    {/* Time Labels */}
-                    <View style={styles.timeRow}>
-                        <Text style={styles.timeTextStrong}>{formatTime(elapsed)}</Text>
-                        <TouchableOpacity onPress={() => setShowTotalOnRight((v) => !v)}>
-                            <Text style={styles.timeTextStrong}>{showTotalOnRight ? formatTime(duration) : `-${formatTime(remaining)}`}</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-
-                {/* Controls */}
-                <View style={styles.controlsContainer}>
-                    <TouchableOpacity
-                        onPress={() => setShuffleActive(v => !v)}
-                        hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
-                        style={[styles.modeButton, shuffleActive && { borderColor: accents.greenA, backgroundColor: 'rgba(111,165,111,0.15)' }]}
-                    >
-                        <Shuffle
-                            size={22}
-                            color={shuffleActive ? accents.greenA : mutedControlColor}
-                            strokeWidth={shuffleActive ? 2.5 : 1.8}
-                        />
-                    </TouchableOpacity>
-
-                    <View style={styles.playbackRow}>
-                        <TouchableOpacity
-                            onPress={playPreviousTrack}
-                            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                            style={styles.skipButton}
-                        >
-                            <SkipBack size={30} color={appTheme.colors.textPrimary} />
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                            onPress={togglePlayPause}
-                            style={styles.playPauseButton}
-                            activeOpacity={0.75}
-                        >
-                            <Animated.View style={{ transform: [{ scale: playScale }] }}>
-                                {isBuffering ? (
-                                    <ActivityIndicator size="large" color={darkIconOnLight} />
-                                ) : isPlaying ? (
-                                    <Pause size={38} color={darkIconOnLight} fill={darkIconOnLight} />
-                                ) : (
-                                    <Play size={38} color={darkIconOnLight} fill={darkIconOnLight} style={{ marginLeft: 4 }} />
-                                )}
-                            </Animated.View>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                            onPress={playNextTrack}
-                            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                            style={styles.skipButton}
-                        >
-                            <SkipForward size={30} color={appTheme.colors.textPrimary} />
-                        </TouchableOpacity>
+                    {/* Track Info & Like */}
+                    <View style={[styles.trackInfoContainer, { paddingHorizontal: horizontalPadding, marginBottom: isCompactHeight ? 14 : 24 }]}>
+                        <View style={styles.trackInfoLeft}>
+                            <Text numberOfLines={1} style={[styles.trackTitle, { color: textPrimaryStrong }]}>{currentTrack.title}</Text>
+                            <Text numberOfLines={1} style={[styles.trackArtist, { color: textSecondaryStrong }]}>{currentTrack.artist}</Text>
+                            <Text numberOfLines={1} style={[styles.trackMeta, { color: isLightMode ? textMutedStrong : accents.textSoft }]}>{`${albumMeta} • ${releaseYear}`}</Text>
+                        </View>
+                        <Animated.View style={{ transform: [{ scale: heartScale }] }}>
+                            <TouchableOpacity
+                                onPress={toggleFavourite}
+                                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                                style={styles.likeButton}
+                            >
+                                <Heart
+                                    size={30}
+                                    color={liked ? accents.warmA : appTheme.colors.textPrimary}
+                                    fill={liked ? accents.warmB : 'none'}
+                                />
+                            </TouchableOpacity>
+                        </Animated.View>
                     </View>
 
-                    <TouchableOpacity
-                        onPress={() => setRepeat(!repeatActive)}
-                        hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
-                        style={[styles.modeButton, repeatActive && { borderColor: accents.greenA, backgroundColor: 'rgba(111,165,111,0.15)' }]}
-                    >
-                        <Repeat
-                            size={22}
-                            color={repeatActive ? accents.greenA : mutedControlColor}
-                            strokeWidth={repeatActive ? 2.5 : 1.8}
-                        />
-                    </TouchableOpacity>
-                </View>
-
-                {/* Bottom Row */}
-                <View style={[styles.bottomRow, { paddingBottom: insets.bottom + 16 }]}>
-                    <BlurView intensity={38} tint={appTheme.isDark ? 'dark' : 'light'} style={styles.bottomGlass}>
-                        <TouchableOpacity
-                            style={styles.actionButton}
-                            onPress={handleShare}
-                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    {/* Seekable Progress Slider */}
+                    <View style={[styles.sliderContainer, { paddingHorizontal: horizontalPadding, marginBottom: isCompactHeight ? 16 : 28 }]}>
+                        <View
+                            ref={sliderRef}
+                            style={styles.sliderTouchArea}
+                            onLayout={handleSliderLayout}
+                            onStartShouldSetResponder={() => true}
+                            {...panResponder.panHandlers}
+                            onResponderGrant={measureSlider}
                         >
-                            <Share2 size={22} color={accents.textSoft} />
+                            <View style={[styles.sliderTrack, { backgroundColor: isLightMode ? 'rgba(47,38,36,0.12)' : 'rgba(255,255,255,0.12)' }]}>
+                                {/* Filled portion */}
+                                <Animated.View style={[styles.sliderFill, { width: animatedFillWidth }]}> 
+                                    <LinearGradient
+                                        colors={[accents.warmA, accents.warmB]}
+                                        start={{ x: 0, y: 0.5 }}
+                                        end={{ x: 1, y: 0.5 }}
+                                        style={StyleSheet.absoluteFill}
+                                    />
+                                </Animated.View>
+                                {/* Draggable knob */}
+                                <Animated.View
+                                    style={[
+                                        styles.sliderKnob,
+                                        {
+                                            left: animatedKnobX,
+                                            transform: [{ translateX: -10 }, { scale: knobScale }],
+                                            borderColor: accents.warmA,
+                                            shadowColor: accents.warmA,
+                                            opacity: knobGlow,
+                                        },
+                                    ]}
+                                />
+                            </View>
+                        </View>
+
+                        {/* Time Labels */}
+                        <View style={styles.timeRow}>
+                            <Text style={[styles.timeTextStrong, { color: textPrimaryStrong }]}>{formatTime(elapsed)}</Text>
+                            <TouchableOpacity onPress={() => setShowTotalOnRight((v) => !v)}>
+                                <Text style={[styles.timeTextStrong, { color: textPrimaryStrong }]}>{showTotalOnRight ? formatTime(duration) : `-${formatTime(remaining)}`}</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+
+                    {/* Controls */}
+                    <View style={[styles.controlsContainer, { paddingHorizontal: horizontalPadding, marginBottom: isCompactHeight ? 20 : 36 }]}>
+                        <TouchableOpacity
+                            onPress={handleShuffleToggle}
+                            hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
+                            style={[styles.modeButton, shuffleActive && { borderColor: accents.greenA, backgroundColor: 'rgba(111,165,111,0.15)' }]}
+                        >
+                            <Shuffle
+                                size={22}
+                                color={shuffleActive ? accents.greenA : mutedControlColor}
+                                strokeWidth={shuffleActive ? 2.5 : 1.8}
+                            />
                         </TouchableOpacity>
+
+                        <View style={styles.playbackRow}>
+                            <TouchableOpacity
+                                onPress={handlePreviousPress}
+                                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                                style={styles.skipButton}
+                            >
+                                <SkipBack size={30} color={appTheme.colors.textPrimary} />
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                onPress={handlePlayPausePress}
+                                style={styles.playPauseButton}
+                                activeOpacity={0.75}
+                            >
+                                <Animated.View style={{ transform: [{ scale: playScale }] }}>
+                                    {isBuffering ? (
+                                        <ActivityIndicator size="large" color={darkIconOnLight} />
+                                    ) : isPlaying ? (
+                                        <Pause size={38} color={darkIconOnLight} fill={darkIconOnLight} />
+                                    ) : (
+                                        <Play size={38} color={darkIconOnLight} fill={darkIconOnLight} style={{ marginLeft: 4 }} />
+                                    )}
+                                </Animated.View>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                onPress={handleNextPress}
+                                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                                style={styles.skipButton}
+                            >
+                                <SkipForward size={30} color={appTheme.colors.textPrimary} />
+                            </TouchableOpacity>
+                        </View>
+
+                        <TouchableOpacity
+                            onPress={handleRepeatCycle}
+                            hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
+                            style={[styles.modeButton, repeatMode !== 'off' && { borderColor: accents.greenA, backgroundColor: 'rgba(111,165,111,0.15)' }]}
+                        >
+                            {repeatMode === 'one' ? (
+                                <Repeat1
+                                    size={22}
+                                    color={accents.greenA}
+                                    strokeWidth={2.5}
+                                />
+                            ) : (
+                                <Repeat
+                                    size={22}
+                                    color={repeatMode === 'all' ? accents.greenA : mutedControlColor}
+                                    strokeWidth={repeatMode === 'all' ? 2.5 : 1.8}
+                                />
+                            )}
+                        </TouchableOpacity>
+                    </View>
+
+                    <View style={[styles.purchaseCtaWrap, { paddingHorizontal: horizontalPadding, paddingBottom: isCompactHeight ? 8 : insets.bottom + (isTabletLayout ? 26 : 16) }]}>
                         <TouchableOpacity
                             style={[
-                                styles.purchaseButton,
+                                styles.purchaseWideButton,
                                 { backgroundColor: accents.warmB, borderColor: accents.warmA },
                                 alreadyPurchased && styles.purchaseButtonDisabled,
                             ]}
                             onPress={handlePurchase}
                             disabled={alreadyPurchased}
                         >
-                            <Text style={styles.purchaseLabel}>{alreadyPurchased ? 'Purchased' : 'Purchase'}</Text>
+                            <Text style={styles.purchaseWideLabel}>{alreadyPurchased ? 'Purchased' : 'Purchase Track'}</Text>
                         </TouchableOpacity>
-                    </BlurView>
-                </View>
+                    </View>
+                </ScrollView>
+
+                {menuMounted ? (
+                    <View style={styles.menuOverlay}>
+                        <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowOptionsMenu(false)}>
+                            <Animated.View style={[StyleSheet.absoluteFill, { opacity: menuAnim }]}>
+                                <BlurView intensity={optionBackdropBlur} tint={appTheme.isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
+                                <View style={[styles.menuBackdrop, { backgroundColor: isLightMode ? 'rgba(255,246,239,0.44)' : 'rgba(17,12,12,0.46)' }]} />
+                            </Animated.View>
+                        </Pressable>
+
+                        <Animated.View
+                            style={[
+                                styles.menuCard,
+                                {
+                                    top: insets.top + 66,
+                                    right: 20,
+                                    backgroundColor: isLightMode ? 'rgba(255,245,235,0.96)' : 'rgba(38,26,22,0.94)',
+                                    borderColor: isLightMode ? 'rgba(236,92,57,0.26)' : 'rgba(241,197,82,0.26)',
+                                    opacity: menuAnim,
+                                    transform: [
+                                        {
+                                            translateY: menuAnim.interpolate({
+                                                inputRange: [0, 1],
+                                                outputRange: [-14, 0],
+                                            }),
+                                        },
+                                        {
+                                            scale: menuAnim.interpolate({
+                                                inputRange: [0, 1],
+                                                outputRange: [0.97, 1],
+                                            }),
+                                        },
+                                    ],
+                                },
+                            ]}
+                        >
+                            <TouchableOpacity style={styles.menuItem} onPress={() => runMenuAction(toggleFavourite)}>
+                                <Text style={[styles.menuItemText, { color: textPrimaryStrong }]}>{liked ? 'Remove from Favourites' : 'Add to Favourites'}</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.menuItem} onPress={() => runMenuAction(addCurrentTrackToPlaylist)}>
+                                <Text style={[styles.menuItemText, { color: textPrimaryStrong }]}>Add to Playlist</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.menuItem} onPress={() => runMenuAction(quickAddToCart)}>
+                                <Text style={[styles.menuItemText, { color: textPrimaryStrong }]}>Add to Cart</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.menuItem} onPress={() => runMenuAction(openTrackDetails)}>
+                                <Text style={[styles.menuItemText, { color: textPrimaryStrong }]}>View Track Details</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.menuItem} onPress={() => runMenuAction(goToArtist)}>
+                                <Text style={[styles.menuItemText, { color: textPrimaryStrong }]}>Go to Artist</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.menuItem} onPress={() => runMenuAction(handleShare)}>
+                                <Text style={[styles.menuItemText, { color: textPrimaryStrong }]}>Share</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={[styles.menuItem, styles.menuItemDanger]} onPress={() => runMenuAction(reportTrack)}>
+                                <Text style={[styles.menuItemText, styles.menuItemDangerText]}>Report</Text>
+                            </TouchableOpacity>
+                        </Animated.View>
+                    </View>
+                ) : null}
             </View>
         </Modal>
     );
@@ -642,6 +891,9 @@ const legacyStyles = {
     container: {
         flex: 1,
         backgroundColor: '#140F10',
+    },
+    scrollContent: {
+        flexGrow: 1,
     },
     header: {
         flexDirection: 'row',
@@ -874,6 +1126,93 @@ const legacyStyles = {
         backgroundColor: 'rgba(255,255,255,0.18)',
     },
     purchaseLabel: {
+        color: '#FFFFFF',
+        fontSize: 13,
+        fontFamily: 'Poppins-SemiBold',
+    },
+    purchaseCtaWrap: {
+        width: '100%',
+        alignItems: 'center',
+    },
+    purchaseWideButton: {
+        width: '100%',
+        minHeight: 54,
+        borderRadius: 18,
+        borderWidth: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.18,
+        shadowRadius: 16,
+        elevation: 8,
+    },
+    purchaseWideLabel: {
+        color: '#FFFFFF',
+        fontSize: 15,
+        fontFamily: 'Poppins-SemiBold',
+        letterSpacing: 0.3,
+    },
+    menuOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        zIndex: 44,
+    },
+    menuBackdrop: {
+        ...StyleSheet.absoluteFillObject,
+    },
+    menuCard: {
+        position: 'absolute',
+        width: 220,
+        borderRadius: 16,
+        overflow: 'hidden',
+        backgroundColor: 'rgba(18, 15, 16, 0.92)',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.14)',
+    },
+    menuItem: {
+        paddingHorizontal: 14,
+        paddingVertical: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(255,255,255,0.08)',
+    },
+    menuItemText: {
+        color: '#FFFFFF',
+        fontSize: 13,
+        fontFamily: 'Poppins-Medium',
+    },
+    menuItemDanger: {
+        borderBottomWidth: 0,
+    },
+    menuItemDangerText: {
+        color: '#FFB4A9',
+    },
+    emptyStateContainer: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: 24,
+    },
+    emptyStateTitle: {
+        color: '#FFFFFF',
+        fontSize: 24,
+        fontFamily: 'Poppins-SemiBold',
+    },
+    emptyStateSubtitle: {
+        marginTop: 8,
+        color: 'rgba(255,255,255,0.75)',
+        fontSize: 14,
+        fontFamily: 'Poppins-Regular',
+    },
+    emptyStateButton: {
+        marginTop: 20,
+        borderRadius: 12,
+        paddingHorizontal: 18,
+        paddingVertical: 10,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.25)',
+        backgroundColor: 'rgba(255,255,255,0.08)',
+    },
+    emptyStateButtonLabel: {
         color: '#FFFFFF',
         fontSize: 13,
         fontFamily: 'Poppins-SemiBold',

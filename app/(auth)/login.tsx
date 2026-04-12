@@ -39,6 +39,12 @@ export default function LoginScreen() {
     const appTheme = useAppTheme();
     const styles = useLoginStyles();
     const placeholderColor = appTheme.colors.textPlaceholder;
+    const isLightMode = !appTheme.isDark;
+    const lightBackground = '#FFF4EE';
+    const lightSurface = '#FFF9F6';
+    const lightText = '#2F2624';
+    const lightMutedText = '#6F5A53';
+    const lightBorder = '#D8B9AD';
 
     const router = useRouter();
     const { redirectTo } = useLocalSearchParams<{ redirectTo?: string }>();
@@ -53,11 +59,11 @@ export default function LoginScreen() {
     const passwordFocused = useSharedValue(0);
 
     const emailInputAnimatedStyle = useAnimatedStyle(() => ({
-        borderColor: emailFocused.value ? '#007AFF' : '#464646',
+        borderColor: emailFocused.value ? '#007AFF' : (isLightMode ? lightBorder : '#464646'),
     }));
 
     const passwordInputAnimatedStyle = useAnimatedStyle(() => ({
-        borderColor: passwordFocused.value ? '#007AFF' : '#464646',
+        borderColor: passwordFocused.value ? '#007AFF' : (isLightMode ? lightBorder : '#464646'),
     }));
 
     const getPostAuthRoute = () => {
@@ -195,7 +201,7 @@ export default function LoginScreen() {
     };
 
     return (
-        <View style={styles.container}>
+        <View style={[styles.container, isLightMode && { backgroundColor: lightBackground }]}>
             <StatusBar barStyle={appTheme.isDark ? 'light-content' : 'dark-content'} />
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -204,34 +210,34 @@ export default function LoginScreen() {
                 <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
                     <View style={styles.guestRow}>
                         <TouchableOpacity onPress={goGuestHome}>
-                            <Text style={styles.guestText}>Continue as Guest</Text>
+                            <Text style={[styles.guestText, isLightMode && { color: lightMutedText }]}>Continue as Guest</Text>
                         </TouchableOpacity>
                     </View>
 
                     <View style={styles.logoContainer}>
-                        <Text style={styles.logoText}>ShooutS</Text>
+                        <Text style={[styles.logoText, isLightMode && { color: lightText }]}>ShooutS</Text>
                     </View>
 
-                    <Text style={styles.title}>Welcome Back</Text>
-                    <Text style={styles.subtitle}>Log in to your account using email or social networks</Text>
+                    <Text style={[styles.title, isLightMode && { color: lightText }]}>Welcome Back</Text>
+                    <Text style={[styles.subtitle, isLightMode && { color: lightMutedText }]}>Log in to your account using email or social networks</Text>
 
                     <View style={styles.socialContainer}>
                         {Platform.OS === 'ios' ? (
-                            <SocialButton icon={<AppleIcon />} text="Login with Apple" onPress={handleAppleLogin} />
+                            <SocialButton icon={<AppleIcon color={isLightMode ? '#2F2624' : '#FFFFFF'} />} text="Login with Apple" onPress={handleAppleLogin} />
                         ) : null}
                         <SocialButton icon={<GoogleIcon />} text="Login with Google" onPress={handleGoogleLogin} />
                     </View>
 
                     <View style={styles.dividerContainer}>
-                        <View style={styles.dividerLine} />
-                        <Text style={styles.dividerText}>Or continue with social account</Text>
-                        <View style={styles.dividerLine} />
+                        <View style={[styles.dividerLine, isLightMode && { backgroundColor: lightBorder }]} />
+                        <Text style={[styles.dividerText, isLightMode && { color: lightMutedText }]}>Or continue with social account</Text>
+                        <View style={[styles.dividerLine, isLightMode && { backgroundColor: lightBorder }]} />
                     </View>
 
                     <View style={styles.form}>
-                        <Animated.View style={[styles.input, emailInputAnimatedStyle]}>
+                        <Animated.View style={[styles.input, isLightMode && { backgroundColor: lightSurface, borderColor: lightBorder }, emailInputAnimatedStyle]}>
                             <TextInput
-                                style={styles.inputText}
+                                style={[styles.inputText, isLightMode && { color: lightText }]}
                                 placeholder="Email Address"
                                 placeholderTextColor={placeholderColor}
                                 value={email}
@@ -249,10 +255,10 @@ export default function LoginScreen() {
                             />
                         </Animated.View>
 
-                        <Animated.View style={[styles.passwordContainer, passwordInputAnimatedStyle]}>
+                        <Animated.View style={[styles.passwordContainer, isLightMode && { backgroundColor: lightSurface, borderColor: lightBorder }, passwordInputAnimatedStyle]}>
                             <TextInput
                                 ref={passwordInputRef}
-                                style={[styles.inputText, { paddingRight: 50 }]}
+                                style={[styles.inputText, { paddingRight: 50 }, isLightMode && { color: lightText }]}
                                 placeholder="Password"
                                 placeholderTextColor={placeholderColor}
                                 value={password}
@@ -269,7 +275,7 @@ export default function LoginScreen() {
                                 onPress={() => setShowPassword(!showPassword)}
                                 style={styles.eyeIcon}
                             >
-                                {showPassword ? <Eye color={appTheme.colors.textPrimary} size={24} /> : <EyeOff color={appTheme.colors.textPrimary} size={24} />}
+                                {showPassword ? <Eye color={isLightMode ? lightMutedText : appTheme.colors.textPrimary} size={24} /> : <EyeOff color={isLightMode ? lightMutedText : appTheme.colors.textPrimary} size={24} />}
                             </TouchableOpacity>
                         </Animated.View>
                     </View>
@@ -281,7 +287,7 @@ export default function LoginScreen() {
 
                         <TouchableOpacity
                             onPress={handleLogin}
-                            style={styles.loginButton}
+                            style={[styles.loginButton, isLightMode && { backgroundColor: '#EC5C39', shadowColor: '#A54934' }]}
                             activeOpacity={0.8}
                             disabled={loading}
                         >
@@ -290,7 +296,7 @@ export default function LoginScreen() {
                     </View>
 
                     <View style={styles.footer}>
-                        <Text style={styles.footerText}>Didn't have an account? </Text>
+                        <Text style={[styles.footerText, isLightMode && { color: lightMutedText }]}>Didn't have an account? </Text>
                         <TouchableOpacity onPress={() => router.push('/(auth)/signup')}>
                             <Text style={styles.registerText}>Register</Text>
                         </TouchableOpacity>
@@ -302,20 +308,22 @@ export default function LoginScreen() {
 }
 
 function SocialButton({ icon, text, onPress }: { icon: React.ReactNode, text: string, onPress?: () => void }) {
+    const appTheme = useAppTheme();
     const styles = useLoginStyles();
+    const isLightMode = !appTheme.isDark;
 
     return (
-        <TouchableOpacity style={styles.socialButton} onPress={onPress}>
+        <TouchableOpacity style={[styles.socialButton, isLightMode && { borderColor: '#D8B9AD', backgroundColor: '#FFF9F6' }]} onPress={onPress}>
             {icon}
-            <Text style={styles.socialButtonText}>{text}</Text>
+            <Text style={[styles.socialButtonText, isLightMode && { color: '#2F2624' }]}>{text}</Text>
         </TouchableOpacity>
     );
 }
 
-function AppleIcon() {
+function AppleIcon({ color = '#FFFFFF' }: { color?: string }) {
     return (
         <Svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-            <Path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" fill="white" />
+            <Path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" fill={color} />
         </Svg>
     );
 }

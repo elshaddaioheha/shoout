@@ -4,6 +4,7 @@ import ModeTransitionOverlay from '@/components/ModeTransitionOverlay';
 import ResponsiveBottomTabBar from '@/components/ResponsiveBottomTabBar';
 import VaultMiniPlayer from '@/components/VaultMiniPlayer';
 import { useAppSwitcher } from '@/hooks/useAppSwitcher';
+import { useExplorePlayerStore } from '@/store/useExplorePlayerStore';
 import { Tabs } from 'expo-router';
 import React from 'react';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
@@ -60,6 +61,7 @@ export default function TabLayout() {
     isStudioPaid,
     studioAccessLevel,
   } = useAppSwitcher();
+  const isExploreImmersiveMode = useExplorePlayerStore((state) => state.isImmersiveMode);
 
   const contextValue: AppSwitcherContextValue = {
     openSheet,
@@ -73,6 +75,9 @@ export default function TabLayout() {
     welcomeOpacityAnim,
     contentFadeAnim,
   };
+
+  // Hide Explore tab when not in Shoout mode
+  const isExploreShouldBeHidden = viewMode !== 'shoout' && viewMode !== 'studio' && viewMode !== 'hybrid';
 
   return (
     <AppSwitcherContext.Provider value={contextValue}>
@@ -108,6 +113,7 @@ export default function TabLayout() {
             name="search"
             options={{
               title: 'Explore',
+              href: isExploreShouldBeHidden ? null : undefined,
             }}
           />
           <Tabs.Screen
@@ -138,7 +144,9 @@ export default function TabLayout() {
           <Tabs.Screen name="explore" options={{ href: null }} />
         </Tabs>
 
-        {(viewMode === 'vault' || viewMode === 'vault_pro') ? <VaultMiniPlayer /> : <MiniPlayer />}
+        {!isExploreImmersiveMode
+          ? ((viewMode === 'vault' || viewMode === 'vault_pro') ? <VaultMiniPlayer /> : <MiniPlayer />)
+          : null}
       </Animated.View>
 
       <ModeSelectorSheet

@@ -4,6 +4,7 @@ import { doc, increment, updateDoc } from 'firebase/firestore';
 import { create } from 'zustand';
 import { db } from '../firebaseConfig';
 import { useDownloadQueueStore } from './useDownloadQueueStore';
+import { FREE_MUSIC, POPULAR_BEATS, TRENDING_SONGS } from '@/constants/homeFeed';
 
 let isAudioModeConfigured = false;
 
@@ -53,6 +54,38 @@ export interface Track {
   uploaderId?: string;
 }
 
+const fallbackSourceTracks = [...TRENDING_SONGS, ...FREE_MUSIC, ...POPULAR_BEATS] as Array<any>;
+
+const fallbackTrackPool: Track[] = fallbackSourceTracks.map((track) => ({
+  id: track.id,
+  title: track.title,
+  artist: track.artist,
+  artworkUrl: track.artworkUrl,
+  url: track.audioUrl,
+  uploaderId: track.uploaderId,
+}));
+
+const TRACK_SWITCH_TRANSITION_MS = 180;
+
+let pendingTrackSwitchTimeout: ReturnType<typeof setTimeout> | null = null;
+let pendingTrackSwitchToken = 0;
+
+function clearPendingTrackSwitch() {
+  if (pendingTrackSwitchTimeout) {
+    clearTimeout(pendingTrackSwitchTimeout);
+    pendingTrackSwitchTimeout = null;
+  }
+}
+
+function getRandomFallbackTrack(excludeTrackId?: string): Track | null {
+  const candidates = fallbackTrackPool.filter((track) => track.id !== excludeTrackId);
+  const pool = candidates.length > 0 ? candidates : fallbackTrackPool;
+  if (!pool.length) return null;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+export type RepeatMode = 'off' | 'all' | 'one';
+
 interface PlaybackState {
   currentTrack: Track | null;
   isPlaying: boolean;
@@ -61,7 +94,7 @@ interface PlaybackState {
   duration: number;
   volume: number;
   sound: Audio.Sound | null;
-  repeatActive: boolean;
+  repeatMode: RepeatMode;
   
   // Playlist queue
   queue: Track[];
@@ -70,21 +103,22 @@ interface PlaybackState {
   shuffledQueue: Track[];
 
   // Actions
-  setTrack: (track: Track) => Promise<void>;
+  setTrack: (track: Track, options?: { preserveQueue?: boolean; transitionDelayMs?: number }) => Promise<void>;
   togglePlayPause: () => Promise<void>;
   seekTo: (position: number) => Promise<void>;
   skipForward: (seconds?: number) => Promise<void>;
   skipBack: (seconds?: number) => Promise<void>;
   setVolume: (volume: number) => Promise<void>;
   clearTrack: () => Promise<void>;
-  setRepeat: (value: boolean) => void;
+  setRepeatMode: (mode: RepeatMode) => void;
+  cycleRepeatMode: () => RepeatMode;
   
   // Playlist actions
   initializePlaylist: (tracks: Track[], startIndex?: number, shuffle?: boolean) => Promise<void>;
   playNextTrack: () => Promise<void>;
-  playPreviousTrack: () => Promise<void>;
+  playPreviousTrack: (options?: { goToPreviousTrack?: boolean }) => Promise<void>;
   setShuffleMode: (enabled: boolean) => Promise<void>;
-  playTrackAtIndex: (index: number) => Promise<void>;
+  playTrackAtIndex: (index: number, options?: { transitionDelayMs?: number }) => Promise<void>;
 }
 
 export const usePlaybackStore = create<PlaybackState>((set, get) => ({
@@ -95,34 +129,50 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => ({
   duration: 0,
   volume: 1.0,
   sound: null,
-  repeatActive: false,
+  repeatMode: 'off',
   queue: [],
   currentTrackIndex: -1,
   shuffleActive: false,
   shuffledQueue: [],
 
-  setTrack: async (track: Track) => {
-    const { sound: currentSound } = get();
+  setTrack: async (track: Track, options) => {
+    const previousState = get();
+    const sourceUri = track.url?.trim();
+    const transitionDelayMs = Math.max(0, options?.transitionDelayMs ?? 0);
+    const switchToken = ++pendingTrackSwitchToken;
 
-    // 1. Clean up existing sound
-    if (currentSound) {
-      try {
-        await currentSound.stopAsync();
-        await currentSound.unloadAsync();
-      } catch (_) { }
+    clearPendingTrackSwitch();
+
+    if (!sourceUri) {
+      console.warn('setTrack called with an empty audio URL:', track.id);
+      return;
     }
 
     try {
+      if (!options?.preserveQueue) {
+        const state = get();
+        const existingIndex = state.queue.findIndex((queuedTrack) => queuedTrack.id === track.id);
+
+        if (state.queue.length === 0) {
+          set({ queue: [track], currentTrackIndex: 0, shuffleActive: false, shuffledQueue: [] });
+        } else if (existingIndex >= 0) {
+          set({ currentTrackIndex: existingIndex });
+        } else {
+          const nextQueue = [...state.queue, track];
+          set({ queue: nextQueue, currentTrackIndex: nextQueue.length - 1, shuffleActive: false, shuffledQueue: [] });
+        }
+      }
+
       set({ isBuffering: true, currentTrack: track, position: 0, duration: 0, isPlaying: false, sound: null });
 
       // 2. Configure Audio Category
       await ensureAudioModeConfigured();
 
       // 3. Load new sound
-      const sourceUri = await resolveTrackUri(track);
+      const resolvedUri = await resolveTrackUri(track);
       const { sound } = await Audio.Sound.createAsync(
-        { uri: sourceUri },
-        { shouldPlay: true, volume: get().volume },
+        { uri: resolvedUri },
+        { shouldPlay: false, volume: get().volume },
         (status) => {
           if (!status.isLoaded) return;
 
@@ -135,27 +185,54 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => ({
           });
 
           if (status.didJustFinish) {
-            const { queue, repeatActive } = get();
-            
-            // If we have a playlist queue, play the next track
-            if (queue.length > 0) {
-              get().playNextTrack().catch(err => console.error('Auto-play next failed:', err));
-            } else {
-              // No playlist - handle repeat or stop
-              if (repeatActive) {
-                // Restart from beginning
-                const sound = get().sound;
-                if (sound) {
-                  sound.setPositionAsync(0).then(() => sound.playAsync());
-                }
-              } else {
-                // Stop and reset position
-                set({ isPlaying: false, position: 0 });
+            const { queue, repeatMode } = get();
+
+            if (repeatMode === 'one') {
+              const currentSound = get().sound;
+              if (currentSound) {
+                currentSound
+                  .setPositionAsync(0)
+                  .then(() => currentSound.playAsync())
+                  .catch((err) => console.error('Repeat-one restart failed:', err));
               }
+              return;
             }
+
+            // Auto-play behavior picks a random next track from the active playlist.
+            if (queue.length > 0) {
+              const { queue: q, shuffledQueue, shuffleActive, currentTrackIndex } = get();
+              const activeList = shuffleActive ? shuffledQueue : q;
+
+              if (activeList.length <= 1) {
+                if (repeatMode === 'all' && activeList.length === 1) {
+                  get().playTrackAtIndex(0).catch((err) => console.error('Repeat-all single-track restart failed:', err));
+                } else {
+                  set({ isPlaying: false, position: 0 });
+                }
+                return;
+              }
+
+              const candidateIndexes = activeList
+                .map((_, idx) => idx)
+                .filter((idx) => idx !== currentTrackIndex);
+
+              const randomIndex = candidateIndexes[Math.floor(Math.random() * candidateIndexes.length)];
+              get().playTrackAtIndex(randomIndex).catch((err) => console.error('Auto-play random next failed:', err));
+              return;
+            }
+
+            set({ isPlaying: false, position: 0 });
           }
         }
       );
+
+      const { sound: currentSound } = previousState;
+      if (currentSound) {
+        try {
+          await currentSound.stopAsync();
+          await currentSound.unloadAsync();
+        } catch (_) { }
+      }
 
       // Log analytics
       if (track.id && track.uploaderId && !track.id.startsWith('lib-')) {
@@ -167,10 +244,35 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => ({
         }
       }
 
+      if (transitionDelayMs > 0) {
+        await new Promise<void>((resolve) => {
+          pendingTrackSwitchTimeout = setTimeout(() => {
+            pendingTrackSwitchTimeout = null;
+            resolve();
+          }, transitionDelayMs);
+        });
+
+        if (switchToken !== pendingTrackSwitchToken) {
+          try {
+            await sound.unloadAsync();
+          } catch (_) { }
+          return;
+        }
+      }
+
+      await sound.playAsync();
       set({ sound, isBuffering: false, isPlaying: true });
     } catch (error) {
       console.error('Error loading track:', error);
-      set({ isBuffering: false, currentTrack: null });
+      clearPendingTrackSwitch();
+      set({
+        currentTrack: previousState.currentTrack,
+        isPlaying: previousState.isPlaying,
+        isBuffering: false,
+        position: previousState.position,
+        duration: previousState.duration,
+        sound: previousState.sound,
+      });
     }
   },
 
@@ -223,11 +325,19 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => ({
     set({ volume });
   },
 
-  setRepeat: (value: boolean) => {
-    set({ repeatActive: value });
+  setRepeatMode: (mode: RepeatMode) => {
+    set({ repeatMode: mode });
+  },
+
+  cycleRepeatMode: () => {
+    const currentMode = get().repeatMode;
+    const nextMode: RepeatMode = currentMode === 'off' ? 'all' : currentMode === 'all' ? 'one' : 'off';
+    set({ repeatMode: nextMode });
+    return nextMode;
   },
 
   clearTrack: async () => {
+    clearPendingTrackSwitch();
     const { sound } = get();
     if (sound) {
       try {
@@ -243,7 +353,8 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => ({
     if (tracks.length === 0) return;
 
     let queueToUse = [...tracks];
-    let shuffledIndexes = [];
+    let shuffledIndexes: number[] = [];
+    const safeStartIndex = Math.max(0, Math.min(startIndex, tracks.length - 1));
 
     if (shuffle) {
       // Fisher-Yates shuffle for the queue
@@ -255,66 +366,101 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => ({
       queueToUse = shuffledIndexes.map(idx => tracks[idx]);
     }
 
-    const trackToPlay = queueToUse[0];
+    const trackToPlay = shuffle ? queueToUse[0] : queueToUse[safeStartIndex];
     set({
       queue: tracks,
-      currentTrackIndex: shuffle ? shuffledIndexes[0] : startIndex,
+      // currentTrackIndex is always based on the active track list (queue or shuffledQueue).
+      currentTrackIndex: shuffle ? 0 : safeStartIndex,
       shuffleActive: shuffle,
       shuffledQueue: shuffle ? queueToUse : [],
     });
 
     // Play the first track
-    await get().setTrack(trackToPlay);
+    await get().setTrack(trackToPlay, { preserveQueue: true, transitionDelayMs: TRACK_SWITCH_TRANSITION_MS });
   },
 
-  playTrackAtIndex: async (index: number) => {
+  playTrackAtIndex: async (index: number, options) => {
     const { queue, shuffleActive, shuffledQueue } = get();
     const trackList = shuffleActive ? shuffledQueue : queue;
 
     if (index < 0 || index >= trackList.length) return;
 
     const track = trackList[index];
+    if (!track) return;
     set({ currentTrackIndex: index });
-    await get().setTrack(track);
+    await get().setTrack(track, { preserveQueue: true, transitionDelayMs: options?.transitionDelayMs ?? TRACK_SWITCH_TRANSITION_MS });
   },
 
   playNextTrack: async () => {
-    const { queue, currentTrackIndex, shuffleActive, shuffledQueue, repeatActive } = get();
+    const { queue, currentTrackIndex, shuffleActive, shuffledQueue, repeatMode, currentTrack } = get();
     const trackList = shuffleActive ? shuffledQueue : queue;
 
-    if (trackList.length === 0) return;
+    if (trackList.length === 0) {
+      const fallbackTrack = getRandomFallbackTrack(currentTrack?.id);
+      if (fallbackTrack) {
+        await get().setTrack(fallbackTrack, { preserveQueue: true, transitionDelayMs: TRACK_SWITCH_TRANSITION_MS });
+        return;
+      }
+
+      if (currentTrack) {
+        await get().setTrack(currentTrack, { preserveQueue: true });
+      }
+      return;
+    }
+
+    if (repeatMode === 'one' && currentTrackIndex >= 0) {
+      await get().playTrackAtIndex(currentTrackIndex, { transitionDelayMs: TRACK_SWITCH_TRANSITION_MS });
+      return;
+    }
 
     let nextIndex = currentTrackIndex + 1;
 
     // Handle end of playlist
     if (nextIndex >= trackList.length) {
-      if (repeatActive) {
+      if (repeatMode === 'all') {
         nextIndex = 0; // Loop back to beginning
       } else {
-        // Stop playback at end
-        await get().clearTrack();
-        set({ currentTrackIndex: -1 });
+        const fallbackTrack = getRandomFallbackTrack(currentTrack?.id);
+        if (fallbackTrack) {
+          await get().setTrack(fallbackTrack, { preserveQueue: true, transitionDelayMs: TRACK_SWITCH_TRANSITION_MS });
+          return;
+        }
+
+        const { sound } = get();
+        if (sound) {
+          try {
+            await sound.stopAsync();
+          } catch (_) { }
+        }
+        set({ isPlaying: false, position: 0, duration: 0 });
         return;
       }
     }
 
-    await get().playTrackAtIndex(nextIndex);
+    await get().playTrackAtIndex(nextIndex, { transitionDelayMs: TRACK_SWITCH_TRANSITION_MS });
   },
 
-  playPreviousTrack: async () => {
-    const { currentTrackIndex, position, shuffleActive, shuffledQueue, queue } = get();
+  playPreviousTrack: async (options) => {
+    const { currentTrackIndex, shuffleActive, shuffledQueue, queue, repeatMode } = get();
     const trackList = shuffleActive ? shuffledQueue : queue;
 
     if (trackList.length === 0) return;
 
-    // If more than 3 seconds in, restart current track; otherwise go to previous
-    if (position > 3000) {
-      await get().seekTo(0);
-      return;
+    if (options?.goToPreviousTrack) {
+      if (currentTrackIndex > 0) {
+        await get().playTrackAtIndex(currentTrackIndex - 1, { transitionDelayMs: TRACK_SWITCH_TRANSITION_MS });
+        return;
+      }
+
+      if (repeatMode === 'all' && trackList.length > 1) {
+        await get().playTrackAtIndex(trackList.length - 1, { transitionDelayMs: TRACK_SWITCH_TRANSITION_MS });
+        return;
+      }
     }
 
-    if (currentTrackIndex > 0) {
-      await get().playTrackAtIndex(currentTrackIndex - 1);
+    // Previous button restarts the current song from the beginning.
+    if (currentTrackIndex >= 0) {
+      await get().seekTo(0);
     }
   },
 
@@ -331,7 +477,19 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => ({
         [indexes[i], indexes[j]] = [indexes[j], indexes[i]];
       }
       const newShuffledQueue = indexes.map(idx => queue[idx]);
-      set({ shuffleActive: true, shuffledQueue: newShuffledQueue, currentTrackIndex: 0 });
+
+      // Keep the currently playing track selected when enabling shuffle.
+      let nextShuffleIndex = 0;
+      if (currentTrack) {
+        const idx = newShuffledQueue.findIndex((track) => track.id === currentTrack.id);
+        if (idx >= 0) {
+          nextShuffleIndex = idx;
+        }
+      } else if (currentTrackIndex >= 0 && currentTrackIndex < newShuffledQueue.length) {
+        nextShuffleIndex = currentTrackIndex;
+      }
+
+      set({ shuffleActive: true, shuffledQueue: newShuffledQueue, currentTrackIndex: nextShuffleIndex });
     } else if (!enabled) {
       // Disable shuffle: revert to original queue with current track position
       const indexInOriginal = currentTrack ? queue.findIndex(t => t.id === currentTrack.id) : currentTrackIndex;

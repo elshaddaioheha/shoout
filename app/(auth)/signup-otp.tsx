@@ -57,6 +57,12 @@ export default function SignupOtpScreen() {
   const appTheme = useAppTheme();
   const styles = useSignupOtpStyles();
   const placeholderColor = appTheme.colors.textPlaceholder;
+  const isLightMode = !appTheme.isDark;
+  const lightBackground = '#FFF4EE';
+  const lightSurface = '#FFF9F6';
+  const lightText = '#2F2624';
+  const lightMutedText = '#6F5A53';
+  const lightBorder = '#D8B9AD';
 
   const router = useRouter();
   const { showToast } = useToastStore();
@@ -136,14 +142,14 @@ export default function SignupOtpScreen() {
   };
 
   return (
-    <SafeScreenWrapper style={styles.container}>
+    <SafeScreenWrapper style={[styles.container, isLightMode && { backgroundColor: lightBackground }]}>
       <StatusBar barStyle={appTheme.isDark ? 'light-content' : 'dark-content'} />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}
         style={styles.flex}
       >
-        <View style={styles.blurBg} pointerEvents="none">
+        <View style={[styles.blurBg, isLightMode && { backgroundColor: 'rgba(255, 236, 224, 0.45)' }]} pointerEvents="none">
           <BlurView intensity={44} tint={appTheme.isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
         </View>
 
@@ -152,18 +158,18 @@ export default function SignupOtpScreen() {
         </TouchableOpacity>
 
         <View style={styles.headerWrap}>
-          <Text style={styles.headerTitle}>Confirm Email Address</Text>
-          <Text style={styles.headerSub}>The confirmation code was sent to {maskEmail(targetEmail)}</Text>
+          <Text style={[styles.headerTitle, isLightMode && { color: lightText }]}>Confirm Email Address</Text>
+          <Text style={[styles.headerSub, isLightMode && { color: lightMutedText }]}>The confirmation code was sent to {maskEmail(targetEmail)}</Text>
         </View>
 
         <View style={styles.fieldWrap}>
-          <Text style={styles.label}>Enter code</Text>
+          <Text style={[styles.label, isLightMode && { color: lightText }]}>Enter code</Text>
           <TextInput
             value={code}
             onChangeText={(value) => setCode(value.replace(/\D/g, '').slice(0, 6))}
             placeholder="000000"
             placeholderTextColor={placeholderColor}
-            style={styles.input}
+            style={[styles.input, isLightMode && { color: lightText, borderColor: lightBorder, backgroundColor: lightSurface }]}
             keyboardType="number-pad"
             autoCapitalize="none"
             autoCorrect={false}
@@ -176,7 +182,7 @@ export default function SignupOtpScreen() {
         </TouchableOpacity>
 
         <View style={styles.bottomRow}>
-          <Text style={styles.mutedText}>Didn't get the code?</Text>
+          <Text style={[styles.mutedText, isLightMode && { color: lightMutedText }]}>Didn't get the code?</Text>
           <TouchableOpacity disabled={resending} onPress={onResend}>
             <Text style={styles.linkText}>{resending ? 'Sending...' : 'Send Again'}</Text>
           </TouchableOpacity>

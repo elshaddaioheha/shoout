@@ -208,6 +208,15 @@ service cloud.firestore {
         }
       }
 
+      // ── Vault Share Links ────────────────────────────────────────────────
+      // Only the owner can read and manage their private share links.
+      match /vaultShares/{shareId} {
+        allow read: if isOwner(uid);
+        allow create: if isOwner(uid);
+        allow update: if isOwner(uid);
+        allow delete: if isOwner(uid);
+      }
+
       // ── Playlists ─────────────────────────────────────────────────────────
       // Only the owner can read/write their playlists.
       match /playlists/{playlistId} {

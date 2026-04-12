@@ -3,6 +3,7 @@ import { auth, db } from '@/firebaseConfig';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { formatUsd } from '@/utils/pricing';
 import { useCartStore } from '@/store/useCartStore';
+import { useLayoutMetricsStore } from '@/store/useLayoutMetricsStore';
 import { useToastStore } from '@/store/useToastStore';
 import { adaptLegacyColor, adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { Image } from 'expo-image';
@@ -35,12 +36,15 @@ import {
     Alert,
     Dimensions,
     FlatList,
+    LayoutChangeEvent,
+    Platform,
     ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
     View
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width } = Dimensions.get('window');
 
@@ -61,12 +65,20 @@ function useCartStyles() {
 export default function CartScreen() {
     const appTheme = useAppTheme();
     const styles = useCartStyles();
+    const isLightMode = !appTheme.isDark;
+    const checkoutGradientColors = isLightMode
+        ? ['#EC5C39', '#C1492A']
+        : ['#EC5C39', '#863420'];
+    const checkoutIconTextColor = '#FFFFFF';
+    const checkoutFontSize = width < 360 ? 16 : width > 430 ? 19 : 18;
     const itemFallbackIconColor = adaptLegacyColor('rgba(255,255,255,0.2)', 'color', appTheme);
     const bestSellerFallbackIconColor = adaptLegacyColor('rgba(255,255,255,0.25)', 'color', appTheme);
     const emptyCartIconColor = adaptLegacyColor('rgba(255,255,255,0.7)', 'color', appTheme);
+    const insets = useSafeAreaInsets();
 
     const router = useRouter();
     const { items, removeItem, clearCart, total } = useCartStore();
+    const bottomTabBarHeight = useLayoutMetricsStore((state) => state.bottomTabBarHeight);
     const [checkingOut, setCheckingOut] = useState(false);
     const [showFWButton, setShowFWButton] = useState(false);
     const [checkoutTxRef, setCheckoutTxRef] = useState<string | null>(null);
@@ -74,7 +86,14 @@ export default function CartScreen() {
     const [bestSellers, setBestSellers] = useState<MarketplaceItem[]>([]);
     const [bestSellerLoading, setBestSellerLoading] = useState(true);
     const [purchasedCount, setPurchasedCount] = useState(0);
+    const [checkoutBarHeight, setCheckoutBarHeight] = useState(0);
     const { showToast } = useToastStore();
+    const platformListBottomGap = Platform.OS === 'ios' ? 22 : 16;
+    const platformCheckoutBottomGap = Platform.OS === 'ios' ? 8 : 6;
+
+    const handleCheckoutBarLayout = (event: LayoutChangeEvent) => {
+        setCheckoutBarHeight(event.nativeEvent.layout.height);
+    };
 
     useEffect(() => {
         // 🚀 PERFORMANCE: Read pre-aggregated best sellers document instead of inefficient collectionGroup query
@@ -327,36 +346,61 @@ export default function CartScreen() {
                             data={items}
                             keyExtractor={(item) => item.id}
                             renderItem={renderItem}
-                            contentContainerStyle={styles.listContent}
+                            contentContainerStyle={[
+                                styles.listContent,
+                                {
+                                    paddingBottom: checkoutBarHeight + bottomTabBarHeight + insets.bottom + platformListBottomGap,
+                                },
+                            ]}
                         />
 
                         {/* Summary & Checkout */}
-                        <View style={styles.footer}>
+                        <View
+                            style={[
+                                styles.footer,
+                                {
+                                    bottom: bottomTabBarHeight + platformCheckoutBottomGap,
+                                    backgroundColor: isLightMode ? '#FFF8F4' : '#1E1A1B',
+                                    borderTopColor: isLightMode ? 'rgba(193, 73, 42, 0.18)' : 'rgba(255,255,255,0.05)',
+                                },
+                            ]}
+                            onLayout={handleCheckoutBarLayout}
+                        >
                             <View style={styles.summaryRow}>
-                                <Text style={styles.summaryLabel}>Total Items</Text>
-                                <Text style={styles.summaryValue}>{items.length}</Text>
+                                <Text style={[styles.summaryLabel, isLightMode && { color: '#6E564E' }]}>Total Items</Text>
+                                <Text style={[styles.summaryValue, isLightMode && { color: '#2F2624' }]}>{items.length}</Text>
                             </View>
                             <View style={styles.totalRow}>
-                                <Text style={styles.totalLabel}>Total Price</Text>
-                                <Text style={styles.totalValue}>{formatUsd(total)}</Text>
+                                <Text style={[styles.totalLabel, isLightMode && { color: '#2F2624' }]}>Total Price</Text>
+                                <Text style={[styles.totalValue, isLightMode && { color: '#C1492A' }]}>{formatUsd(total)}</Text>
                             </View>
 
                             <TouchableOpacity
-                                style={styles.checkoutBtn}
+                                style={[
+                                    styles.checkoutBtn,
+                                    isLightMode && {
+                                        borderWidth: 1,
+                                        borderColor: 'rgba(255,255,255,0.62)',
+                                        shadowColor: '#C1492A',
+                                        shadowOpacity: 0.22,
+                                        shadowRadius: 14,
+                                        shadowOffset: { width: 0, height: 8 },
+                                    },
+                                ]}
                                 onPress={handleCheckout}
                                 disabled={checkingOut}
                             >
                                 <LinearGradient
-                                    colors={['#EC5C39', '#863420']}
+                                    colors={checkoutGradientColors}
                                     style={styles.checkoutGradient}
                                 >
                                     {checkingOut ? (
-                                        <ActivityIndicator color={appTheme.colors.textPrimary} />
+                                        <ActivityIndicator color={checkoutIconTextColor} />
                                     ) : (
                                         <>
-                                            <CreditCard size={20} color={appTheme.colors.textPrimary} />
-                                            <Text style={styles.checkoutText}>Complete Purchase</Text>
-                                            <ArrowRight size={20} color={appTheme.colors.textPrimary} />
+                                            <CreditCard size={20} color={checkoutIconTextColor} />
+                                            <Text style={[styles.checkoutText, { color: checkoutIconTextColor, fontSize: checkoutFontSize }]}>Complete Purchase</Text>
+                                            <ArrowRight size={20} color={checkoutIconTextColor} />
                                         </>
                                     )}
                                 </LinearGradient>
@@ -432,7 +476,7 @@ const legacyStyles = {
     listContent: {
         paddingHorizontal: 20,
         paddingTop: 10,
-        paddingBottom: 200,
+        paddingBottom: 0,
     },
     cartItem: {
         flexDirection: 'row',
@@ -599,7 +643,6 @@ const legacyStyles = {
     },
     footer: {
         position: 'absolute',
-        bottom: 0,
         left: 0,
         right: 0,
         backgroundColor: '#1E1A1B',
@@ -609,6 +652,11 @@ const legacyStyles = {
         borderTopColor: 'rgba(255,255,255,0.05)',
         borderTopLeftRadius: 30,
         borderTopRightRadius: 30,
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: -8 },
+        shadowOpacity: 0.26,
+        shadowRadius: 16,
+        elevation: 20,
     },
     summaryRow: {
         flexDirection: 'row',

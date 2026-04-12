@@ -45,7 +45,33 @@ const USERS = [
         role: 'hybrid',
         subscriptionTier: 'hybrid',
     },
+    {
+        email: 'allaccess@seed.shoouts.com',
+        displayName: 'All Access Creator',
+        role: 'hybrid',
+        subscriptionTier: 'hybrid',
+        fullAccess: true,
+    },
 ];
+
+const FULL_ACCESS_ENTITLEMENTS = {
+    canBuy: true,
+    canUseCart: true,
+    canUseMarketplaceMessaging: true,
+    canAccessVaultWorkspace: true,
+    canUploadToVault: true,
+    canShareVaultLinks: true,
+    canEditVaultTracks: true,
+    canSell: true,
+    canReplyAsSeller: true,
+    canUseAnalytics: true,
+    canUseAds: true,
+    canUseVaultStorage: true,
+    canUseTeamAccess: true,
+    maxVaultUploads: 1000,
+    vaultStorageLimitBytes: 10 * 1024 * 1024 * 1024,
+    studioStorageLimitBytes: 2 * 1024 * 1024 * 1024,
+};
 
 async function ensureUser(auth, db, user) {
     const password = '12345678';
@@ -58,6 +84,7 @@ async function ensureUser(auth, db, user) {
 
     const uid = cred.user.uid;
     const now = Timestamp.now();
+    const subscriptionExpiresAt = Timestamp.fromDate(new Date(Date.now() + 365 * 24 * 60 * 60 * 1000));
 
     await setDoc(
         doc(db, 'users', uid),
@@ -66,10 +93,30 @@ async function ensureUser(auth, db, user) {
             email: user.email,
             displayName: user.displayName,
             role: user.role,
+            actualRole: user.subscriptionTier,
+            subscriptionTier: user.subscriptionTier,
+            subscriptionStatus: 'active',
             isPremium: true,
             canSell: true,
+            canBuy: true,
+            canUseCart: true,
+            canUseMarketplaceMessaging: true,
+            canAccessVaultWorkspace: true,
+            canUploadToVault: true,
+            canShareVaultLinks: true,
+            canEditVaultTracks: true,
+            canReplyAsSeller: true,
+            canUseAnalytics: true,
+            canUseAds: true,
+            canUseTeamAccess: true,
             createdAt: now,
             updatedAt: now,
+            ...(user.fullAccess
+                ? {
+                    storageLimitGB: 10,
+                    maxVaultUploads: 1000,
+                }
+                : {}),
         },
         { merge: true }
     );
@@ -80,7 +127,19 @@ async function ensureUser(auth, db, user) {
             tier: user.subscriptionTier,
             status: 'active',
             isSubscribed: true,
+            billingCycle: 'manual_admin',
+            provider: 'client_seed',
+            providerTransactionRef: 'seeded-all-access',
+            currentPeriodStartAt: now,
+            currentPeriodEndAt: subscriptionExpiresAt,
+            expiresAt: subscriptionExpiresAt,
+            cancelAtPeriodEnd: false,
+            version: 1,
             updatedAt: now,
+            createdAt: now,
+            ...(user.fullAccess
+                ? { serviceEntitlements: FULL_ACCESS_ENTITLEMENTS }
+                : {}),
         },
         { merge: true }
     );

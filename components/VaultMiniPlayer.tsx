@@ -1,5 +1,6 @@
 import { usePlaybackStore } from '@/store/usePlaybackStore';
 import { useAppTheme } from '@/hooks/use-app-theme';
+import { useReducedMotion } from '@/hooks/use-reduced-motion';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { BlurView } from 'expo-blur';
 import { Music, Pause, Play, X } from 'lucide-react-native';
@@ -24,6 +25,7 @@ function useVaultMiniPlayerStyles() {
 
 export default function VaultMiniPlayer() {
   const appTheme = useAppTheme();
+  const reduceMotion = useReducedMotion();
   const styles = useVaultMiniPlayerStyles();
 
   const {
@@ -46,15 +48,26 @@ export default function VaultMiniPlayer() {
   const playerWidth = Math.max(120, Math.min(220, maxSafeWidth));
   const bottomPos = Math.max(insets.bottom, 14) + 16;
   const progress = duration > 0 ? Math.min(100, (position / duration) * 100) : 0;
+  const glassBackground = appTheme.isDark ? 'rgba(20, 15, 16, 0.46)' : 'rgba(255,255,255,0.72)';
+  const glassBorder = appTheme.colors.borderStrong;
+  const blurIntensity = reduceMotion ? 0 : 34;
 
   return (
     <>
       <Pressable
-        style={[styles.container, { bottom: bottomPos, width: playerWidth }]}
+        style={[
+          styles.container,
+          {
+            bottom: bottomPos,
+            width: playerWidth,
+            backgroundColor: glassBackground,
+            borderColor: glassBorder,
+          },
+        ]}
         onPress={() => setIsFullPlayerVisible(true)}
         android_ripple={{ color: appTheme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(23,18,19,0.06)' }}
       >
-        <BlurView intensity={60} tint={appTheme.isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
+        <BlurView intensity={blurIntensity} tint={appTheme.isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
 
         <View style={styles.content}>
           <View style={styles.artworkContainer}>

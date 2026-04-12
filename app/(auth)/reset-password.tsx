@@ -22,6 +22,11 @@ export default function ResetPasswordScreen() {
   const appTheme = useAppTheme();
   const styles = useResetPasswordStyles();
   const placeholderColor = appTheme.colors.textPlaceholder;
+  const isLightMode = !appTheme.isDark;
+  const lightBackground = '#FFF4EE';
+  const lightSurface = '#FFF9F6';
+  const lightText = '#2F2624';
+  const lightBorder = '#D8B9AD';
 
   const router = useRouter();
   const { showToast } = useToastStore();
@@ -64,14 +69,14 @@ export default function ResetPasswordScreen() {
   };
 
   return (
-    <SafeScreenWrapper style={styles.container}>
+    <SafeScreenWrapper style={[styles.container, isLightMode && { backgroundColor: lightBackground }]}>
       <StatusBar barStyle={appTheme.isDark ? 'light-content' : 'dark-content'} />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}
         style={styles.flex}
       >
-        <View style={styles.blurBg} pointerEvents="none">
+        <View style={[styles.blurBg, isLightMode && { backgroundColor: 'rgba(255, 236, 224, 0.45)' }]} pointerEvents="none">
           <BlurView intensity={44} tint={appTheme.isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
         </View>
 
@@ -80,18 +85,18 @@ export default function ResetPasswordScreen() {
         </TouchableOpacity>
 
         <View style={styles.headerWrap}>
-          <Text style={styles.headerTitle}>Enter New Password</Text>
+          <Text style={[styles.headerTitle, isLightMode && { color: lightText }]}>Enter New Password</Text>
         </View>
 
         <View style={styles.fieldWrap}>
-          <Text style={styles.label}>New Password</Text>
+          <Text style={[styles.label, isLightMode && { color: lightText }]}>New Password</Text>
           <View style={styles.inputRow}>
             <TextInput
               value={password}
               onChangeText={setPassword}
               placeholder="Enter password"
               placeholderTextColor={placeholderColor}
-              style={styles.input}
+              style={[styles.input, isLightMode && { color: lightText, borderColor: lightBorder, backgroundColor: lightSurface }]}
               secureTextEntry={!showPassword}
               autoCapitalize="none"
             />
@@ -102,14 +107,14 @@ export default function ResetPasswordScreen() {
         </View>
 
         <View style={styles.fieldWrapSecondary}>
-          <Text style={styles.label}>Confirm Password</Text>
+          <Text style={[styles.label, isLightMode && { color: lightText }]}>Confirm Password</Text>
           <View style={styles.inputRow}>
             <TextInput
               value={confirmPassword}
               onChangeText={setConfirmPassword}
               placeholder="Re-enter password"
               placeholderTextColor={placeholderColor}
-              style={styles.input}
+              style={[styles.input, isLightMode && { color: lightText, borderColor: lightBorder, backgroundColor: lightSurface }]}
               secureTextEntry={!showConfirmPassword}
               autoCapitalize="none"
             />
