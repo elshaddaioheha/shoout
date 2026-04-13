@@ -1,9 +1,10 @@
 // Learn more https://docs.expo.io/guides/customizing-metro
-const { getSentryExpoConfig } = require('@sentry/react-native/metro');
+const { withSentryConfig } = require('@sentry/react-native/metro');
+const { getDefaultConfig } = require('expo/metro-config');
 const path = require('path');
 
 /** @type {import('expo/metro-config').MetroConfig} */
-const config = getSentryExpoConfig(__dirname);
+const config = withSentryConfig(getDefaultConfig(__dirname));
 
 // Force Metro to resolve the CJS ("default") condition instead of the ESM
 // ("import") condition for packages like zustand that ship `.mjs` files
