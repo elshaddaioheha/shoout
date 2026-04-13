@@ -13,6 +13,7 @@ import { useToastStore } from '@/store/useToastStore';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { getFriendlyErrorMessage } from '@/utils/errorHandler';
 import { sendEmailOtp, verifyEmailOtp } from '@/utils/emailOtp';
+import { maskEmail } from '@/utils/maskEmail';
 import { hydrateSubscriptionTier } from '@/utils/subscriptionVerification';
 import { markUserNeedsRoleSelection, PENDING_SIGNUP_KEY, resolveAuthenticatedDestination } from '@/utils/authFlow';
 
@@ -28,14 +29,6 @@ type PendingSignupPayload = {
 function useSignupOtpStyles() {
   const appTheme = useAppTheme();
   return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
-}
-
-function maskEmail(email: string): string {
-  const [name, domain] = email.split('@');
-  if (!name || !domain) return email;
-  const visible = Math.min(2, name.length);
-  const masked = `${name.slice(0, visible)}${'*'.repeat(Math.max(0, name.length - visible))}`;
-  return `${masked}@${domain}`;
 }
 
 async function writeSubscriptionDoc(uid: string, tier: SignupSubscriptionTier) {

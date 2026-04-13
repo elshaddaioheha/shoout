@@ -15,14 +15,46 @@ import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { onAuthStateChanged } from 'firebase/auth';
-import { Banknote, Bell, ChevronRight, CircleHelp, CreditCard, History, Library, Link2, LogOut, Share2, Shield, ShoppingCart, Sparkles, UploadCloud, User } from 'lucide-react-native';
+import { Banknote, Bell, ChevronLeft, ChevronRight, CircleHelp, CreditCard, History, Library, Link2, LogOut, Share2, Shield, ShoppingCart, Sparkles, UploadCloud, User } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { auth } from '../../firebaseConfig';
 
 function useMoreStyles() {
     const appTheme = useAppTheme();
-    return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+    return React.useMemo(() => {
+        const adaptedStyles = adaptLegacyStyles(legacyStyles, appTheme) as any;
+        
+        // Light mode overrides
+        if (!appTheme.isDark) {
+            adaptedStyles.vaultHeader = {
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                paddingHorizontal: 16,
+                height: 60,
+                borderBottomWidth: 1,
+                borderBottomColor: 'rgba(20, 15, 16, 0.12)',
+            };
+            adaptedStyles.vaultBackButton = {
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                backgroundColor: 'rgba(20, 15, 16, 0.06)',
+                alignItems: 'center',
+                justifyContent: 'center',
+            };
+            adaptedStyles.vaultHeaderTitle = {
+                color: '#171213',
+                fontFamily: 'Poppins-SemiBold',
+                fontSize: 18,
+                flex: 1,
+                textAlign: 'center',
+            };
+        }
+        
+        return StyleSheet.create(adaptedStyles);
+    }, [appTheme]);
 }
 
 export default function MoreScreen() {
@@ -120,12 +152,22 @@ export default function MoreScreen() {
     return (
         <SafeScreenWrapper>
             <View style={styles.container}>
-                <SharedHeader
-                    viewMode={viewMode}
-                    isModeSheetOpen={isModeSheetOpen}
-                    onModePillPress={openSheet}
-                    showCart={activeAppMode === 'shoout'}
-                />
+                {isVaultMode ? (
+                    <View style={[styles.vaultHeader, { backgroundColor: appTheme.colors.background }]}>
+                        <TouchableOpacity onPress={() => router.push('/' as any)} style={styles.vaultBackButton}>
+                            <ChevronLeft size={24} color={appTheme.colors.textPrimary} />
+                        </TouchableOpacity>
+                        <Text style={styles.vaultHeaderTitle}>Settings</Text>
+                        <View style={styles.vaultHeaderPlaceholder} />
+                    </View>
+                ) : (
+                    <SharedHeader
+                        viewMode={viewMode}
+                        isModeSheetOpen={isModeSheetOpen}
+                        onModePillPress={openSheet}
+                        showCart={activeAppMode === 'shoout'}
+                    />
+                )}
                 <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
                     <View style={styles.greetingRow}>
                         <View style={[styles.avatarBubble, { backgroundColor: accentColor }]}>
@@ -135,38 +177,33 @@ export default function MoreScreen() {
                     </View>
 
                     <View style={styles.menuContainer}>
-                        {isVaultMode ? (
-                            <>
-                                <MenuItem icon={Library} label="Vault Home" color={accentColor} onPress={() => router.push('/' as any)} />
-                                <MenuItem icon={UploadCloud} label="Upload Track" color={accentColor} onPress={() => router.push('/vault/upload' as any)} />
-                                <MenuItem icon={Link2} label="Shared Links" color={accentColor} onPress={() => router.push('/vault/links' as any)} />
-                                <MenuItem icon={Bell} label="Vault Updates" color={accentColor} onPress={() => router.push('/vault/updates' as any)} />
-                            </>
-                        ) : isStudioMode ? (
-                            <>
-                                <MenuItem icon={Library} label="Studio Home" color={accentColor} onPress={() => router.push('/' as any)} />
-                                <MenuItem icon={UploadCloud} label="Publish" color={accentColor} onPress={() => canUseStudioTools ? router.push('/(tabs)/search' as any) : pushSubscriptions()} />
-                                <MenuItem icon={Banknote} label="Royalties & Earnings" color={accentColor} onPress={() => canUseStudioTools ? router.push('/studio/earnings' as any) : pushSubscriptions()} />
-                                <MenuItem icon={Bell} label="Promote & Ads" color={accentColor} onPress={() => canUseStudioTools ? router.push('/(tabs)/marketplace' as any) : pushSubscriptions()} />
-                            </>
-                        ) : isHybridMode ? (
-                            <>
-                                <MenuItem icon={Library} label="Hybrid Home" color={accentColor} onPress={goHybridHome} />
-                                <MenuItem icon={UploadCloud} label="Publish" color={accentColor} onPress={() => canUseHybridTools ? router.push('/(tabs)/search' as any) : pushSubscriptions()} />
-                                <MenuItem icon={Banknote} label="Creator Earnings" color={accentColor} onPress={() => canUseHybridTools ? router.push('/studio/earnings' as any) : pushSubscriptions()} />
-                                <MenuItem icon={Bell} label="Promote & Ads" color={accentColor} onPress={() => canUseHybridTools ? router.push('/(tabs)/marketplace' as any) : pushSubscriptions()} />
-                                <MenuItem icon={UploadCloud} label="Vault Workspace" color={accentColor} onPress={() => router.push('/(tabs)/library' as any)} />
-                                <MenuItem icon={Link2} label="Vault Links" color={accentColor} onPress={() => canUseHybridTools ? router.push('/vault/links' as any) : pushSubscriptions()} />
-                                <MenuItem icon={Bell} label="Vault Updates" color={accentColor} onPress={() => canUseHybridTools ? router.push('/vault/updates' as any) : pushSubscriptions()} />
-                            </>
-                        ) : (
-                            <>
-                                <MenuItem icon={Library} label="Library" color={accentColor} onPress={() => router.push('/(tabs)/library' as any)} />
-                                <MenuItem icon={ShoppingCart} label="My Cart" color={accentColor} onPress={() => router.push('/cart' as any)} />
-                                <MenuItem icon={History} label="History" color={accentColor} onPress={() => showToast('Coming soon', 'info')} />
-                                <MenuItem icon={Bell} label="Updates" color={accentColor} onPress={() => router.push('/updates' as any)} />
-                            </>
-                        )}
+                        {/* Consistent Slot 1: My Content Home */}
+                        {isVaultMode && <MenuItem icon={Library} label="Vault Home" color={accentColor} onPress={() => router.push('/' as any)} />}
+                        {isStudioMode && <MenuItem icon={Library} label="Studio Home" color={accentColor} onPress={() => router.push('/' as any)} />}
+                        {isHybridMode && <MenuItem icon={Library} label="Hybrid Home" color={accentColor} onPress={goHybridHome} />}
+                        {!isVaultMode && !isStudioMode && !isHybridMode && <MenuItem icon={Library} label="Library" color={accentColor} onPress={() => router.push('/(tabs)/library' as any)} />}
+
+                        {/* Consistent Slot 2: Create / Upload / Shop */}
+                        {isVaultMode && <MenuItem icon={UploadCloud} label="Upload Track" color={accentColor} onPress={() => router.push('/vault/upload' as any)} />}
+                        {isStudioMode && <MenuItem icon={UploadCloud} label="Publish" color={accentColor} onPress={() => canUseStudioTools ? router.push('/(tabs)/search' as any) : pushSubscriptions()} />}
+                        {isHybridMode && <MenuItem icon={UploadCloud} label="Publish" color={accentColor} onPress={() => canUseHybridTools ? router.push('/(tabs)/search' as any) : pushSubscriptions()} />}
+                        {!isVaultMode && !isStudioMode && !isHybridMode && <MenuItem icon={ShoppingCart} label="My Cart" color={accentColor} onPress={() => router.push('/cart' as any)} />}
+
+                        {/* Consistent Slot 3: Manage / Access Content */}
+                        {isVaultMode && <MenuItem icon={Link2} label="Shared Links" color={accentColor} onPress={() => router.push('/vault/links' as any)} />}
+                        {isStudioMode && <MenuItem icon={Banknote} label="Royalties & Earnings" color={accentColor} onPress={() => canUseStudioTools ? router.push('/studio/earnings' as any) : pushSubscriptions()} />}
+                        {isHybridMode && <MenuItem icon={Banknote} label="Creator Earnings" color={accentColor} onPress={() => canUseHybridTools ? router.push('/studio/earnings' as any) : pushSubscriptions()} />}
+                        {!isVaultMode && !isStudioMode && !isHybridMode && <MenuItem icon={History} label="History" color={accentColor} onPress={() => showToast('Coming soon', 'info')} />}
+
+                        {/* Consistent Slot 4: Notifications / Updates / Promotions */}
+                        {isVaultMode && <MenuItem icon={Bell} label="Vault Updates" color={accentColor} onPress={() => router.push('/vault/updates' as any)} />}
+                        {isStudioMode && <MenuItem icon={Bell} label="Promote & Ads" color={accentColor} onPress={() => canUseStudioTools ? router.push('/(tabs)/marketplace' as any) : pushSubscriptions()} />}
+                        {isHybridMode && <MenuItem icon={Bell} label="Promote & Ads" color={accentColor} onPress={() => canUseHybridTools ? router.push('/(tabs)/marketplace' as any) : pushSubscriptions()} />}
+                        {!isVaultMode && !isStudioMode && !isHybridMode && <MenuItem icon={Bell} label="Updates" color={accentColor} onPress={() => router.push('/updates' as any)} />}
+
+                        {/* Secondary Hybrid Vault Access */}
+                        {isHybridMode && <MenuItem icon={UploadCloud} label="Vault Workspace" color={accentColor} onPress={() => router.push('/(tabs)/library' as any)} />}
+                        {isHybridMode && <MenuItem icon={Link2} label="Vault Links" color={accentColor} onPress={() => canUseHybridTools ? router.push('/vault/links' as any) : pushSubscriptions()} />}
                     </View>
 
                     <View style={styles.menuContainer}>
@@ -185,7 +222,21 @@ export default function MoreScreen() {
                         <MenuItem icon={LogOut} label="Log Out" color="#EF4444" onPress={handleLogout} hideChevron />
                     </View>
 
-                    {!isStudioMode && !isHybridMode && (
+                    {isStudioMode || isHybridMode ? (
+                        <TouchableOpacity style={styles.upgradeCard} onPress={() => router.push('/settings/subscriptions' as any)}>
+                            <LinearGradient
+                                colors={[modeTheme.accent, modeTheme.accentStrong]}
+                                style={styles.upgradeGradient}
+                            >
+                                <CreditCard size={24} color={appTheme.colors.textPrimary} />
+                                <View style={styles.upgradeTextContainer}>
+                                    <Text style={styles.upgradeTitle}>Manage Subscription</Text>
+                                    <Text style={styles.upgradeSubtitle}>Upgrade, downgrade, or view your current plan</Text>
+                                </View>
+                                <ChevronRight size={20} color={appTheme.colors.textPrimary} />
+                            </LinearGradient>
+                        </TouchableOpacity>
+                    ) : (
                         <TouchableOpacity style={styles.upgradeCard} onPress={() => router.push('/settings/subscriptions' as any)}>
                             <LinearGradient
                                 colors={[modeTheme.accent, modeTheme.accentStrong]}
@@ -242,6 +293,33 @@ function MenuItem({ icon: Icon, label, value, color, onPress, hideChevron }: any
 const legacyStyles = {
     container: { flex: 1, backgroundColor: '#140F10' },
     content: { padding: 20, paddingTop: 12, gap: 20 },
+    vaultHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 16,
+        height: 60,
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(255,255,255,0.06)',
+    },
+    vaultBackButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(255,255,255,0.07)',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    vaultHeaderTitle: {
+        color: '#FFFFFF',
+        fontFamily: 'Poppins-SemiBold',
+        fontSize: 18,
+        flex: 1,
+        textAlign: 'center',
+    },
+    vaultHeaderPlaceholder: {
+        width: 40,
+    },
     greetingRow: {
         flexDirection: 'row',
         alignItems: 'center',

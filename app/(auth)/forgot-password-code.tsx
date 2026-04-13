@@ -9,6 +9,7 @@ import { useAppTheme } from '@/hooks/use-app-theme';
 import { useToastStore } from '@/store/useToastStore';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { getFriendlyErrorMessage } from '@/utils/errorHandler';
+import { maskEmail } from '@/utils/maskEmail';
 import { sendEmailOtp, verifyEmailOtp } from '@/utils/emailOtp';
 
 const PASSWORD_RESET_TOKEN_KEY = 'passwordResetOtpToken';
@@ -16,14 +17,6 @@ const PASSWORD_RESET_TOKEN_KEY = 'passwordResetOtpToken';
 function useForgotPasswordCodeStyles() {
   const appTheme = useAppTheme();
   return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
-}
-
-function maskEmail(email: string): string {
-  const [name, domain] = email.split('@');
-  if (!name || !domain) return email;
-  const visible = Math.min(2, name.length);
-  const masked = `${name.slice(0, visible)}${'*'.repeat(Math.max(0, name.length - visible))}`;
-  return `${masked}@${domain}`;
 }
 
 export default function ForgotPasswordCodeScreen() {

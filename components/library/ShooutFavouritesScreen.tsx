@@ -1,32 +1,24 @@
 import { useAppTheme } from '@/hooks/use-app-theme';
-import { useUserStore } from '@/store/useUserStore';
-import { useAuthStore } from '@/store/useAuthStore';
 import { usePlaybackStore } from '@/store/usePlaybackStore';
 import { useToastStore } from '@/store/useToastStore';
 import { adaptLegacyColor, adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { auth, db } from '@/firebaseConfig';
 import { useRouter } from 'expo-router';
-import { addDoc, collection, deleteDoc, doc, onSnapshot, orderBy, query, serverTimestamp } from 'firebase/firestore';
+import { collection, deleteDoc, doc, onSnapshot } from 'firebase/firestore';
 import {
-  Archive,
-  Check,
-  Filter,
-  FolderPlus,
+  ChevronLeft,
+  Grid3x3,
   Heart,
-  Link2,
+  List,
   Music,
   Play,
-  Plus,
-  X,
 } from 'lucide-react-native';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Image,
-  Modal,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -78,43 +70,43 @@ export default function ShooutFavouritesScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { showToast } = useToastStore();
-  const user = useUserStore((s) => s);
-  const authState = useAuthStore((s) => s);
-  const [uploads, setUploads] = useState<UploadItem[]>([]);
-  const [folders, setFolders] = useState<VaultFolder[]>([]);
   const [favouriteTracks, setFavouriteTracks] = useState<FavouriteTrack[]>([]);
   const setTrack = usePlaybackStore((state) => state.setTrack);
 
-  const [showCreateSheet, setShowCreateSheet] = useState(false);
-  const [showCreateFolderSheet, setShowCreateFolderSheet] = useState(false);
-  const [folderName, setFolderName] = useState('');
-  const [folderCreated, setFolderCreated] = useState(false);
-  const [creatingFolder, setCreatingFolder] = useState(false);
+  const [layoutMode, setLayoutMode] = useState<'grid' | 'list'>('grid');
+  const [activeFilterTab, setActiveFilterTab] = useState<'all' | 'playlists' | 'subscriptions' | 'storage' | 'songs' | 'artists'>('all');
 
-  const activeRole = authState.actualRole || user.actualRole || user.role;
+  // Filter tracks based on active filter tab
+  const filteredTracks = useMemo(() => {
+    if (activeFilterTab === 'all') {
+      return favouriteTracks;
+    }
+    
+    switch (activeFilterTab) {
+      case 'playlists':
+        // For now, show tracks with metadata indicating playlist association
+        // This can be enhanced when playlist metadata is available
+        return favouriteTracks;
+      case 'subscriptions':
+        // Filter for subscription-based or paid content
+        // This can be enhanced with pricing tier metadata
+        return favouriteTracks;
+      case 'storage':
+        // Filter for locally stored or archived content
+        return favouriteTracks;
+      case 'songs':
+        // Show all individual songs
+        return favouriteTracks;
+      case 'artists':
+        // Show tracks grouped by artist (but return all for now)
+        return favouriteTracks;
+      default:
+        return favouriteTracks;
+    }
+  }, [favouriteTracks, activeFilterTab]);
 
   useEffect(() => {
     if (!auth.currentUser) return;
-
-    const uploadsQuery = query(
-      collection(db, `users/${auth.currentUser.uid}/uploads`),
-      orderBy('createdAt', 'desc')
-    );
-
-    const unsubUploads = onSnapshot(uploadsQuery, (snapshot) => {
-      const tracks = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })) as UploadItem[];
-      setUploads(tracks);
-    });
-
-    const foldersQuery = query(
-      collection(db, `users/${auth.currentUser.uid}/folders`),
-      orderBy('createdAt', 'desc')
-    );
-
-    const unsubFolders = onSnapshot(foldersQuery, (snapshot) => {
-      const backendFolders = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })) as VaultFolder[];
-      setFolders(backendFolders);
-    });
 
     const favouritesRef = collection(db, `users/${auth.currentUser.uid}/favourites`);
     const unsubFavourites = onSnapshot(favouritesRef, (snapshot) => {
@@ -131,83 +123,9 @@ export default function ShooutFavouritesScreen() {
     });
 
     return () => {
-      unsubUploads();
-      unsubFolders();
       unsubFavourites();
     };
   }, []);
-
-  const usedStorage = useMemo(() => {
-    const totalBytes = uploads.reduce((sum, item) => sum + Number(item.fileSizeBytes || 0), 0);
-    const gb = totalBytes / (1024 * 1024 * 1024);
-    return gb.toFixed(2);
-  }, [uploads.length]);
-
-  const storageLimit = useMemo(() => {
-    if (user.storageLimitGB > 0) return user.storageLimitGB;
-    const fallbackMap: Record<string, number> = {
-      vault: 0.5,
-      vault_pro: 5,
-      studio: 2,
-      hybrid: 10,
-    };
-    return fallbackMap[activeRole || ''] || 0.5;
-  }, [activeRole, user.storageLimitGB]);
-
-  const hasVaultContent = folders.length > 0 || uploads.length > 0;
-  const creatorTitle = 'Vault';
-
-  const planLabel = useMemo(() => {
-    const tier = authState.subscriptionTier || activeRole || 'shoout';
-    const subscribed = authState.isSubscribed;
-    return `${String(tier).replace(/_/g, ' ')}${subscribed ? '' : ' (free)'}`;
-  }, [activeRole, authState.isSubscribed, authState.subscriptionTier]);
-
-  const createFolder = async () => {
-    if (!auth.currentUser) {
-      showToast('Please login again to create a folder.', 'error');
-      return;
-    }
-
-    const name = folderName.trim();
-    if (!name) {
-      showToast('Enter a folder name.', 'error');
-      return;
-    }
-
-    try {
-      setCreatingFolder(true);
-      await addDoc(collection(db, `users/${auth.currentUser.uid}/folders`), {
-        name,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        itemCount: 0,
-        artworkUrl: uploads[0]?.artworkUrl || null,
-      });
-      setFolderCreated(true);
-      showToast('Folder created successfully.', 'success');
-    } catch (error: any) {
-      console.error('Create folder error:', error?.message || error);
-      showToast('Failed to create folder. Please try again.', 'error');
-    } finally {
-      setCreatingFolder(false);
-    }
-  };
-
-  const closeFolderSheet = () => {
-    setShowCreateFolderSheet(false);
-    setFolderCreated(false);
-    setFolderName('');
-  };
-
-  const openUpload = () => {
-    if (!auth.currentUser) {
-      showToast('Please sign in to upload your music.', 'error');
-      router.push({ pathname: '/(auth)/login', params: { redirectTo: '/studio/upload' } });
-      return;
-    }
-    router.push('/studio/upload');
-  };
 
   const openFavourite = (track: FavouriteTrack) => {
     if (track.url) {
@@ -253,20 +171,71 @@ export default function ShooutFavouritesScreen() {
           },
         ]}
       >
-        <VaultHeader
-          storageText={`${usedStorage}GB/${storageLimit.toFixed(2)}GB`}
-          userLabel={user?.name || 'Creator'}
-          title={creatorTitle}
-          showStorage={false}
-          planLabel={planLabel}
-        />
         <>
-            <View style={styles.listingsHeader}>
-              <Text style={styles.listingsTitle}>Liked Music</Text>
-              <Text style={styles.likedCount}>{favouriteTracks.length} tracks</Text>
+            {/* Library Header */}
+            <View style={styles.pageHeader}>
+              <TouchableOpacity
+                style={styles.backButton}
+                activeOpacity={0.8}
+                onPress={() => router.push('/(tabs)/more' as any)}
+              >
+                <ChevronLeft size={24} color={appTheme.colors.textPrimary} strokeWidth={2.5} />
+              </TouchableOpacity>
+              <Text style={styles.pageTitle}>Library</Text>
+              <View style={{ width: 40 }} />
             </View>
 
-            {favouriteTracks.length === 0 ? (
+            <View style={styles.listingsHeader}>
+              <View>
+                <Text style={styles.listingsTitle}>Liked Music</Text>
+                <Text style={styles.likedCount}>{filteredTracks.length} tracks</Text>
+              </View>
+              <View style={styles.layoutToggle}>
+                <TouchableOpacity
+                  style={[styles.layoutToggleBtn, layoutMode === 'grid' && styles.layoutToggleBtnActive]}
+                  activeOpacity={0.8}
+                  onPress={() => setLayoutMode('grid')}
+                >
+                  <Grid3x3 size={16} color={layoutMode === 'grid' ? '#6AA7FF' : appTheme.colors.textSecondary} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.layoutToggleBtn, layoutMode === 'list' && styles.layoutToggleBtnActive]}
+                  activeOpacity={0.8}
+                  onPress={() => setLayoutMode('list')}
+                >
+                  <List size={16} color={layoutMode === 'list' ? '#6AA7FF' : appTheme.colors.textSecondary} />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Filter Tabs */}
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false} 
+              contentContainerStyle={styles.filterTabsContainer}
+              style={styles.filterTabsScroll}
+            >
+              {(['all', 'playlists', 'subscriptions', 'storage', 'songs', 'artists'] as const).map((tab) => (
+                <TouchableOpacity
+                  key={tab}
+                  style={[
+                    styles.filterTab,
+                    activeFilterTab === tab && styles.filterTabActive,
+                  ]}
+                  activeOpacity={0.8}
+                  onPress={() => setActiveFilterTab(tab)}
+                >
+                  <Text style={[
+                    styles.filterTabText,
+                    activeFilterTab === tab && styles.filterTabTextActive,
+                  ]}>
+                    {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            {filteredTracks.length === 0 ? (
               <View style={styles.favouritesEmptyWrap}>
                 <Heart size={52} color={adaptLegacyColor('rgba(255,255,255,0.24)', 'color', appTheme)} strokeWidth={1.7} />
                 <Text style={styles.favouritesEmptyTitle}>No liked tracks yet</Text>
@@ -279,9 +248,53 @@ export default function ShooutFavouritesScreen() {
                   <Text style={styles.findSongsBtnText}>Find Songs</Text>
                 </TouchableOpacity>
               </View>
+            ) : layoutMode === 'grid' ? (
+              <View style={styles.favouritesGrid}>
+                {filteredTracks.map((track) => {
+                  const art = track.artworkUrl || track.coverUrl;
+                  return (
+                    <View key={track.id} style={styles.gridItem}>
+                      <TouchableOpacity
+                        style={styles.gridItemArtWrap}
+                        activeOpacity={0.8}
+                        onPress={() => openFavourite(track)}
+                      >
+                        {art ? (
+                          <Image source={{ uri: art }} style={styles.gridItemArt} />
+                        ) : (
+                          <View style={styles.gridItemPlaceholder}>
+                            <Music size={28} color={adaptLegacyColor('rgba(255,255,255,0.5)', 'color', appTheme)} />
+                          </View>
+                        )}
+                        <View style={styles.gridItemOverlay}>
+                          <TouchableOpacity
+                            style={styles.gridItemPlayBtn}
+                            activeOpacity={0.8}
+                            onPress={() => openFavourite(track)}
+                          >
+                            <Play size={16} color="#FFFFFF" fill="#FFFFFF" />
+                          </TouchableOpacity>
+                        </View>
+                      </TouchableOpacity>
+                      <View style={styles.gridItemInfo}>
+                        <Text style={styles.gridItemTitle} numberOfLines={2}>{track.title || 'Untitled Track'}</Text>
+                        <View style={styles.gridItemFooter}>
+                          <Text style={styles.gridItemArtist} numberOfLines={1}>{track.artist || 'Creator'}</Text>
+                          <TouchableOpacity
+                            activeOpacity={0.8}
+                            onPress={() => removeFavourite(track.id)}
+                          >
+                            <Heart size={14} color="#6AA7FF" fill="#6AA7FF" />
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
             ) : (
               <View style={styles.favouritesList}>
-                {favouriteTracks.map((track) => {
+                {filteredTracks.map((track) => {
                   const art = track.artworkUrl || track.coverUrl;
                   return (
                     <View key={track.id} style={styles.favouriteRow}>
@@ -316,7 +329,7 @@ export default function ShooutFavouritesScreen() {
                           activeOpacity={0.8}
                           onPress={() => removeFavourite(track.id)}
                         >
-                          <Heart size={16} color="#EC5C39" fill="#EC5C39" />
+                          <Heart size={16} color="#6AA7FF" fill="#6AA7FF" />
                         </TouchableOpacity>
                       </View>
                     </View>
@@ -325,280 +338,10 @@ export default function ShooutFavouritesScreen() {
               </View>
             )}
 
-            <View style={styles.actionsRow}>
-              <TouchableOpacity style={styles.filterButton} activeOpacity={0.8} onPress={() => showToast('Coming soon', 'info')}>
-                <Filter size={18} color={appTheme.colors.textPrimary} />
-                <Text style={styles.filterText}>filter</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.addFolderButton}
-                activeOpacity={0.85}
-                onPress={() => setShowCreateFolderSheet(true)}
-              >
-                <Text style={styles.addFolderText}>Add new folder</Text>
-              </TouchableOpacity>
-            </View>
-
-            {!hasVaultContent ? (
-              <View style={styles.emptyWrap}>
-                <View style={styles.emptyIconWrap}>
-                  <Archive size={84} color={adaptLegacyColor('#767676', 'color', appTheme)} strokeWidth={1.6} />
-                </View>
-
-                <Text style={styles.emptyTitle}>No Item added yet</Text>
-                <Text style={styles.emptySubtitle}>5 free Uploads and Folder Creation</Text>
-
-                <TouchableOpacity
-                  style={styles.createBtn}
-                  activeOpacity={0.85}
-                  onPress={() => setShowCreateSheet(true)}
-                >
-                  <Text style={styles.createBtnText}>Create</Text>
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <>
-                <View style={styles.sectionHeader}>
-                  <Text style={styles.sectionTitle}>Recent Upload</Text>
-                  <TouchableOpacity activeOpacity={0.8} onPress={() => showToast('Coming soon', 'info')}>
-                    <Text style={styles.seeAll}>See All</Text>
-                  </TouchableOpacity>
-                </View>
-
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalList}>
-                  {folders.map((folder) => (
-                    <FolderCard key={folder.id} folder={folder} />
-                  ))}
-
-                  {uploads.slice(0, 6).map((item) => (
-                    <UploadCard key={item.id} item={item} />
-                  ))}
-                </ScrollView>
-              </>
-            )}
         </>
       </ScrollView>
-
-      <>
-        <TouchableOpacity
-          style={[styles.fab, { bottom: insets.bottom + 145 }]}
-          activeOpacity={0.85}
-          onPress={() => setShowCreateSheet(true)}
-        >
-          <Plus size={20} color={appTheme.colors.textPrimary} />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.linkFab, { bottom: insets.bottom + 92 }]}
-          activeOpacity={0.85}
-          onPress={() => showToast('Coming soon', 'info')}
-        >
-          <Link2 size={20} color={appTheme.colors.textPrimary} />
-        </TouchableOpacity>
-      </>
-
-      <Modal transparent visible={showCreateSheet} animationType="slide" onRequestClose={() => setShowCreateSheet(false)}>
-        <View style={styles.sheetBackdrop}>
-          <View style={styles.sheetCard}>
-            <View style={styles.sheetHandle} />
-
-            <TouchableOpacity
-              style={styles.closeBtn}
-              activeOpacity={0.8}
-              onPress={() => setShowCreateSheet(false)}
-            >
-              <X size={20} color={appTheme.colors.textSecondary} />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.sheetOption}
-              activeOpacity={0.9}
-              onPress={() => {
-                setShowCreateSheet(false);
-                setShowCreateFolderSheet(true);
-              }}
-            >
-              <Text style={styles.sheetOptionTitle}>Create Folder</Text>
-              <FolderPlus size={52} color={adaptLegacyColor('rgba(255,255,255,0.58)', 'color', appTheme)} strokeWidth={2.6} />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.sheetOption}
-              activeOpacity={0.9}
-              onPress={() => {
-                setShowCreateSheet(false);
-                openUpload();
-              }}
-            >
-              <Text style={styles.sheetOptionTitle}>Upload Track</Text>
-              <Music size={52} color={adaptLegacyColor('rgba(255,255,255,0.58)', 'color', appTheme)} strokeWidth={2.6} />
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      <Modal
-        transparent
-        visible={showCreateFolderSheet}
-        animationType="slide"
-        onRequestClose={closeFolderSheet}
-      >
-        <View style={styles.sheetBackdrop}>
-          <View style={[styles.sheetCard, styles.folderSheetCard]}>
-            <View style={styles.sheetHandle} />
-
-            <TouchableOpacity style={styles.closeBtn} activeOpacity={0.8} onPress={closeFolderSheet}>
-              <X size={20} color={appTheme.colors.textSecondary} />
-            </TouchableOpacity>
-
-            <Text style={styles.folderSheetTitle}>Create Folder</Text>
-
-            {folderCreated ? (
-              <View style={styles.successCard}>
-                <View style={styles.successIconWrap}>
-                  <FolderPlus size={38} color={adaptLegacyColor('rgba(255,255,255,0.53)', 'color', appTheme)} strokeWidth={2.2} />
-                  <View style={styles.checkBadge}>
-                    <Check size={14} color={appTheme.colors.textPrimary} strokeWidth={3} />
-                  </View>
-                </View>
-                <Text style={styles.successText}>Folder Uploaded successfully</Text>
-              </View>
-            ) : (
-              <>
-                <View style={styles.folderInputWrap}>
-                  <TextInput
-                    placeholder="Name of Folder"
-                    placeholderTextColor={appTheme.colors.textPlaceholder}
-                    style={styles.folderInput}
-                    value={folderName}
-                    onChangeText={setFolderName}
-                  />
-                </View>
-
-                <TouchableOpacity
-                  style={[styles.submitBtn, creatingFolder && styles.submitBtnDisabled]}
-                  activeOpacity={0.9}
-                  onPress={createFolder}
-                  disabled={creatingFolder}
-                >
-                  <Text style={styles.submitBtnText}>ADD CARD</Text>
-                </TouchableOpacity>
-              </>
-            )}
-          </View>
-        </View>
-      </Modal>
     </View>
   );
-}
-
-function VaultHeader({
-  storageText,
-  userLabel,
-  title,
-  showStorage,
-  planLabel,
-}: {
-  storageText: string;
-  userLabel: string;
-  title: 'Vault' | 'Studio' | 'Hybrid';
-  showStorage: boolean;
-  planLabel: string;
-}) {
-  const styles = useLibraryStyles();
-  const initials = userLabel
-    .split(' ')
-    .map((part) => part[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase();
-
-  return (
-    <View style={styles.header}>
-      <View style={styles.headerLeft}>
-        <Archive size={22} color="#EC5C39" strokeWidth={2.2} />
-
-        <View style={styles.headerTextWrap}>
-          <Text style={styles.headerTitle}>{title}</Text>
-          {showStorage ? <Text style={styles.headerStorage}>{storageText}</Text> : null}
-          <View style={styles.planPill}>
-            <Text style={styles.planPillText}>{planLabel}</Text>
-          </View>
-        </View>
-      </View>
-
-      <View style={styles.avatar}>
-        <Text style={styles.avatarText}>{initials || 'CR'}</Text>
-      </View>
-    </View>
-  );
-}
-
-function StatCard({ title, value }: { title: string; value: string }) {
-  const styles = useLibraryStyles();
-  return (
-    <View style={styles.statCard}>
-      <Text style={styles.statTitle}>{title}</Text>
-      <Text style={styles.statValue}>{value}</Text>
-    </View>
-  );
-}
-
-function FolderCard({ folder }: { folder: VaultFolder }) {
-  const styles = useLibraryStyles();
-  const router = useRouter();
-  return (
-    <TouchableOpacity
-      style={styles.cardItem}
-      activeOpacity={0.8}
-      onPress={() => router.push({ pathname: '/vault/folder/[id]', params: { id: folder.id, name: folder.name } } as any)}
-    >
-      <View style={styles.folderVisual}>
-        <View style={styles.folderBack} />
-        <View style={styles.folderFront}>
-          {folder.artworkUrl ? (
-            <Image source={{ uri: folder.artworkUrl }} style={styles.folderImage} />
-          ) : (
-            <Archive size={30} color="#EC5C39" />
-          )}
-        </View>
-      </View>
-      <Text style={styles.cardTitle} numberOfLines={1}>{folder.name}</Text>
-      <Text style={styles.cardMeta}>Upload {formatDate(folder.createdAt)}</Text>
-    </TouchableOpacity>
-  );
-}
-
-function UploadCard({ item }: { item: UploadItem }) {
-  const appTheme = useAppTheme();
-  const styles = useLibraryStyles();
-  const artwork = item.artworkUrl || item.coverUrl;
-  return (
-    <View style={styles.cardItem}>
-      <View style={styles.trackArt}>
-        {artwork ? (
-          <Image source={{ uri: artwork }} style={styles.trackArtImage} />
-        ) : (
-          <Music size={28} color={adaptLegacyColor('rgba(255,255,255,0.65)', 'color', appTheme)} />
-        )}
-      </View>
-      <Text style={styles.cardTitle} numberOfLines={1}>{item.title || 'Untitled Track'}</Text>
-      <Text style={styles.cardMeta} numberOfLines={1}>{item.artist || item.uploaderName || 'Creator'}</Text>
-      <Text style={styles.cardMeta}>Upload {formatDate(item.createdAt)}</Text>
-    </View>
-  );
-}
-
-function formatDate(date?: any) {
-  if (!date) return '';
-  const parsed = typeof date?.toDate === 'function' ? date.toDate() : new Date(date);
-  if (Number.isNaN(parsed.getTime())) return '';
-
-  const day = String(parsed.getDate()).padStart(2, '0');
-  const month = String(parsed.getMonth() + 1).padStart(2, '0');
-  const year = parsed.getFullYear();
-  return `${day}/${month}/${year}`;
 }
 
 const legacyStyles = {
@@ -609,6 +352,29 @@ const legacyStyles = {
   content: {
     paddingHorizontal: 20,
     gap: 20,
+  },
+  pageHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(106,167,255,0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pageTitle: {
+    color: '#FFFFFF',
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: 18,
+    lineHeight: 24,
+    letterSpacing: -0.5,
+    flex: 1,
+    textAlign: 'center',
   },
   header: {
     height: 60,
@@ -643,7 +409,7 @@ const legacyStyles = {
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 10,
-    backgroundColor: '#EC5C39',
+    backgroundColor: '#6AA7FF',
   },
   planPillText: {
     color: '#FFFFFF',
@@ -733,7 +499,7 @@ const legacyStyles = {
     paddingHorizontal: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#EC5C39',
+    backgroundColor: '#6AA7FF',
   },
   createBtnText: {
     color: '#FFFFFF',
@@ -757,7 +523,7 @@ const legacyStyles = {
     letterSpacing: -0.5,
   },
   seeAll: {
-    color: '#EC5C39',
+    color: '#6AA7FF',
     fontFamily: 'Poppins-Regular',
     fontSize: 14,
     lineHeight: 25,
@@ -835,7 +601,7 @@ const legacyStyles = {
     width: 41,
     height: 41,
     borderRadius: 21,
-    backgroundColor: '#EC5C39',
+    backgroundColor: '#6AA7FF',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -847,7 +613,7 @@ const legacyStyles = {
     borderRadius: 21,
     borderWidth: 1,
     borderColor: '#FFFFFF',
-    backgroundColor: '#EC5C39',
+    backgroundColor: '#6AA7FF',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -936,13 +702,60 @@ const legacyStyles = {
     width: '100%',
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
   listingsTitle: {
     color: '#FFFFFF',
     fontFamily: 'Poppins-Medium',
     fontSize: 16,
     lineHeight: 18,
+  },
+  layoutToggle: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+  },
+  layoutToggleBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  layoutToggleBtnActive: {
+    backgroundColor: 'rgba(236,92,57,0.2)',
+  },
+  filterTabsScroll: {
+    marginTop: 12,
+    marginHorizontal: -20,
+    paddingHorizontal: 20,
+  },
+  filterTabsContainer: {
+    gap: 8,
+    paddingRight: 20,
+  },
+  filterTab: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  filterTabActive: {
+    backgroundColor: '#6AA7FF',
+    borderColor: '#6AA7FF',
+  },
+  filterTabText: {
+    color: 'rgba(255,255,255,0.7)',
+    fontFamily: 'Poppins-Regular',
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  filterTabTextActive: {
+    color: '#FFFFFF',
+    fontFamily: 'Poppins-Medium',
   },
   listingsViewAll: {
     color: '#FFFFFF',
@@ -986,7 +799,7 @@ const legacyStyles = {
     marginTop: 4,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#EC5C39',
+    backgroundColor: '#6AA7FF',
     paddingHorizontal: 16,
     alignItems: 'center',
     justifyContent: 'center',
@@ -996,6 +809,80 @@ const legacyStyles = {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 12,
     lineHeight: 16,
+  },
+  favouritesGrid: {
+    width: '100%',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: '#1A1A1B',
+    padding: 12,
+  },
+  gridItem: {
+    width: '48%',
+    gap: 8,
+  },
+  gridItemArtWrap: {
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: 8,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    position: 'relative',
+  },
+  gridItemArt: {
+    width: '100%',
+    height: '100%',
+  },
+  gridItemPlaceholder: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  gridItemOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    opacity: 0.8,
+  },
+  gridItemPlayBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#6AA7FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  gridItemInfo: {
+    gap: 4,
+  },
+  gridItemTitle: {
+    color: '#FFFFFF',
+    fontFamily: 'Poppins-Medium',
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  gridItemFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  gridItemArtist: {
+    flex: 1,
+    color: 'rgba(255,255,255,0.68)',
+    fontFamily: 'Poppins-Regular',
+    fontSize: 10,
+    lineHeight: 14,
   },
   favouritesList: {
     width: '100%',
@@ -1085,7 +972,7 @@ const legacyStyles = {
   createListingBtn: {
     height: 32,
     borderRadius: 5,
-    backgroundColor: '#EC5C39',
+    backgroundColor: '#6AA7FF',
     paddingHorizontal: 10,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1254,7 +1141,7 @@ const legacyStyles = {
     marginTop: 30,
     height: 48,
     borderRadius: 10,
-    backgroundColor: '#EC5C39',
+    backgroundColor: '#6AA7FF',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1292,7 +1179,7 @@ const legacyStyles = {
     width: 26,
     height: 26,
     borderRadius: 13,
-    backgroundColor: '#EC5C39',
+    backgroundColor: '#6AA7FF',
     alignItems: 'center',
     justifyContent: 'center',
   },

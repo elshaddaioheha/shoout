@@ -102,11 +102,11 @@ export default function RootLayout() {
     });
 
     const authTimeout = setTimeout(() => {
-      console.warn('[layout] Auth timeout - forcing render. User may not be logged in.');
+      console.warn('[layout] Auth timeout - proceeding after 5s. User may not be fully verified on slow networks.');
       setHasAuthenticatedUser(Boolean(auth.currentUser));
       setAuthResolved(true);
       setVerifying(false);
-    }, 3000);
+    }, 5000);
 
     return () => {
       unsub();

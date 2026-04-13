@@ -35,12 +35,80 @@ const ACTION_ICONS = {
 
 function useVaultFloatingMenuStyles() {
   const appTheme = useAppTheme();
-  return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+  return React.useMemo(() => {
+    const adaptedStyles = adaptLegacyStyles(legacyStyles, appTheme) as any;
+    
+    // Light mode overrides
+    if (!appTheme.isDark) {
+      adaptedStyles.backdrop = {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(20, 15, 16, 0.32)',
+      };
+      adaptedStyles.menuBlur = {
+        borderRadius: 28,
+        borderWidth: 1,
+        borderColor: 'rgba(20, 15, 16, 0.12)',
+        backgroundColor: 'rgba(255, 255, 255, 0.98)',
+        padding: 16,
+      };
+      adaptedStyles.menuAction = {
+        minHeight: 88,
+        borderRadius: 20,
+        backgroundColor: 'rgba(20, 15, 16, 0.04)',
+        borderWidth: 1,
+        borderColor: 'rgba(20, 15, 16, 0.12)',
+        padding: 14,
+        justifyContent: 'space-between',
+      };
+      adaptedStyles.menuLabel = {
+        color: '#171213',
+        fontFamily: 'Poppins-SemiBold',
+        fontSize: 14,
+        fontWeight: '600',
+      };
+      adaptedStyles.launcherButton = {
+        height: 58,
+        borderRadius: 30,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: 'rgba(20, 15, 16, 0.14)',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
+        elevation: 8,
+      };
+      adaptedStyles.launcherBlur = {
+        flex: 1,
+        backgroundColor: 'rgba(216, 74, 40, 0.92)',
+        alignItems: 'center',
+        justifyContent: 'center',
+      };
+      adaptedStyles.launcherPlus = {
+        color: '#FFFFFF',
+        fontSize: 34,
+        lineHeight: 38,
+        fontFamily: 'Poppins-SemiBold',
+        fontWeight: '700',
+      };
+      adaptedStyles.menuIconWrap = {
+        width: 38,
+        height: 38,
+        borderRadius: 14,
+        backgroundColor: 'rgba(216, 74, 40, 0.18)',
+        alignItems: 'center',
+        justifyContent: 'center',
+      };
+    }
+    
+    return StyleSheet.create(adaptedStyles);
+  }, [appTheme]);
 }
 
 export default function VaultFloatingActionMenu({ actions }: VaultFloatingActionMenuProps) {
   const appTheme = useAppTheme();
   const styles = useVaultFloatingMenuStyles();
+  const isLightMode = !appTheme.isDark;
 
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
@@ -238,9 +306,15 @@ export default function VaultFloatingActionMenu({ actions }: VaultFloatingAction
             onPressIn={handleLauncherPressIn}
             onPressOut={handleLauncherPressOut}
           >
-            <BlurView intensity={51} tint={appTheme.isDark ? 'dark' : 'light'} style={styles.launcherBlur}>
-              <Animated.Text style={[styles.launcherPlus, { transform: [{ rotate: iconRotation }] }]}>+</Animated.Text>
-            </BlurView>
+            {isLightMode ? (
+              <View style={styles.launcherBlur}>
+                <Animated.Text style={[styles.launcherPlus, { transform: [{ rotate: iconRotation }] }]}>+</Animated.Text>
+              </View>
+            ) : (
+              <BlurView intensity={51} tint="dark" style={styles.launcherBlur}>
+                <Animated.Text style={[styles.launcherPlus, { transform: [{ rotate: iconRotation }] }]}>+</Animated.Text>
+              </BlurView>
+            )}
           </TouchableOpacity>
         </Animated.View>
       </View>
@@ -263,42 +337,83 @@ export default function VaultFloatingActionMenu({ actions }: VaultFloatingAction
               },
             ]}
           >
-            <BlurView intensity={28} tint={appTheme.isDark ? 'dark' : 'light'} style={styles.menuBlur}>
-              <View style={styles.menuGrid}>
-                {actions.map((action, index) => {
-                  const Icon = ACTION_ICONS[action.key as keyof typeof ACTION_ICONS] ?? FolderPlus;
-                  const itemAnimation = actionAnimations[index];
-                  return (
-                    <Animated.View
-                      key={action.key}
-                      style={{
-                        width: '47%',
-                        opacity: itemAnimation?.opacity ?? 1,
-                        transform: [
-                          { translateY: itemAnimation?.translateY ?? 0 },
-                          { scale: itemAnimation?.scale ?? 1 },
-                        ],
-                      }}
-                    >
-                      <TouchableOpacity
-                        style={styles.menuAction}
-                        activeOpacity={0.9}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                        onPress={() => {
-                          closeMenu();
-                          setTimeout(action.onPress, 140);
+            {isLightMode ? (
+              <View style={styles.menuBlur}>
+                <View style={styles.menuGrid}>
+                  {actions.map((action, index) => {
+                    const Icon = ACTION_ICONS[action.key as keyof typeof ACTION_ICONS] ?? FolderPlus;
+                    const itemAnimation = actionAnimations[index];
+                    const iconColor = '#B7331B';
+                    return (
+                      <Animated.View
+                        key={action.key}
+                        style={{
+                          width: '47%',
+                          opacity: itemAnimation?.opacity ?? 1,
+                          transform: [
+                            { translateY: itemAnimation?.translateY ?? 0 },
+                            { scale: itemAnimation?.scale ?? 1 },
+                          ],
                         }}
                       >
-                        <View style={styles.menuIconWrap}>
-                          <Icon size={18} color={appTheme.colors.primary} />
-                        </View>
-                        <Text style={styles.menuLabel}>{action.label}</Text>
-                      </TouchableOpacity>
-                    </Animated.View>
-                  );
-                })}
+                        <TouchableOpacity
+                          style={styles.menuAction}
+                          activeOpacity={0.9}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          onPress={() => {
+                            closeMenu();
+                            setTimeout(action.onPress, 140);
+                          }}
+                        >
+                          <View style={styles.menuIconWrap}>
+                            <Icon size={18} color={iconColor} />
+                          </View>
+                          <Text style={styles.menuLabel}>{action.label}</Text>
+                        </TouchableOpacity>
+                      </Animated.View>
+                    );
+                  })}
+                </View>
               </View>
-            </BlurView>
+            ) : (
+              <BlurView intensity={28} tint="dark" style={styles.menuBlur}>
+                <View style={styles.menuGrid}>
+                  {actions.map((action, index) => {
+                    const Icon = ACTION_ICONS[action.key as keyof typeof ACTION_ICONS] ?? FolderPlus;
+                    const itemAnimation = actionAnimations[index];
+                    const iconColor = appTheme.colors.primary;
+                    return (
+                      <Animated.View
+                        key={action.key}
+                        style={{
+                          width: '47%',
+                          opacity: itemAnimation?.opacity ?? 1,
+                          transform: [
+                            { translateY: itemAnimation?.translateY ?? 0 },
+                            { scale: itemAnimation?.scale ?? 1 },
+                          ],
+                        }}
+                      >
+                        <TouchableOpacity
+                          style={styles.menuAction}
+                          activeOpacity={0.9}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          onPress={() => {
+                            closeMenu();
+                            setTimeout(action.onPress, 140);
+                          }}
+                        >
+                          <View style={styles.menuIconWrap}>
+                            <Icon size={18} color={iconColor} />
+                          </View>
+                          <Text style={styles.menuLabel}>{action.label}</Text>
+                        </TouchableOpacity>
+                      </Animated.View>
+                    );
+                  })}
+                </View>
+              </BlurView>
+            )}
           </Animated.View>
         </View>
       </Modal>

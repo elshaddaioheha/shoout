@@ -35,7 +35,114 @@ const SEARCH_SHEET_OFFSET = Math.round(Dimensions.get('window').height * 0.14);
 
 function useVaultHomeStyles() {
   const appTheme = useAppTheme();
-  return useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+  return useMemo(() => {
+    const adaptedStyles = adaptLegacyStyles(legacyStyles, appTheme) as any;
+    
+    // Light mode overrides
+    if (!appTheme.isDark) {
+      adaptedStyles.modalOverlay = {
+        flex: 1,
+        justifyContent: 'flex-end',
+        backgroundColor: 'rgba(20, 15, 16, 0.32)',
+      };
+      adaptedStyles.searchBackdrop = {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(20, 15, 16, 0.32)',
+      };
+      adaptedStyles.modalCard = {
+        backgroundColor: 'rgba(255, 255, 255, 0.98)',
+        borderTopLeftRadius: 28,
+        borderTopRightRadius: 28,
+        padding: 24,
+        gap: 12,
+      };
+      adaptedStyles.searchCard = {
+        backgroundColor: 'rgba(255, 255, 255, 0.98)',
+        borderTopLeftRadius: 28,
+        borderTopRightRadius: 28,
+        padding: 24,
+        gap: 12,
+        minHeight: 420,
+        marginTop: 'auto',
+      };
+      adaptedStyles.searchResultsWrap = {
+        minHeight: 180,
+        borderRadius: 18,
+        backgroundColor: 'rgba(20, 15, 16, 0.04)',
+        borderWidth: 1,
+        borderColor: 'rgba(20, 15, 16, 0.12)',
+        overflow: 'hidden',
+        paddingVertical: 6,
+      };
+      adaptedStyles.searchResultRow = {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(20, 15, 16, 0.08)',
+      };
+      adaptedStyles.modalTitle = {
+        color: '#171213',
+        fontFamily: 'Poppins-Bold',
+        fontSize: 20,
+      };
+      adaptedStyles.modalSubtitle = {
+        color: 'rgba(20, 15, 16, 0.68)',
+        fontFamily: 'Poppins-Regular',
+        fontSize: 13,
+        lineHeight: 20,
+      };
+      adaptedStyles.input = {
+        backgroundColor: 'rgba(20, 15, 16, 0.06)',
+        borderRadius: 14,
+        borderWidth: 1,
+        borderColor: 'rgba(20, 15, 16, 0.12)',
+        paddingHorizontal: 16,
+        paddingVertical: 14,
+        color: '#171213',
+        fontFamily: 'Poppins-Regular',
+        fontSize: 14,
+      };
+      adaptedStyles.modalSecondaryButton = {
+        flex: 1,
+        borderRadius: 14,
+        borderWidth: 1,
+        borderColor: 'rgba(20, 15, 16, 0.14)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 14,
+      };
+      adaptedStyles.modalSecondaryText = {
+        color: '#171213',
+        fontFamily: 'Poppins-Medium',
+        fontSize: 14,
+      };
+      adaptedStyles.modalPrimaryButton = {
+        flex: 1,
+        borderRadius: 14,
+        backgroundColor: '#D84A28',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 14,
+      };
+      adaptedStyles.modalPrimaryText = {
+        color: '#FFFFFF',
+        fontFamily: 'Poppins-Medium',
+        fontSize: 14,
+      };
+      adaptedStyles.placeholderText = {
+        color: 'rgba(20, 15, 16, 0.56)',
+        fontFamily: 'Poppins-Regular',
+        fontSize: 13,
+        paddingHorizontal: 16,
+        paddingVertical: 14,
+      };
+    }
+    
+    return StyleSheet.create(adaptedStyles);
+  }, [appTheme]);
 }
 
 export default function VaultHomeScreen() {
@@ -52,7 +159,7 @@ export default function VaultHomeScreen() {
     maxVaultUploads,
     canUploadToVault,
   } = useUserStore((state) => state);
-  const { uploads, folders, shareLinks, recentActivities, usedStorageGB, loading } = useVaultWorkspaceData();
+  const { uploads, folders, shareLinks, usedStorageGB, loading } = useVaultWorkspaceData();
   const [showCreateFolderSheet, setShowCreateFolderSheet] = useState(false);
   const [showSearchSheet, setShowSearchSheet] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -66,16 +173,20 @@ export default function VaultHomeScreen() {
 
   const currentPlanLabel = formatPlanLabel(actualRole || role);
   const isHybridMode = viewMode === 'hybrid';
-  const accentColor = isHybridMode ? (appTheme.isDark ? '#E5C158' : '#D4AF37') : '#EC5C39';
-  const accentTextColor = isHybridMode ? (appTheme.isDark ? '#F4D03F' : '#B8860B') : '#EC5C39';
-  const accentTint = isHybridMode ? (appTheme.isDark ? 'rgba(244,208,63,0.24)' : 'rgba(212,175,55,0.24)') : 'rgba(236,92,57,0.2)';
-  const accentSoft = isHybridMode ? (appTheme.isDark ? '#18181B' : '#F9F6ED') : 'rgba(236,92,57,0.1)';
-  const actionButtonTextColor = appTheme.isDark ? '#121212' : '#B8860B';
-  const actionSecondaryBackground = isHybridMode ? (appTheme.isDark ? 'rgba(244,208,63,0.1)' : '#F9F6ED') : 'rgba(255,255,255,0.05)';
-  const storageSummary = `${formatStorage(usedStorageGB)} / ${formatStorage(storageLimitGB)}`;
-  const uploadSummary = `${uploads.length} / ${maxVaultUploads}`;
-  const uploadLimitReached = maxVaultUploads > 0 && uploads.length >= maxVaultUploads;
-  const storageLimitReached = storageLimitGB > 0 && usedStorageGB >= storageLimitGB;
+  const accentColor = isHybridMode ? (appTheme.isDark ? '#E5C158' : '#D4AF37') : '#D84A28';
+  const accentTextColor = isHybridMode ? (appTheme.isDark ? '#F4D03F' : '#B8860B') : (appTheme.isDark ? '#EC6B4A' : '#B7331B');
+  const accentTint = isHybridMode ? (appTheme.isDark ? 'rgba(244,208,63,0.24)' : 'rgba(212,175,55,0.24)') : (appTheme.isDark ? 'rgba(236,92,57,0.22)' : 'rgba(216,74,40,0.2)');
+  const accentSoft = isHybridMode ? (appTheme.isDark ? '#18181B' : '#F9F6ED') : (appTheme.isDark ? 'rgba(236,92,57,0.1)' : '#FFF0E9');
+  const actionButtonTextColor = isHybridMode ? (appTheme.isDark ? '#121212' : '#B8860B') : '#FFFFFF';
+  const actionSecondaryBackground = isHybridMode ? (appTheme.isDark ? 'rgba(244,208,63,0.1)' : '#F9F6ED') : (appTheme.isDark ? 'rgba(236,92,57,0.14)' : '#FFE6DA');
+  const heroSurfaceColor = isHybridMode ? accentSoft : (appTheme.isDark ? '#1D1716' : '#FFF5EF');
+  const listSurfaceColor = isHybridMode ? accentSoft : (appTheme.isDark ? '#1A1A1B' : '#FFF9F6');
+  const effectiveStorageLimitGB = storageLimitGB > 0 ? storageLimitGB : 0.5;
+  const effectiveUploadLimit = maxVaultUploads > 0 ? maxVaultUploads : 50;
+  const storageSummary = `${formatStorage(usedStorageGB)}/${formatStorage(effectiveStorageLimitGB)}`;
+  const uploadSummary = `${uploads.length}/${effectiveUploadLimit}`;
+  const uploadLimitReached = uploads.length >= effectiveUploadLimit;
+  const storageLimitReached = usedStorageGB >= effectiveStorageLimitGB;
   const vaultIsEmpty = uploads.length === 0 && folders.length === 0 && shareLinks.length === 0;
 
   const openSearchSheet = () => {
@@ -296,13 +407,13 @@ export default function VaultHomeScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 168 }]}
       >
-        <View style={[styles.heroCard, { borderColor: accentTint, backgroundColor: accentSoft }]}>
+        <View style={[styles.heroCard, { borderColor: accentTint, backgroundColor: heroSurfaceColor }]}>
           <View style={styles.heroHeaderRow}>
             <View style={styles.heroTextBlock}>
               <Text style={[styles.heroEyebrow, { color: accentTextColor }]}>Vault Workspace</Text>
               <Text style={styles.heroTitle}>Your private uploads, folders, and share links</Text>
             </View>
-            <View style={[styles.planPill, { borderColor: accentTint, backgroundColor: accentSoft }]}>
+            <View style={[styles.planPill, { borderColor: accentTint, backgroundColor: accentSoft }]}> 
               <Text style={[styles.planPillText, { color: accentTextColor }]}>{currentPlanLabel}</Text>
             </View>
           </View>
@@ -392,11 +503,11 @@ export default function VaultHomeScreen() {
           </View>
         ) : null}
 
-        <SectionHeader title="Recent Activity" actionLabel={recentActivities.length > 0 ? 'Open updates' : undefined} actionColor={accentTextColor} onPress={() => router.push('/vault/updates' as any)} />
-        <View style={[styles.sectionCard, { borderColor: accentTint, backgroundColor: accentSoft }]}>
+        <SectionHeader title="Vault Items" actionLabel="Open updates" actionColor={accentTextColor} onPress={() => router.push('/vault/updates' as any)} />
+        <View style={[styles.sectionCard, { borderColor: accentTint, backgroundColor: listSurfaceColor }]}> 
           <View style={styles.sectionBlock}>
             <View style={styles.sectionBlockHeader}>
-              <Text style={styles.sectionBlockTitle}>Recent Uploads</Text>
+              <Text style={styles.sectionBlockTitle}>Uploads</Text>
               {uploads.length > 0 ? (
                 <TouchableOpacity onPress={() => router.push('/vault/updates' as any)} activeOpacity={0.8}>
                   <Text style={[styles.sectionBlockAction, { color: accentTextColor }]}>View all</Text>
@@ -405,7 +516,7 @@ export default function VaultHomeScreen() {
             </View>
             {loading ? <Text style={styles.placeholderText}>Loading uploads...</Text> : null}
             {!loading && uploads.length === 0 ? <Text style={styles.placeholderText}>No private uploads yet.</Text> : null}
-            {!loading && uploads.slice(0, 4).map((upload) => (
+            {!loading && uploads.slice(0, 3).map((upload) => (
               <TouchableOpacity
                 key={upload.id}
                 style={styles.listRow}
@@ -428,49 +539,30 @@ export default function VaultHomeScreen() {
 
           <View style={styles.sectionBlock}>
             <View style={styles.sectionBlockHeader}>
-              <Text style={styles.sectionBlockTitle}>Recent Updates</Text>
-              {recentActivities.length > 0 ? (
-                <TouchableOpacity onPress={() => router.push('/vault/updates' as any)} activeOpacity={0.8}>
-                  <Text style={[styles.sectionBlockAction, { color: accentTextColor }]}>Open</Text>
-                </TouchableOpacity>
-              ) : null}
+              <Text style={styles.sectionBlockTitle}>Folders</Text>
+              <TouchableOpacity onPress={() => setShowCreateFolderSheet(true)} activeOpacity={0.8}>
+                <Text style={[styles.sectionBlockAction, { color: accentTextColor }]}>Create</Text>
+              </TouchableOpacity>
             </View>
-            {recentActivities.length === 0 ? <Text style={styles.placeholderText}>Vault updates will appear here as you upload, edit, and share.</Text> : null}
-            {recentActivities.slice(0, 4).map((item) => (
-              <TouchableOpacity key={item.id} style={styles.listRow} onPress={() => router.push('/vault/updates' as any)} activeOpacity={0.8}>
+            {folders.length === 0 ? <Text style={styles.placeholderText}>No folders yet. Create one to keep uploads organized.</Text> : null}
+            {folders.slice(0, 3).map((folder) => (
+              <TouchableOpacity
+                key={folder.id}
+                style={styles.listRow}
+                onPress={() => router.push({ pathname: '/vault/folder/[id]', params: { id: folder.id, name: folder.name } } as any)}
+                activeOpacity={0.8}
+              >
                 <View style={[styles.rowIconWrap, { backgroundColor: accentSoft }]}>
-                  <RefreshCw size={18} color={accentTextColor} />
+                  <FolderPlus size={18} color={accentTextColor} />
                 </View>
                 <View style={styles.rowInfo}>
-                  <Text style={styles.rowTitle} numberOfLines={1}>{item.title}</Text>
-                  <Text style={styles.rowSubtitle} numberOfLines={1}>{item.subtitle}</Text>
+                  <Text style={styles.rowTitle} numberOfLines={1}>{folder.name}</Text>
+                  <Text style={styles.rowSubtitle}>{Number(folder.itemCount || 0)} item{Number(folder.itemCount || 0) === 1 ? '' : 's'}</Text>
                 </View>
-                <Text style={styles.rowMeta}>{formatRelative(item.createdAtMs)}</Text>
+                <Text style={styles.rowMeta}>{formatRelative(new Date(folder.updatedAt?.toDate?.() || folder.createdAt?.toDate?.() || Date.now()).getTime())}</Text>
               </TouchableOpacity>
             ))}
           </View>
-        </View>
-
-        <SectionHeader title="Folders" actionLabel={folders.length > 0 ? 'Create' : undefined} actionColor={accentTextColor} onPress={() => setShowCreateFolderSheet(true)} />
-        <View style={[styles.sectionCard, { borderColor: accentTint, backgroundColor: accentSoft }]}>
-          {folders.length === 0 ? <Text style={styles.placeholderText}>No folders yet. Create one to organize your uploads.</Text> : null}
-          {folders.slice(0, 5).map((folder) => (
-            <TouchableOpacity
-              key={folder.id}
-              style={styles.listRow}
-              onPress={() => router.push({ pathname: '/vault/folder/[id]', params: { id: folder.id, name: folder.name } } as any)}
-              activeOpacity={0.8}
-            >
-              <View style={[styles.rowIconWrap, { backgroundColor: accentSoft }]}>
-                <FolderPlus size={18} color={accentTextColor} />
-              </View>
-              <View style={styles.rowInfo}>
-                <Text style={styles.rowTitle} numberOfLines={1}>{folder.name}</Text>
-                <Text style={styles.rowSubtitle}>{Number(folder.itemCount || 0)} item{Number(folder.itemCount || 0) === 1 ? '' : 's'}</Text>
-              </View>
-              <Text style={styles.rowMeta}>{formatRelative(new Date(folder.updatedAt?.toDate?.() || folder.createdAt?.toDate?.() || Date.now()).getTime())}</Text>
-            </TouchableOpacity>
-          ))}
         </View>
 
       </ScrollView>

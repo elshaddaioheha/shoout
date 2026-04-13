@@ -56,7 +56,18 @@ export default function ResetPasswordScreen() {
         return;
       }
 
-      const parsed = JSON.parse(raw) as { email: string; verificationToken: string };
+      const parsed = JSON.parse(raw) as { email: string; verificationToken: string; createdAt: number };
+      
+      // Validate token hasn't expired (verify in backend, but check here as defense in depth)
+      const OTP_TOKEN_EXPIRY_MS = 30 * 60 * 1000; // 30 minutes - must match backend
+      const now = Date.now();
+      if (now - parsed.createdAt > OTP_TOKEN_EXPIRY_MS) {
+        showToast('Password reset session expired. Start again.', 'error');
+        await AsyncStorage.removeItem(PASSWORD_RESET_TOKEN_KEY);
+        router.replace('/(auth)/forgot-password');
+        return;
+      }
+
       await completePasswordResetWithOtp(parsed.email, parsed.verificationToken, password);
       await AsyncStorage.removeItem(PASSWORD_RESET_TOKEN_KEY);
       showToast('Password reset successful. You can now log in.', 'success');

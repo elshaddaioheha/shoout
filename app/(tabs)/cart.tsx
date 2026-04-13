@@ -12,19 +12,10 @@ import { useRouter } from 'expo-router';
 import {
     collection,
     doc,
-    limit,
     onSnapshot,
-    orderBy,
-    query,
-    where
+    query
 } from 'firebase/firestore';
-import { getFunctions, httpsCallable } from 'firebase/functions';
-import { PayWithFlutterwave } from 'flutterwave-react-native';
-
 import {
-    ArrowRight,
-    ChevronLeft,
-    CreditCard,
     Library,
     Music,
     ShoppingCart,
@@ -66,11 +57,6 @@ export default function CartScreen() {
     const appTheme = useAppTheme();
     const styles = useCartStyles();
     const isLightMode = !appTheme.isDark;
-    const checkoutGradientColors = isLightMode
-        ? ['#EC5C39', '#C1492A']
-        : ['#EC5C39', '#863420'];
-    const checkoutIconTextColor = '#FFFFFF';
-    const checkoutFontSize = width < 360 ? 16 : width > 430 ? 19 : 18;
     const itemFallbackIconColor = adaptLegacyColor('rgba(255,255,255,0.2)', 'color', appTheme);
     const bestSellerFallbackIconColor = adaptLegacyColor('rgba(255,255,255,0.25)', 'color', appTheme);
     const emptyCartIconColor = adaptLegacyColor('rgba(255,255,255,0.7)', 'color', appTheme);
@@ -79,21 +65,11 @@ export default function CartScreen() {
     const router = useRouter();
     const { items, removeItem, clearCart, total } = useCartStore();
     const bottomTabBarHeight = useLayoutMetricsStore((state) => state.bottomTabBarHeight);
-    const [checkingOut, setCheckingOut] = useState(false);
-    const [showFWButton, setShowFWButton] = useState(false);
-    const [checkoutTxRef, setCheckoutTxRef] = useState<string | null>(null);
-    const [checkoutAmountNgn, setCheckoutAmountNgn] = useState<number>(0);
     const [bestSellers, setBestSellers] = useState<MarketplaceItem[]>([]);
     const [bestSellerLoading, setBestSellerLoading] = useState(true);
     const [purchasedCount, setPurchasedCount] = useState(0);
-    const [checkoutBarHeight, setCheckoutBarHeight] = useState(0);
     const { showToast } = useToastStore();
     const platformListBottomGap = Platform.OS === 'ios' ? 22 : 16;
-    const platformCheckoutBottomGap = Platform.OS === 'ios' ? 8 : 6;
-
-    const handleCheckoutBarLayout = (event: LayoutChangeEvent) => {
-        setCheckoutBarHeight(event.nativeEvent.layout.height);
-    };
 
     useEffect(() => {
         // 🚀 PERFORMANCE: Read pre-aggregated best sellers document instead of inefficient collectionGroup query
@@ -131,103 +107,12 @@ export default function CartScreen() {
             unsubMarket();
             unsubPurchases();
         };
-    }, []);
+    }, [auth.currentUser?.uid]);
 
-    // Called after Flutterwave confirms payment
-    // Purchase documents are created only by webhook-driven backend functions.
-    const handlePaymentSuccess = async (flutterwaveData: any) => {
-        if (!auth.currentUser) return;
-        setCheckingOut(true);
-        try {
-            const txRef = flutterwaveData?.tx_ref || checkoutTxRef;
-            if (!txRef) {
-                throw new Error('Missing transaction reference from payment callback.');
-            }
-
-            const functions = getFunctions();
-            const getCheckoutStatus = httpsCallable(functions, 'getCheckoutStatus');
-
-            // Poll backend for webhook-processed completion state.
-            let completed = false;
-            for (let i = 0; i < 15; i += 1) {
-                const statusResult = await getCheckoutStatus({ txRef });
-                const status = (statusResult.data as { status?: string }).status;
-                if (status === 'completed') {
-                    completed = true;
-                    break;
-                }
-                if (status === 'failed' || status === 'amount_mismatch') {
-                    throw new Error(`Payment processing failed with status: ${status}`);
-                }
-                await new Promise((resolve) => setTimeout(resolve, 2000));
-            }
-
-            if (!completed) {
-                showToast('Payment received. We are still confirming your delivery. Please check Library shortly.', 'info');
-                return;
-            }
-
-            clearCart();
-            setCheckoutTxRef(null);
-            setCheckoutAmountNgn(0);
-            Alert.alert(
-                'Purchase Confirmed',
-                `${items.length} track${items.length > 1 ? 's are' : ' is'} now in your library.`,
-                [{ text: 'View Library', onPress: () => router.push('/(tabs)/library') }]
-            );
-        } catch (error) {
-            console.error('Payment verification error:', error);
-            showToast('Payment succeeded but delivery is pending verification. Contact support if this persists.', 'error');
-        } finally {
-            setCheckingOut(false);
-        }
-    };
 
     const handleCheckout = async () => {
-        const user = auth.currentUser;
-        if (!user) {
-            showToast('Create your account to complete purchase.', 'info');
-            router.push({ pathname: '/(auth)/signup', params: { redirectTo: '/cart' } });
-            return;
-        }
-        if (!user.email) {
-            showToast('Email is required to complete payment. Please verify your email in settings.', 'error');
-            router.push('/settings/notifications');
-            return;
-        }
-        if (items.length === 0) return;
-
-        setCheckingOut(true);
-        try {
-            // Force-refresh token so callable carries a fresh auth context on web.
-            await user.getIdToken(true);
-
-            const functions = getFunctions();
-            const createCheckoutSession = httpsCallable(functions, 'createCheckoutSession');
-            const result = await createCheckoutSession({
-                items,
-                totalAmountUsd: total,
-            });
-
-            const data = result.data as { txRef: string; amountNgn: number };
-            if (!data?.txRef || !data?.amountNgn) {
-                throw new Error('Invalid checkout session response from backend');
-            }
-
-            setCheckoutTxRef(data.txRef);
-            setCheckoutAmountNgn(data.amountNgn);
-            setShowFWButton(true);
-        } catch (error) {
-            console.error('Checkout session init failed:', error);
-            if (String((error as any)?.message || '').toLowerCase().includes('authentication required')) {
-                showToast('Session expired. Please sign in again.', 'error');
-                router.push({ pathname: '/(auth)/signup', params: { redirectTo: '/cart' } });
-                return;
-            }
-            showToast('Unable to initialize secure checkout. Please try again.', 'error');
-        } finally {
-            setCheckingOut(false);
-        }
+        // Navigate to checkout screen instead of initiating payment directly
+        router.push('/checkout-review');
     };
 
     const renderItem = ({ item }: { item: any }) => (
@@ -248,7 +133,7 @@ export default function CartScreen() {
                 style={styles.removeBtn}
                 onPress={() => removeItem(item.id)}
             >
-                <Trash2 size={20} color="#EF4444" />
+                <Trash2 size={20} color="#6AA7FF" />
             </TouchableOpacity>
         </TouchableOpacity>
     );
@@ -257,18 +142,33 @@ export default function CartScreen() {
         <SafeScreenWrapper>
             <View style={styles.container}>
                 <View style={styles.header}>
-                    <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-                        <ChevronLeft size={24} color={appTheme.colors.textPrimary} />
-                    </TouchableOpacity>
-                    <Text style={styles.headerTitle}>Cart</Text>
                     <TouchableOpacity
                         onPress={() => items.length > 0 && Alert.alert("Clear Cart", "Are you sure?", [
                             { text: "Cancel" },
-                            { text: "Clear", onPress: clearCart, style: 'destructive' }
+                            { text: "Clear", onPress: () => clearCart(), style: 'destructive' }
                         ])}
                         disabled={items.length === 0}
                     >
                         <Text style={[styles.clearText, items.length === 0 && { opacity: 0.3 }]}>Clear</Text>
+                    </TouchableOpacity>
+                    <Text style={styles.headerTitle}>Cart</Text>
+                    <TouchableOpacity
+                        style={[
+                            styles.checkoutHeaderBtn,
+                            isLightMode && styles.checkoutHeaderBtnLight,
+                            items.length === 0 && styles.checkoutHeaderBtnDisabled,
+                        ]}
+                        onPress={handleCheckout}
+                        disabled={items.length === 0}
+                    >
+                        <Text
+                            style={[
+                                styles.checkoutHeaderText,
+                                items.length === 0 && styles.checkoutHeaderTextDisabled,
+                            ]}
+                        >
+                            Checkout
+                        </Text>
                     </TouchableOpacity>
                 </View>
 
@@ -291,7 +191,7 @@ export default function CartScreen() {
 
                         {purchasedCount > 0 ? (
                             <TouchableOpacity style={styles.viewListBtn} onPress={() => router.push('/(tabs)/library')}>
-                                <Library size={16} color="#EC5C39" />
+                                <Library size={16} color="#6AA7FF" />
                                 <Text style={styles.viewListText}>View List</Text>
                             </TouchableOpacity>
                         ) : null}
@@ -349,92 +249,10 @@ export default function CartScreen() {
                             contentContainerStyle={[
                                 styles.listContent,
                                 {
-                                    paddingBottom: checkoutBarHeight + bottomTabBarHeight + insets.bottom + platformListBottomGap,
+                                    paddingBottom: bottomTabBarHeight + insets.bottom + platformListBottomGap,
                                 },
                             ]}
                         />
-
-                        {/* Summary & Checkout */}
-                        <View
-                            style={[
-                                styles.footer,
-                                {
-                                    bottom: bottomTabBarHeight + platformCheckoutBottomGap,
-                                    backgroundColor: isLightMode ? '#FFF8F4' : '#1E1A1B',
-                                    borderTopColor: isLightMode ? 'rgba(193, 73, 42, 0.18)' : 'rgba(255,255,255,0.05)',
-                                },
-                            ]}
-                            onLayout={handleCheckoutBarLayout}
-                        >
-                            <View style={styles.summaryRow}>
-                                <Text style={[styles.summaryLabel, isLightMode && { color: '#6E564E' }]}>Total Items</Text>
-                                <Text style={[styles.summaryValue, isLightMode && { color: '#2F2624' }]}>{items.length}</Text>
-                            </View>
-                            <View style={styles.totalRow}>
-                                <Text style={[styles.totalLabel, isLightMode && { color: '#2F2624' }]}>Total Price</Text>
-                                <Text style={[styles.totalValue, isLightMode && { color: '#C1492A' }]}>{formatUsd(total)}</Text>
-                            </View>
-
-                            <TouchableOpacity
-                                style={[
-                                    styles.checkoutBtn,
-                                    isLightMode && {
-                                        borderWidth: 1,
-                                        borderColor: 'rgba(255,255,255,0.62)',
-                                        shadowColor: '#C1492A',
-                                        shadowOpacity: 0.22,
-                                        shadowRadius: 14,
-                                        shadowOffset: { width: 0, height: 8 },
-                                    },
-                                ]}
-                                onPress={handleCheckout}
-                                disabled={checkingOut}
-                            >
-                                <LinearGradient
-                                    colors={checkoutGradientColors}
-                                    style={styles.checkoutGradient}
-                                >
-                                    {checkingOut ? (
-                                        <ActivityIndicator color={checkoutIconTextColor} />
-                                    ) : (
-                                        <>
-                                            <CreditCard size={20} color={checkoutIconTextColor} />
-                                            <Text style={[styles.checkoutText, { color: checkoutIconTextColor, fontSize: checkoutFontSize }]}>Complete Purchase</Text>
-                                            <ArrowRight size={20} color={checkoutIconTextColor} />
-                                        </>
-                                    )}
-                                </LinearGradient>
-                            </TouchableOpacity>
-
-                            {/* Hidden Flutterwave trigger — auto-fires when showFWButton = true */}
-                            {showFWButton && auth.currentUser && checkoutTxRef && checkoutAmountNgn > 0 && (
-                                <PayWithFlutterwave
-                                    onRedirect={(data) => {
-                                        setShowFWButton(false);
-                                        if (data.status === 'successful') {
-                                            handlePaymentSuccess(data);
-                                        } else {
-                                            showToast('Your payment was not completed.', 'error');
-                                        }
-                                    }}
-                                    options={{
-                                        tx_ref: checkoutTxRef,
-                                        authorization: process.env.EXPO_PUBLIC_FLUTTERWAVE_PUBLIC_KEY || '',
-                                        customer: {
-                                            email: auth.currentUser.email!,
-                                        },
-                                        amount: checkoutAmountNgn,
-                                        currency: 'NGN',
-                                        payment_options: 'card,banktransfer',
-                                    }}
-                                    customButton={(props) => {
-                                        // Auto-press as soon as it renders
-                                        setTimeout(() => { if (!props.disabled) props.onPress(); }, 100);
-                                        return <View />;
-                                    }}
-                                />
-                            )}
-                        </View>
                     </>
                 )}
             </View>
@@ -469,9 +287,44 @@ const legacyStyles = {
         color: '#FFF',
     },
     clearText: {
-        color: '#EC5C39',
+        color: '#6AA7FF',
         fontSize: 14,
         fontFamily: 'Poppins-Medium',
+    },
+    checkoutHeaderBtn: {
+        minHeight: 34,
+        paddingHorizontal: 14,
+        borderRadius: 999,
+        backgroundColor: '#6AA7FF',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.14)',
+        shadowColor: '#6AA7FF',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.32,
+        shadowRadius: 10,
+        elevation: 5,
+    },
+    checkoutHeaderBtnLight: {
+        borderColor: 'rgba(255,255,255,0.75)',
+        shadowColor: '#4A85E8',
+        shadowOpacity: 0.2,
+    },
+    checkoutHeaderBtnDisabled: {
+        backgroundColor: 'rgba(106,167,255,0.32)',
+        borderColor: 'rgba(106,167,255,0.26)',
+        shadowOpacity: 0,
+        elevation: 0,
+    },
+    checkoutHeaderText: {
+        color: '#FFFFFF',
+        fontSize: 13,
+        fontFamily: 'Poppins-SemiBold',
+        letterSpacing: 0.2,
+    },
+    checkoutHeaderTextDisabled: {
+        color: 'rgba(255,255,255,0.86)',
     },
     listContent: {
         paddingHorizontal: 20,
@@ -514,7 +367,7 @@ const legacyStyles = {
     itemPrice: {
         fontSize: 14,
         fontFamily: 'Poppins-SemiBold',
-        color: '#EC5C39',
+        color: '#6AA7FF',
         marginTop: 4,
     },
     removeBtn: {
@@ -550,7 +403,7 @@ const legacyStyles = {
     },
     browseBtn: {
         marginTop: 14,
-        backgroundColor: '#EC5C39',
+        backgroundColor: '#6AA7FF',
         alignSelf: 'center',
         paddingHorizontal: 22,
         paddingVertical: 10,
@@ -569,7 +422,7 @@ const legacyStyles = {
         gap: 6,
     },
     viewListText: {
-        color: '#EC5C39',
+        color: '#6AA7FF',
         fontSize: 14,
         fontFamily: 'Poppins-Regular',
     },
@@ -586,7 +439,7 @@ const legacyStyles = {
         fontFamily: 'Poppins-SemiBold',
     },
     bestSellerLink: {
-        color: '#EC5C39',
+        color: '#6AA7FF',
         fontSize: 14,
         fontFamily: 'Poppins-Regular',
     },
@@ -687,7 +540,7 @@ const legacyStyles = {
     totalValue: {
         fontSize: 24,
         fontFamily: 'Poppins-Bold',
-        color: '#EC5C39',
+        color: '#6AA7FF',
     },
     checkoutBtn: {
         height: 60,
