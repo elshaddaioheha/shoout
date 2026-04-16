@@ -2,6 +2,7 @@ import { ViewMode, useUserStore } from '@/store/useUserStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { usePlaybackStore } from '@/store/usePlaybackStore';
 import { useToastStore } from '@/store/useToastStore';
+import { notifyError, notifyWarning } from '@/utils/notify';
 import { canAccessAppMode, canUseStudioServices, formatPlanLabel, getDefaultAppModeForPlan, getEffectivePlan } from '@/utils/subscriptions';
 import { useRouter } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
@@ -76,7 +77,7 @@ export function useAppSwitcher() {
                 try {
                     await usePlaybackStore.getState().clearTrack();
                 } catch (error) {
-                    console.warn('Failed to clear playback when entering Vault mode:', error);
+                    notifyWarning('Failed to clear playback when entering Vault mode', error);
                 }
             }
 
@@ -98,7 +99,7 @@ export function useAppSwitcher() {
 
             setTransitionTargetMode(targetViewMode);
         } catch (error) {
-            console.error('Failed to switch app mode:', error);
+            notifyError('Failed to switch app mode', error);
             useToastStore.getState().showToast('Could not switch experience right now. Please try again.', 'error');
             overlayAnim.stopAnimation();
             welcomeOpacityAnim.stopAnimation();

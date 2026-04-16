@@ -4,6 +4,7 @@ import { auth, db } from '@/firebaseConfig';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { useToastStore } from '@/store/useToastStore';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
+import { notifyError } from '@/utils/notify';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { collection, doc, getDocs, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
@@ -63,7 +64,7 @@ export default function VaultTrackManageScreen() {
 
     getDocs(query(collection(db, `users/${auth.currentUser.uid}/folders`), orderBy('createdAt', 'desc')))
       .then((snapshot) => setFolders(snapshot.docs.map((item) => ({ id: item.id, name: String(item.data().name || 'Untitled Folder') }))))
-      .catch((error) => console.error('Failed to load folders for vault track:', error));
+      .catch((error) => notifyError('Failed to load folders for vault track', error));
 
     return () => unsubTrack();
   }, [id]);
@@ -123,7 +124,7 @@ export default function VaultTrackManageScreen() {
 
       showToast('Vault track updated.', 'success');
     } catch (error) {
-      console.error('Failed to update vault track:', error);
+      notifyError('Failed to update vault track', error);
       showToast('Could not update this track.', 'error');
     } finally {
       setSaving(false);
@@ -138,7 +139,7 @@ export default function VaultTrackManageScreen() {
         url: shareUrl,
       });
     } catch (error) {
-      console.error('Vault share failed:', error);
+      notifyError('Vault share failed', error);
       showToast('Could not share this track.', 'error');
     }
   };

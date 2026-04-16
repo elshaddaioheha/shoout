@@ -4,6 +4,7 @@ import { useVaultWorkspaceData } from '@/hooks/useVaultWorkspaceData';
 import { auth, db } from '@/firebaseConfig';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { useToastStore } from '@/store/useToastStore';
+import { notifyError } from '@/utils/notify';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { useRouter } from 'expo-router';
 import { doc, serverTimestamp, setDoc } from 'firebase/firestore';
@@ -42,7 +43,7 @@ export default function VaultLinksScreen() {
         url,
       });
     } catch (error) {
-      console.error('Failed to create vault link:', error);
+      notifyError('Failed to create vault link', error);
       showToast('Could not create share link.', 'error');
     }
   };

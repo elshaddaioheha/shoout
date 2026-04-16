@@ -1,7 +1,7 @@
 import { BlurView } from 'expo-blur';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
-import { FolderPlus, RefreshCcw, Shapes, UploadCloud } from 'lucide-react-native';
+import { FolderPlus, Mic, RefreshCcw, UploadCloud } from 'lucide-react-native';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
@@ -27,9 +27,9 @@ interface VaultFloatingActionMenuProps {
 }
 
 const ACTION_ICONS = {
-  import: UploadCloud,
+  upload: UploadCloud,
   convert: RefreshCcw,
-  project: Shapes,
+  record: Mic,
   folder: FolderPlus,
 } as const;
 
@@ -58,13 +58,16 @@ function useVaultFloatingMenuStyles() {
         borderWidth: 1,
         borderColor: 'rgba(20, 15, 16, 0.12)',
         padding: 14,
-        justifyContent: 'space-between',
+        justifyContent: 'center',
+        alignItems: 'center',
+        gap: 10,
       };
       adaptedStyles.menuLabel = {
         color: '#171213',
         fontFamily: 'Poppins-SemiBold',
         fontSize: 14,
         fontWeight: '600',
+        textAlign: 'center',
       };
       adaptedStyles.launcherButton = {
         height: 58,
@@ -487,7 +490,9 @@ const legacyStyles = {
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.06)',
     padding: 14,
-    justifyContent: 'space-between',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 10,
   },
   menuIconWrap: {
     width: 38,
@@ -501,5 +506,6 @@ const legacyStyles = {
     color: '#FFFFFF',
     fontFamily: 'Poppins-SemiBold',
     fontSize: 14,
+    textAlign: 'center',
   },
 };

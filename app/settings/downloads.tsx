@@ -4,6 +4,7 @@ import { auth, db } from '@/firebaseConfig';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { useDownloadQueueStore } from '@/store/useDownloadQueueStore';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
+import { notifyError } from '@/utils/notify';
 import { useRouter } from 'expo-router';
 import { collection, getDocs, query } from 'firebase/firestore';
 import { Download, Music4, RefreshCw } from 'lucide-react-native';
@@ -62,7 +63,7 @@ export default function DownloadsScreen() {
       });
       setRows(next);
     } catch (error) {
-      console.error('Failed to load downloads', error);
+      notifyError('Failed to load downloads', error);
       Alert.alert('Could not load downloads', 'Please try again.');
     } finally {
       setLoading(false);

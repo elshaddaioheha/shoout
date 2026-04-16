@@ -3,6 +3,7 @@ import SettingsHeader from '@/components/settings/SettingsHeader';
 import { auth, db } from '@/firebaseConfig';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { adaptLegacyColor, adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
+import { notifyError } from '@/utils/notify';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import {
     collection,
@@ -116,7 +117,7 @@ export default function FolderDetailScreen() {
                 Animated.timing(scaleAnim, { toValue: 1, duration: 240, useNativeDriver: true }),
             ]).start();
         }, (err) => {
-            console.error('Folder tracks error:', err);
+            notifyError('Folder tracks error', err);
             setLoading(false);
         });
 
@@ -145,7 +146,7 @@ export default function FolderDetailScreen() {
                 .filter((row) => !!row.id && !existingIds.has(String(row.id)));
             setAvailableUploads(rows);
         } catch (err) {
-            console.error('Load uploads for folder failed:', err);
+            notifyError('Load uploads for folder failed', err);
             Alert.alert('Error', 'Could not load available uploads.');
         } finally {
             setLoadingAvailable(false);

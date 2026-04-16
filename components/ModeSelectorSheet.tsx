@@ -3,6 +3,7 @@
  */
 import { ViewMode } from '@/store/useUserStore';
 import { useAppTheme } from '@/hooks/use-app-theme';
+import { useAuthStore } from '@/store/useAuthStore';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { formatPlanLabel, getSubscriptionPlan, type AppMode } from '@/utils/subscriptions';
 import { BlurView } from 'expo-blur';
@@ -107,10 +108,14 @@ export default function ModeSelectorSheet({
 
     const insets = useSafeAreaInsets();
     const router = useRouter();
+    const hasAuthenticatedUser = useAuthStore((state) => state.hasAuthenticatedUser);
     const { width, height } = useWindowDimensions();
     const compactLayout = width < 390 || height < 760;
     const modeListMaxHeight = Math.max(260, Math.floor(height * (compactLayout ? 0.48 : 0.58)));
     const hiddenOffset = Math.max(height, 520);
+    const visibleModes = hasAuthenticatedUser
+        ? VIEW_MODES.filter((mode) => mode.id !== currentMode)
+        : VIEW_MODES;
     const slideAnim = useRef(new Animated.Value(hiddenOffset)).current;
     const fadeAnim = useRef(new Animated.Value(0)).current;
 
@@ -184,7 +189,7 @@ export default function ModeSelectorSheet({
                         contentContainerStyle={[styles.modeList, compactLayout && styles.modeListCompact]}
                         showsVerticalScrollIndicator={false}
                     >
-                        {VIEW_MODES.map((mode) => {
+                        {visibleModes.map((mode) => {
                             const accessible = isModeAccessible(mode.id);
                             const isActive = mode.id === currentMode;
                             const plan = getSubscriptionPlan(mode.id);

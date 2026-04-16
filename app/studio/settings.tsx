@@ -35,6 +35,7 @@ import { useRouter } from 'expo-router';
 import { useUserStore } from '@/store/useUserStore';
 import { auth, db } from '@/firebaseConfig';
 import { adaptLegacyColor, adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
+import { notifyError } from '@/utils/notify';
 import { updateProfile } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 
@@ -102,7 +103,7 @@ export default function ArtistSettingsScreen() {
             setNameInStore(nextName);
             Alert.alert('Saved', 'Studio settings updated successfully.');
         } catch (error) {
-            console.error('Failed to save studio settings:', error);
+            notifyError('Failed to save studio settings', error);
             Alert.alert('Save failed', 'Could not save settings right now. Please try again.');
         } finally {
             setSaving(false);
@@ -128,7 +129,7 @@ export default function ArtistSettingsScreen() {
                             }, { merge: true });
                             Alert.alert('Account suspended', 'Your suspension request is active. You can contact support to reactivate.');
                         } catch (error) {
-                            console.error('Suspend request failed:', error);
+                            notifyError('Suspend request failed', error);
                             Alert.alert('Request failed', 'Could not suspend account right now.');
                         }
                     },
@@ -156,7 +157,7 @@ export default function ArtistSettingsScreen() {
                             }, { merge: true });
                             Alert.alert('Deletion requested', 'Your request was submitted. Support will contact you if verification is required.');
                         } catch (error) {
-                            console.error('Delete request failed:', error);
+                            notifyError('Delete request failed', error);
                             Alert.alert('Request failed', 'Could not submit deletion request right now.');
                         }
                     },

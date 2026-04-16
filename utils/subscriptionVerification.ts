@@ -3,6 +3,7 @@ import { getFirestore, doc, getDoc, setDoc, Timestamp } from 'firebase/firestore
 import type { UserRole } from '@/store/useUserStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useUserStore } from '@/store/useUserStore';
+import { notifyError, notifyWarning } from '@/utils/notify';
 
 type SubscriptionPlan = {
   tier: UserRole;
@@ -39,7 +40,7 @@ export async function fetchVerifiedSubscriptionTier(): Promise<UserRole> {
 
     if (!subscriptionSnap.exists()) {
       // New user without subscription record — default to vault trial tier
-      console.warn('No subscription document found for user, defaulting to shoout');
+      notifyWarning('No subscription document found for user, defaulting to shoout');
       updateAuthStore('shoout', {
         tier: 'shoout',
         isSubscribed: false,
@@ -57,7 +58,7 @@ export async function fetchVerifiedSubscriptionTier(): Promise<UserRole> {
 
     // Check if subscription has expired
     if (isSubscribed && expiresAt && Date.now() > expiresAt) {
-      console.warn('User subscription has expired, downgrading to shoout');
+      notifyWarning('User subscription has expired, downgrading to shoout');
       updateAuthStore('shoout', {
         tier: 'shoout',
         isSubscribed: false,
@@ -75,7 +76,7 @@ export async function fetchVerifiedSubscriptionTier(): Promise<UserRole> {
 
     return tier;
   } catch (error) {
-    console.error('Failed to fetch subscription tier:', error);
+    notifyError('Failed to fetch subscription tier', error);
     const err = error instanceof Error ? error : new Error('Unknown error fetching subscription');
     useAuthStore.getState().setVerificationError(err);
     throw err;
@@ -161,7 +162,7 @@ export async function verifyRoleViaCustomClaims(): Promise<UserRole | null> {
 
     return null;
   } catch (error) {
-    console.error('Failed to verify custom claims:', error);
+    notifyError('Failed to verify custom claims', error);
     return null;
   }
 }

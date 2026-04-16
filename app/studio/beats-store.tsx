@@ -4,6 +4,7 @@ import { useAppTheme } from '@/hooks/use-app-theme';
 import { usePlaybackStore } from '@/store/usePlaybackStore';
 import { useToastStore } from '@/store/useToastStore';
 import { adaptLegacyColor, adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
+import { notifyError } from '@/utils/notify';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { collection, deleteDoc, doc, onSnapshot, orderBy, query } from 'firebase/firestore';
@@ -72,7 +73,7 @@ export default function BeatsStoreManagement() {
             setBeats(fetchedBeats);
             setLoading(false);
         }, (err) => {
-            console.error("Error fetching beats store:", err);
+            notifyError('Error fetching beats store', err);
             setLoading(false);
         });
 

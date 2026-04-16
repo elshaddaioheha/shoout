@@ -4,6 +4,7 @@ import { useAppTheme } from '@/hooks/use-app-theme';
 import { formatUsd } from '@/utils/pricing';
 import { useToastStore } from '@/store/useToastStore';
 import { adaptLegacyColor, adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
+import { notifyError } from '@/utils/notify';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { ArrowLeft, ChevronDown, Image as ImageIcon, Megaphone, Play, Repeat2, Shuffle, SkipBack, SkipForward, Target } from 'lucide-react-native';
@@ -175,7 +176,7 @@ export default function AdsCreationScreen() {
         },
       });
     } catch (err: any) {
-      console.error('Campaign save error:', err);
+      notifyError('Campaign save error', err);
       showToast('Failed to publish campaign. Please try again.', 'error');
     } finally {
       setSaving(false);

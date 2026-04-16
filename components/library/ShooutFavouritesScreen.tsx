@@ -2,6 +2,7 @@ import { useAppTheme } from '@/hooks/use-app-theme';
 import { usePlaybackStore } from '@/store/usePlaybackStore';
 import { useToastStore } from '@/store/useToastStore';
 import { adaptLegacyColor, adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
+import { notifyError } from '@/utils/notify';
 import { auth, db } from '@/firebaseConfig';
 import { useRouter } from 'expo-router';
 import { collection, deleteDoc, doc, onSnapshot } from 'firebase/firestore';
@@ -154,7 +155,7 @@ export default function ShooutFavouritesScreen() {
       await deleteDoc(doc(db, `users/${auth.currentUser.uid}/favourites`, trackId));
       showToast('Removed from favourites.', 'info');
     } catch (error) {
-      console.error('Failed to remove favourite:', error);
+      notifyError('Failed to remove favourite', error);
       showToast('Could not remove this favourite right now.', 'error');
     }
   };
@@ -478,7 +479,7 @@ const legacyStyles = {
     justifyContent: 'center',
   },
   emptyTitle: {
-    color: 'rgba(255,255,255,0.37)',
+    color: 'rgba(255,255,255,0.64)',
     fontFamily: 'Poppins-Medium',
     fontSize: 15,
     lineHeight: 25,

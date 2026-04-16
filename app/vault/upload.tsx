@@ -6,6 +6,7 @@ import { useVaultWorkspaceData } from '@/hooks/useVaultWorkspaceData';
 import { useToastStore } from '@/store/useToastStore';
 import { useUserStore } from '@/store/useUserStore';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
+import { notifyError, notifyWarning } from '@/utils/notify';
 import * as DocumentPicker from 'expo-document-picker';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
@@ -68,7 +69,7 @@ export default function VaultUploadScreen() {
       );
       setFolders(snapshot.docs.map((item) => ({ id: item.id, name: String(item.data().name || 'Untitled Folder') })));
     };
-    loadFolders().catch((error) => console.error('Failed to load folders for vault upload:', error));
+    loadFolders().catch((error) => notifyError('Failed to load folders for vault upload', error));
   }, []);
 
   const handlePickAudio = async () => {
@@ -112,7 +113,7 @@ export default function VaultUploadScreen() {
       setFolderName('');
       showToast('Folder created.', 'success');
     } catch (error) {
-      console.error('Create folder from vault upload failed:', error);
+      notifyError('Create folder from vault upload failed', error);
       showToast('Could not create folder.', 'error');
     }
   };
@@ -153,7 +154,7 @@ export default function VaultUploadScreen() {
           const validateStorageLimitFn = httpsCallable(functions, 'validateStorageLimit');
           await validateStorageLimitFn({ fileSizeBytes: audioFile.size, storageLedger: 'vault' });
         } catch (error: any) {
-          console.warn('validateStorageLimit failed for vault upload:', error?.message);
+          notifyWarning('validateStorageLimit failed for vault upload', error?.message);
           if (error?.code === 'functions/resource-exhausted' || error?.code === 'resource-exhausted') {
             showToast('Vault storage limit exceeded. Please upgrade your plan.', 'error');
             return;
@@ -211,7 +212,7 @@ export default function VaultUploadScreen() {
       showToast('Track uploaded to Vault.', 'success');
       router.replace({ pathname: '/vault/track/[id]', params: { id: uploadDoc.id } } as any);
     } catch (error) {
-      console.error('Vault upload failed:', error);
+      notifyError('Vault upload failed', error);
       showToast('Upload failed. Please try again.', 'error');
     } finally {
       setSubmitting(false);

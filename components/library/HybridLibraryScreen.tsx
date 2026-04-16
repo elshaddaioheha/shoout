@@ -4,6 +4,7 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { usePlaybackStore } from '@/store/usePlaybackStore';
 import { useToastStore } from '@/store/useToastStore';
 import { adaptLegacyColor, adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
+import { notifyError } from '@/utils/notify';
 import { auth, db } from '@/firebaseConfig';
 import { useRouter } from 'expo-router';
 import { addDoc, collection, deleteDoc, doc, onSnapshot, orderBy, query, serverTimestamp } from 'firebase/firestore';
@@ -146,12 +147,12 @@ export default function HybridLibraryScreen() {
   const storageLimit = useMemo(() => {
     if (user.storageLimitGB > 0) return user.storageLimitGB;
     const fallbackMap: Record<string, number> = {
-      vault: 0.5,
+      vault: 0.05,
       vault_pro: 5,
       studio: 2,
       hybrid: 10,
     };
-    return fallbackMap[activeRole || ''] || 0.5;
+    return fallbackMap[activeRole || ''] || 0.05;
   }, [activeRole, user.storageLimitGB]);
 
   const hasVaultContent = folders.length > 0 || uploads.length > 0;
@@ -187,7 +188,7 @@ export default function HybridLibraryScreen() {
       setFolderCreated(true);
       showToast('Folder created successfully.', 'success');
     } catch (error: any) {
-      console.error('Create folder error:', error?.message || error);
+      notifyError('Create folder error', error?.message || error);
       showToast('Failed to create folder. Please try again.', 'error');
     } finally {
       setCreatingFolder(false);
@@ -236,7 +237,7 @@ export default function HybridLibraryScreen() {
       await deleteDoc(doc(db, `users/${auth.currentUser.uid}/favourites`, trackId));
       showToast('Removed from favourites.', 'info');
     } catch (error) {
-      console.error('Failed to remove favourite:', error);
+      notifyError('Failed to remove favourite', error);
       showToast('Could not remove this favourite right now.', 'error');
     }
   };

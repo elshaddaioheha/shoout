@@ -17,6 +17,7 @@ import { useUserStore } from '@/store/useUserStore';
 import { getDefaultAppModeForPlan } from '@/utils/subscriptions';
 import { initMonitoring } from './monitoring';
 import { initNotifications, subscribeToNotifications, getLastNotification } from '@/utils/notifications';
+import { notifyError, notifyWarning } from '@/utils/notify';
 import { useAccessibilityStore } from '@/store/useAccessibilityStore';
 
 SplashScreen.preventAutoHideAsync();
@@ -71,7 +72,7 @@ export default function RootLayout() {
           setVerifying(true);
           await hydrateSubscriptionTier();
         } catch (verifyError) {
-          console.error('Failed to verify subscription tier:', verifyError);
+          notifyError('Failed to verify subscription tier', verifyError, 'We could not verify your subscription. Using Shoout mode for now.');
           useAuthStore.getState().setActualRole('shoout');
           useAuthStore.getState().setSubscriptionData({
             tier: 'shoout',
@@ -102,7 +103,7 @@ export default function RootLayout() {
     });
 
     const authTimeout = setTimeout(() => {
-      console.warn('[layout] Auth timeout - proceeding after 5s. User may not be fully verified on slow networks.');
+      notifyWarning('[layout] Auth timeout - proceeding after 5s.', null, 'Network is slow. Some subscription details may take a moment to update.');
       setHasAuthenticatedUser(Boolean(auth.currentUser));
       setAuthResolved(true);
       setVerifying(false);
@@ -118,7 +119,7 @@ export default function RootLayout() {
     if (Platform.OS !== 'web') {
       const googleWebClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID?.trim();
       if (!googleWebClientId) {
-        console.warn('Google Sign-In not configured: EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID is missing.');
+        notifyWarning('Google Sign-In not configured: EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID is missing.');
       }
       GoogleSignin.configure({
         webClientId: googleWebClientId || '',
@@ -184,6 +185,8 @@ export default function RootLayout() {
           <Stack.Screen name="studio/message-thread" />
           <Stack.Screen name="studio/settings" />
           <Stack.Screen name="vault/upload" />
+          <Stack.Screen name="vault/convert" />
+          <Stack.Screen name="vault/record" />
           <Stack.Screen name="vault/links" />
           <Stack.Screen name="vault/updates" />
           <Stack.Screen name="vault/folder/[id]" />

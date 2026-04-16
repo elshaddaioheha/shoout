@@ -4,6 +4,7 @@ import SettingsHeader from '@/components/settings/SettingsHeader';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useToastStore } from '@/store/useToastStore';
 import { adaptLegacyColor, adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
+import { notifyError, notifyWarning } from '@/utils/notify';
 import * as DocumentPicker from 'expo-document-picker';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -246,7 +247,7 @@ export default function UploadScreen() {
             }
             setProfileChecked(true);
         } catch (error) {
-            console.error('Profile check error:', error);
+            notifyError('Profile check error', error);
             showToast('Could not load publisher profile.', 'error');
         } finally {
             setProfileLoading(false);
@@ -262,7 +263,7 @@ export default function UploadScreen() {
     const handleCreateFolder = async () => {
         if (!auth.currentUser) {
             // Shouldn't happen — screen guards unauthenticated access above
-            console.warn('[upload] handleCreateFolder: no auth.currentUser');
+            notifyWarning('[upload] handleCreateFolder: no auth.currentUser');
             return;
         }
         const cleanName = folderName.trim();
@@ -282,14 +283,14 @@ export default function UploadScreen() {
             showToast('Folder created successfully', 'success');
             setFlowStep('uploadSource');
         } catch (error) {
-            console.error('Create folder error:', error);
+            notifyError('Create folder error', error);
             showToast('Failed to create folder.', 'error');
         }
     };
 
     const savePublisherProfile = async () => {
         if (!auth.currentUser) {
-            console.warn('[upload] savePublisherProfile: no auth.currentUser');
+            notifyWarning('[upload] savePublisherProfile: no auth.currentUser');
             return false;
         }
 
@@ -312,7 +313,7 @@ export default function UploadScreen() {
             showToast('Publisher profile saved.', 'success');
             return true;
         } catch (error) {
-            console.error('Save publisher profile error:', error);
+            notifyError('Save publisher profile error', error);
             showToast('Failed to save publisher profile.', 'error');
             return false;
         }
@@ -348,7 +349,7 @@ export default function UploadScreen() {
                 }
             }
         } catch (error) {
-            console.error('Document picker error:', error);
+            notifyError('Document picker error', error);
             showToast('Failed to pick file.', 'error');
         }
     };
@@ -365,7 +366,7 @@ export default function UploadScreen() {
                 setArtworkPreviewUri(result.assets[0].uri);
             }
         } catch (error) {
-            console.error('Artwork picker error:', error);
+            notifyError('Artwork picker error', error);
             showToast('Failed to pick artwork.', 'error');
         }
     };
@@ -482,7 +483,7 @@ export default function UploadScreen() {
                     }
                 } catch (cfError: any) {
                     // Non-fatal: if CF is unreachable, proceed with upload
-                    console.warn('validateStorageLimit skipped:', cfError?.message);
+                    notifyWarning('validateStorageLimit skipped', cfError?.message);
                 }
             }
 
@@ -661,7 +662,7 @@ export default function UploadScreen() {
                 router.back();
             }
         } catch (error: any) {
-            console.error("Upload error: ", error);
+            notifyError('Upload error', error);
             if (error.code === 'resource-exhausted') {
                 showToast("Storage limit exceeded. Please upgrade your subscription plan.", "error");
             } else {

@@ -136,13 +136,13 @@ const legacyStyles = {
     fontSize: 13,
   },
   rowSubtitle: {
-    color: 'rgba(255,255,255,0.55)',
+    color: 'rgba(255,255,255,0.68)',
     fontFamily: 'Poppins-Regular',
     fontSize: 11,
     marginTop: 2,
   },
   rowMeta: {
-    color: 'rgba(255,255,255,0.4)',
+    color: 'rgba(255,255,255,0.62)',
     fontFamily: 'Poppins-Regular',
     fontSize: 11,
   },

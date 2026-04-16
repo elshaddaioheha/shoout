@@ -3,6 +3,7 @@ import SettingsHeader from '@/components/settings/SettingsHeader';
 import { auth } from '@/firebaseConfig';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { useAuthStore } from '@/store/useAuthStore';
+import { useToastStore } from '@/store/useToastStore';
 import { useUserStore } from '@/store/useUserStore';
 import { adaptLegacyColor, adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { hydrateSubscriptionTier } from '@/utils/subscriptionVerification';
@@ -13,7 +14,7 @@ import { useRouter } from 'expo-router';
 import { PayWithFlutterwave } from 'flutterwave-react-native';
 import { Check, CreditCard, PartyPopper, ShieldCheck, Sparkles, Star, ChevronLeft } from 'lucide-react-native';
 import React, { useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Animated, Modal, Platform, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Animated, Modal, Platform, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 
 const SUBSCRIPTION_VERIFY_URL =
     process.env.EXPO_PUBLIC_SUBSCRIPTION_VERIFY_URL ||
@@ -60,6 +61,7 @@ export default function SubscriptionsScreen() {
     const styles = useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
 
     const router = useRouter();
+    const { showToast } = useToastStore();
     const { role, activeAppMode, setActiveAppMode } = useUserStore();
     const { actualRole } = useAuthStore();
 
@@ -132,7 +134,7 @@ export default function SubscriptionsScreen() {
             setActiveAppMode(planId);
             showUpgradeSuccess(planId);
         } catch (error: any) {
-            Alert.alert('Payment verification failed', error?.message || 'Could not verify your payment.');
+            showToast(error?.message || 'Could not verify your payment.', 'error');
         } finally {
             setIsVerifying(false);
         }
@@ -334,7 +336,7 @@ export default function SubscriptionsScreen() {
                                             const txRef = data?.tx_ref || pendingTxRef;
                                             handlePaymentVerifiedUpgrade(selectedPlan.id as SubscriptionPlanId, txRef);
                                         } else {
-                                            Alert.alert('Payment not completed', 'Your payment was not successful.');
+                                            showToast('Payment was not successful.', 'error');
                                         }
                                     }}
                                     options={{
@@ -396,18 +398,18 @@ const legacyStyles = {
     scrollContent: { paddingHorizontal: 20, paddingTop: 10 },
     introSection: { alignItems: 'center', marginBottom: 35, textAlign: 'center' },
     introTitle: { fontSize: 24, fontFamily: 'Poppins-Bold', color: '#FFF', marginTop: 15, textAlign: 'center' },
-    introSubtitle: { fontSize: 15, fontFamily: 'Poppins-Regular', color: 'rgba(255,255,255,0.5)', marginTop: 8, textAlign: 'center' },
+    introSubtitle: { fontSize: 15, fontFamily: 'Poppins-Regular', color: 'rgba(255,255,255,0.72)', marginTop: 8, textAlign: 'center' },
     categoryTabsRow: { flexDirection: 'row', marginTop: 20, gap: 8, flexWrap: 'wrap', justifyContent: 'center' },
     categoryTab: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', backgroundColor: 'rgba(255,255,255,0.03)', alignItems: 'center' },
-    categoryTabText: { fontSize: 13, fontFamily: 'Poppins-SemiBold', color: 'rgba(255,255,255,0.45)' },
+    categoryTabText: { fontSize: 13, fontFamily: 'Poppins-SemiBold', color: 'rgba(255,255,255,0.7)' },
     hybridNote: { marginTop: 12, fontSize: 12, fontFamily: 'Poppins-Regular', color: 'rgba(255,255,255,0.7)', textAlign: 'center', paddingHorizontal: 8 },
     billingToggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 20, backgroundColor: 'rgba(255,255,255,0.03)', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 20, gap: 12 },
-    billingToggleText: { fontSize: 14, fontFamily: 'Poppins-Medium', color: 'rgba(255,255,255,0.5)' },
+    billingToggleText: { fontSize: 14, fontFamily: 'Poppins-Medium', color: 'rgba(255,255,255,0.74)' },
     activeBillingText: { color: '#FFF', fontFamily: 'Poppins-Bold' },
     billingToggleSwitch: { transform: [{ scaleX: 0.9 }, { scaleY: 0.9 }] },
     discountBadge: { backgroundColor: 'rgba(236, 92, 57, 0.2)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, marginLeft: 4 },
     discountBadgeText: { color: '#EC5C39', fontSize: 10, fontFamily: 'Poppins-Bold' },
-    discountNote: { marginTop: 8, fontSize: 11, fontFamily: 'Poppins-Regular', color: 'rgba(255,255,255,0.45)' },
+    discountNote: { marginTop: 8, fontSize: 11, fontFamily: 'Poppins-Regular', color: 'rgba(255,255,255,0.72)' },
     cardWrapper: { backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: 24, padding: 24, marginBottom: 20, borderWidth: 1, position: 'relative', overflow: 'hidden' },
     recommendedBadge: { position: 'absolute', top: 0, right: 0, paddingHorizontal: 12, paddingVertical: 6, borderBottomLeftRadius: 16, flexDirection: 'row', alignItems: 'center', gap: 6, zIndex: 10 },
     recommendedText: { color: '#140F10', fontSize: 10, fontFamily: 'Poppins-Bold', letterSpacing: 1 },
@@ -417,10 +419,10 @@ const legacyStyles = {
     activeBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,255,255,0.1)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 },
     activeText: { color: '#FFF', fontSize: 12, fontFamily: 'Poppins-Bold' },
     planName: { fontSize: 26, fontFamily: 'Poppins-Bold', color: '#FFF' },
-    planDescription: { marginTop: 8, color: 'rgba(255,255,255,0.6)', fontSize: 13, fontFamily: 'Poppins-Regular' },
+    planDescription: { marginTop: 8, color: 'rgba(255,255,255,0.78)', fontSize: 13, fontFamily: 'Poppins-Regular' },
     priceRow: { flexDirection: 'row', alignItems: 'baseline', marginTop: 8 },
     planPrice: { fontSize: 32, fontFamily: 'Poppins-Bold', color: '#FFF', letterSpacing: -0.5 },
-    planPeriod: { fontSize: 13, fontFamily: 'Poppins-Regular', color: 'rgba(255,255,255,0.5)', marginLeft: 6 },
+    planPeriod: { fontSize: 13, fontFamily: 'Poppins-Regular', color: 'rgba(255,255,255,0.72)', marginLeft: 6 },
     annualTotalText: { fontSize: 12, fontFamily: 'Poppins-Medium', color: 'rgba(236, 92, 57, 0.9)', marginTop: 4 },
     featuresList: { gap: 14, marginBottom: 26 },
     featureItem: { flexDirection: 'row', alignItems: 'center', gap: 12 },
@@ -431,17 +433,17 @@ const legacyStyles = {
     disabledButton: { backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
     actionButtonText: { color: '#FFF', fontSize: 16, fontFamily: 'Poppins-Bold' },
     footerInfo: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, marginTop: 20, backgroundColor: 'rgba(255,255,255,0.03)', padding: 18, borderRadius: 16 },
-    footerText: { flex: 1, fontSize: 13, fontFamily: 'Poppins-Regular', color: 'rgba(255,255,255,0.4)', textAlign: 'center' },
+    footerText: { flex: 1, fontSize: 13, fontFamily: 'Poppins-Regular', color: 'rgba(255,255,255,0.74)', textAlign: 'center' },
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
     modalContent: { backgroundColor: '#1E1A1A', borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 24, paddingBottom: 40 },
     modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
     modalTitle: { fontSize: 18, fontFamily: 'Poppins-Bold', color: '#FFF' },
-    closeText: { fontSize: 14, fontFamily: 'Poppins-Bold', color: 'rgba(255,255,255,0.5)' },
+    closeText: { fontSize: 14, fontFamily: 'Poppins-Bold', color: 'rgba(255,255,255,0.8)' },
     paymentAmountInfo: { fontSize: 24, fontFamily: 'Poppins-Bold', color: '#FFF', marginBottom: 24, textAlign: 'center' },
     paymentOption: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)', padding: 20, borderRadius: 16, marginBottom: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
     payOptionTexts: { flex: 1, marginLeft: 16 },
     payOptionTitle: { fontSize: 16, fontFamily: 'Poppins-Bold', color: '#FFF' },
-    payOptionSub: { fontSize: 13, fontFamily: 'Poppins-Regular', color: 'rgba(255,255,255,0.5)' },
+    payOptionSub: { fontSize: 13, fontFamily: 'Poppins-Regular', color: 'rgba(255,255,255,0.76)' },
     disabledPaymentNotice: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -467,5 +469,5 @@ const legacyStyles = {
     splashSub: { color: '#D4AF37', fontSize: 16, fontFamily: 'Poppins-Medium', textAlign: 'center', marginTop: 10, marginHorizontal: 20 },
     webPaymentNotice: { backgroundColor: 'rgba(236, 92, 57, 0.08)', borderWidth: 1, borderColor: 'rgba(236, 92, 57, 0.25)', borderRadius: 16, padding: 20, alignItems: 'center', marginBottom: 16, gap: 10 },
     webPaymentTitle: { fontSize: 16, fontFamily: 'Poppins-Bold', color: '#FFF', textAlign: 'center' },
-    webPaymentSub: { fontSize: 13, fontFamily: 'Poppins-Regular', color: 'rgba(255,255,255,0.6)', textAlign: 'center', lineHeight: 20 },
+    webPaymentSub: { fontSize: 13, fontFamily: 'Poppins-Regular', color: 'rgba(255,255,255,0.82)', textAlign: 'center', lineHeight: 20 },
 };

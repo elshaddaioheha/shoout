@@ -3,6 +3,7 @@ import { auth, db } from '@/firebaseConfig';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { useUserStore } from '@/store/useUserStore';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
+import { notifyError } from '@/utils/notify';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ArrowLeft, Camera, Paperclip, SendHorizontal } from 'lucide-react-native';
 import {
@@ -83,7 +84,7 @@ export default function StudioMessageThreadScreen() {
         });
         setResolvedChatId(existing ? existing.id : null);
       } catch (error) {
-        console.error('Resolve chat error:', error);
+        notifyError('Resolve chat error', error);
       }
     };
 
@@ -190,7 +191,7 @@ export default function StudioMessageThreadScreen() {
         timestamp: serverTimestamp(),
       });
     } catch (error) {
-      console.error('Send message error:', error);
+      notifyError('Send message error', error);
     }
   };
 

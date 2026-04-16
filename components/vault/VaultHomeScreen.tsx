@@ -7,14 +7,17 @@ import { useToastStore } from '@/store/useToastStore';
 import { useUserStore } from '@/store/useUserStore';
 import { adaptLegacyColor, adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { formatPlanLabel } from '@/utils/subscriptions';
+import { notifyError } from '@/utils/notify';
+import * as DocumentPicker from 'expo-document-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
-import { Archive, Bell, FolderPlus, Music4, RefreshCw, Search, Upload, User } from 'lucide-react-native';
+import { addDoc, collection, doc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
+import { Archive, Bell, FolderPlus, Grid3x3, List, Music4, RefreshCw, Search, Upload, User } from 'lucide-react-native';
 import React, { useMemo, useRef, useState } from 'react';
 import { Animated, Dimensions, Easing, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { auth, db } from '@/firebaseConfig';
+import { auth, db, storage } from '@/firebaseConfig';
 
 function formatStorage(value: number) {
   return `${value.toFixed(2)}GB`;
@@ -29,6 +32,14 @@ function formatRelative(createdAtMs: number) {
   if (diffHours < 24) return `${diffHours}h ago`;
   const diffDays = Math.floor(diffHours / 24);
   return `${diffDays}d ago`;
+}
+
+async function uploadFileFromUri(uri: string, path: string, metadata?: Record<string, string>) {
+  const response = await fetch(uri);
+  const blob = await response.blob();
+  const storageRef = ref(storage, path);
+  await uploadBytes(storageRef, blob, metadata ? { customMetadata: metadata } : undefined);
+  return getDownloadURL(storageRef);
 }
 
 const SEARCH_SHEET_OFFSET = Math.round(Dimensions.get('window').height * 0.14);
@@ -163,6 +174,7 @@ export default function VaultHomeScreen() {
   const [showCreateFolderSheet, setShowCreateFolderSheet] = useState(false);
   const [showSearchSheet, setShowSearchSheet] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [layoutMode, setLayoutMode] = useState<'grid' | 'list'>('list');
   const [folderName, setFolderName] = useState('');
   const [creatingFolder, setCreatingFolder] = useState(false);
   const searchOverlayOpacity = useRef(new Animated.Value(0)).current;
@@ -181,13 +193,146 @@ export default function VaultHomeScreen() {
   const actionSecondaryBackground = isHybridMode ? (appTheme.isDark ? 'rgba(244,208,63,0.1)' : '#F9F6ED') : (appTheme.isDark ? 'rgba(236,92,57,0.14)' : '#FFE6DA');
   const heroSurfaceColor = isHybridMode ? accentSoft : (appTheme.isDark ? '#1D1716' : '#FFF5EF');
   const listSurfaceColor = isHybridMode ? accentSoft : (appTheme.isDark ? '#1A1A1B' : '#FFF9F6');
-  const effectiveStorageLimitGB = storageLimitGB > 0 ? storageLimitGB : 0.5;
+  const effectiveStorageLimitGB = storageLimitGB > 0 ? storageLimitGB : 0.05;
   const effectiveUploadLimit = maxVaultUploads > 0 ? maxVaultUploads : 50;
   const storageSummary = `${formatStorage(usedStorageGB)}/${formatStorage(effectiveStorageLimitGB)}`;
   const uploadSummary = `${uploads.length}/${effectiveUploadLimit}`;
   const uploadLimitReached = uploads.length >= effectiveUploadLimit;
   const storageLimitReached = usedStorageGB >= effectiveStorageLimitGB;
   const vaultIsEmpty = uploads.length === 0 && folders.length === 0 && shareLinks.length === 0;
+
+  const handleStartUpload = () => {
+    if (!canUploadToVault) {
+      showToast('Upgrade your plan to upload into Vault.', 'info');
+      router.push('/settings/subscriptions' as any);
+      return;
+    }
+    if (uploadLimitReached) {
+      showToast('Vault upload limit reached. Upgrade for more uploads.', 'info');
+      router.push('/settings/subscriptions' as any);
+      return;
+    }
+    if (storageLimitReached) {
+      showToast('Vault storage is full. Upgrade for more space.', 'info');
+      router.push('/settings/subscriptions' as any);
+      return;
+    }
+    router.push('/vault/upload' as any);
+  };
+
+  const handleUploadFolderFromDevice = async () => {
+    if (!auth.currentUser) {
+      showToast('Please sign in again to upload a folder.', 'error');
+      return;
+    }
+
+    if (!canUploadToVault) {
+      showToast('Upgrade your plan to upload into Vault.', 'info');
+      router.push('/settings/subscriptions' as any);
+      return;
+    }
+
+    if (uploadLimitReached || storageLimitReached) {
+      showToast('You reached your Vault limit. Upgrade for more room.', 'info');
+      router.push('/settings/subscriptions' as any);
+      return;
+    }
+
+    const result = await DocumentPicker.getDocumentAsync({
+      type: 'audio/*',
+      multiple: true,
+      copyToCacheDirectory: true,
+    });
+
+    if (result.canceled || result.assets.length === 0) {
+      return;
+    }
+
+    const now = Date.now();
+    const autoFolderName = `Device Folder ${new Date(now).toLocaleDateString()}`;
+    const maxRemainingUploads = Math.max(0, effectiveUploadLimit - uploads.length);
+    const selectedAssets = result.assets.slice(0, maxRemainingUploads);
+
+    if (selectedAssets.length === 0) {
+      showToast('No upload slots left for this folder.', 'info');
+      return;
+    }
+
+    try {
+      const folderRef = await addDoc(collection(db, `users/${auth.currentUser.uid}/folders`), {
+        name: autoFolderName,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        itemCount: 0,
+        source: 'vault-home-folder-import',
+      });
+
+      const bytesCap = effectiveStorageLimitGB * 1024 * 1024 * 1024;
+      let bytesLeft = Math.max(0, bytesCap - (usedStorageGB * 1024 * 1024 * 1024));
+      let uploadedCount = 0;
+
+      for (const asset of selectedAssets) {
+        const fileSize = Number(asset.size || 0);
+        if (fileSize > 0 && fileSize > bytesLeft) {
+          continue;
+        }
+
+        const safeName = `${Date.now()}_${String(asset.name || 'folder-audio').replace(/\s+/g, '_')}`;
+        const audioUrl = await uploadFileFromUri(
+          asset.uri,
+          `vaults/${auth.currentUser.uid}/folder-imports/${folderRef.id}/${safeName}`,
+          { storageLedger: 'vault' }
+        );
+
+        const title = String(asset.name || 'Untitled Track').replace(/\.[^/.]+$/, '');
+        const uploadDoc = await addDoc(collection(db, `users/${auth.currentUser.uid}/uploads`), {
+          title,
+          artist: auth.currentUser.displayName || 'Creator',
+          uploaderName: auth.currentUser.displayName || 'Creator',
+          description: 'Imported from a device folder.',
+          audioUrl,
+          fileName: asset.name || null,
+          fileSizeBytes: fileSize,
+          storageLedger: 'vault',
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          folderId: folderRef.id,
+          isPublic: false,
+          published: false,
+          lifecycleStatus: 'vault_private',
+          source: 'vault-home-folder-import',
+        });
+
+        await setDoc(doc(db, `users/${auth.currentUser.uid}/folders/${folderRef.id}/tracks/${uploadDoc.id}`), {
+          uploadId: uploadDoc.id,
+          uploaderId: auth.currentUser.uid,
+          title,
+          artist: auth.currentUser.displayName || 'Creator',
+          audioUrl,
+          addedAt: serverTimestamp(),
+          source: 'vault-home-folder-import',
+        }, { merge: true });
+
+        uploadedCount += 1;
+        bytesLeft = Math.max(0, bytesLeft - fileSize);
+      }
+
+      await setDoc(doc(db, `users/${auth.currentUser.uid}/folders/${folderRef.id}`), {
+        updatedAt: serverTimestamp(),
+        itemCount: uploadedCount,
+      }, { merge: true });
+
+      if (uploadedCount === 0) {
+        showToast('No files were uploaded. Storage limit may be full.', 'info');
+        return;
+      }
+
+      showToast(`Folder imported with ${uploadedCount} track${uploadedCount === 1 ? '' : 's'}.`, 'success');
+    } catch (error) {
+      notifyError('Device folder import failed', error);
+      showToast('Could not import folder right now.', 'error');
+    }
+  };
 
   const openSearchSheet = () => {
     searchOverlayOpacity.setValue(0);
@@ -246,43 +391,26 @@ export default function VaultHomeScreen() {
 
   const quickActions = useMemo(() => ([
     ...(!isHybridMode ? [{
-      key: 'import',
-      label: 'Import',
-      onPress: () => {
-        if (!canUploadToVault) {
-          showToast('Upgrade your plan to upload into Vault.', 'info');
-          router.push('/settings/subscriptions' as any);
-          return;
-        }
-        if (uploadLimitReached) {
-          showToast('Vault upload limit reached. Upgrade for more uploads.', 'info');
-          router.push('/settings/subscriptions' as any);
-          return;
-        }
-        if (storageLimitReached) {
-          showToast('Vault storage is full. Upgrade for more space.', 'info');
-          router.push('/settings/subscriptions' as any);
-          return;
-        }
-        router.push('/vault/upload' as any);
-      },
+      key: 'upload',
+      label: 'Upload',
+      onPress: handleStartUpload,
     }] : []),
     {
       key: 'convert',
-      label: 'Links',
-      onPress: () => router.push('/vault/links' as any),
+      label: 'Convert',
+      onPress: () => router.push('/vault/convert' as any),
     },
     {
-      key: 'project',
-      label: 'Updates',
-      onPress: () => router.push('/vault/updates' as any),
+      key: 'record',
+      label: 'Record',
+      onPress: () => router.push('/vault/record' as any),
     },
     {
       key: 'folder',
       label: 'Folder',
-      onPress: () => setShowCreateFolderSheet(true),
+      onPress: handleUploadFolderFromDevice,
     },
-  ]), [canUploadToVault, isHybridMode, router, showToast, storageLimitReached, uploadLimitReached]);
+  ]), [handleStartUpload, handleUploadFolderFromDevice, isHybridMode, router]);
 
   const searchResults = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -361,7 +489,7 @@ export default function VaultHomeScreen() {
       setShowCreateFolderSheet(false);
       showToast('Folder created.', 'success');
     } catch (error) {
-      console.error('Create vault folder failed:', error);
+      notifyError('Create vault folder failed', error);
       showToast('Could not create folder right now.', 'error');
     } finally {
       setCreatingFolder(false);
@@ -423,24 +551,7 @@ export default function VaultHomeScreen() {
               <TouchableOpacity
                 activeOpacity={0.92}
                 style={[styles.heroPrimaryAction, { borderColor: accentTint }]}
-                onPress={() => {
-                  if (!canUploadToVault) {
-                    showToast('Upgrade your plan to upload into Vault.', 'info');
-                    router.push('/settings/subscriptions' as any);
-                    return;
-                  }
-                  if (uploadLimitReached) {
-                    showToast('Vault upload limit reached. Upgrade for more uploads.', 'info');
-                    router.push('/settings/subscriptions' as any);
-                    return;
-                  }
-                  if (storageLimitReached) {
-                    showToast('Vault storage is full. Upgrade for more space.', 'info');
-                    router.push('/settings/subscriptions' as any);
-                    return;
-                  }
-                  router.push('/vault/upload' as any);
-                }}
+                onPress={handleStartUpload}
               >
                 {appTheme.isDark ? (
                   <LinearGradient
@@ -503,8 +614,80 @@ export default function VaultHomeScreen() {
           </View>
         ) : null}
 
-        <SectionHeader title="Vault Items" actionLabel="Open updates" actionColor={accentTextColor} onPress={() => router.push('/vault/updates' as any)} />
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Vault Items</Text>
+          <View style={styles.sectionHeaderActions}>
+            <TouchableOpacity onPress={() => router.push('/vault/updates' as any)} activeOpacity={0.8}>
+              <Text style={[styles.sectionAction, { color: accentTextColor }]}>Open updates</Text>
+            </TouchableOpacity>
+            <View style={styles.layoutToggle}>
+              <TouchableOpacity
+                style={[styles.layoutToggleBtn, layoutMode === 'grid' && styles.layoutToggleBtnActive]}
+                activeOpacity={0.8}
+                onPress={() => setLayoutMode('grid')}
+              >
+                <Grid3x3 size={15} color={layoutMode === 'grid' ? accentTextColor : appTheme.colors.textSecondary} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.layoutToggleBtn, layoutMode === 'list' && styles.layoutToggleBtnActive]}
+                activeOpacity={0.8}
+                onPress={() => setLayoutMode('list')}
+              >
+                <List size={15} color={layoutMode === 'list' ? accentTextColor : appTheme.colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+
         <View style={[styles.sectionCard, { borderColor: accentTint, backgroundColor: listSurfaceColor }]}> 
+          <View style={styles.sectionBlock}>
+            <View style={styles.sectionBlockHeader}>
+              <Text style={styles.sectionBlockTitle}>Folders</Text>
+              <TouchableOpacity onPress={() => setShowCreateFolderSheet(true)} activeOpacity={0.8}>
+                <Text style={[styles.sectionBlockAction, { color: accentTextColor }]}>Create</Text>
+              </TouchableOpacity>
+            </View>
+            {loading ? <Text style={styles.placeholderText}>Loading folders...</Text> : null}
+            {!loading && folders.length === 0 ? <Text style={styles.placeholderText}>No folders yet. Create one to keep uploads organized.</Text> : null}
+            {!loading && layoutMode === 'list' && folders.slice(0, 6).map((folder) => (
+              <TouchableOpacity
+                key={folder.id}
+                style={styles.listRow}
+                onPress={() => router.push({ pathname: '/vault/folder/[id]', params: { id: folder.id, name: folder.name } } as any)}
+                activeOpacity={0.8}
+              >
+                <View style={[styles.rowIconWrap, { backgroundColor: accentSoft }]}> 
+                  <FolderPlus size={18} color={accentTextColor} />
+                </View>
+                <View style={styles.rowInfo}>
+                  <Text style={styles.rowTitle} numberOfLines={1}>{folder.name}</Text>
+                  <Text style={styles.rowSubtitle}>{Number(folder.itemCount || 0)} item{Number(folder.itemCount || 0) === 1 ? '' : 's'}</Text>
+                </View>
+                <Text style={styles.rowMeta}>{formatRelative(new Date(folder.updatedAt?.toDate?.() || folder.createdAt?.toDate?.() || Date.now()).getTime())}</Text>
+              </TouchableOpacity>
+            ))}
+            {!loading && layoutMode === 'grid' ? (
+              <View style={styles.gridWrap}>
+                {folders.slice(0, 6).map((folder) => (
+                  <TouchableOpacity
+                    key={folder.id}
+                    style={[styles.gridCard, { backgroundColor: accentSoft }]}
+                    onPress={() => router.push({ pathname: '/vault/folder/[id]', params: { id: folder.id, name: folder.name } } as any)}
+                    activeOpacity={0.86}
+                  >
+                    <View style={styles.gridCardIcon}>
+                      <FolderPlus size={16} color={accentTextColor} />
+                    </View>
+                    <Text style={styles.gridCardTitle} numberOfLines={2}>{folder.name}</Text>
+                    <Text style={styles.gridCardMeta}>{Number(folder.itemCount || 0)} item{Number(folder.itemCount || 0) === 1 ? '' : 's'}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            ) : null}
+          </View>
+
+          <View style={styles.sectionDivider} />
+
           <View style={styles.sectionBlock}>
             <View style={styles.sectionBlockHeader}>
               <Text style={styles.sectionBlockTitle}>Uploads</Text>
@@ -516,52 +699,41 @@ export default function VaultHomeScreen() {
             </View>
             {loading ? <Text style={styles.placeholderText}>Loading uploads...</Text> : null}
             {!loading && uploads.length === 0 ? <Text style={styles.placeholderText}>No private uploads yet.</Text> : null}
-            {!loading && uploads.slice(0, 3).map((upload) => (
+            {!loading && layoutMode === 'list' && uploads.slice(0, 6).map((upload) => (
               <TouchableOpacity
                 key={upload.id}
                 style={styles.listRow}
                 onPress={() => router.push({ pathname: '/vault/track/[id]', params: { id: upload.id } } as any)}
                 activeOpacity={0.8}
               >
-                <View style={[styles.rowIconWrap, { backgroundColor: accentSoft }]}>
+                <View style={[styles.rowIconWrap, { backgroundColor: accentSoft }]}> 
                   <Music4 size={18} color={accentTextColor} />
                 </View>
                 <View style={styles.rowInfo}>
                   <Text style={styles.rowTitle} numberOfLines={1}>{upload.title || 'Untitled Track'}</Text>
                   <Text style={styles.rowSubtitle} numberOfLines={1}>{upload.artist || upload.uploaderName || 'Private vault track'}</Text>
                 </View>
-                  <Text style={styles.rowMeta}>{formatRelative(new Date(upload.updatedAt?.toDate?.() || upload.createdAt?.toDate?.() || Date.now()).getTime())}</Text>
+                <Text style={styles.rowMeta}>{formatRelative(new Date(upload.updatedAt?.toDate?.() || upload.createdAt?.toDate?.() || Date.now()).getTime())}</Text>
               </TouchableOpacity>
             ))}
-          </View>
-
-          <View style={styles.sectionDivider} />
-
-          <View style={styles.sectionBlock}>
-            <View style={styles.sectionBlockHeader}>
-              <Text style={styles.sectionBlockTitle}>Folders</Text>
-              <TouchableOpacity onPress={() => setShowCreateFolderSheet(true)} activeOpacity={0.8}>
-                <Text style={[styles.sectionBlockAction, { color: accentTextColor }]}>Create</Text>
-              </TouchableOpacity>
-            </View>
-            {folders.length === 0 ? <Text style={styles.placeholderText}>No folders yet. Create one to keep uploads organized.</Text> : null}
-            {folders.slice(0, 3).map((folder) => (
-              <TouchableOpacity
-                key={folder.id}
-                style={styles.listRow}
-                onPress={() => router.push({ pathname: '/vault/folder/[id]', params: { id: folder.id, name: folder.name } } as any)}
-                activeOpacity={0.8}
-              >
-                <View style={[styles.rowIconWrap, { backgroundColor: accentSoft }]}>
-                  <FolderPlus size={18} color={accentTextColor} />
-                </View>
-                <View style={styles.rowInfo}>
-                  <Text style={styles.rowTitle} numberOfLines={1}>{folder.name}</Text>
-                  <Text style={styles.rowSubtitle}>{Number(folder.itemCount || 0)} item{Number(folder.itemCount || 0) === 1 ? '' : 's'}</Text>
-                </View>
-                <Text style={styles.rowMeta}>{formatRelative(new Date(folder.updatedAt?.toDate?.() || folder.createdAt?.toDate?.() || Date.now()).getTime())}</Text>
-              </TouchableOpacity>
-            ))}
+            {!loading && layoutMode === 'grid' ? (
+              <View style={styles.gridWrap}>
+                {uploads.slice(0, 6).map((upload) => (
+                  <TouchableOpacity
+                    key={upload.id}
+                    style={[styles.gridCard, { backgroundColor: accentSoft }]}
+                    onPress={() => router.push({ pathname: '/vault/track/[id]', params: { id: upload.id } } as any)}
+                    activeOpacity={0.86}
+                  >
+                    <View style={styles.gridCardIcon}>
+                      <Music4 size={16} color={accentTextColor} />
+                    </View>
+                    <Text style={styles.gridCardTitle} numberOfLines={2}>{upload.title || 'Untitled Track'}</Text>
+                    <Text style={styles.gridCardMeta} numberOfLines={1}>{upload.artist || upload.uploaderName || 'Private vault track'}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            ) : null}
           </View>
         </View>
 
@@ -852,6 +1024,11 @@ const legacyStyles = {
     alignItems: 'center',
     marginTop: 6,
   },
+  sectionHeaderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
   sectionTitle: {
     color: '#FFFFFF',
     fontFamily: 'Poppins-SemiBold',
@@ -861,6 +1038,26 @@ const legacyStyles = {
     color: '#EC5C39',
     fontFamily: 'Poppins-Medium',
     fontSize: 13,
+  },
+  layoutToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    padding: 2,
+    gap: 2,
+  },
+  layoutToggleBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  layoutToggleBtnActive: {
+    backgroundColor: 'rgba(255,255,255,0.1)',
   },
   sectionCard: {
     backgroundColor: '#1A1A1B',
@@ -896,6 +1093,42 @@ const legacyStyles = {
     backgroundColor: 'rgba(255,255,255,0.08)',
     marginHorizontal: 16,
     marginTop: 6,
+  },
+  gridWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  gridCard: {
+    width: '48%',
+    minHeight: 108,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    padding: 12,
+    gap: 8,
+  },
+  gridCardIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  gridCardTitle: {
+    color: '#FFFFFF',
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  gridCardMeta: {
+    color: 'rgba(255,255,255,0.66)',
+    fontFamily: 'Poppins-Regular',
+    fontSize: 11,
+    lineHeight: 15,
   },
   placeholderText: {
     color: 'rgba(255,255,255,0.64)',

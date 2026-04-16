@@ -2,6 +2,7 @@ import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { useToastStore } from '@/store/useToastStore';
 import { adaptLegacyColor, adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
+import { notifyError, notifyWarning } from '@/utils/notify';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -82,7 +83,7 @@ export default function WithdrawalScreen() {
             setHistory(payouts);
             setLoading(false);
         }, (err) => {
-            console.warn("Payouts fetch failed:", err);
+            notifyWarning('Payouts fetch failed', err);
             setLoading(false);
         });
 
@@ -125,7 +126,7 @@ export default function WithdrawalScreen() {
                 message: `Shoouts payout history export\n\n${csv}`,
             });
         } catch (error) {
-            console.error('Export payout history failed:', error);
+            notifyError('Export payout history failed', error);
             showToast('Could not export history right now.', 'error');
         }
     };

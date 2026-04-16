@@ -9,6 +9,8 @@ import { useRouter } from 'expo-router';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { Bell } from 'lucide-react-native';
 import React, { useState } from 'react';
+import { useToastStore } from '@/store/useToastStore';
+import { notifyError } from '@/utils/notify';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 
@@ -26,6 +28,7 @@ export default function NotificationsScreen() {
     const [pushNotifs, setPushNotifs] = useState(true);
     const [newReleases, setNewReleases] = useState(false);
     const [sendingTest, setSendingTest] = useState(false);
+    const { showToast } = useToastStore();
 
     const handleTestNotification = async () => {
         if (!auth.currentUser) return;
@@ -44,7 +47,8 @@ export default function NotificationsScreen() {
                 createdAt: serverTimestamp(),
             });
         } catch (e) {
-            console.error('Test notif err', e);
+            notifyError('Test notif err', e);
+            showToast('Could not send test notification.', 'error');
         } finally {
             setSendingTest(false);
         }

@@ -39,13 +39,16 @@ export default function GlobalToast() {
 
     let backgroundColor = appTheme.isDark ? '#2A2A2A' : appTheme.colors.backgroundElevated;
     let icon = <Info size={20} color={appTheme.colors.primary} />;
+    let messageColor = appTheme.isDark ? '#FFFFFF' : appTheme.colors.textPrimary;
 
     if (type === 'success') {
         backgroundColor = appTheme.isDark ? '#1E3329' : 'rgba(46,141,64,0.12)';
         icon = <CheckCircle size={20} color={appTheme.colors.success} />;
+        messageColor = appTheme.isDark ? '#E7FFE7' : '#1A4D25';
     } else if (type === 'error') {
         backgroundColor = appTheme.isDark ? '#382020' : 'rgba(211,58,42,0.12)';
         icon = <AlertCircle size={20} color={appTheme.colors.error} />;
+        messageColor = appTheme.isDark ? '#FFE9E9' : '#6E1C14';
     }
 
     return (
@@ -58,7 +61,7 @@ export default function GlobalToast() {
         >
             <View style={styles.content}>
                 {icon}
-                <Text style={styles.messageText}>{message}</Text>
+                <Text style={[styles.messageText, { color: messageColor }]}>{message}</Text>
             </View>
         </Animated.View>
     );
@@ -91,7 +94,6 @@ const legacyStyles = {
         flex: 1,
     },
     messageText: {
-        color: '#FFFFFF',
         fontSize: 14,
         fontFamily: 'Poppins-Regular',
         flexShrink: 1,
