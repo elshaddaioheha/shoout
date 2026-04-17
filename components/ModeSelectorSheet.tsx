@@ -7,12 +7,13 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { formatPlanLabel, getSubscriptionPlan, type AppMode } from '@/utils/subscriptions';
 import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import {
     CheckCircle2,
     Disc3,
     FolderLock,
-    Layers3,
+    Library,
     Lock,
     Mic2,
     Music,
@@ -27,6 +28,7 @@ import {
     StyleSheet,
     Text,
     TouchableOpacity,
+    Platform,
     useWindowDimensions,
     View,
 } from 'react-native';
@@ -66,7 +68,7 @@ const VIEW_MODES: ViewModeEntry[] = [
         id: 'hybrid',
         label: 'Hybrid',
         description: 'Combined creator mode across Vault and Studio',
-        Icon: Layers3,
+        Icon: Library,
         color: '#D4AF37',
     },
 ];
@@ -214,6 +216,30 @@ export default function ModeSelectorSheet({
                                     }}
                                     activeOpacity={0.7}
                                 >
+                                    <View
+                                        style={[
+                                            styles.modeRowGlassLayer,
+                                            Platform.OS === 'web' ? ({ pointerEvents: 'none' } as any) : null,
+                                        ]}
+                                    >
+                                        <BlurView intensity={16} tint={appTheme.isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFillObject} />
+                                        <LinearGradient
+                                            colors={appTheme.isDark ? ['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.02)'] : ['rgba(255,255,255,0.58)', 'rgba(255,255,255,0.18)']}
+                                            start={{ x: 0.08, y: 0 }}
+                                            end={{ x: 0.92, y: 1 }}
+                                            style={StyleSheet.absoluteFillObject}
+                                        />
+                                    </View>
+                                    {isActive ? (
+                                        <View
+                                            style={[
+                                                styles.modeRowTopSheen,
+                                                { backgroundColor: mode.color + '7A' },
+                                                Platform.OS === 'web' ? ({ pointerEvents: 'none' } as any) : null,
+                                            ]}
+                                        />
+                                    ) : null}
+
                                     <View style={[styles.modeIconBg, compactLayout && styles.modeIconBgCompact, { backgroundColor: mode.color + '18' }]}> 
                                         <mode.Icon size={compactLayout ? 19 : 22} color={mode.color} />
                                     </View>
@@ -338,6 +364,8 @@ const legacyStyles = {
         padding: 14,
         borderWidth: 1,
         gap: 14,
+        overflow: 'hidden',
+        position: 'relative',
     },
     modeRowCompact: {
         borderRadius: 14,
@@ -355,6 +383,16 @@ const legacyStyles = {
         width: 40,
         height: 40,
         borderRadius: 12,
+    },
+    modeRowGlassLayer: {
+        ...StyleSheet.absoluteFillObject,
+    },
+    modeRowTopSheen: {
+        position: 'absolute',
+        top: 0,
+        left: 16,
+        right: 16,
+        height: 1,
     },
     modeInfo: {
         flex: 1,

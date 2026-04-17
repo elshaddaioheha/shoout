@@ -5,6 +5,10 @@ import { Platform } from 'react-native';
  * Initialize notifications system: set handler and request permissions.
  */
 export async function initNotifications() {
+  if (Platform.OS === 'web') {
+    return;
+  }
+
   // Set notification handler to define how to handle notifications
   Notifications.setNotificationHandler({
     handleNotification: async (_notification) => {
@@ -56,6 +60,10 @@ export async function getExpoPushToken(): Promise<string | null> {
 export function subscribeToNotifications(
   onNotification: (notification: Notifications.Notification) => void
 ): () => void {
+  if (Platform.OS === 'web') {
+    return () => undefined;
+  }
+
   const subscription = Notifications.addNotificationResponseReceivedListener(
     ({ notification }) => {
       onNotification(notification);
@@ -70,6 +78,10 @@ export function subscribeToNotifications(
  * Useful for handling deep-link navigation on app resume.
  */
 export async function getLastNotification(): Promise<Notifications.NotificationResponse | null> {
+  if (Platform.OS === 'web') {
+    return null;
+  }
+
   try {
     return await Notifications.getLastNotificationResponseAsync();
   } catch (error) {

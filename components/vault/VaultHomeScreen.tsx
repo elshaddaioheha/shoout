@@ -14,7 +14,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { addDoc, collection, doc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
-import { Archive, Bell, FolderPlus, Grid3x3, List, Music4, RefreshCw, Search, Share2, Upload, User } from 'lucide-react-native';
+import { Bell, FolderPlus, Grid3x3, Music4, RefreshCw, Search, Share2, Upload, User, View as ViewIcon } from 'lucide-react-native';
 import React, { useMemo, useRef, useState } from 'react';
 import { Animated, Dimensions, Easing, Modal, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -723,7 +723,7 @@ export default function VaultHomeScreen() {
         {vaultIsEmpty ? (
           <View style={styles.emptyState}>
             <View style={[styles.emptyIcon, { backgroundColor: accentSoft }]}>
-              <Archive size={44} color={accentTextColor} />
+              <FolderPlus size={44} color={accentTextColor} />
             </View>
             <Text style={styles.emptyTitle}>Start building your Vault</Text>
             <Text style={styles.emptySubtitle}>
@@ -754,7 +754,7 @@ export default function VaultHomeScreen() {
                 activeOpacity={0.8}
                 onPress={() => setLayoutMode('list')}
               >
-                <List size={15} color={layoutMode === 'list' ? accentTextColor : appTheme.colors.textSecondary} />
+                <ViewIcon size={15} color={layoutMode === 'list' ? accentTextColor : appTheme.colors.textSecondary} />
               </TouchableOpacity>
             </View>
           </View>

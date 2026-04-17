@@ -61,7 +61,7 @@
     "expo-web-browser": "~55.0.14",
     "firebase": "^12.10.0",
     "flutterwave-react-native": "^1.0.4",
-    "hugeicons-react-native": "^0.0.2",
+    "lucide-react-native": "^1.8.0",
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "react-native": "0.83.4",
@@ -101,11 +101,10 @@
       "<rootDir>/functions/"
     ],
     "transformIgnorePatterns": [
-      "node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg|hugeicons-react-native|zustand|expo-router|expo-constants|expo-modules-core|expo-font|expo-image|expo-document-picker|expo-linear-gradient|expo-blur|expo-haptics|expo-file-system|expo-av|expo-splash-screen|expo-linking|expo-web-browser)"
+      "node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg|zustand|expo-router|expo-constants|expo-modules-core|expo-font|expo-image|expo-document-picker|expo-linear-gradient|expo-blur|expo-haptics|expo-file-system|expo-av|expo-splash-screen|expo-linking|expo-web-browser)"
     ],
     "moduleNameMapper": {
       "^@/(.*)$": "<rootDir>/$1",
-      "^lucide-react-native$": "<rootDir>/components/lucide-react-native.tsx",
       "^firebase$": "<rootDir>/__mocks__/firebase.ts",
       "^firebase/(.*)$": "<rootDir>/__mocks__/firebase.ts",
       "^@/firebaseConfig$": "<rootDir>/__mocks__/firebaseConfig.ts",

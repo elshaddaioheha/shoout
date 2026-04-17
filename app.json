@@ -16,7 +16,7 @@
         "backgroundColor": "#140F10",
         "foregroundImage": "./assets/Shoout-icon.png"
       },
-      "versionCode": 26
+      "versionCode": 28
     },
     "web": {
       "output": "static",

@@ -10,7 +10,7 @@ import { getModeTheme } from '@/utils/appModeTheme';
 import { formatUsd } from '@/utils/pricing';
 import { canUseHybridServices, formatPlanLabel, getVaultCapabilities } from '@/utils/subscriptions';
 import { useRouter } from 'expo-router';
-import { Archive, BarChart3, Megaphone, Music4, PlayCircle, TrendingUp, UploadCloud, Users } from 'lucide-react-native';
+import { DollarSign, Link2, Megaphone, Music4, PlayCircle, TrendingUp, UploadCloud, Users } from 'lucide-react-native';
 import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -58,7 +58,7 @@ export default function HybridDashboardScreen() {
     { label: 'Plays', value: totalPlays.toLocaleString(), Icon: PlayCircle },
     { label: 'Followers', value: followersCount.toLocaleString(), Icon: Users },
     { label: 'Engagement', value: totalEngagement.toLocaleString(), Icon: TrendingUp },
-    { label: 'Revenue', value: formatUsd(totalRevenue), Icon: BarChart3 },
+    { label: 'Revenue', value: formatUsd(totalRevenue), Icon: DollarSign },
   ];
 
   const requireHybridSubscription = () => {
@@ -159,7 +159,7 @@ export default function HybridDashboardScreen() {
               }}
               activeOpacity={0.85}
             >
-              <Archive size={16} color={hybridTheme.accent} />
+              <UploadCloud size={16} color={hybridTheme.accent} />
               <Text style={styles.inlineActionText}>Vault Upload</Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -170,7 +170,7 @@ export default function HybridDashboardScreen() {
               }}
               activeOpacity={0.85}
             >
-              <Archive size={16} color={hybridTheme.accent} />
+              <Link2 size={16} color={hybridTheme.accent} />
               <Text style={styles.inlineActionText}>Shared Links</Text>
             </TouchableOpacity>
           </View>

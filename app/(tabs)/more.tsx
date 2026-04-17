@@ -8,6 +8,7 @@ import { useNotificationStore } from '@/store/useNotificationStore';
 import { usePlaybackStore } from '@/store/usePlaybackStore';
 import { useToastStore } from '@/store/useToastStore';
 import { useUserStore } from '@/store/useUserStore';
+import { useVaultWorkspaceData } from '@/hooks/useVaultWorkspaceData';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { getModeTheme } from '@/utils/appModeTheme';
 import { canUseHybridServices, canUseStudioServices, getEffectivePlan } from '@/utils/subscriptions';
@@ -67,6 +68,7 @@ export default function MoreScreen() {
     const { showToast } = useToastStore();
     const { openSheet, isModeSheetOpen, viewMode } = useAppSwitcherContext();
     const [isLoggedIn, setIsLoggedIn] = useState(!!auth.currentUser);
+    const { uploads, folders, loading: vaultLoading } = useVaultWorkspaceData();
 
     useEffect(() => {
         const unsub = onAuthStateChanged(auth, (user) => setIsLoggedIn(!!user));
@@ -76,6 +78,7 @@ export default function MoreScreen() {
     const isVaultMode = activeAppMode === 'vault' || activeAppMode === 'vault_pro';
     const isStudioMode = activeAppMode === 'studio';
     const isHybridMode = activeAppMode === 'hybrid';
+    const showVaultWorkspaceShortcut = isHybridMode && !vaultLoading && uploads.length === 0 && folders.length === 0;
     const canUseStudioTools = canUseStudioServices(currentPlan);
     const canUseHybridTools = canUseHybridServices(currentPlan);
     const modeTheme = getModeTheme(activeAppMode);
@@ -202,7 +205,7 @@ export default function MoreScreen() {
                         {!isVaultMode && !isStudioMode && !isHybridMode && <MenuItem icon={Bell} label="Updates" color={accentColor} onPress={() => router.push('/updates' as any)} />}
 
                         {/* Secondary Hybrid Vault Access */}
-                        {isHybridMode && <MenuItem icon={UploadCloud} label="Vault Workspace" color={accentColor} onPress={() => router.push('/(tabs)/library' as any)} />}
+                        {showVaultWorkspaceShortcut && <MenuItem icon={UploadCloud} label="Vault Workspace" color={accentColor} onPress={() => router.push('/(tabs)/library' as any)} />}
                         {isHybridMode && <MenuItem icon={Link2} label="Vault Links" color={accentColor} onPress={() => canUseHybridTools ? router.push('/vault/links' as any) : pushSubscriptions()} />}
                     </View>
 

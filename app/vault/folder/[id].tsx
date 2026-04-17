@@ -18,7 +18,7 @@ import {
     updateDoc,
 } from 'firebase/firestore';
 import {
-    Archive,
+    FolderLock,
     Music,
     MoreVertical,
     Plus,
@@ -289,7 +289,7 @@ export default function FolderDetailScreen() {
                     <View style={styles.folderCoverWrap}>
                         <View style={styles.folderBack} />
                         <View style={styles.folderFront}>
-                            <Archive size={52} color="#EC5C39" />
+                            <FolderLock size={52} color="#EC5C39" />
                         </View>
                     </View>
                     <Text style={styles.coverName}>{folderName}</Text>

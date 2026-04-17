@@ -87,7 +87,13 @@ export default function ForgotPasswordCodeScreen() {
         keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}
         style={styles.flex}
       >
-        <View style={[styles.blurBg, isLightMode && { backgroundColor: 'rgba(255, 236, 224, 0.45)' }]} pointerEvents="none">
+        <View
+          style={[
+            styles.blurBg,
+            isLightMode && { backgroundColor: 'rgba(255, 236, 224, 0.45)' },
+            Platform.OS === 'web' ? ({ pointerEvents: 'none' } as any) : null,
+          ]}
+        >
           <BlurView intensity={44} tint={appTheme.isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
         </View>
 

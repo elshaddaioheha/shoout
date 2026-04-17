@@ -9,7 +9,7 @@ import { getModeTheme } from '@/utils/appModeTheme';
 import { formatUsd } from '@/utils/pricing';
 import { canUseStudioServices, getEffectivePlan } from '@/utils/subscriptions';
 import { useRouter } from 'expo-router';
-import { BarChart3, DollarSign, Megaphone, Music4, PlayCircle, TrendingUp, UploadCloud, Users } from 'lucide-react-native';
+import { DollarSign, Megaphone, Music4, PlayCircle, TrendingUp, UploadCloud, Users } from 'lucide-react-native';
 import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -159,7 +159,7 @@ export default function StudioDashboardScreen() {
             </TouchableOpacity>
           </View>
           <View style={styles.promoBanner}>
-            <BarChart3 size={20} color={appTheme.colors.textPrimary} />
+            <TrendingUp size={20} color={appTheme.colors.textPrimary} />
             <Text style={styles.promoText}>Promote your strongest releases and monitor campaign readiness from one place.</Text>
           </View>
         </View>

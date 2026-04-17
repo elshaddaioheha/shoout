@@ -4,9 +4,6 @@
     "strict": true,
     "skipLibCheck": true,
     "paths": {
-      "lucide-react-native": [
-        "./components/lucide-react-native"
-      ],
       "@/*": [
         "./*"
       ]

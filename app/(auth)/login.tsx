@@ -87,13 +87,16 @@ export default function LoginScreen() {
     };
 
     const handleLogin = async () => {
-        if (!email || !password) return;
+        const normalizedEmail = email.trim();
+        if (!normalizedEmail || !password) return;
         setLoading(true);
         try {
-            await signInWithEmailAndPassword(auth, email, password);
+            await signInWithEmailAndPassword(auth, normalizedEmail, password);
             router.replace(await resolveAuthenticatedDestination(getPostAuthRoute()) as any);
         } catch (error: any) {
-            console.error('Login error:', error.message);
+            if (error?.code !== 'auth/invalid-credential' && error?.code !== 'auth/invalid-login-credentials') {
+                console.error('Login error:', error.message);
+            }
             showToast(getFriendlyErrorMessage(error), "error");
         } finally {
             setLoading(false);

@@ -1,9 +1,9 @@
 import { useToastStore } from '@/store/useToastStore';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
-import { AlertCircle, CheckCircle, Info } from 'lucide-react-native';
+import { CheckCircle, Info, ShieldAlert } from 'lucide-react-native';
 import React, { useEffect } from 'react';
-import { Animated, Dimensions, StyleSheet, Text, View } from 'react-native';
+import { Animated, Dimensions, Platform, StyleSheet, Text, View } from 'react-native';
 
 const { width } = Dimensions.get('window');
 
@@ -37,17 +37,21 @@ export default function GlobalToast() {
 
     if (!visible && message === '') return null;
 
+    // Determine background and border colors based on theme and type
     let backgroundColor = appTheme.isDark ? '#2A2A2A' : appTheme.colors.backgroundElevated;
+    let borderColor = appTheme.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)';
     let icon = <Info size={20} color={appTheme.colors.primary} />;
-    let messageColor = appTheme.isDark ? '#FFFFFF' : appTheme.colors.textPrimary;
+    let messageColor = appTheme.colors.textPrimary;
 
     if (type === 'success') {
         backgroundColor = appTheme.isDark ? '#1E3329' : 'rgba(46,141,64,0.12)';
+        borderColor = appTheme.isDark ? 'rgba(49, 159, 67, 0.3)' : 'rgba(46,141,64,0.25)';
         icon = <CheckCircle size={20} color={appTheme.colors.success} />;
         messageColor = appTheme.isDark ? '#E7FFE7' : '#1A4D25';
     } else if (type === 'error') {
         backgroundColor = appTheme.isDark ? '#382020' : 'rgba(211,58,42,0.12)';
-        icon = <AlertCircle size={20} color={appTheme.colors.error} />;
+        borderColor = appTheme.isDark ? 'rgba(255, 77, 77, 0.3)' : 'rgba(211,58,42,0.25)';
+        icon = <ShieldAlert size={20} color={appTheme.colors.error} />;
         messageColor = appTheme.isDark ? '#FFE9E9' : '#6E1C14';
     }
 
@@ -55,9 +59,9 @@ export default function GlobalToast() {
         <Animated.View
             style={[
                 styles.toastContainer,
-                { backgroundColor, transform: [{ translateY }] },
+                Platform.OS === 'web' ? ({ pointerEvents: 'none' } as any) : null,
+                { backgroundColor, borderColor, transform: [{ translateY }] },
             ]}
-            pointerEvents="none"
         >
             <View style={styles.content}>
                 {icon}
@@ -85,7 +89,6 @@ const legacyStyles = {
         shadowOpacity: 0.3,
         shadowRadius: 5,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)',
     },
     content: {
         flexDirection: 'row',

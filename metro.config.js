@@ -4,7 +4,6 @@ const path = require('path');
 
 /** @type {import('expo/metro-config').MetroConfig} */
 const config = getSentryExpoConfig(__dirname);
-const lucideCompatPath = path.resolve(__dirname, 'components/lucide-react-native.tsx');
 
 // Some dependencies expose ESM-only `exports` entries that include `import.meta`.
 // Metro's classic web bundle is not emitted as a module script, so keep legacy
@@ -24,9 +23,6 @@ config.resolver.unstable_conditionNames =
 // redirect that specific import to an empty local stub.
 const POSTINSTALL_STUB = path.resolve(__dirname, 'stubs/postinstall.js');
 config.resolver.resolveRequest = (context, moduleName, platform) => {
-  if (moduleName === 'lucide-react-native') {
-    return { filePath: lucideCompatPath, type: 'sourceFile' };
-  }
   if (moduleName === './postinstall.mjs') {
     return { filePath: POSTINSTALL_STUB, type: 'sourceFile' };
   }

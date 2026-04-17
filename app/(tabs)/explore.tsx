@@ -25,11 +25,11 @@ import {
 } from 'react-native';
 
 type DiscoverItem = PublishedUpload;
-
 type ExploreFeedItem = DiscoverItem & { feedKey: string };
 type SurfaceMode = 'search' | 'explore';
 
 const FEATURED_GENRES = ['Afrobeats', 'Afro-Pop', 'Gospel', 'Highlife', 'Hip-Hop', 'Afro Fusion'];
+const SHOOUT_BLUE = '#6AA7FF';
 
 function useExploreStyles() {
   const appTheme = useAppTheme();
@@ -72,8 +72,6 @@ function SearchDiscoveryContent({
   appTheme,
   items,
   loading,
-  loadError,
-  onRetry,
   selectedGenre,
   setSelectedGenre,
   searchQuery,
@@ -85,8 +83,6 @@ function SearchDiscoveryContent({
   appTheme: ReturnType<typeof useAppTheme>;
   items: DiscoverItem[];
   loading: boolean;
-  loadError: string | null;
-  onRetry: () => void;
   selectedGenre: string | null;
   setSelectedGenre: (genre: string | null) => void;
   searchQuery: string;
@@ -96,6 +92,15 @@ function SearchDiscoveryContent({
 }) {
   const searchIconColor = adaptLegacyColor('rgba(255,255,255,0.45)', 'color', appTheme);
   const placeholderColor = appTheme.colors.textPlaceholder;
+
+  const modeToggleBackground = appTheme.colors.backgroundElevated;
+  const modeToggleBorder = appTheme.colors.borderStrong;
+  const modeToggleTextColor = appTheme.colors.textSecondary;
+  const modeToggleActiveBackground = SHOOUT_BLUE;
+  const modeToggleActiveTextColor = '#FFFFFF';
+
+  const genreChipTextColor = appTheme.colors.textSecondary;
+  const genreChipActiveTextColor = appTheme.colors.textPrimary;
 
   const normalizedQuery = searchQuery.trim().toLowerCase();
   const filteredItems = useMemo(() => {
@@ -140,15 +145,79 @@ function SearchDiscoveryContent({
 
   return (
     <View style={styles.searchWrap}>
-      <View style={[styles.searchBar, { backgroundColor: appTheme.colors.backgroundElevated, borderColor: appTheme.colors.borderStrong }]}> 
+      <View
+        style={[
+          styles.searchBar,
+          {
+            backgroundColor: appTheme.colors.backgroundElevated,
+            borderColor: appTheme.colors.borderStrong,
+          },
+        ]}
+      >
         <Search size={16} color={searchIconColor} />
         <TextInput
-          style={styles.searchInput}
+          style={[styles.searchInput, { color: appTheme.colors.textPrimary }]}
           placeholder="Search tracks, artists, genres"
           placeholderTextColor={placeholderColor}
           value={searchQuery}
           onChangeText={setSearchQuery}
         />
+      </View>
+
+      <View
+        style={[
+          styles.modeToggleWrap,
+          {
+            backgroundColor: modeToggleBackground,
+            borderColor: modeToggleBorder,
+          },
+        ]}
+      >
+        <TouchableOpacity
+          style={[
+            styles.modeToggleBtn,
+            { backgroundColor: 'transparent' },
+            !selectedGenre && {
+              backgroundColor: modeToggleActiveBackground,
+              borderColor: modeToggleActiveBackground,
+            },
+          ]}
+          onPress={() => setSelectedGenre(null)}
+          activeOpacity={0.85}
+        >
+          <Text
+            style={[
+              styles.modeToggleText,
+              { color: modeToggleTextColor },
+              !selectedGenre && { color: modeToggleActiveTextColor },
+            ]}
+          >
+            All
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.modeToggleBtn,
+            { backgroundColor: 'transparent' },
+            selectedGenre && {
+              backgroundColor: modeToggleActiveBackground,
+              borderColor: modeToggleActiveBackground,
+            },
+          ]}
+          onPress={() => setSelectedGenre(FEATURED_GENRES[0])}
+          activeOpacity={0.85}
+        >
+          <Text
+            style={[
+              styles.modeToggleText,
+              { color: modeToggleTextColor },
+              selectedGenre && { color: modeToggleActiveTextColor },
+            ]}
+          >
+            Genres
+          </Text>
+        </TouchableOpacity>
       </View>
 
       <FlatList
@@ -166,29 +235,25 @@ function SearchDiscoveryContent({
               onPress={() => setSelectedGenre(active ? null : item)}
               activeOpacity={0.85}
             >
-              <Text style={[styles.genreChipText, active && styles.genreChipTextActive]}>{item}</Text>
+              <Text
+                style={[
+                  styles.genreChipText,
+                  { color: genreChipTextColor },
+                  active && [styles.genreChipTextActive, { color: genreChipActiveTextColor }],
+                ]}
+              >
+                {item}
+              </Text>
             </TouchableOpacity>
           );
         }}
       />
 
-      {loadError ? (
-        <View style={styles.errorBanner}>
-          <Text style={styles.errorBannerText}>{loadError}</Text>
-          <TouchableOpacity style={styles.retryBtn} onPress={onRetry} activeOpacity={0.85}>
-            <Text style={styles.retryBtnText}>Retry</Text>
-          </TouchableOpacity>
-        </View>
-      ) : null}
-
       {loading ? (
         <DiscoverySkeletonLoader styles={styles} />
       ) : filteredItems.length === 0 ? (
-        <View style={styles.errorBanner}>
-          <Text style={styles.errorBannerText}>No published tracks match this view yet.</Text>
-          <TouchableOpacity style={styles.retryBtn} onPress={onRetry} activeOpacity={0.85}>
-            <Text style={styles.retryBtnText}>Refresh</Text>
-          </TouchableOpacity>
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyStateText}>No published tracks match this view yet.</Text>
         </View>
       ) : (
         <FlatList
@@ -214,9 +279,15 @@ function SearchDiscoveryContent({
                     renderItem={({ item: artist }) => (
                       <View style={styles.artistCard}>
                         <View style={styles.artistArtwork}>
-                          {artist.art ? <Image source={{ uri: artist.art }} style={styles.fillImage} contentFit="cover" /> : <Music size={18} color={appTheme.colors.textSecondary} />}
+                          {artist.art ? (
+                            <Image source={{ uri: artist.art }} style={styles.fillImage} contentFit="cover" />
+                          ) : (
+                            <Music size={18} color={appTheme.colors.textSecondary} />
+                          )}
                         </View>
-                        <Text numberOfLines={1} style={styles.artistName}>{artist.name}</Text>
+                        <Text numberOfLines={1} style={styles.artistName}>
+                          {artist.name}
+                        </Text>
                       </View>
                     )}
                   />
@@ -236,10 +307,18 @@ function SearchDiscoveryContent({
                   renderItem={({ item: row }) => (
                     <View style={styles.trackCard}>
                       <TouchableOpacity style={styles.trackArtwork} onPress={() => onPlay(row)} activeOpacity={0.85}>
-                        {row.artworkUrl ? <Image source={{ uri: row.artworkUrl }} style={styles.fillImage} contentFit="cover" /> : <Music size={22} color={appTheme.colors.textSecondary} />}
+                        {row.artworkUrl ? (
+                          <Image source={{ uri: row.artworkUrl }} style={styles.fillImage} contentFit="cover" />
+                        ) : (
+                          <Music size={22} color={appTheme.colors.textSecondary} />
+                        )}
                       </TouchableOpacity>
-                      <Text numberOfLines={1} style={styles.trackTitle}>{row.title}</Text>
-                      <Text numberOfLines={1} style={styles.trackMeta}>{row.uploaderName}</Text>
+                      <Text numberOfLines={1} style={styles.trackTitle}>
+                        {row.title}
+                      </Text>
+                      <Text numberOfLines={1} style={styles.trackMeta}>
+                        {row.uploaderName}
+                      </Text>
                       <TouchableOpacity style={styles.inlinePurchaseBtn} onPress={() => onPurchase(row)} activeOpacity={0.85}>
                         <ShoppingCart size={14} color={appTheme.colors.textPrimary} />
                         <Text style={styles.inlinePurchaseText}>{formatUsd(row.price || 0)}</Text>
@@ -262,8 +341,10 @@ export default function ExploreScreen() {
   const { width, height } = useWindowDimensions();
   const { openSheet, isModeSheetOpen, viewMode } = useAppSwitcherContext();
   const { showToast } = useToastStore();
+
   const cartCount = useCartStore((state) => state.items.length);
   const addItem = useCartStore((state) => state.addItem);
+
   const {
     tracks: items,
     loading,
@@ -299,14 +380,17 @@ export default function ExploreScreen() {
     }
   }, [loadError, showToast]);
 
-  const buildFeedBatch = useCallback((source: DiscoverItem[], seed: number) => {
-    const usable = source.filter((item) => !dislikedTracks[item.id]);
-    const pool = usable.length > 0 ? usable : source;
-    return pool.map((item, index) => ({
-      ...item,
-      feedKey: `${item.id}-${seed}-${index}`,
-    }));
-  }, [dislikedTracks]);
+  const buildFeedBatch = useCallback(
+    (source: DiscoverItem[], seed: number) => {
+      const usable = source.filter((item) => !dislikedTracks[item.id]);
+      const pool = usable.length > 0 ? usable : source;
+      return pool.map((item, index) => ({
+        ...item,
+        feedKey: `${item.id}-${seed}-${index}`,
+      }));
+    },
+    [dislikedTracks]
+  );
 
   useEffect(() => {
     if (!items.length) {
@@ -358,21 +442,24 @@ export default function ExploreScreen() {
   const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
     const first = viewableItems.find((entry) => entry.isViewable)?.item as ExploreFeedItem | undefined;
     if (!first) return;
+
     activeFeedIndexRef.current = viewableItems[0]?.index ?? 0;
 
     const playback = useExplorePlayerStore.getState();
     if (playback.currentTrack?.id === first.id) return;
 
-    playback.playTrack({
-      id: first.id,
-      title: first.title,
-      artist: first.uploaderName,
-      artworkUrl: first.artworkUrl,
-      url: first.audioUrl,
-      uploaderId: first.uploaderId,
-    }).catch((error) => {
-      console.error('Auto-play on feed focus failed:', error);
-    });
+    playback
+      .playTrack({
+        id: first.id,
+        title: first.title,
+        artist: first.uploaderName,
+        artworkUrl: first.artworkUrl,
+        url: first.audioUrl,
+        uploaderId: first.uploaderId,
+      })
+      .catch((error) => {
+        console.error('Auto-play on feed focus failed:', error);
+      });
   }).current;
 
   useEffect(() => {
@@ -398,7 +485,7 @@ export default function ExploreScreen() {
     showToast(likedTracks[item.id] ? 'Removed like.' : 'Liked track.', 'success');
   };
 
-  const handleDislike = async (item: ExploreFeedItem) => {
+  const handleDislike = (item: ExploreFeedItem) => {
     setDislikedTracks((prev) => ({ ...prev, [item.id]: true }));
     showToast('Track disliked. Skipping...', 'info');
 
@@ -420,17 +507,20 @@ export default function ExploreScreen() {
   };
 
   const renderExploreItem = ({ item }: { item: ExploreFeedItem }) => {
-    const progressPct = exploreCurrentTrack?.id === item.id && exploreDuration > 0
-      ? Math.min(1, Math.max(0, explorePosition / exploreDuration))
-      : 0;
+    const progressPct =
+      exploreCurrentTrack?.id === item.id && exploreDuration > 0
+        ? Math.min(1, Math.max(0, explorePosition / exploreDuration))
+        : 0;
 
     return (
-      <View style={[styles.explorePage, { width, height: height - 148 }]}> 
+      <View style={[styles.explorePage, { width, height: height - 148 }]}>
         <View style={styles.exploreArtworkWrap}>
           {item.artworkUrl ? (
             <Image source={{ uri: item.artworkUrl }} style={styles.fillImage} contentFit="cover" />
           ) : (
-            <View style={styles.exploreFallback}><Music size={48} color={appTheme.colors.textSecondary} /></View>
+            <View style={styles.exploreFallback}>
+              <Music size={48} color={appTheme.colors.textSecondary} />
+            </View>
           )}
           <LinearGradient
             colors={['rgba(0,0,0,0.04)', 'rgba(0,0,0,0.16)', 'rgba(0,0,0,0.48)']}
@@ -439,19 +529,29 @@ export default function ExploreScreen() {
         </View>
 
         <View style={styles.exploreMetaBlock}>
-          <Text style={styles.exploreTitle} numberOfLines={1}>{item.title}</Text>
-          <Text style={styles.exploreArtist} numberOfLines={1}>{item.uploaderName} • {item.genre}</Text>
+          <Text style={styles.exploreTitle} numberOfLines={1}>
+            {item.title}
+          </Text>
+          <Text style={styles.exploreArtist} numberOfLines={1}>
+            {item.uploaderName} • {item.genre}
+          </Text>
           <Text style={styles.explorePrice}>{formatUsd(item.price || 0)}</Text>
         </View>
 
         <View style={styles.exploreActions}>
-          <TouchableOpacity style={[styles.exploreActionBtn, likedTracks[item.id] && styles.exploreActionBtnActive]} onPress={() => handleLike(item)}>
+          <TouchableOpacity
+            style={[styles.exploreActionBtn, likedTracks[item.id] && styles.exploreActionBtnActive]}
+            onPress={() => handleLike(item)}
+            activeOpacity={0.85}
+          >
             <Heart size={22} color="#FFFFFF" fill={likedTracks[item.id] ? '#EC5C39' : 'transparent'} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.exploreActionBtn} onPress={() => handleDislike(item)}>
+
+          <TouchableOpacity style={styles.exploreActionBtn} onPress={() => handleDislike(item)} activeOpacity={0.85}>
             <ThumbsDown size={22} color="#FFFFFF" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.explorePurchaseBtn} onPress={() => handlePurchase(item)}>
+
+          <TouchableOpacity style={styles.explorePurchaseBtn} onPress={() => handlePurchase(item)} activeOpacity={0.85}>
             <ShoppingCart size={18} color="#140F10" />
             <Text style={styles.explorePurchaseLabel}>Purchase</Text>
           </TouchableOpacity>
@@ -463,6 +563,12 @@ export default function ExploreScreen() {
       </View>
     );
   };
+
+  const toggleWrapBg = appTheme.colors.backgroundElevated;
+  const toggleWrapBorder = appTheme.colors.borderStrong;
+  const toggleTextColor = appTheme.colors.textSecondary;
+  const toggleActiveText = '#FFFFFF';
+  const toggleActiveBg = SHOOUT_BLUE;
 
   return (
     <SafeScreenWrapper>
@@ -476,18 +582,57 @@ export default function ExploreScreen() {
           showMessages={true}
         />
 
-        <View style={styles.modeToggleWrap}>
+        <View
+          style={[
+            styles.modeToggleWrap,
+            {
+              backgroundColor: toggleWrapBg,
+              borderColor: toggleWrapBorder,
+            },
+          ]}
+        >
           <TouchableOpacity
-            style={[styles.modeToggleBtn, surfaceMode === 'search' && styles.modeToggleBtnActive]}
+            style={[
+              styles.modeToggleBtn,
+              surfaceMode === 'search' && {
+                backgroundColor: toggleActiveBg,
+                borderColor: toggleActiveBg,
+              },
+            ]}
             onPress={() => setSurfaceMode('search')}
+            activeOpacity={0.85}
           >
-            <Text style={[styles.modeToggleText, surfaceMode === 'search' && styles.modeToggleTextActive]}>Search</Text>
+            <Text
+              style={[
+                styles.modeToggleText,
+                { color: toggleTextColor },
+                surfaceMode === 'search' && { color: toggleActiveText },
+              ]}
+            >
+              Search
+            </Text>
           </TouchableOpacity>
+
           <TouchableOpacity
-            style={[styles.modeToggleBtn, surfaceMode === 'explore' && styles.modeToggleBtnActive]}
+            style={[
+              styles.modeToggleBtn,
+              surfaceMode === 'explore' && {
+                backgroundColor: toggleActiveBg,
+                borderColor: toggleActiveBg,
+              },
+            ]}
             onPress={() => setSurfaceMode('explore')}
+            activeOpacity={0.85}
           >
-            <Text style={[styles.modeToggleText, surfaceMode === 'explore' && styles.modeToggleTextActive]}>Explore</Text>
+            <Text
+              style={[
+                styles.modeToggleText,
+                { color: toggleTextColor },
+                surfaceMode === 'explore' && { color: toggleActiveText },
+              ]}
+            >
+              Explore
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -497,8 +642,6 @@ export default function ExploreScreen() {
             appTheme={appTheme}
             items={items}
             loading={loading}
-            loadError={loadError}
-            onRetry={loadFeed}
             selectedGenre={selectedGenre}
             setSelectedGenre={setSelectedGenre}
             searchQuery={searchQuery}
@@ -533,7 +676,11 @@ export default function ExploreScreen() {
             renderItem={renderExploreItem}
             onViewableItemsChanged={onViewableItemsChanged}
             viewabilityConfig={viewabilityConfig}
-            ListEmptyComponent={<View style={styles.errorBanner}><Text style={styles.errorBannerText}>No published tracks yet.</Text></View>}
+            ListEmptyComponent={
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyStateText}>No published tracks yet.</Text>
+              </View>
+            }
             getItemLayout={(_, index) => ({
               index,
               length: height - 148,
@@ -567,19 +714,15 @@ const legacyStyles = {
   modeToggleBtn: {
     flex: 1,
     borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  modeToggleBtnActive: {
-    backgroundColor: '#6AA7FF',
   },
   modeToggleText: {
     color: 'rgba(255,255,255,0.8)',
     fontFamily: 'Poppins-SemiBold',
     fontSize: 13,
-  },
-  modeToggleTextActive: {
-    color: '#0F172A',
   },
   searchWrap: {
     flex: 1,
@@ -597,7 +740,7 @@ const legacyStyles = {
   },
   searchInput: {
     flex: 1,
-    color: '#000000',
+    color: '#FFFFFF',
     fontSize: 15,
     fontFamily: 'Poppins-Regular',
     lineHeight: 22,
@@ -634,6 +777,22 @@ const legacyStyles = {
   genreChipTextActive: {
     color: '#D8E8FF',
   },
+  emptyState: {
+    marginHorizontal: 20,
+    marginBottom: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  emptyStateText: {
+    color: 'rgba(255,255,255,0.72)',
+    fontFamily: 'Poppins-Regular',
+    fontSize: 12,
+    lineHeight: 18,
+  },
   errorBanner: {
     marginHorizontal: 20,
     marginBottom: 8,
@@ -663,22 +822,6 @@ const legacyStyles = {
     color: '#FFFFFF',
     fontFamily: 'Poppins-SemiBold',
     fontSize: 11,
-  },
-  loadingBox: {
-    paddingVertical: 42,
-    alignItems: 'center',
-    gap: 10,
-  },
-  loadingBoxLarge: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-  },
-  loadingText: {
-    color: 'rgba(255,255,255,0.62)',
-    fontFamily: 'Poppins-Regular',
-    fontSize: 13,
   },
   searchSections: {
     paddingHorizontal: 20,
@@ -807,9 +950,9 @@ const legacyStyles = {
   },
   exploreMetaBlock: {
     position: 'absolute',
-    left: 20,
-    right: 112,
-    bottom: 84,
+    left: 18,
+    right: 18,
+    bottom: 34,
   },
   exploreTitle: {
     color: '#FFFFFF',

@@ -3,9 +3,9 @@
  */
 import { ViewMode } from '@/store/useUserStore';
 import { useAppTheme } from '@/hooks/use-app-theme';
-import { Disc3, FolderLock, Layers3, Mic2, Music } from 'lucide-react-native';
+import { Disc3, FolderLock, Library, Mic2, Music } from 'lucide-react-native';
 import React from 'react';
-import { Animated, Dimensions, StyleSheet, Text, View } from 'react-native';
+import { Animated, Dimensions, Platform, StyleSheet, Text, View } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
 
@@ -22,7 +22,7 @@ const MODE_CONFIG: Record<ViewMode, { label: string; badge: string; Icon: any; c
     vault: { label: 'Vault', badge: 'Private Workspace', Icon: Music, color: '#EC5C39', accent: '#F8D8D0', subtitle: 'Your private music universe for uploads, folders, and secure sharing.' },
     vault_pro: { label: 'Vault Pro', badge: 'Expanded Private Workspace', Icon: FolderLock, color: '#EC5C39', accent: '#F6D8CF', subtitle: 'The same private Vault workflow with higher limits and deeper control.' },
     studio: { label: 'Studio', badge: 'Seller Workspace', Icon: Mic2, color: '#4CAF50', accent: '#DCEFD9', subtitle: 'Create, upload, and sell your music with a focused creator dashboard.' },
-    hybrid: { label: 'Hybrid', badge: 'Unified Creator Mode', Icon: Layers3, color: '#C99A06', accent: '#F8EAB8', subtitle: 'A combined creator workspace across Vault and Studio for everything in one place.' },
+    hybrid: { label: 'Hybrid', badge: 'Unified Creator Mode', Icon: Library, color: '#C99A06', accent: '#F8EAB8', subtitle: 'A combined creator workspace across Vault and Studio for everything in one place.' },
 };
 
 const DOODLE_POSITIONS = [
@@ -75,13 +75,13 @@ export default function ModeTransitionOverlay({
             style={[
                 StyleSheet.absoluteFill,
                 styles.overlay,
+                Platform.OS === 'web' ? ({ pointerEvents: 'none' } as any) : null,
                 {
                     opacity: overlayAnim,
                     backgroundColor: appTheme.colors.background,
                     transform: [{ translateX: screenTranslateX }, { scale: screenScale }],
                 },
             ]}
-            pointerEvents="none"
         >
             {DOODLE_POSITIONS.map((doodle, index) => (
                 <Animated.View

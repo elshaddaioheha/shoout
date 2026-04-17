@@ -52,11 +52,17 @@ export default function RootLayout() {
 
   useEffect(() => {
     initMonitoring();
-    initNotifications();
+    if (Platform.OS !== 'web') {
+      initNotifications();
+    }
     useAccessibilityStore.getState().initScreenReaderState();
   }, []);
 
   useEffect(() => {
+    if (Platform.OS === 'web') {
+      return;
+    }
+
     const unsubscribe = subscribeToNotifications((notification) => {
       const data = notification.request.content.data as any;
       if (data?.route) {

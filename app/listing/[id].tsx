@@ -29,6 +29,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
     ActivityIndicator,
     Pressable,
+    Platform,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -361,7 +362,12 @@ export default function ListingLicenseModal() {
                     ) : null}
 
                     {showSuccessPopup ? (
-                        <View style={styles.successPopupWrap} pointerEvents="none">
+                        <View
+                            style={[
+                                styles.successPopupWrap,
+                                Platform.OS === 'web' ? ({ pointerEvents: 'none' } as any) : null,
+                            ]}
+                        >
                             <View style={styles.successPopupCard}>
                                 <Text style={styles.successPopupIcon}>✓</Text>
                                 <Text style={styles.successPopupTitle}>Payment confirmed</Text>

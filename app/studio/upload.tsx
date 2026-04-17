@@ -1288,7 +1288,7 @@ export default function UploadScreen() {
                 )}
 
                 {showTrackPicker && (
-                    <Animated.View style={[styles.modalOverlay, { opacity: trackPickerFade }]} pointerEvents="box-none">
+                    <Animated.View style={[styles.modalOverlay, { opacity: trackPickerFade }]}>
                         <TouchableOpacity
                             style={StyleSheet.absoluteFill}
                             activeOpacity={1}

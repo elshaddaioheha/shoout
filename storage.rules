@@ -2,123 +2,122 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // Helpers
-    // ─────────────────────────────────────────────────────────────────────────
     function isAuthenticated() {
       return request.auth != null;
     }
 
     function isOwner(uid) {
-      return request.auth.uid == uid;
+      return request.auth != null && request.auth.uid == uid;
+    }
+
+    function isAdmin() {
+      return request.auth != null && request.auth.token.admin == true;
     }
 
     function isAudio() {
-      return request.resource.contentType.matches('audio/.*');
+      return request.resource.contentType.matches('audio/(mpeg|mp3|wav|aac|x-m4a|mp4|m4a)');
+    }
+
+    function isVideo() {
+      return request.resource.contentType.matches('video/(mp4|quicktime|webm|x-matroska)');
     }
 
     function isImage() {
-      return request.resource.contentType.matches('image/.*');
+      return request.resource.contentType.matches('image/(jpeg|png|webp)');
     }
 
     function maxSize(mb) {
       return request.resource.size <= mb * 1024 * 1024;
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // ANTI-PIRACY: Secure Audio Storage Paths
-    // ─────────────────────────────────────────────────────────────────────────
-    // originals/{userId}/{trackId}.wav - Backend-only, purchase-verified access
-    // hls-previews/{userId}/{trackId}/* - Watermarked chunks, signed URL access
-    // vaults/{userId}/{filename} - Temporary upload staging
-    // ─────────────────────────────────────────────────────────────────────────
-
-    // SECURE ORIGINALS: Backend-only write via Cloud Functions
-    match /originals/{userId}/{trackId}.wav {
-      allow read: if false; // NO CLIENT READ
-      allow create, write: if false; // Admin SDK only
-      allow delete: if false;
+    match /originals/{userId}/{trackFile} {
+      allow read, write: if false;
     }
 
-    // HLS PREVIEWS: Watermarked chunks for marketplace
     match /hls-previews/{userId}/{trackId}/{segment=**} {
-      allow read: if false; // Signed URLs only
-      allow write: if false; // Backend only
-      allow delete: if false;
+      allow read, write: if false;
     }
 
-    // VAULTS: Temporary upload staging area
-    match /vaults/{userId}/{filename} {
-      allow read: if isOwner(userId);
-      allow create: if isOwner(userId) && isAudio() && maxSize(200);
-      allow delete: if false; // Admin SDK handles cleanup
+    match /vaults/{userId}/covers/{filename} {
+      allow read: if isOwner(userId) || isAdmin();
+
+      allow create: if isOwner(userId)
+        && isImage()
+        && maxSize(10);
+
+      allow update: if isOwner(userId)
+        && isImage()
+        && maxSize(10);
+
+      allow delete: if isOwner(userId) || isAdmin();
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // User Audio Uploads (Vault / Studio)
-    // Path: users/{uid}/audio/{filename}
-    // ─────────────────────────────────────────────────────────────────────────
+    match /vaults/{userId}/{allPaths=**} {
+      allow read: if isOwner(userId) || isAdmin();
+
+      allow create: if isOwner(userId)
+        && maxSize(50)
+        && (
+          (allPaths.matches('conversion-inputs/.*') && isVideo()) ||
+          (!allPaths.matches('conversion-inputs/.*') && isAudio())
+        );
+
+      allow update: if isOwner(userId)
+        && maxSize(50)
+        && (
+          (allPaths.matches('conversion-inputs/.*') && isVideo()) ||
+          (!allPaths.matches('conversion-inputs/.*') && isAudio())
+        );
+
+      allow delete: if isOwner(userId) || isAdmin();
+    }
+
     match /users/{uid}/audio/{filename} {
-      // Anyone authenticated can read (stream) audio files
-      allow read: if isAuthenticated();
+      allow read: if false;
 
-      // Only the owner can upload — max 200MB per file
       allow create: if isOwner(uid)
         && isAudio()
-        && maxSize(200);
+        && maxSize(50);
 
-      // Owner can replace (re-upload) files
-      allow update: if isOwner(uid) && isAudio();
+      allow update: if isOwner(uid)
+        && isAudio()
+        && maxSize(50);
 
-      // Owner can delete their own files
-      allow delete: if isOwner(uid);
+      allow delete: if isOwner(uid) || isAdmin();
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Cover Art / Thumbnails
-    // Path: users/{uid}/covers/{filename}
-    // ─────────────────────────────────────────────────────────────────────────
     match /users/{uid}/covers/{filename} {
-      allow read: if isAuthenticated();
+      allow read: if true;
+
       allow create: if isOwner(uid)
         && isImage()
         && maxSize(10);
-      allow update: if isOwner(uid) && isImage();
-      allow delete: if isOwner(uid);
+
+      allow update: if isOwner(uid)
+        && isImage()
+        && maxSize(10);
+
+      allow delete: if isOwner(uid) || isAdmin();
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // User Avatar / Profile Picture
-    // Path: avatars/{uid}
-    // ─────────────────────────────────────────────────────────────────────────
     match /avatars/{uid} {
-      allow read: if isAuthenticated();
+      allow read: if true;
+
       allow write: if isOwner(uid)
         && isImage()
         && maxSize(5);
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Merch Product Images (admin-only writes)
-    // Path: merch/{itemId}/{filename}
-    // ─────────────────────────────────────────────────────────────────────────
     match /merch/{itemId}/{filename} {
-      allow read: if isAuthenticated();
-      allow write: if false; // Admin SDK only
+      allow read: if true;
+      allow write: if false;
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // System Metadata (read-only for clients)
-    // ─────────────────────────────────────────────────────────────────────────
-    match /system/{document=**} {
+    match /system/{allPaths=**} {
       allow read: if isAuthenticated();
       allow write: if false;
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Deny everything else
-    // ─────────────────────────────────────────────────────────────────────────
     match /{allPaths=**} {
       allow read, write: if false;
     }

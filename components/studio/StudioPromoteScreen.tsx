@@ -8,7 +8,7 @@ import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { getModeTheme } from '@/utils/appModeTheme';
 import { canUseStudioServices, getEffectivePlan } from '@/utils/subscriptions';
 import { useRouter } from 'expo-router';
-import { BarChart3, Megaphone, Music4, Rocket, Sparkles } from 'lucide-react-native';
+import { Megaphone, Music4, Rocket, Sparkles, TrendingUp } from 'lucide-react-native';
 import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -81,7 +81,7 @@ export default function StudioPromoteScreen() {
               <Text style={styles.statusLabel}>Active campaigns</Text>
             </View>
             <View style={[styles.statusCard, { borderColor: accentTint, backgroundColor: accentCard, borderWidth: 1 }]}>
-              <BarChart3 size={18} color={accentColor} />
+              <TrendingUp size={18} color={accentColor} />
               <Text style={styles.statusValue}>{topTracks.length}</Text>
               <Text style={styles.statusLabel}>Tracks ready</Text>
             </View>

@@ -1,9 +1,10 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, useWindowDimensions } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, useWindowDimensions, Animated, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Home, Library, Megaphone, MoreHorizontal, Search, ShoppingCart, Upload } from 'lucide-react-native';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 import { usePathname, useRouter } from 'expo-router';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { useCartStore } from '@/store/useCartStore';
@@ -57,11 +58,6 @@ export default function ResponsiveBottomTabBar(props: BottomTabBarProps) {
             { key: 'search', name: 'search', icon: UploadCloudIcon, label: 'Publish' },
             { key: 'marketplace', name: 'marketplace', icon: MegaphoneIcon, label: 'Promote' },
             { key: 'library', name: 'library', icon: Library, label: 'Vault' },
-            { key: 'more', name: 'more', icon: MoreHorizontal, label: 'More' },
-        ]
-        : (activeAppMode === 'vault' || activeAppMode === 'vault_pro')
-        ? [
-            { key: 'index', name: 'index', icon: Home, label: 'Home' },
             { key: 'more', name: 'more', icon: MoreHorizontal, label: 'More' },
         ]
         : activeAppMode === 'shoout'
@@ -166,30 +162,78 @@ function TabButton({ Icon, label, badgeCount, isFocused, tabKey, isCompact, acti
     const modeTheme = getModeSurfaceTheme(activeAppMode, appTheme.isDark);
     const inactiveColor = appTheme.colors.textTertiary;
     const activeFgColor = modeTheme.accentLabel;
+    const activeAnim = React.useRef(new Animated.Value(isFocused ? 1 : 0)).current;
+
+    React.useEffect(() => {
+        Animated.timing(activeAnim, {
+            toValue: isFocused ? 1 : 0,
+            duration: 160,
+            useNativeDriver: true,
+        }).start();
+    }, [activeAnim, isFocused]);
+
+    const scale = activeAnim.interpolate({
+        inputRange: [0, 1],
+        outputRange: [0.98, 1],
+    });
+
+    const glowOpacity = activeAnim.interpolate({
+        inputRange: [0, 1],
+        outputRange: [0, 1],
+    });
+
+    const glassOpacity = activeAnim.interpolate({
+        inputRange: [0, 1],
+        outputRange: [0, 0.9],
+    });
 
     return (
-        <TouchableOpacity
-            style={[
-                styles.tab,
-                isFocused ? [styles.activeTab, { backgroundColor: modeTheme.actionSurface, borderColor: modeTheme.actionBorder }] : styles.inactiveTab,
-            ]}
-            onPress={onPress}
-            activeOpacity={0.7}
-        >
-            <Icon
-                size={18}
-                color={isFocused ? activeFgColor : inactiveColor}
-                fill={isFocused && tabKey === 'index' ? activeFgColor : 'none'}
-            />
-            <Text style={[styles.labelActive, { color: isFocused ? activeFgColor : inactiveColor }]} numberOfLines={1}>
-                {label}
-            </Text>
-            {badgeCount > 0 && (
-                <View style={[styles.cartBadge, { backgroundColor: modeTheme.accent, borderColor: appTheme.colors.background }]}> 
-                    <Text style={styles.cartBadgeText}>{badgeCount > 99 ? '99+' : String(badgeCount)}</Text>
-                </View>
-            )}
-        </TouchableOpacity>
+        <Animated.View style={{ flex: 1, transform: [{ scale }] }}>
+            <TouchableOpacity
+                style={[
+                    styles.tab,
+                    isFocused ? [styles.activeTab, { backgroundColor: modeTheme.actionSurface, borderColor: modeTheme.actionBorder }] : styles.inactiveTab,
+                ]}
+                onPress={onPress}
+                activeOpacity={0.78}
+            >
+                <Animated.View style={[styles.tabGlassLayer, { opacity: glassOpacity }]}> 
+                    <BlurView intensity={16} tint={appTheme.isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFillObject} />
+                    <LinearGradient
+                        colors={appTheme.isDark ? ['rgba(255,255,255,0.18)', 'rgba(255,255,255,0.02)'] : ['rgba(255,255,255,0.65)', 'rgba(255,255,255,0.18)']}
+                        start={{ x: 0.1, y: 0 }}
+                        end={{ x: 0.9, y: 1 }}
+                        style={StyleSheet.absoluteFillObject}
+                    />
+                </Animated.View>
+                <Animated.View
+                    style={[
+                        styles.activeGlow,
+                        Platform.OS === 'web' ? ({ pointerEvents: 'none' } as any) : null,
+                        {
+                            opacity: glowOpacity,
+                            borderColor: modeTheme.actionBorder,
+                            shadowColor: modeTheme.accent,
+                        },
+                    ]}
+                />
+                <View style={[styles.topSheen, { backgroundColor: isFocused ? modeTheme.actionBorder : 'transparent' }]} />
+
+                <Icon
+                    size={18}
+                    color={isFocused ? activeFgColor : inactiveColor}
+                    fill={isFocused && tabKey === 'index' ? activeFgColor : 'none'}
+                />
+                <Text style={[styles.labelActive, { color: isFocused ? activeFgColor : inactiveColor }]} numberOfLines={1}>
+                    {label}
+                </Text>
+                {badgeCount > 0 && (
+                    <View style={[styles.cartBadge, { backgroundColor: modeTheme.accent, borderColor: appTheme.colors.background }]}> 
+                        <Text style={styles.cartBadgeText}>{badgeCount > 99 ? '99+' : String(badgeCount)}</Text>
+                    </View>
+                )}
+            </TouchableOpacity>
+        </Animated.View>
     );
 }
 
@@ -214,16 +258,16 @@ const legacyStyles = {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingHorizontal: 10,
-        height: 60,
+        paddingHorizontal: 8,
+        height: 62,
         borderRadius: 40,
         overflow: 'hidden',
-        borderWidth: 1,
+        borderWidth: 1.2,
         shadowColor: '#000000',
-        shadowOffset: { width: 2, height: 2 },
-        shadowOpacity: 0.25,
-        shadowRadius: 10,
-        elevation: 6,
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.18,
+        shadowRadius: 12,
+        elevation: 8,
     },
     vaultTabBar: {
         height: 48,
@@ -236,16 +280,18 @@ const legacyStyles = {
     tab: {
         flex: 1,
         minWidth: 0,
-        height: 44,
-        borderRadius: 16,
+        height: 46,
+        borderRadius: 18,
         alignItems: 'center',
         justifyContent: 'center',
         flexDirection: 'column',
         gap: 2,
-        paddingHorizontal: 4,
+        paddingHorizontal: 6,
         paddingVertical: 5,
         borderWidth: 1,
         borderColor: 'transparent',
+        overflow: 'hidden',
+        position: 'relative',
     },
     activeTab: {
         backgroundColor: 'rgba(255,255,255,0.08)',
@@ -257,6 +303,25 @@ const legacyStyles = {
         fontFamily: 'Poppins-Medium',
         fontSize: 10,
         lineHeight: 12,
+    },
+    tabGlassLayer: {
+        ...StyleSheet.absoluteFillObject,
+    },
+    activeGlow: {
+        ...StyleSheet.absoluteFillObject,
+        borderWidth: 1,
+        borderRadius: 18,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+    },
+    topSheen: {
+        position: 'absolute',
+        top: 0,
+        left: 8,
+        right: 8,
+        height: 1,
+        opacity: 0.8,
     },
     cartBadge: {
         position: 'absolute',
