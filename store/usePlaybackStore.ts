@@ -54,7 +54,11 @@ export interface Track {
   uploaderId?: string;
 }
 
-const fallbackSourceTracks = [...TRENDING_SONGS, ...FREE_MUSIC, ...POPULAR_BEATS] as Array<any>;
+const fallbackSourceTracks = [
+  ...(TRENDING_SONGS ?? []),
+  ...(FREE_MUSIC ?? []),
+  ...(POPULAR_BEATS ?? []),
+] as Array<any>;
 
 const fallbackTrackPool: Track[] = fallbackSourceTracks.map((track) => ({
   id: track.id,

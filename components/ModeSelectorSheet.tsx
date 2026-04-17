@@ -43,7 +43,7 @@ interface ViewModeEntry {
 const VIEW_MODES: ViewModeEntry[] = [
     {
         id: 'shoout',
-        label: 'Shoout',
+        label: 'Shoouts',
         description: 'Discover, cart and buy beats in the marketplace',
         Icon: Disc3,
         color: '#6AA7FF',

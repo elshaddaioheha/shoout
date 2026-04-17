@@ -1,0 +1,25 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "eas-preview-android",
+			"type": "shell",
+			"options": {
+				"cwd": "${workspaceFolder}/shoout"
+			},
+			"command": "npx",
+			"args": [
+				"eas",
+				"build",
+				"--platform",
+				"android",
+				"--profile",
+				"preview",
+				"--non-interactive",
+				"--no-wait"
+			],
+			"isBackground": false,
+			"group": "build"
+		}
+	]
+}

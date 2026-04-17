@@ -215,7 +215,7 @@ export default function LoginScreen() {
                     </View>
 
                     <View style={styles.logoContainer}>
-                        <Text style={[styles.logoText, isLightMode && { color: lightText }]}>ShooutS</Text>
+                        <Text style={[styles.logoText, isLightMode && { color: lightText }]}>Shoouts</Text>
                     </View>
 
                     <Text style={[styles.title, isLightMode && { color: lightText }]}>Welcome Back</Text>

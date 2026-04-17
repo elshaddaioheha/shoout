@@ -5,6 +5,7 @@ import { useSyncStatus } from './robust-store-utils';
 
 export interface CartItem {
     id: string;
+    listingId?: string;
     title: string;
     artist: string;
     price: number;
@@ -12,6 +13,9 @@ export interface CartItem {
     coverUrl?: string;
     uploaderId: string;
     category?: string;
+    licenseTierId?: 'basic' | 'premium' | 'exclusive';
+    licenseTierTitle?: string;
+    licenseSummary?: string;
 }
 
 interface CartState {

@@ -82,12 +82,16 @@ export interface FlutterwaveVerifyResponse {
 
 export type CheckoutItem = {
   id: string;
+  listingId?: string;
   title: string;
   artist: string;
   price: number; // USD
   uploaderId: string;
   audioUrl?: string;
   coverUrl?: string;
+  licenseTierId?: 'basic' | 'premium' | 'exclusive';
+  licenseTierTitle?: string;
+  licenseSummary?: string;
 };
 
 export interface CheckoutSession {
@@ -153,7 +157,7 @@ export const NAIRA_RATE = 1600;
 // Pricing has moved to subscriptions/catalog.ts (PLAN_PRICING_USD)
 
 /**
- * License add-on SKUs must match `app/listing/[id].tsx` LICENSE_OPTIONS (USD).
+ * Legacy fixed-price license add-ons are still accepted for backwards compatibility.
  */
 export const LICENSE_USD_PRICES: Record<string, number> = {
   mp3_tagged: 4.95,
@@ -162,7 +166,8 @@ export const LICENSE_USD_PRICES: Record<string, number> = {
   unlimited_stems_9_free: 51.99,
 };
 
-export const LICENSE_SKUS_ORDERED = Object.keys(LICENSE_USD_PRICES).sort((a, b) => b.length - a.length);
+export const LICENSE_SKUS_ORDERED = ['premium', 'exclusive', ...Object.keys(LICENSE_USD_PRICES)]
+  .sort((a, b) => b.length - a.length);
 
 export const CART_TOTAL_EPSILON = 0.02;
 

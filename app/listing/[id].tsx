@@ -1,10 +1,15 @@
+import LicenseTierPicker from '@/components/LicenseTierPicker';
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import { auth, db } from '@/firebaseConfig';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { useCartStore } from '@/store/useCartStore';
 import { useToastStore } from '@/store/useToastStore';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
-import { formatUsd } from '@/utils/pricing';
+import {
+    buildLicenseCartItemId,
+    buildLicenseTierOptions,
+    type LicenseTierId,
+} from '@/utils/licenseTiers';
 import { BlurView } from 'expo-blur';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -65,6 +70,7 @@ export default function ListingLicenseModal() {
     const [checkoutTxRef, setCheckoutTxRef] = useState<string | null>(null);
     const [checkoutAmountNgn, setCheckoutAmountNgn] = useState(0);
     const [showSuccessPopup, setShowSuccessPopup] = useState(false);
+    const [selectedTierId, setSelectedTierId] = useState<LicenseTierId>('basic');
 
     const trackPriceUsd = useMemo(() => {
         const parsed = Number(listing?.price ?? 0);
@@ -75,6 +81,11 @@ export default function ListingLicenseModal() {
     const trackTitle = listing?.title || 'Untitled Track';
     const trackArtist = listing?.uploaderName || listing?.artist || 'Creator';
     const trackArtwork = listing?.artworkUrl || listing?.coverUrl || '';
+    const licenseOptions = useMemo(() => buildLicenseTierOptions(trackPriceUsd), [trackPriceUsd]);
+    const selectedLicense = useMemo(
+        () => licenseOptions.find((option) => option.id === selectedTierId) || licenseOptions[0],
+        [licenseOptions, selectedTierId]
+    );
 
     useEffect(() => {
         const fetchListing = async () => {
@@ -132,16 +143,20 @@ export default function ListingLicenseModal() {
         if (!resolvedUploaderId) return null;
 
         return {
-            id,
+            id: buildLicenseCartItemId(id, selectedLicense.id),
+            listingId: id,
             title: trackTitle,
             artist: trackArtist,
-            price: trackPriceUsd,
+            price: selectedLicense.price,
             audioUrl: listing?.audioUrl || '',
             coverUrl: trackArtwork,
             uploaderId: resolvedUploaderId,
             category: listing?.category || 'Track',
+            licenseTierId: selectedLicense.id,
+            licenseTierTitle: selectedLicense.title,
+            licenseSummary: selectedLicense.summary,
         };
-    }, [id, listing, trackArtist, trackArtwork, trackPriceUsd, trackTitle, uploaderId]);
+    }, [id, listing, selectedLicense, trackArtist, trackArtwork, trackTitle, uploaderId]);
 
     const handleAddToCart = () => {
         if (!checkoutItem) {
@@ -222,7 +237,7 @@ export default function ListingLicenseModal() {
             return;
         }
 
-        if (trackPriceUsd <= 0) {
+        if (selectedLicense.price <= 0) {
             showToast('This track is currently not available for paid purchase.', 'error');
             return;
         }
@@ -234,7 +249,7 @@ export default function ListingLicenseModal() {
             const createCheckoutSession = httpsCallable(functions, 'createCheckoutSession');
             const result = await createCheckoutSession({
                 items: [checkoutItem],
-                totalAmountUsd: trackPriceUsd,
+                totalAmountUsd: selectedLicense.price,
             });
 
             const data = result.data as { txRef: string; amountNgn: number };
@@ -292,25 +307,27 @@ export default function ListingLicenseModal() {
                                 </View>
                             </View>
 
-                            <View style={styles.priceCard}>
-                                <View>
-                                    <Text style={styles.priceLabel}>Track Price</Text>
-                                    <Text style={styles.priceSubLabel}>Single purchase license</Text>
-                                </View>
-                                <Text style={styles.priceValue}>{formatUsd(trackPriceUsd)}</Text>
-                            </View>
+                            <LicenseTierPicker
+                                options={licenseOptions}
+                                selectedTierId={selectedTierId}
+                                onSelect={setSelectedTierId}
+                            />
 
                             <View style={styles.actionsWrap}>
                                 <TouchableOpacity
                                     style={[styles.primaryAction, checkingOut && styles.disabledAction]}
                                     onPress={handleBuyNow}
-                                    disabled={checkingOut || trackPriceUsd <= 0}
+                                    disabled={checkingOut || selectedLicense.price <= 0}
                                 >
-                                    <Text style={styles.primaryActionText}>{checkingOut ? 'Starting payment...' : 'Buy now'}</Text>
+                                    <Text style={styles.primaryActionText}>
+                                        {checkingOut ? 'Starting payment...' : `Buy ${selectedLicense.title}`}
+                                    </Text>
                                 </TouchableOpacity>
 
                                 <TouchableOpacity style={styles.secondaryAction} onPress={handleAddToCart}>
-                                    <Text style={styles.secondaryActionText}>Add to cart</Text>
+                                    <Text style={styles.secondaryActionText}>
+                                        {`Add ${selectedLicense.title} to cart`}
+                                    </Text>
                                 </TouchableOpacity>
                             </View>
                         </>

@@ -27,7 +27,7 @@ export type SubscriptionConfig = {
   label: string;
   shortLabel: string;
   description: string;
-  category: 'Shoout' | 'Vault' | 'Studio' | 'Hybrid';
+  category: 'Shoouts' | 'Vault' | 'Studio' | 'Hybrid';
   monthlyPriceUsd: number;
   annualPerMonthUsd: number;
   annualTotalUsd: number;
@@ -68,7 +68,7 @@ export const SUBSCRIPTION_PLANS: SubscriptionConfig[] = [
     label: 'Shoouts',
     shortLabel: 'Shoouts',
     description: 'Buyer and marketplace mode for discovery, cart, and messaging.',
-    category: 'Shoout',
+    category: 'Shoouts',
     monthlyPriceUsd: 0,
     annualPerMonthUsd: 0,
     annualTotalUsd: 0,
@@ -95,7 +95,7 @@ export const SUBSCRIPTION_PLANS: SubscriptionConfig[] = [
     color: '#EC5C39',
     gradient: ['rgba(236, 92, 57, 0.15)', 'rgba(236, 92, 57, 0.05)', 'rgba(0,0,0,0)'],
     borderColor: '#EC5C39',
-    features: ['Private uploads', 'Folders and secure links', '50 uploads with 0.5GB storage'],
+    features: ['Private uploads', 'Folders and secure links', '50 uploads with 0.05GB storage'],
     upgradeTarget: 'vault_pro',
     flags: makeFlags({
       canBuy: true,
@@ -109,7 +109,7 @@ export const SUBSCRIPTION_PLANS: SubscriptionConfig[] = [
       canUsePrivateSharing: true,
       canUseVaultStorage: true,
       maxVaultUploads: 50,
-      storageLimitGB: 0.5,
+      storageLimitGB: 0.05,
     }),
   },
   {

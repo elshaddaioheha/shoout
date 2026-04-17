@@ -180,7 +180,7 @@ export default function RoleSelectionScreen() {
                     opacity: headerAnim,
                     transform: [{ translateY: headerAnim.interpolate({ inputRange: [0, 1], outputRange: [-30, 0] }) }]
                 }]}>
-                    <Text style={styles.title} allowFontScaling={false}>How will you use{'\n'}ShooutS?</Text>
+                    <Text style={styles.title} allowFontScaling={false}>How will you use{'\n'}Shoouts?</Text>
                     <Text style={styles.subtitle} allowFontScaling={false}>Choose your experience. You can always change this later.</Text>
                 </Animated.View>
 

@@ -1,4 +1,4 @@
-import ShooutFavouritesScreen from '@/components/library/ShooutFavouritesScreen';
+import ShooutsFavouritesScreen from '@/components/library/ShooutFavouritesScreen';
 import HybridLibraryScreen from '@/components/library/HybridLibraryScreen';
 import StudioCreatorScreen from '@/components/library/StudioCreatorScreen';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -26,5 +26,5 @@ export default function LibraryScreen() {
     return <StudioCreatorScreen />;
   }
 
-  return <ShooutFavouritesScreen />;
+  return <ShooutsFavouritesScreen />;
 }

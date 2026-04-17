@@ -1,4 +1,5 @@
 import { useAppSwitcherContext } from '@/app/(tabs)/_layout';
+import ActionSheet from '@/components/ActionSheet';
 import SharedHeader from '@/components/SharedHeader';
 import VaultFloatingActionMenu from '@/components/vault/VaultFloatingActionMenu';
 import { useAppTheme } from '@/hooks/use-app-theme';
@@ -13,9 +14,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { addDoc, collection, doc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
-import { Archive, Bell, FolderPlus, Grid3x3, List, Music4, RefreshCw, Search, Upload, User } from 'lucide-react-native';
+import { Archive, Bell, FolderPlus, Grid3x3, List, Music4, RefreshCw, Search, Share2, Upload, User } from 'lucide-react-native';
 import React, { useMemo, useRef, useState } from 'react';
-import { Animated, Dimensions, Easing, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Animated, Dimensions, Easing, Modal, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { auth, db, storage } from '@/firebaseConfig';
 
@@ -177,6 +178,10 @@ export default function VaultHomeScreen() {
   const [layoutMode, setLayoutMode] = useState<'grid' | 'list'>('list');
   const [folderName, setFolderName] = useState('');
   const [creatingFolder, setCreatingFolder] = useState(false);
+  const [trackMenuVisible, setTrackMenuVisible] = useState(false);
+  const [selectedTrack, setSelectedTrack] = useState<any>(null);
+  const [longPressTrackId, setLongPressTrackId] = useState<string | null>(null);
+  const longPressTimer = useRef<NodeJS.Timeout | null>(null);
   const searchOverlayOpacity = useRef(new Animated.Value(0)).current;
   const searchSheetOpacity = useRef(new Animated.Value(0)).current;
   const searchSheetTranslateY = useRef(new Animated.Value(SEARCH_SHEET_OFFSET)).current;
@@ -200,6 +205,122 @@ export default function VaultHomeScreen() {
   const uploadLimitReached = uploads.length >= effectiveUploadLimit;
   const storageLimitReached = usedStorageGB >= effectiveStorageLimitGB;
   const vaultIsEmpty = uploads.length === 0 && folders.length === 0 && shareLinks.length === 0;
+
+  // Long-press handlers for tracks
+  const handleTrackPressIn = (trackId: string, track: any) => {
+    setSelectedTrack(track);
+    longPressTimer.current = setTimeout(() => {
+      setLongPressTrackId(trackId);
+      setTrackMenuVisible(true);
+    }, 500);
+  };
+
+  const handleTrackPressOut = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  };
+
+  const [folderMenuVisible, setFolderMenuVisible] = useState(false);
+  const [selectedFolder, setSelectedFolder] = useState<any>(null);
+  const [longPressFolderId, setLongPressFolderId] = useState<string | null>(null);
+  const folderLongPressTimer = useRef<NodeJS.Timeout | null>(null);
+
+  const handleFolderPressIn = (folderId: string, folder: any) => {
+    setSelectedFolder(folder);
+    folderLongPressTimer.current = setTimeout(() => {
+      setLongPressFolderId(folderId);
+      setFolderMenuVisible(true);
+    }, 500);
+  };
+
+  const handleFolderPressOut = () => {
+    if (folderLongPressTimer.current) {
+      clearTimeout(folderLongPressTimer.current);
+      folderLongPressTimer.current = null;
+    }
+  };
+
+  const handleFolderRename = () => {
+    if (!selectedFolder) return;
+    // TODO: Open rename dialog
+    showToast('Rename folder - feature coming soon', 'info');
+  };
+
+  const handleFolderShare = async () => {
+    if (!selectedFolder) return;
+    try {
+      await Share.share({
+        message: `Check out my "${selectedFolder.name}" folder on Shoouts Vault`,
+        title: selectedFolder.name,
+      });
+    } catch (error) {
+      notifyError('Folder Share', error, 'Could not share folder');
+    }
+  };
+
+  const handleFolderPin = async () => {
+    if (!selectedFolder) return;
+    try {
+      showToast('Folder pinned to favorites', 'success');
+    } catch (error) {
+      notifyError('Folder Pin', error, 'Could not pin folder');
+    }
+  };
+
+  const handleFolderDelete = async () => {
+    if (!selectedFolder || !auth.currentUser) return;
+    try {
+      const { deleteDoc } = await import('firebase/firestore');
+      await deleteDoc(doc(db, `users/${auth.currentUser.uid}/folders/${selectedFolder.id}`));
+      showToast('Folder deleted from Vault', 'success');
+    } catch (error) {
+      notifyError('Folder Delete', error, 'Could not delete folder');
+    }
+  };
+
+  const handleTrackShare = async () => {
+    if (!selectedTrack) return;
+    try {
+      const trackUrl = selectedTrack.shareUrl || `${selectedTrack.audioUrl}`;
+      await import('react-native').then(({ Share }) => {
+        Share.share({
+          message: `Check out "${selectedTrack.title}" by ${selectedTrack.artist || selectedTrack.uploaderName} on Shoouts Vault`,
+          url: trackUrl,
+          title: selectedTrack.title,
+        });
+      });
+    } catch (error) {
+      notifyError('Track Share', error, 'Could not share track');
+    }
+  };
+
+  const handleTrackPin = async () => {
+    if (!selectedTrack || !auth.currentUser) return;
+    try {
+      showToast('Track pinned to favorites', 'success');
+    } catch (error) {
+      notifyError('Track Pin', error, 'Could not pin track');
+    }
+  };
+
+  const handleTrackMove = () => {
+    if (!selectedTrack) return;
+    // This would open a folder picker modal
+    showToast('Move track to folder - feature coming soon', 'info');
+  };
+
+  const handleTrackDelete = async () => {
+    if (!selectedTrack || !auth.currentUser) return;
+    try {
+      const { deleteDoc } = await import('firebase/firestore');
+      await deleteDoc(doc(db, `users/${auth.currentUser.uid}/uploads/${selectedTrack.id}`));
+      showToast('Track deleted from Vault', 'success');
+    } catch (error) {
+      notifyError('Track Delete', error, 'Could not delete track');
+    }
+  };
 
   const handleStartUpload = () => {
     if (!canUploadToVault) {
@@ -652,8 +773,10 @@ export default function VaultHomeScreen() {
             {!loading && layoutMode === 'list' && folders.slice(0, 6).map((folder) => (
               <TouchableOpacity
                 key={folder.id}
-                style={styles.listRow}
-                onPress={() => router.push({ pathname: '/vault/folder/[id]', params: { id: folder.id, name: folder.name } } as any)}
+                style={[styles.listRow, longPressFolderId === folder.id && styles.listRowActive]}
+                onPress={() => !longPressFolderId && router.push({ pathname: '/vault/folder/[id]', params: { id: folder.id, name: folder.name } } as any)}
+                onPressIn={() => handleFolderPressIn(folder.id, folder)}
+                onPressOut={handleFolderPressOut}
                 activeOpacity={0.8}
               >
                 <View style={[styles.rowIconWrap, { backgroundColor: accentSoft }]}> 
@@ -671,8 +794,10 @@ export default function VaultHomeScreen() {
                 {folders.slice(0, 6).map((folder) => (
                   <TouchableOpacity
                     key={folder.id}
-                    style={[styles.gridCard, { backgroundColor: accentSoft }]}
-                    onPress={() => router.push({ pathname: '/vault/folder/[id]', params: { id: folder.id, name: folder.name } } as any)}
+                    style={[styles.gridCard, { backgroundColor: accentSoft }, longPressFolderId === folder.id && styles.gridCardActive]}
+                    onPress={() => !longPressFolderId && router.push({ pathname: '/vault/folder/[id]', params: { id: folder.id, name: folder.name } } as any)}
+                    onPressIn={() => handleFolderPressIn(folder.id, folder)}
+                    onPressOut={handleFolderPressOut}
                     activeOpacity={0.86}
                   >
                     <View style={styles.gridCardIcon}>
@@ -702,8 +827,10 @@ export default function VaultHomeScreen() {
             {!loading && layoutMode === 'list' && uploads.slice(0, 6).map((upload) => (
               <TouchableOpacity
                 key={upload.id}
-                style={styles.listRow}
-                onPress={() => router.push({ pathname: '/vault/track/[id]', params: { id: upload.id } } as any)}
+                style={[styles.listRow, longPressTrackId === upload.id && styles.listRowActive]}
+                onPress={() => !longPressTrackId && router.push({ pathname: '/vault/track/[id]', params: { id: upload.id } } as any)}
+                onPressIn={() => handleTrackPressIn(upload.id, upload)}
+                onPressOut={handleTrackPressOut}
                 activeOpacity={0.8}
               >
                 <View style={[styles.rowIconWrap, { backgroundColor: accentSoft }]}> 
@@ -721,8 +848,10 @@ export default function VaultHomeScreen() {
                 {uploads.slice(0, 6).map((upload) => (
                   <TouchableOpacity
                     key={upload.id}
-                    style={[styles.gridCard, { backgroundColor: accentSoft }]}
-                    onPress={() => router.push({ pathname: '/vault/track/[id]', params: { id: upload.id } } as any)}
+                    style={[styles.gridCard, { backgroundColor: accentSoft }, longPressTrackId === upload.id && styles.gridCardActive]}
+                    onPress={() => !longPressTrackId && router.push({ pathname: '/vault/track/[id]', params: { id: upload.id } } as any)}
+                    onPressIn={() => handleTrackPressIn(upload.id, upload)}
+                    onPressOut={handleTrackPressOut}
                     activeOpacity={0.86}
                   >
                     <View style={styles.gridCardIcon}>
@@ -740,6 +869,38 @@ export default function VaultHomeScreen() {
       </ScrollView>
 
       <VaultFloatingActionMenu actions={quickActions} />
+
+      <ActionSheet
+        visible={trackMenuVisible}
+        onClose={() => {
+          setTrackMenuVisible(false);
+          setLongPressTrackId(null);
+          setSelectedTrack(null);
+        }}
+        title={selectedTrack?.title || 'Track Options'}
+        options={[
+          { label: 'Share', icon: <Share2 size={18} />, onPress: handleTrackShare },
+          { label: 'Pin to Favorites', onPress: handleTrackPin },
+          { label: 'Move to Folder', onPress: handleTrackMove },
+          { label: 'Delete', destructive: true, onPress: handleTrackDelete },
+        ]}
+      />
+
+      <ActionSheet
+        visible={folderMenuVisible}
+        onClose={() => {
+          setFolderMenuVisible(false);
+          setLongPressFolderId(null);
+          setSelectedFolder(null);
+        }}
+        title={selectedFolder?.name || 'Folder Options'}
+        options={[
+          { label: 'Rename', onPress: handleFolderRename },
+          { label: 'Share', icon: <Share2 size={18} />, onPress: handleFolderShare },
+          { label: 'Pin to Favorites', onPress: handleFolderPin },
+          { label: 'Delete', destructive: true, onPress: handleFolderDelete },
+        ]}
+      />
 
       <Modal visible={showCreateFolderSheet} transparent animationType="slide" onRequestClose={() => setShowCreateFolderSheet(false)}>
         <View style={styles.modalOverlay}>
@@ -1130,6 +1291,10 @@ const legacyStyles = {
     fontSize: 11,
     lineHeight: 15,
   },
+  gridCardActive: {
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderColor: 'rgba(255,255,255,0.16)',
+  },
   placeholderText: {
     color: 'rgba(255,255,255,0.64)',
     fontFamily: 'Poppins-Regular',
@@ -1145,6 +1310,10 @@ const legacyStyles = {
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255,255,255,0.07)',
     gap: 12,
+  },
+  listRowActive: {
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 12,
   },
   rowIconWrap: {
     width: 38,

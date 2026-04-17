@@ -11,7 +11,7 @@ Decisions already locked:
 
 - `handlers/bootstrap.ts`
   - Adopt as a separate handler file.
-  - Keep current Shoout bootstrap behavior and current entitlement/claim shape.
+  - Keep current Shoouts bootstrap behavior and current entitlement/claim shape.
 
 - `__tests__/guards.test.ts`
   - Adapt after subscription guard module exists.

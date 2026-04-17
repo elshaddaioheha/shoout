@@ -256,7 +256,7 @@ export default function SignupScreen() {
                         </TouchableOpacity>
                     </View>
 
-                    <Text style={[styles.title, isLightMode && { color: lightText }]}>Join ShooutS</Text>
+                    <Text style={[styles.title, isLightMode && { color: lightText }]}>Join Shoouts</Text>
                     <Text style={[styles.subtitle, isLightMode && { color: lightMutedText }]}>Create an account to start sharing your sound</Text>
 
                     {/* Social Login Buttons */}

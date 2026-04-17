@@ -121,7 +121,7 @@ export default function VaultRecordScreen() {
         title: trackTitle,
         artist: auth.currentUser.displayName || 'Creator',
         uploaderName: auth.currentUser.displayName || 'Creator',
-        description: 'Recorded in Shoout app.',
+        description: 'Recorded in Shoouts app.',
         audioUrl,
         fileName: safeName,
         fileSizeBytes: 0,
@@ -152,7 +152,7 @@ export default function VaultRecordScreen() {
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <View style={styles.heroCard}>
             <Text style={styles.heroTitle}>Capture and store in Vault</Text>
-            <Text style={styles.heroSubtitle}>Record inside Shoout, then save it directly to your private Vault uploads.</Text>
+            <Text style={styles.heroSubtitle}>Record inside Shoouts, then save it directly to your private Vault uploads.</Text>
             <Text style={styles.timerText}>{formatDuration(durationMs)}</Text>
           </View>
 

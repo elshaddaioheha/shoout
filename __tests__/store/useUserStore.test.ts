@@ -32,9 +32,9 @@ describe('useUserStore default state', () => {
         expect(result.current.canSell).toBe(false);
     });
 
-    it('has 500MB storage on vault plan', () => {
+    it('has 50MB storage on vault plan', () => {
         const { result } = renderHook(() => useUserStore());
-        expect(result.current.storageLimitGB).toBe(0.5);
+        expect(result.current.storageLimitGB).toBe(0.05);
     });
 
     it('is not premium on vault tier', () => {

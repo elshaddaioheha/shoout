@@ -1,0 +1,448 @@
+/**
+ * TrackPreviewModal — Shows track info, artwork, and license options before purchase
+ * 
+ * Features:
+ * - Full track metadata display (title, artist, category, description)
+ * - License tier selection with pricing
+ * - Audio preview player
+ * - Add to cart or proceed to checkout
+ */
+
+import React, { useMemo } from 'react';
+import {
+  Animated,
+  Dimensions,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  Image,
+} from 'react-native';
+import { useAppTheme } from '@/hooks/use-app-theme';
+import { adaptLegacyStyles, adaptLegacyColor } from '@/utils/legacyThemeAdapter';
+import LicenseTierPicker from '@/components/LicenseTierPicker';
+import { useCartStore } from '@/store/useCartStore';
+import { useToastStore } from '@/store/useToastStore';
+import { buildLicenseTierOptions, buildLicenseCartItemId } from '@/utils/licenseTiers';
+import { Music, X, ShoppingCart, Play, Pause } from 'lucide-react-native';
+import { usePlaybackStore } from '@/store/usePlaybackStore';
+
+interface TrackPreviewModalProps {
+  visible: boolean;
+  onClose: () => void;
+  onConfirmPurchase?: (licenseId: string) => void;
+  track: {
+    id: string;
+    title: string;
+    artist: string;
+    uploaderName?: string;
+    price: number;
+    artworkUrl?: string;
+    coverUrl?: string;
+    description?: string;
+    category?: string;
+    audioUrl?: string;
+    uploaderId?: string;
+    url?: string;
+  } | null;
+}
+
+function useTrackPreviewStyles() {
+  const appTheme = useAppTheme();
+  return useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
+
+export default function TrackPreviewModal({
+  visible,
+  onClose,
+  onConfirmPurchase,
+  track,
+}: TrackPreviewModalProps) {
+  const appTheme = useAppTheme();
+  const styles = useTrackPreviewStyles();
+  const { showToast } = useToastStore();
+  const { addItem } = useCartStore();
+  const { currentTrack: playingTrack, initializePlaylist, togglePlayPause, isPlaying } = usePlaybackStore();
+
+  const [selectedLicenseId, setSelectedLicenseId] = React.useState<'basic' | 'premium' | 'exclusive'>('premium');
+  const fadeAnim = React.useRef(new Animated.Value(0)).current;
+  const slideAnim = React.useRef(new Animated.Value(300)).current;
+
+  React.useEffect(() => {
+    if (visible) {
+      Animated.parallel([
+        Animated.timing(fadeAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
+        Animated.timing(slideAnim, { toValue: 0, duration: 250, useNativeDriver: true }),
+      ]).start();
+    } else {
+      Animated.parallel([
+        Animated.timing(fadeAnim, { toValue: 0, duration: 150, useNativeDriver: true }),
+        Animated.timing(slideAnim, { toValue: 300, duration: 200, useNativeDriver: true }),
+      ]).start();
+    }
+  }, [visible]);
+
+  if (!track) return null;
+
+  const licenseOptions = useMemo(() => buildLicenseTierOptions(track.price), [track.price]);
+  const selectedLicense = licenseOptions.find((opt) => opt.id === selectedLicenseId) || licenseOptions[1];
+  const trackArtwork = track.artworkUrl || track.coverUrl;
+  const trackUrl = track.audioUrl || track.url || '';
+  const isCurrentTrack = playingTrack?.id === track.id;
+  const displayArtist = track.artist || track.uploaderName || 'Unknown Artist';
+
+  const handleAddToCart = () => {
+    const cartItemId = buildLicenseCartItemId(track.id, selectedLicenseId);
+    addItem({
+      id: cartItemId,
+      listingId: track.id,
+      title: track.title,
+      artist: displayArtist,
+      price: selectedLicense.price,
+      audioUrl: trackUrl,
+      coverUrl: trackArtwork,
+      uploaderId: track.uploaderId || '',
+      category: track.category || 'Track',
+      licenseTierId: selectedLicenseId,
+      licenseTierTitle: selectedLicense.name,
+      licenseSummary: selectedLicense.summary,
+    });
+    showToast(`Added to cart with ${selectedLicense.name} license`, 'success');
+    onClose();
+  };
+
+  const handleProceedToCheckout = () => {
+    if (onConfirmPurchase) {
+      onConfirmPurchase(selectedLicenseId);
+    }
+  };
+
+  const handlePlayPreview = async () => {
+    if (!trackUrl) {
+      showToast('No preview available', 'info');
+      return;
+    }
+
+    try {
+      if (isCurrentTrack && isPlaying) {
+        await togglePlayPause();
+      } else {
+        // Play this track as preview
+        await initializePlaylist(
+          [track as any],
+          0,
+          false
+        );
+      }
+    } catch (error) {
+      showToast('Could not play preview', 'error');
+    }
+  };
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="none"
+      onRequestClose={onClose}
+    >
+      <Animated.View style={[styles.backdrop, { opacity: fadeAnim }]} />
+
+      <Animated.View
+        style={[
+          styles.container,
+          {
+            transform: [{ translateY: slideAnim }],
+          },
+        ]}
+      >
+        <ScrollView
+          style={styles.content}
+          contentContainerStyle={styles.contentInner}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Close Button */}
+          <TouchableOpacity
+            style={styles.closeButton}
+            onPress={onClose}
+            activeOpacity={0.7}
+          >
+            <X size={24} color={appTheme.colors.textPrimary} />
+          </TouchableOpacity>
+
+          {/* Artwork */}
+          <View style={styles.artworkContainer}>
+            {trackArtwork ? (
+              <Image
+                source={{ uri: trackArtwork }}
+                style={styles.artwork}
+              />
+            ) : (
+              <View style={[styles.artwork, styles.artworkPlaceholder]}>
+                <Music
+                  size={64}
+                  color={appTheme.colors.textSecondary}
+                />
+              </View>
+            )}
+
+            {/* Play Preview Button */}
+            <TouchableOpacity
+              style={styles.playButton}
+              onPress={handlePlayPreview}
+              activeOpacity={0.8}
+            >
+              {isCurrentTrack && isPlaying ? (
+                <Pause size={32} color="#FFFFFF" fill="#FFFFFF" />
+              ) : (
+                <Play size={32} color="#FFFFFF" fill="#FFFFFF" />
+              )}
+            </TouchableOpacity>
+          </View>
+
+          {/* Track Info */}
+          <View style={styles.infoSection}>
+            <Text style={styles.title} numberOfLines={2}>
+              {track.title}
+            </Text>
+            <Text style={styles.artist} numberOfLines={1}>
+              {displayArtist}
+            </Text>
+            {track.category && (
+              <Text style={styles.category}>{track.category}</Text>
+            )}
+            {track.description && (
+              <Text style={styles.description} numberOfLines={3}>
+                {track.description}
+              </Text>
+            )}
+          </View>
+
+          {/* License Tier Picker */}
+          <View style={styles.licenseSection}>
+            <Text style={styles.sectionTitle}>Choose License</Text>
+            <LicenseTierPicker
+              options={licenseOptions}
+              selectedId={selectedLicenseId}
+              onSelect={setSelectedLicenseId}
+            />
+            <View style={styles.priceDisplay}>
+              <Text style={styles.priceLabel}>Total Price</Text>
+              <Text style={styles.price}>
+                ${selectedLicense.price.toFixed(2)}
+              </Text>
+            </View>
+          </View>
+
+          {/* License Details */}
+          <View style={styles.detailsSection}>
+            <Text style={styles.sectionTitle}>What's Included</Text>
+            {selectedLicense.features && selectedLicense.features.length > 0 ? (
+              selectedLicense.features.map((feature, idx) => (
+                <Text key={idx} style={styles.featureItem}>
+                  • {feature}
+                </Text>
+              ))
+            ) : (
+              <Text style={styles.featureItem}>
+                Access to {selectedLicense.name} license tier
+              </Text>
+            )}
+          </View>
+
+          {/* Action Buttons */}
+          <View style={styles.actions}>
+            <TouchableOpacity
+              style={[styles.button, styles.addToCartButton]}
+              onPress={handleAddToCart}
+              activeOpacity={0.85}
+            >
+              <ShoppingCart size={18} color="#FFFFFF" />
+              <Text style={styles.addToCartText}>Add to Cart</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.button, styles.checkoutButton]}
+              onPress={handleProceedToCheckout}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.checkoutText}>Proceed to Checkout</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Spacer */}
+          <View style={styles.spacer} />
+        </ScrollView>
+      </Animated.View>
+    </Modal>
+  );
+}
+
+const legacyStyles = {
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  container: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    maxHeight: '90%',
+    backgroundColor: '#140F10',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingTop: 16,
+  },
+  content: {
+    flex: 1,
+  },
+  contentInner: {
+    paddingBottom: 32,
+  },
+  closeButton: {
+    alignSelf: 'flex-end',
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+  },
+  artworkContainer: {
+    position: 'relative',
+    width: '100%',
+    paddingHorizontal: 20,
+    marginBottom: 24,
+  },
+  artwork: {
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  artworkPlaceholder: {
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  playButton: {
+    position: 'absolute',
+    bottom: 12,
+    right: 12,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(216, 74, 40, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  infoSection: {
+    paddingHorizontal: 20,
+    marginBottom: 24,
+  },
+  title: {
+    color: '#FFFFFF',
+    fontFamily: 'Poppins-Bold',
+    fontSize: 20,
+    lineHeight: 28,
+    marginBottom: 8,
+  },
+  artist: {
+    color: 'rgba(255, 255, 255, 0.72)',
+    fontFamily: 'Poppins-Medium',
+    fontSize: 14,
+    marginBottom: 4,
+  },
+  category: {
+    color: 'rgba(255, 255, 255, 0.56)',
+    fontFamily: 'Poppins-Regular',
+    fontSize: 12,
+    marginBottom: 12,
+  },
+  description: {
+    color: 'rgba(255, 255, 255, 0.64)',
+    fontFamily: 'Poppins-Regular',
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 8,
+  },
+  licenseSection: {
+    paddingHorizontal: 20,
+    marginBottom: 24,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.08)',
+    paddingTop: 20,
+  },
+  sectionTitle: {
+    color: '#FFFFFF',
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: 14,
+    marginBottom: 16,
+  },
+  priceDisplay: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.08)',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  priceLabel: {
+    color: 'rgba(255, 255, 255, 0.64)',
+    fontFamily: 'Poppins-Regular',
+    fontSize: 13,
+  },
+  price: {
+    color: '#D84A28',
+    fontFamily: 'Poppins-Bold',
+    fontSize: 18,
+  },
+  detailsSection: {
+    paddingHorizontal: 20,
+    marginBottom: 24,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.08)',
+    paddingTop: 20,
+  },
+  featureItem: {
+    color: 'rgba(255, 255, 255, 0.72)',
+    fontFamily: 'Poppins-Regular',
+    fontSize: 13,
+    lineHeight: 20,
+    marginBottom: 8,
+  },
+  actions: {
+    paddingHorizontal: 20,
+    gap: 12,
+  },
+  button: {
+    borderRadius: 14,
+    paddingVertical: 14,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+  },
+  addToCartButton: {
+    backgroundColor: 'rgba(216, 74, 40, 0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(216, 74, 40, 0.3)',
+  },
+  addToCartText: {
+    color: '#EC6B4A',
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: 14,
+  },
+  checkoutButton: {
+    backgroundColor: '#D84A28',
+  },
+  checkoutText: {
+    color: '#FFFFFF',
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: 14,
+  },
+  spacer: {
+    height: 20,
+  },
+};

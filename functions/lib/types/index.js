@@ -20,7 +20,7 @@ exports.NAIRA_RATE = 1600;
  */
 // Pricing has moved to subscriptions/catalog.ts (PLAN_PRICING_USD)
 /**
- * License add-on SKUs must match `app/listing/[id].tsx` LICENSE_OPTIONS (USD).
+ * Legacy fixed-price license add-ons are still accepted for backwards compatibility.
  */
 exports.LICENSE_USD_PRICES = {
     mp3_tagged: 4.95,
@@ -28,7 +28,8 @@ exports.LICENSE_USD_PRICES = {
     unlimited_wav_4_free: 32.99,
     unlimited_stems_9_free: 51.99,
 };
-exports.LICENSE_SKUS_ORDERED = Object.keys(exports.LICENSE_USD_PRICES).sort((a, b) => b.length - a.length);
+exports.LICENSE_SKUS_ORDERED = ['premium', 'exclusive', ...Object.keys(exports.LICENSE_USD_PRICES)]
+    .sort((a, b) => b.length - a.length);
 exports.CART_TOTAL_EPSILON = 0.02;
 // Free plans have moved to subscriptions/catalog.ts (FREE_PLANS)
 // ============================================================================

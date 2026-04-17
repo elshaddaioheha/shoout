@@ -1,27 +1,32 @@
 // Learn more https://docs.expo.io/guides/customizing-metro
-const { withSentryConfig } = require('@sentry/react-native/metro');
-const { getDefaultConfig } = require('expo/metro-config');
+const { getSentryExpoConfig } = require('@sentry/react-native/metro');
 const path = require('path');
 
 /** @type {import('expo/metro-config').MetroConfig} */
-const config = withSentryConfig(getDefaultConfig(__dirname));
+const config = getSentryExpoConfig(__dirname);
+const lucideCompatPath = path.resolve(__dirname, 'components/lucide-react-native.tsx');
 
-// Force Metro to resolve the CJS ("default") condition instead of the ESM
-// ("import") condition for packages like zustand that ship `.mjs` files
-// containing `import.meta` — which is not valid in a Metro/RN browser bundle.
-config.resolver.unstable_conditionNames = ['require', 'default'];
+// Some dependencies expose ESM-only `exports` entries that include `import.meta`.
+// Metro's classic web bundle is not emitted as a module script, so keep legacy
+// resolution to prefer CommonJS-compatible entry points.
+config.resolver.unstable_enablePackageExports = false;
 
-// Also block .mjs from being resolved so Metro never accidentally picks
-// an ESM file that contains import.meta.
-config.resolver.sourceExts = config.resolver.sourceExts.filter(
-  (ext) => ext !== 'mjs'
-);
+// Platform-specific module resolution:
+// - React Native: force CJS to avoid import.meta in dependencies like zustand
+// - Web: prefer browser/CJS so Metro's classic bundle does not include raw import.meta
+config.resolver.unstable_conditionNames =
+  process.env.EXPO_OS === 'web' || process.env.RN_PLATFORM === 'web'
+    ? ['browser', 'require', 'default']
+    : ['require', 'default'];
 
 // Firebase v12+ ships @firebase/util with a static `import './postinstall.mjs'`
 // inside its CJS entry file. Metro cannot resolve .mjs at runtime, so we
 // redirect that specific import to an empty local stub.
 const POSTINSTALL_STUB = path.resolve(__dirname, 'stubs/postinstall.js');
 config.resolver.resolveRequest = (context, moduleName, platform) => {
+  if (moduleName === 'lucide-react-native') {
+    return { filePath: lucideCompatPath, type: 'sourceFile' };
+  }
   if (moduleName === './postinstall.mjs') {
     return { filePath: POSTINSTALL_STUB, type: 'sourceFile' };
   }
@@ -30,3 +35,4 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
 };
 
 module.exports = config;
+

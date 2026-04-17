@@ -118,7 +118,12 @@ export default function CartScreen() {
     const renderItem = ({ item }: { item: any }) => (
         <TouchableOpacity
             style={styles.cartItem}
-            onPress={() => router.push({ pathname: '/listing/[id]' as any, params: { id: item.id, uploaderId: item.uploaderId } })}
+            onPress={() =>
+                router.push({
+                    pathname: '/listing/[id]' as any,
+                    params: { id: item.listingId || item.id, uploaderId: item.uploaderId },
+                })
+            }
             activeOpacity={0.8}
         >
             <View style={styles.itemArtwork}>
@@ -127,6 +132,9 @@ export default function CartScreen() {
             <View style={styles.itemInfo}>
                 <Text style={styles.itemTitle} numberOfLines={1}>{item.title}</Text>
                 <Text style={styles.itemArtist}>{item.artist}</Text>
+                {item.licenseTierTitle ? (
+                    <Text style={styles.itemLicense} numberOfLines={1}>{item.licenseTierTitle} license</Text>
+                ) : null}
                 <Text style={styles.itemPrice}>{formatUsd(item.price)}</Text>
             </View>
             <TouchableOpacity
@@ -363,6 +371,12 @@ const legacyStyles = {
         fontFamily: 'Poppins-Regular',
         color: 'rgba(255,255,255,0.4)',
         marginTop: 2,
+    },
+    itemLicense: {
+        fontSize: 11,
+        fontFamily: 'Poppins-Medium',
+        color: '#EC5C39',
+        marginTop: 4,
     },
     itemPrice: {
         fontSize: 14,

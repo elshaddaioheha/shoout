@@ -82,6 +82,8 @@ export default function StudioCreationScreen() {
   const progressAnim = useRef(new Animated.Value(0.25)).current;
   const contentOpacity = useRef(new Animated.Value(1)).current;
   const contentTranslateY = useRef(new Animated.Value(0)).current;
+  const stepContextOpacity = useRef(new Animated.Value(0)).current;
+  const stepContextTranslateY = useRef(new Animated.Value(14)).current;
 
   useEffect(() => {
     Animated.parallel([
@@ -97,8 +99,20 @@ export default function StudioCreationScreen() {
         easing: authMotionEasing.emphasized,
         useNativeDriver: true,
       }),
+      Animated.timing(stepContextOpacity, {
+        toValue: 1,
+        duration: durations.contentEnter,
+        easing: authMotionEasing.standard,
+        useNativeDriver: true,
+      }),
+      Animated.timing(stepContextTranslateY, {
+        toValue: 0,
+        duration: durations.contentEnter,
+        easing: authMotionEasing.emphasized,
+        useNativeDriver: true,
+      }),
     ]).start();
-  }, [contentOpacity, contentTranslateY, durations.contentEnter]);
+  }, [contentOpacity, contentTranslateY, durations.contentEnter, stepContextOpacity, stepContextTranslateY]);
 
   const stepTitle = useMemo(() => {
     if (step === 1) return 'Let’s start with the basics';
@@ -135,9 +149,22 @@ export default function StudioCreationScreen() {
         easing: authMotionEasing.standard,
         useNativeDriver: true,
       }),
+      Animated.timing(stepContextOpacity, {
+        toValue: 0,
+        duration: Math.max(110, durations.slideChange - 80),
+        easing: authMotionEasing.standard,
+        useNativeDriver: true,
+      }),
+      Animated.timing(stepContextTranslateY, {
+        toValue: reduceMotion ? 0 : 14,
+        duration: durations.slideChange,
+        easing: authMotionEasing.standard,
+        useNativeDriver: true,
+      }),
     ]).start(() => {
       setStep(nextStep);
       contentTranslateY.setValue(reduceMotion ? 0 : 18);
+      stepContextTranslateY.setValue(reduceMotion ? 0 : 14);
       Animated.parallel([
         Animated.timing(progressAnim, {
           toValue: nextStep / 4,
@@ -152,6 +179,18 @@ export default function StudioCreationScreen() {
           useNativeDriver: true,
         }),
         Animated.timing(contentTranslateY, {
+          toValue: 0,
+          duration: durations.slideChange,
+          easing: authMotionEasing.emphasized,
+          useNativeDriver: true,
+        }),
+        Animated.timing(stepContextOpacity, {
+          toValue: 1,
+          duration: durations.slideChange,
+          easing: authMotionEasing.standard,
+          useNativeDriver: true,
+        }),
+        Animated.timing(stepContextTranslateY, {
           toValue: 0,
           duration: durations.slideChange,
           easing: authMotionEasing.emphasized,
@@ -259,168 +298,184 @@ export default function StudioCreationScreen() {
         style={styles.flex}
       >
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-          <View style={styles.headerWrap}>
-            <View style={styles.headerRow}>
-              <Text style={styles.headerTitle}>Create your Studio</Text>
-              <Text style={styles.stepText}>Step {step}/4</Text>
+          <View style={styles.contentStack}>
+            <View style={styles.headerWrap}>
+              <View style={styles.headerRow}>
+                <Text style={styles.headerTitle}>Create your Studio</Text>
+                <Text style={styles.stepText}>Step {step}/4</Text>
+              </View>
+              <View style={styles.progressTrack} onLayout={(event) => setTrackWidth(event.nativeEvent.layout.width)}>
+                <Animated.View style={[styles.progressFill, { width: progressWidth }]} />
+              </View>
             </View>
-            <View style={styles.progressTrack} onLayout={(event) => setTrackWidth(event.nativeEvent.layout.width)}>
-              <Animated.View style={[styles.progressFill, { width: progressWidth }]} />
+
+            <Animated.View
+              style={[
+                styles.card,
+                {
+                  opacity: contentOpacity,
+                  transform: [{ translateY: contentTranslateY }],
+                },
+              ]}
+            >
+              <Animated.View
+                style={[
+                  styles.stepContext,
+                  {
+                    opacity: stepContextOpacity,
+                    transform: [{ translateY: stepContextTranslateY }],
+                  },
+                ]}
+              >
+                <View style={styles.introBlock}>
+                  <Text style={styles.introTitle}>{stepTitle}</Text>
+                  <Text style={styles.introSub}>{stepSubtitle}</Text>
+                </View>
+
+                {step === 1 ? (
+                  <View style={styles.section}>
+                    <View style={styles.fieldWrap}>
+                      <Text style={styles.label}>Name</Text>
+                      <TextInput
+                        style={styles.input}
+                        value={creatorName}
+                        onChangeText={setCreatorName}
+                        placeholder="Your full name"
+                        placeholderTextColor={placeholderColor}
+                      />
+                    </View>
+
+                    <View style={styles.fieldWrap}>
+                      <Text style={styles.label}>Studio Name</Text>
+                      <TextInput
+                        style={styles.input}
+                        value={studioName}
+                        onChangeText={setStudioName}
+                        placeholder="Enter studio name"
+                        placeholderTextColor={placeholderColor}
+                      />
+                    </View>
+                  </View>
+                ) : null}
+
+                {step === 2 ? (
+                  <View style={styles.section}>
+                    <View style={styles.fieldWrap}>
+                      <Text style={styles.label}>Profile image</Text>
+                      <TouchableOpacity style={styles.uploadBox} activeOpacity={0.85} onPress={() => pickImage('profile')}>
+                        <ImagePlus size={28} color={uploadIconColor} />
+                        <Text style={styles.uploadText}>{profileImageName || 'Upload JPEG or PNG'}</Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    <View style={styles.fieldWrap}>
+                      <Text style={styles.label}>Studio banner</Text>
+                      <TouchableOpacity style={styles.uploadBox} activeOpacity={0.85} onPress={() => pickImage('banner')}>
+                        <ImagePlus size={28} color={uploadIconColor} />
+                        <Text style={styles.uploadText}>{bannerImageName || 'Upload JPEG or PNG'}</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ) : null}
+
+                {step === 3 ? (
+                  <View style={styles.section}>
+                    <View style={styles.fieldWrap}>
+                      <Text style={styles.metaLabel}>Creator type</Text>
+                      <View style={styles.creatorTypeCol}>
+                        {CREATOR_TYPES.map((item) => {
+                          const selected = creatorType === item.id;
+                          return (
+                            <TouchableOpacity
+                              key={item.id}
+                              style={[styles.creatorTypeCard, selected && styles.creatorTypeCardSelected]}
+                              activeOpacity={0.85}
+                              onPress={() => setCreatorType(item.id)}
+                            >
+                              <View style={[styles.creatorIconWrap, selected && styles.creatorIconWrapSelected]}>
+                                {item.id === 'producer' ? (
+                                  <Music2 size={14} color={selected ? '#FFFFFF' : appTheme.colors.textSecondary} />
+                                ) : (
+                                  <User size={14} color={selected ? '#FFFFFF' : appTheme.colors.textSecondary} />
+                                )}
+                              </View>
+                              <View style={styles.creatorTextWrap}>
+                                <Text style={styles.creatorTypeTitle}>{item.title}</Text>
+                                <Text style={styles.creatorTypeSub}>{item.subtitle}</Text>
+                              </View>
+                              {selected ? <Check size={16} color={appTheme.colors.primary} /> : null}
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    </View>
+
+                    <View style={styles.fieldWrap}>
+                      <Text style={styles.metaLabel}>Primary genre</Text>
+                      <View style={styles.genreGrid}>
+                        {GENRES.map((genre) => {
+                          const selected = primaryGenre === genre;
+                          return (
+                            <TouchableOpacity
+                              key={genre}
+                              style={[styles.genreChip, selected && styles.genreChipSelected]}
+                              activeOpacity={0.85}
+                              onPress={() => setPrimaryGenre(genre)}
+                            >
+                              <Text style={[styles.genreChipText, selected && styles.genreChipTextSelected]}>{genre}</Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    </View>
+                  </View>
+                ) : null}
+
+                {step === 4 ? (
+                  <View style={styles.section}>
+                    <View style={styles.successCircle}>
+                      <Check size={28} color="#FFFFFF" />
+                    </View>
+
+                    <View style={styles.summaryCard}>
+                      <Text style={styles.summaryTitle}>Your studio details</Text>
+                      <View style={styles.summaryRow}>
+                        <Text style={styles.summaryKey}>Creator</Text>
+                        <Text style={styles.summaryVal}>{creatorName || '-'}</Text>
+                      </View>
+                      <View style={styles.summaryRow}>
+                        <Text style={styles.summaryKey}>Studio</Text>
+                        <Text style={styles.summaryVal}>{studioName || '-'}</Text>
+                      </View>
+                      <View style={styles.summaryRow}>
+                        <Text style={styles.summaryKey}>Type</Text>
+                        <Text style={styles.summaryVal}>{prettyCreatorType(creatorType)}</Text>
+                      </View>
+                      <View style={styles.summaryRow}>
+                        <Text style={styles.summaryKey}>Genre</Text>
+                        <Text style={styles.summaryVal}>{primaryGenre || 'Not selected'}</Text>
+                      </View>
+                    </View>
+
+                    <Text style={styles.finalHint}>Next up: we’ll take you into the workspace that matches your selected experience.</Text>
+                  </View>
+                ) : null}
+              </Animated.View>
+            </Animated.View>
+
+            <View style={styles.footerWrap}>
+              <TouchableOpacity
+                style={[styles.continueBtn, loading && styles.continueBtnDisabled]}
+                activeOpacity={0.9}
+                onPress={handleContinue}
+                disabled={loading}
+              >
+                <Text style={styles.continueBtnText}>
+                  {loading ? 'Please wait...' : step === 4 ? 'Enter Studio' : 'Continue'}
+                </Text>
+              </TouchableOpacity>
             </View>
           </View>
-
-          <Animated.View
-            style={[
-              styles.card,
-              {
-                opacity: contentOpacity,
-                transform: [{ translateY: contentTranslateY }],
-              },
-            ]}
-          >
-            <Text style={styles.introTitle}>{stepTitle}</Text>
-            <Text style={styles.introSub}>{stepSubtitle}</Text>
-
-            {step === 1 ? (
-              <View style={styles.section}>
-                <View style={styles.fieldWrap}>
-                  <Text style={styles.label}>Name</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={creatorName}
-                    onChangeText={setCreatorName}
-                    placeholder="Your full name"
-                    placeholderTextColor={placeholderColor}
-                  />
-                </View>
-
-                <View style={styles.fieldWrap}>
-                  <Text style={styles.label}>Studio Name</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={studioName}
-                    onChangeText={setStudioName}
-                    placeholder="Enter studio name"
-                    placeholderTextColor={placeholderColor}
-                  />
-                </View>
-              </View>
-            ) : null}
-
-            {step === 2 ? (
-              <View style={styles.section}>
-                <View style={styles.fieldWrap}>
-                  <Text style={styles.label}>Profile image</Text>
-                  <TouchableOpacity style={styles.uploadBox} activeOpacity={0.85} onPress={() => pickImage('profile')}>
-                    <ImagePlus size={28} color={uploadIconColor} />
-                    <Text style={styles.uploadText}>{profileImageName || 'Upload JPEG or PNG'}</Text>
-                  </TouchableOpacity>
-                </View>
-
-                <View style={styles.fieldWrap}>
-                  <Text style={styles.label}>Studio banner</Text>
-                  <TouchableOpacity style={styles.uploadBox} activeOpacity={0.85} onPress={() => pickImage('banner')}>
-                    <ImagePlus size={28} color={uploadIconColor} />
-                    <Text style={styles.uploadText}>{bannerImageName || 'Upload JPEG or PNG'}</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ) : null}
-
-            {step === 3 ? (
-              <View style={styles.section}>
-                <View style={styles.fieldWrap}>
-                  <Text style={styles.metaLabel}>Creator type</Text>
-                  <View style={styles.creatorTypeCol}>
-                    {CREATOR_TYPES.map((item) => {
-                      const selected = creatorType === item.id;
-                      return (
-                        <TouchableOpacity
-                          key={item.id}
-                          style={[styles.creatorTypeCard, selected && styles.creatorTypeCardSelected]}
-                          activeOpacity={0.85}
-                          onPress={() => setCreatorType(item.id)}
-                        >
-                          <View style={[styles.creatorIconWrap, selected && styles.creatorIconWrapSelected]}>
-                            {item.id === 'producer' ? (
-                              <Music2 size={14} color={selected ? '#FFFFFF' : appTheme.colors.textSecondary} />
-                            ) : (
-                              <User size={14} color={selected ? '#FFFFFF' : appTheme.colors.textSecondary} />
-                            )}
-                          </View>
-                          <View style={styles.creatorTextWrap}>
-                            <Text style={styles.creatorTypeTitle}>{item.title}</Text>
-                            <Text style={styles.creatorTypeSub}>{item.subtitle}</Text>
-                          </View>
-                          {selected ? <Check size={16} color={appTheme.colors.primary} /> : null}
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                </View>
-
-                <View style={styles.fieldWrap}>
-                  <Text style={styles.metaLabel}>Primary genre</Text>
-                  <View style={styles.genreGrid}>
-                    {GENRES.map((genre) => {
-                      const selected = primaryGenre === genre;
-                      return (
-                        <TouchableOpacity
-                          key={genre}
-                          style={[styles.genreChip, selected && styles.genreChipSelected]}
-                          activeOpacity={0.85}
-                          onPress={() => setPrimaryGenre(genre)}
-                        >
-                          <Text style={[styles.genreChipText, selected && styles.genreChipTextSelected]}>{genre}</Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                </View>
-              </View>
-            ) : null}
-
-            {step === 4 ? (
-              <View style={styles.section}>
-                <View style={styles.successCircle}>
-                  <Check size={28} color="#FFFFFF" />
-                </View>
-
-                <View style={styles.summaryCard}>
-                  <Text style={styles.summaryTitle}>Your studio details</Text>
-                  <View style={styles.summaryRow}>
-                    <Text style={styles.summaryKey}>Creator</Text>
-                    <Text style={styles.summaryVal}>{creatorName || '-'}</Text>
-                  </View>
-                  <View style={styles.summaryRow}>
-                    <Text style={styles.summaryKey}>Studio</Text>
-                    <Text style={styles.summaryVal}>{studioName || '-'}</Text>
-                  </View>
-                  <View style={styles.summaryRow}>
-                    <Text style={styles.summaryKey}>Type</Text>
-                    <Text style={styles.summaryVal}>{prettyCreatorType(creatorType)}</Text>
-                  </View>
-                  <View style={styles.summaryRow}>
-                    <Text style={styles.summaryKey}>Genre</Text>
-                    <Text style={styles.summaryVal}>{primaryGenre || 'Not selected'}</Text>
-                  </View>
-                </View>
-
-                <Text style={styles.finalHint}>Next up: we’ll take you into the workspace that matches your selected experience.</Text>
-              </View>
-            ) : null}
-          </Animated.View>
-
-          <TouchableOpacity
-            style={[styles.continueBtn, loading && styles.continueBtnDisabled]}
-            activeOpacity={0.9}
-            onPress={handleContinue}
-            disabled={loading}
-          >
-            <Text style={styles.continueBtnText}>
-              {loading ? 'Please wait...' : step === 4 ? 'Enter Studio' : 'Continue'}
-            </Text>
-          </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeScreenWrapper>
@@ -434,9 +489,13 @@ const legacyStyles = {
     backgroundColor: '#140F10',
   },
   scrollContent: {
+    flexGrow: 1,
     paddingHorizontal: 20,
     paddingTop: 24,
     paddingBottom: 32,
+  },
+  contentStack: {
+    flex: 1,
     gap: 20,
   },
   headerWrap: {
@@ -477,6 +536,12 @@ const legacyStyles = {
     backgroundColor: 'rgba(255,255,255,0.04)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
+  },
+  stepContext: {
+    gap: 20,
+  },
+  introBlock: {
+    gap: 8,
   },
   introTitle: {
     color: '#FFFFFF',
@@ -656,6 +721,9 @@ const legacyStyles = {
     lineHeight: 22,
     fontFamily: 'Poppins-Regular',
     textAlign: 'center',
+  },
+  footerWrap: {
+    paddingTop: 4,
   },
   continueBtn: {
     minHeight: 54,

@@ -1,3 +1,4 @@
+import Constants from 'expo-constants';
 import * as Sentry from '@sentry/react-native';
 
 let isInitialized = false;
@@ -7,14 +8,15 @@ export function initMonitoring(): void {
     return;
   }
 
+  const sentryEnabled = Constants.expoConfig?.extra?.sentryEnabled === true;
   const dsn = process.env.EXPO_PUBLIC_SENTRY_DSN?.trim();
-  if (!dsn) {
+  if (!sentryEnabled || !dsn) {
     return;
   }
 
   Sentry.init({
     dsn,
-    enabled: process.env.NODE_ENV !== 'test',
+    enabled: sentryEnabled && process.env.NODE_ENV !== 'test',
     sendDefaultPii: true,
     tracesSampleRate: 0.1,
     attachScreenshot: false,

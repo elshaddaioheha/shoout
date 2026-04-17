@@ -18,7 +18,7 @@ interface ModeTransitionOverlayProps {
 }
 
 const MODE_CONFIG: Record<ViewMode, { label: string; badge: string; Icon: any; color: string; subtitle: string; accent: string }> = {
-    shoout: { label: 'Shoout', badge: 'Marketplace Mode', Icon: Disc3, color: '#6AA7FF', accent: '#D8E8FF', subtitle: 'Marketplace mode for discovery, buying, and digging through fresh sounds.' },
+    shoout: { label: 'Shoouts', badge: 'Marketplace Mode', Icon: Disc3, color: '#6AA7FF', accent: '#D8E8FF', subtitle: 'Marketplace mode for discovery, buying, and digging through fresh sounds.' },
     vault: { label: 'Vault', badge: 'Private Workspace', Icon: Music, color: '#EC5C39', accent: '#F8D8D0', subtitle: 'Your private music universe for uploads, folders, and secure sharing.' },
     vault_pro: { label: 'Vault Pro', badge: 'Expanded Private Workspace', Icon: FolderLock, color: '#EC5C39', accent: '#F6D8CF', subtitle: 'The same private Vault workflow with higher limits and deeper control.' },
     studio: { label: 'Studio', badge: 'Seller Workspace', Icon: Mic2, color: '#4CAF50', accent: '#DCEFD9', subtitle: 'Create, upload, and sell your music with a focused creator dashboard.' },

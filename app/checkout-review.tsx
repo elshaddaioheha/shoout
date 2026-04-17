@@ -2,7 +2,7 @@ import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import { auth, db } from '@/firebaseConfig';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { formatUsd } from '@/utils/pricing';
-import { useCartStore } from '@/store/useCartStore';
+import { useCartStore, type CartItem } from '@/store/useCartStore';
 import { useLayoutMetricsStore } from '@/store/useLayoutMetricsStore';
 import { useToastStore } from '@/store/useToastStore';
 import { adaptLegacyColor, adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
@@ -43,15 +43,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width } = Dimensions.get('window');
 
-type MarketplaceItem = {
-    id: string;
-    title?: string;
-    uploaderName?: string;
-    price?: number;
-    coverUrl?: string;
-    userId?: string;
-};
-
 function useCheckoutReviewStyles() {
     const appTheme = useAppTheme();
     return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
@@ -62,8 +53,8 @@ export default function CheckoutReviewScreen() {
     const styles = useCheckoutReviewStyles();
     const isLightMode = !appTheme.isDark;
     const checkoutGradientColors = isLightMode
-        ? ['#6AA7FF', '#4A85E8']
-        : ['#6AA7FF', '#3D5CB8'];
+        ? (['#6AA7FF', '#4A85E8'] as const)
+        : (['#6AA7FF', '#3D5CB8'] as const);
     const checkoutIconTextColor = '#FFFFFF';
     const checkoutFontSize = width < 360 ? 16 : width > 430 ? 19 : 18;
     const itemFallbackIconColor = adaptLegacyColor('rgba(255,255,255,0.2)', 'color', appTheme);
@@ -145,11 +136,11 @@ export default function CheckoutReviewScreen() {
         try {
             setCheckingOut(true);
             const functions = getFunctions();
-            const getCheckoutSession = httpsCallable(functions, 'getCheckoutSession');
+            const createCheckoutSession = httpsCallable(functions, 'createCheckoutSession');
 
-            const checkoutResult = await getCheckoutSession({
-                items: items.map((item) => ({ id: item.id })),
-                totalAmount: Math.round(total * 100),
+            const checkoutResult = await createCheckoutSession({
+                items,
+                totalAmountUsd: total,
             });
 
             const data = checkoutResult.data as {
@@ -174,7 +165,7 @@ export default function CheckoutReviewScreen() {
         }
     };
 
-    const renderItem = ({ item }: { item: MarketplaceItem }) => {
+    const renderItem = ({ item }: { item: CartItem }) => {
         const itemPrice = item.price ?? 0;
         return (
             <View
@@ -190,7 +181,7 @@ export default function CheckoutReviewScreen() {
                     source={{ uri: item.coverUrl || 'https://via.placeholder.com' }}
                     style={styles.cartItemArtwork}
                     placeholder="L2FIE5RP"
-                    cachePolicy="web"
+                    cachePolicy="memory-disk"
                 />
 
                 <View style={styles.cartItemContent}>
@@ -198,8 +189,13 @@ export default function CheckoutReviewScreen() {
                         {item.title || 'Unknown Track'}
                     </Text>
                     <Text style={[styles.cartItemArtist, isLightMode && { color: '#5A7FA8' }]} numberOfLines={1}>
-                        {item.uploaderName || 'Unknown Artist'}
+                        {item.artist || 'Unknown Artist'}
                     </Text>
+                    {item.licenseTierTitle ? (
+                        <Text style={[styles.cartItemLicense, isLightMode && { color: '#D1644A' }]} numberOfLines={1}>
+                            {item.licenseTierTitle} license
+                        </Text>
+                    ) : null}
                     <Text style={[styles.cartItemPrice, isLightMode && { color: '#4A85E8' }]}>
                         {formatUsd(itemPrice)}
                     </Text>
@@ -458,6 +454,12 @@ const legacyStyles = {
         fontSize: 12,
         fontWeight: '400' as const,
         color: 'rgba(255,255,255,0.6)',
+        marginBottom: 4,
+    },
+    cartItemLicense: {
+        fontSize: 11,
+        fontWeight: '600' as const,
+        color: '#EC5C39',
         marginBottom: 4,
     },
     cartItemPrice: {

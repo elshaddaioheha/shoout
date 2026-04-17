@@ -20,10 +20,10 @@ const SUBSCRIPTION_VERIFY_URL =
     process.env.EXPO_PUBLIC_SUBSCRIPTION_VERIFY_URL ||
     `${String(process.env.EXPO_PUBLIC_FUNCTIONS_URL || '').replace(/\/$/, '')}/activateSubscriptionTier`;
 
-type PlanCategory = 'Shoout' | 'Vault' | 'Studio' | 'Hybrid';
+type PlanCategory = 'Shoouts' | 'Vault' | 'Studio' | 'Hybrid';
 
 const CATEGORY_TABS: { id: PlanCategory; label: string; color: string }[] = [
-    { id: 'Shoout', label: 'Shoouts', color: '#6AA7FF' },
+    { id: 'Shoouts', label: 'Shoouts', color: '#6AA7FF' },
     { id: 'Vault', label: 'Vault', color: '#EC5C39' },
     { id: 'Studio', label: 'Studio', color: '#4CAF50' },
     { id: 'Hybrid', label: 'Hybrid', color: '#D4AF37' },
@@ -66,7 +66,7 @@ export default function SubscriptionsScreen() {
     const { actualRole } = useAuthStore();
 
     const currentPlan = (actualRole || role || 'shoout') as SubscriptionPlanId;
-    const [activeCategory, setActiveCategory] = useState<PlanCategory>('Shoout');
+    const [activeCategory, setActiveCategory] = useState<PlanCategory>('Shoouts');
     const [selectedPlan, setSelectedPlan] = useState<(typeof PLANS)[0] | null>(null);
     const [isAnnual, setIsAnnual] = useState(false);
     const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -291,7 +291,7 @@ export default function SubscriptionsScreen() {
                                         />
                                     ) : null}
                                     <Text style={[styles.actionButtonText, isCurrentPlan && { color: appTheme.colors.textDisabled }, isHybridPlan && !isCurrentPlan ? { color: '#121212' } : null]}> 
-                                        {isCurrentPlan ? 'Current Plan' : plan.id === 'shoout' ? 'Switch to Shoout' : 'Select Plan'}
+                                        {isCurrentPlan ? 'Current Plan' : plan.id === 'shoout' ? 'Switch to Shoouts' : 'Select Plan'}
                                     </Text>
                                 </TouchableOpacity>
                             </View>
@@ -300,7 +300,7 @@ export default function SubscriptionsScreen() {
 
                     <View style={styles.footerInfo}>
                         <ShieldCheck size={20} color={appTheme.colors.textDisabled} />
-                        <Text style={styles.footerText}>Flutterwave is live for paid plans. Shoout and Vault free flows switch instantly.</Text>
+                        <Text style={styles.footerText}>Flutterwave is live for paid plans. Shoouts and Vault free flows switch instantly.</Text>
                     </View>
                     <View style={{ height: 40 }} />
                 </ScrollView>

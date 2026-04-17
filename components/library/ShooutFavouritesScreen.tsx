@@ -10,9 +10,9 @@ import {
   ChevronLeft,
   Grid3x3,
   Heart,
-  List,
   Music,
   Play,
+  View as ViewIcon,
 } from 'lucide-react-native';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
@@ -65,7 +65,7 @@ function useLibraryStyles() {
   return useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
 }
 
-export default function ShooutFavouritesScreen() {
+export default function ShooutsFavouritesScreen() {
   const appTheme = useAppTheme();
   const styles = useLibraryStyles();
   const router = useRouter();
@@ -204,7 +204,7 @@ export default function ShooutFavouritesScreen() {
                   activeOpacity={0.8}
                   onPress={() => setLayoutMode('list')}
                 >
-                  <List size={16} color={layoutMode === 'list' ? '#6AA7FF' : appTheme.colors.textSecondary} />
+                  <ViewIcon size={16} color={layoutMode === 'list' ? '#6AA7FF' : appTheme.colors.textSecondary} />
                 </TouchableOpacity>
               </View>
             </View>

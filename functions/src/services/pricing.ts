@@ -13,6 +13,12 @@ import {
 import { userRepo } from '../repositories';
 import { roundUsd } from '../utils/formatting';
 
+const TIER_TITLES: Record<string, string> = {
+  basic: 'Basic',
+  premium: 'Premium',
+  exclusive: 'Exclusive',
+};
+
 export function parseCartItemId(rawId: string): { uploadId: string; licenseSku: string | null } {
   for (const sku of LICENSE_SKUS_ORDERED) {
     const suf = '_' + sku;
@@ -21,6 +27,24 @@ export function parseCartItemId(rawId: string): { uploadId: string; licenseSku: 
     }
   }
   return { uploadId: rawId, licenseSku: null };
+}
+
+export function resolveLicensePriceUsd(basePriceUsd: number, licenseSku: string | null): number {
+  const basePrice = roundUsd(Number(basePriceUsd || 0));
+
+  if (licenseSku === 'premium') {
+    return roundUsd(basePrice * 2.5);
+  }
+
+  if (licenseSku === 'exclusive') {
+    return roundUsd(basePrice * 7);
+  }
+
+  if (licenseSku && LICENSE_USD_PRICES[licenseSku] != null) {
+    return LICENSE_USD_PRICES[licenseSku];
+  }
+
+  return basePrice;
 }
 
 export async function resolveCheckoutLine(raw: CheckoutItem): Promise<CheckoutItem> {
@@ -40,30 +64,34 @@ export async function resolveCheckoutLine(raw: CheckoutItem): Promise<CheckoutIt
     throw new functions.https.HttpsError('failed-precondition', 'Listing is not public');
   }
 
-  let priceUsd: number;
-  if (licenseSku && LICENSE_USD_PRICES[licenseSku] != null) {
-    priceUsd = LICENSE_USD_PRICES[licenseSku];
-  } else {
-    priceUsd = Number(d.price);
-    if (!Number.isFinite(priceUsd)) {
-      throw new functions.https.HttpsError('failed-precondition', 'Listing has invalid price');
-    }
+  const storedBasePrice = Number(d.price);
+  if (!Number.isFinite(storedBasePrice)) {
+    throw new functions.https.HttpsError('failed-precondition', 'Listing has invalid price');
   }
+
+  const normalizedTierId =
+    licenseSku === 'premium' || licenseSku === 'exclusive'
+      ? licenseSku
+      : ((raw.licenseTierId || 'basic') as CheckoutItem['licenseTierId']);
+
+  let priceUsd = resolveLicensePriceUsd(storedBasePrice, licenseSku);
 
   if (priceUsd < 0) {
     throw new functions.https.HttpsError('failed-precondition', 'Invalid listing price');
   }
 
-  priceUsd = roundUsd(priceUsd);
-
   return {
     id: raw.id,
+    listingId: uploadId,
     uploaderId,
     title: String(d.title || raw.title || 'Track'),
     artist: String(d.uploaderName || d.artist || raw.artist || 'Artist'),
     price: priceUsd,
     audioUrl: String(d.audioUrl || raw.audioUrl || ''),
     coverUrl: String(d.coverUrl || raw.coverUrl || ''),
+    licenseTierId: normalizedTierId,
+    licenseTierTitle: TIER_TITLES[normalizedTierId || 'basic'] || raw.licenseTierTitle || 'Basic',
+    licenseSummary: String(raw.licenseSummary || ''),
   };
 }
 

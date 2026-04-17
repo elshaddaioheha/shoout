@@ -17,7 +17,7 @@ interface ModePillButtonProps {
 }
 
 const MODE_LABELS: Record<ViewMode, string> = {
-    shoout: 'Shoout',
+    shoout: 'Shoouts',
     vault: 'Vault',
     vault_pro: 'Vault Pro',
     studio: 'Studio',

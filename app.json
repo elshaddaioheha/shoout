@@ -4,7 +4,7 @@
     "slug": "shoouts",
     "version": "1.0.1",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/Shoout-icon.png",
     "scheme": "shoouts",
     "userInterfaceStyle": "automatic",
     "ios": {
@@ -14,11 +14,9 @@
       "package": "com.shoouts",
       "adaptiveIcon": {
         "backgroundColor": "#140F10",
-        "foregroundImage": "./assets/images/logo-rings.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "foregroundImage": "./assets/Shoout-icon.png"
       },
-      "versionCode": 20
+      "versionCode": 26
     },
     "web": {
       "output": "static",
@@ -29,11 +27,12 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/ShooutS-Transparent2splash.png",
+          "image": "./assets/ShooutS-Transparent3splash.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#140F10",
+          "backgroundColor": "#FFFFFF",
           "dark": {
+            "image": "./assets/ShooutS-Transparent2splash.png",
             "backgroundColor": "#000000"
           }
         }
@@ -44,7 +43,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/images/icon.png",
+          "icon": "./assets/Shoout-icon.png",
           "color": "#EC5C39",
           "modes": [
             "production"

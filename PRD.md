@@ -1,109 +1,310 @@
-# SHOOUTS – TECHNICAL & PRODUCT REQUIREMENTS DOCUMENT (PRD)
-*(Reflecting Latest State of Codebase, Infrastructure & CI/CD)*
+# Shoouts PRD
 
-## 1. What Shoouts Is (High-Level)
-Shoouts is an African-first digital music platform that securely blends:
-- **A music IP marketplace** (buying & selling components, verses, and beats).
-- **A private, creative vault storage system.**
-- **Localized African payments** backed by Stripe / Flutterwave Webhooks.
-- **Creator-focused monetization tools.**
+This document reflects the current codebase state in `shoout/` as of April 13, 2026.
 
-The platform offers the infrastructure to monetize, protect, and share intellectual property through role-based dynamic user interfaces—shifting complexity away from Western-centric ecosystems.
+## 1. Product Summary
 
----
+Shoouts is a multi-mode music product that combines:
 
-## 2. Core Product Architecture (3-Mode System)
+- buyer-side marketplace discovery and checkout
+- private creator storage and sharing
+- seller publishing and promotion tools
+- subscription-gated switches between experiences
 
-### A. Shoouts Vault (Storage Mode)
-**Purpose:** Trust, privacy, creative retention.
-**Key functions:**
-- Secure encrypted file upload (`processAudioUpload`).
-- Private and shareable download links dynamically signed for short expiration.
-- Folder-based organization with hierarchical routing.
-- Strict read/write Firestore security based completely on verified Firebase `uid`.
+The product is not a single linear app anymore. It is a role-aware shell that routes users into one of five plan-linked modes:
 
-### B. Shoouts Studio (Marketplace Mode)
-**Purpose:** Monetization & B2B/B2C Checkout.
-**Key functions:**
-- Upload tracks/beats and configure licenses & prices.
-- Seamless checkouts orchestrated via API (`createCheckoutSession`) with automatic atomic atomic updates.
-- Listener tracking and deep unified buyer-seller chat integrations.
+- `shoout`
+- `vault`
+- `vault_pro`
+- `studio`
+- `hybrid`
 
-### C. Shoouts Hybrid Creator Mode (Premium)
-**Purpose:** ARPU and Professional Lifecycle Management.
-**Key functions:**
-- A blended UI (`app/hybrid/`) converging the Vault’s storage simplicity with the Studio’s commercial visibility.
-- Sell directly from Vaulted raw files.
-- Advanced analytics visibility over marketplace transactions.
+## 2. Product Surfaces In The Current App
 
----
+### Buyer / Shoout mode
 
-## 3. Engineering State & Core Infrastructure (What We've Built)
+Current buyer-facing functionality includes:
 
-### Frontend Layer (Expo / React Native)
-- **Expo Router:** Statically typed, path-based implicit navigation rendering exact states (auth routing).
-- **State Management:** Widespread Zustand utilization (`useAuthStore`, `useUserStore`, `useCartStore`, `useToastStore`). The global stores heavily depend on hydration strictly tied to Firebase `onAuthStateChanged`.
-- **UI Components:** Widespread usage of Reanimated, isolated atomic components, Lucide SDK icon packs, and responsive hooks supporting hybrid web scaling.
+- home feed and search
+- listing detail and checkout review
+- cart
+- playlist and profile views
+- buyer chat
+- notifications
+- merch browsing
 
-### Authentication & Lifecycle Guard
-- **Firebase Auth as the Ground Truth**: Stores completely defer `tier` mapping and identity logic to Firebase backend validation. Explicit logout procedures globally wipe stores, purge listeners, and revoke states instantaneously to prevent local session leakage.
-- **Role Hydration**: User credentials strictly enforce their status (Vault vs Hybrid vs Studio) based on continuous validation synced against `users/${uid}/subscription/current`.
+This is the default free mode and the fallback when subscription verification fails.
 
-### Backend Layer (Firebase Cloud Functions)
-- **Data Execution:** All backend functions restrict read/writes conditionally. Transaction workflows guarantee atomicity inside `.ts` generated blocks triggered via Firebase HTTP Requests/Webhooks.
-- **Monetization Engine (Flutterwave):** Validates precise `FLUTTERWAVE_SECRET_HASH` signatures and executes backend-locked transaction write sequences to prevent client spoofing.
-- **Token Freshness:** All heavy file interactions force client-side ID Token refreshes dynamically (`getIdToken(true)`) dodging opaque server rejection scenarios.
+### Vault mode
 
----
+Current Vault functionality includes:
 
-## 4. Environment & Deployment (CI/CD)
+- uploads
+- folders
+- secure links
+- file-focused updates
+- track and folder detail screens
+- Vault mini-player
 
-The application relies strictly on rigorous automation via GitHub Actions (`deploy.yml`) managing the full path from developer testing to Production Firebase/Android rollouts.
+Vault behavior is tied to feature flags and subscription verification rather than separate native builds.
 
-### Environments & Secrets Protocol
-1. **GitHub Deployments (`deploy-dev`, `deploy-prod`)**: 
-   - Depends meticulously on mapped repository secrets (Dev tokens vs Prod Service Accounts encoded in `json`).
-   - Dynamically parses `.firebaserc` definitions inside the runtime Ubuntu environment.
-2. **EAS Android Build Pipeline**: 
-   - Employs dynamic `app.config.ts` mapping. 
-   - Prohibits hardcoding native `google-services.json` arrays inside `eas.json` (as `env` strings overrule file streams).
-   - Secures sensitive config via `eas secret:create` exclusively pulling securely verified files at runtime.
+### Studio mode
 
-### Testing & Validation Gates (Jest + NPM Audit)
-- All merges are restricted by the `lint-and-type-check` logic (firing ESLint and `tsc` over Cloud Functions) alongside a comprehensive suite handling complex `react-test-renderer` mock environments shielding native `expo-apple-authentication` and router trees from tearing down `Node` modules. Node 20 architecture.
+Current Studio functionality includes:
 
----
+- upload flow
+- analytics
+- earnings
+- payout withdrawal
+- ads flow
+- seller messaging
+- beats store
+- merch store
+- settings
 
-## 5. Monetization Logic & Pricing Tables 
+Studio is the seller-facing operating mode.
 
-*Currency: USD equivalent (supports local processing endpoints like NGN/GHS).*
+### Hybrid mode
 
-### Studio Mode (Sellers)
-- **Studio Free ($0):** Limited listings, basic analytics, 10% tx fee.
-- **Studio Pro ($18.99):** Unlimited listings, customizable pricing & licensing control, chat support.
-- **Studio Plus ($69.99):** Absolute marketplace priority boosting, full payouts access.
+Hybrid is the combined creator plan. In code, it reuses the shared tab shell and Hybrid dashboard/library components instead of living in a separate `app/hybrid/` route folder.
 
-### Vault Mode (Storage/Execs)
-- **Vault Free ($0):** 50 MB, strictly internal hosting.
-- **Vault Creator ($5):** 500 MB capacity, shareable secure link deployment.
-- **Vault Pro ($10):** 1 GB capacity, file permission locking (view vs download).
-- **Vault Executive ($18):** 5 GB capacity with advanced listener tracking and collaborative team layers.
+Current Hybrid behavior includes:
 
-### Hybrid Creator Mode
-- **Hybrid Creator ($15) / Executive ($25):** Complete convergence. Access to 5–10 GB Vault environments mapped directly to the active Marketplace API allowing direct raw file commercialization, prioritized rankings, and reduced workflow friction.
+- combined access to Studio publishing and promotion
+- Vault workspace access
+- team-access and analytics feature flags
+- elevated storage limits
 
----
+### Admin surface
 
-## 6. Success Metrics & Future Roadmap Architecture
+There is a real admin route group in the app now:
 
-### Active Goals
-- Stable Cloud Function health post-deployment webhooks.
-- Paid conversion pipeline retention measuring exactly how many `vault` accounts successfully transition and execute `studio` transactions natively on devices.
-- Maintaining flawless `Upload -> Watermark (HLS Transcoding) -> Encrypted Stream` velocity.
+- creators
+- moderation
+- metrics
+- payouts
 
-### Next Technical Phases
-1. Native push notification infrastructure mapping.
-2. Advanced Analytics dashboard scaling mapping user streams across components.
-3. Expanded API endpoints managing complex B2B label/team access accounts natively.
+## 3. Navigation Model
 
-*Shoouts explicitly monetizes creators through subscriptions and B2B transactions, deploying Hybrid workflow logic to dictate scalable long-term revenue mechanics.*
+Navigation is built with Expo Router.
+
+### Root routing
+
+[`app/index.tsx`](c:/Users/HP/Desktop/Shoouts/shoout/app/index.tsx) is the splash entry screen. It resolves:
+
+- authenticated destination
+- unauthenticated destination
+- motion-aware transition timing
+
+[`app/_layout.tsx`](c:/Users/HP/Desktop/Shoouts/shoout/app/_layout.tsx) currently handles:
+
+- font loading
+- splash hide timing
+- Firebase auth listener bootstrapping
+- server subscription hydration
+- push notification deep-link handling
+- Google Sign-In configuration
+- global toast rendering
+
+### Tab shell
+
+[`app/(tabs)/_layout.tsx`](c:/Users/HP/Desktop/Shoouts/shoout/app/(tabs)/_layout.tsx) provides:
+
+- the bottom tab shell
+- mode selector sheet
+- transition overlay
+- mini-player switching by mode
+- hiding or showing some tabs based on current app mode
+
+## 4. Subscription And Capability Model
+
+The canonical client-side subscription config lives in [`utils/subscriptions.ts`](c:/Users/HP/Desktop/Shoouts/shoout/utils/subscriptions.ts).
+
+### Current plans and pricing
+
+- `shoout`: USD 0
+- `vault`: USD 0
+- `vault_pro`: USD 5.99 / month
+- `studio`: USD 18.99 / month
+- `hybrid`: USD 24.99 / month
+
+### Current capability flags in code
+
+The product currently gates:
+
+- buying
+- cart access
+- marketplace messaging
+- seller replies
+- uploads
+- Vault workspace access
+- Vault link sharing
+- Vault file editing
+- analytics
+- ads tools
+- team access
+- storage limits
+
+This is the actual model used by the app today, not the older tier tables that described Vault Executive or Studio Plus variants.
+
+## 5. Auth, Roles, And Security
+
+### Auth source of truth
+
+Firebase Auth remains the identity source of truth.
+
+### Role and subscription verification
+
+Server-verified subscription data is read from:
+
+- `users/{uid}/subscription/current`
+
+[`utils/subscriptionVerification.ts`](c:/Users/HP/Desktop/Shoouts/shoout/utils/subscriptionVerification.ts) currently:
+
+- fetches the canonical subscription document
+- defaults missing or expired users back to `shoout`
+- updates both auth and user stores
+- optionally supports custom-claims verification
+
+### Current store split
+
+[`store/useAuthStore.ts`](c:/Users/HP/Desktop/Shoouts/shoout/store/useAuthStore.ts):
+
+- non-persisted
+- server-verified role and subscription metadata
+- auth bootstrap state
+
+[`store/useUserStore.ts`](c:/Users/HP/Desktop/Shoouts/shoout/store/useUserStore.ts):
+
+- persisted `activeAppMode`
+- UI-facing capabilities derived from plan flags
+- user display data
+
+### Firestore security model
+
+The rules in [`firestore.rules`](c:/Users/HP/Desktop/Shoouts/shoout/firestore.rules) currently enforce:
+
+- restricted user field changes
+- backend-only purchase writes
+- paid upload gating for sellers
+- owner-only access for favourites, folders, and vault shares
+- read/write separation for subscription documents
+- role helpers for admin, moderator, and auditor flows
+
+## 6. Backend State
+
+Cloud Functions are organized under `functions/src/`.
+
+### Exported handler groups
+
+- auth
+- checkout
+- subscription
+- webhook
+- uploads
+- aggregation
+- admin
+- bootstrap
+- migration
+
+### Important server workflows
+
+#### Checkout
+
+[`functions/src/handlers/checkout.ts`](c:/Users/HP/Desktop/Shoouts/shoout/functions/src/handlers/checkout.ts) currently:
+
+- validates auth
+- recalculates totals on the server
+- creates pending checkout sessions with `txRef`
+- returns NGN totals for payment
+
+#### Subscription activation
+
+[`functions/src/handlers/subscription.ts`](c:/Users/HP/Desktop/Shoouts/shoout/functions/src/handlers/subscription.ts) currently:
+
+- verifies bearer auth
+- validates plan and billing cycle
+- verifies Flutterwave transactions for paid plans
+- activates the subscription through lifecycle helpers
+- schedules expired-subscription downgrades
+
+#### Webhooks
+
+Webhook handlers verify payment callbacks and prevent client-side payment spoofing.
+
+#### Uploads and authorization
+
+Upload-related services and handlers enforce authenticated access and backend-controlled integrity checks.
+
+## 7. Data Model Themes
+
+The app currently works heavily with these user-scoped subcollections:
+
+- `uploads`
+- `folders`
+- `favourites`
+- `subscription`
+- `notifications`
+- `purchases`
+- `vaultShares`
+- `merch`
+
+There are also checkout, payment, moderation, and system repositories inside the Cloud Functions layer.
+
+## 8. Current Technical Stack
+
+Frontend:
+
+- Expo SDK 55
+- React 19.2
+- React Native 0.83
+- Expo Router
+- Reanimated 4
+- Zustand
+- Sentry
+
+Backend:
+
+- Firebase Functions
+- Firebase Auth
+- Firestore
+- Firebase Storage
+
+Payments:
+
+- Flutterwave
+- Stripe React Native is present in dependencies, but the current CI and workflow emphasis is Flutterwave
+
+## 9. Delivery And Operations
+
+Current automation is defined in [`deploy.yml`](c:/Users/HP/Desktop/Shoouts/shoout/.github/workflows/deploy.yml).
+
+It includes:
+
+- lint and type-check
+- Jest coverage runs
+- security checks
+- EAS preview builds for pull requests
+- EAS release builds for version tags
+- Firebase deploys for `dev`
+- Firebase deploys for `main` / `master`
+
+## 10. Current Product Constraints
+
+These are the important current realities in the repo:
+
+- the pricing and plan logic in code differs from older documentation
+- Hybrid is implemented through shared components and mode switching, not a standalone route tree
+- buyer, Vault, Studio, and admin surfaces coexist in one app shell
+- Expo Doctor is effectively clean apart from the `expo-av` maintenance warning
+- some helper scripts and comments still describe older architecture language
+
+## 11. Near-Term Documentation Truths
+
+For future contributors, the codebase should now be understood like this:
+
+1. Shoouts is a multi-mode subscription app, not just a marketplace.
+2. Subscription state is validated from Firestore and mirrored into UI state.
+3. Checkout and paid entitlements are verified server-side.
+4. Vault, Studio, and Hybrid are real current experiences in the app.
+5. README and PRD should track `utils/subscriptions.ts`, route files, and Cloud Function handlers when product changes land.

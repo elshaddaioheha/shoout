@@ -1,9 +1,8 @@
 import { useAppSwitcherContext } from '@/app/(tabs)/_layout';
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import SharedHeader from '@/components/SharedHeader';
-import { FREE_MUSIC, POPULAR_BEATS, TRENDING_SONGS } from '@/constants/homeFeed';
-import { db } from '@/firebaseConfig';
 import { useAppTheme } from '@/hooks/use-app-theme';
+import { usePublishedUploads, type PublishedUpload } from '@/hooks/usePublishedUploads';
 import { useCartStore } from '@/store/useCartStore';
 import { useExplorePlayerStore } from '@/store/useExplorePlayerStore';
 import { usePlaybackStore } from '@/store/usePlaybackStore';
@@ -12,8 +11,6 @@ import { adaptLegacyColor, adaptLegacyStyles } from '@/utils/legacyThemeAdapter'
 import { formatUsd } from '@/utils/pricing';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { FirebaseError } from 'firebase/app';
-import { collectionGroup, getDocs, limit, orderBy, query, where } from 'firebase/firestore';
 import { Heart, Music, Search, ShoppingCart, ThumbsDown } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -27,17 +24,7 @@ import {
   ViewToken,
 } from 'react-native';
 
-type DiscoverItem = {
-  id: string;
-  title: string;
-  uploaderName: string;
-  userId: string;
-  genre: string;
-  price: number;
-  audioUrl: string;
-  artworkUrl: string;
-  listenCount: number;
-};
+type DiscoverItem = PublishedUpload;
 
 type ExploreFeedItem = DiscoverItem & { feedKey: string };
 type SurfaceMode = 'search' | 'explore';
@@ -47,20 +34,6 @@ const FEATURED_GENRES = ['Afrobeats', 'Afro-Pop', 'Gospel', 'Highlife', 'Hip-Hop
 function useExploreStyles() {
   const appTheme = useAppTheme();
   return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
-}
-
-function mapFallbackDiscoverItems(): DiscoverItem[] {
-  return [...TRENDING_SONGS, ...FREE_MUSIC, ...POPULAR_BEATS].map((row, idx) => ({
-    id: String(row.id),
-    title: String(row.title || 'Untitled Track'),
-    uploaderName: String(row.artist || (row as any).uploaderName || 'Shoouter'),
-    userId: String(row.uploaderId || `fallback-${idx}`),
-    genre: 'Featured',
-    price: Number((row as any).price || 0),
-    audioUrl: String((row as any).audioUrl || ''),
-    artworkUrl: String((row as any).artworkUrl || ''),
-    listenCount: 100 - idx,
-  }));
 }
 
 function DiscoverTrackSkeletonCard({ styles }: { styles: ReturnType<typeof useExploreStyles> }) {
@@ -210,6 +183,13 @@ function SearchDiscoveryContent({
 
       {loading ? (
         <DiscoverySkeletonLoader styles={styles} />
+      ) : filteredItems.length === 0 ? (
+        <View style={styles.errorBanner}>
+          <Text style={styles.errorBannerText}>No published tracks match this view yet.</Text>
+          <TouchableOpacity style={styles.retryBtn} onPress={onRetry} activeOpacity={0.85}>
+            <Text style={styles.retryBtnText}>Refresh</Text>
+          </TouchableOpacity>
+        </View>
       ) : (
         <FlatList
           data={[
@@ -227,7 +207,7 @@ function SearchDiscoveryContent({
                   <Text style={styles.sectionTitle}>{item.title}</Text>
                   <FlatList
                     horizontal
-                    data={item.rows as Array<{ name: string; art?: string }>}
+                    data={item.rows as { name: string; art?: string }[]}
                     keyExtractor={(row) => row.name}
                     showsHorizontalScrollIndicator={false}
                     contentContainerStyle={styles.horizontalPad}
@@ -284,6 +264,12 @@ export default function ExploreScreen() {
   const { showToast } = useToastStore();
   const cartCount = useCartStore((state) => state.items.length);
   const addItem = useCartStore((state) => state.addItem);
+  const {
+    tracks: items,
+    loading,
+    error: loadError,
+    reload: loadFeed,
+  } = usePublishedUploads(180);
 
   const setTrack = usePlaybackStore((state) => state.setTrack);
   const stockIsPlaying = usePlaybackStore((state) => state.isPlaying);
@@ -297,9 +283,6 @@ export default function ExploreScreen() {
   const setExploreImmersiveMode = useExplorePlayerStore((state) => state.setImmersiveMode);
 
   const [surfaceMode, setSurfaceMode] = useState<SurfaceMode>('search');
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [items, setItems] = useState<DiscoverItem[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
   const [likedTracks, setLikedTracks] = useState<Record<string, boolean>>({});
@@ -310,96 +293,11 @@ export default function ExploreScreen() {
   const feedRef = useRef<FlatList<ExploreFeedItem>>(null);
   const activeFeedIndexRef = useRef(0);
 
-  const getLoadErrorMessage = (error: unknown) => {
-    if (error instanceof FirebaseError) {
-      if (error.code === 'permission-denied') return 'Live feed unavailable. Showing fallback tracks.';
-      if (error.code === 'failed-precondition') return 'Feed index missing. Showing fallback tracks.';
-      return `Explore feed error: ${error.code}`;
-    }
-    return 'Could not load live feed. Showing fallback tracks.';
-  };
-
-  const mapSnapshotRows = useCallback((snap: any): DiscoverItem[] => (
-    snap.docs
-      .map((docSnap: any) => {
-        const row = docSnap.data() as any;
-        const uploaderId = docSnap.ref.parent.parent?.id || row.userId || '';
-        const audioUrl = String(row.audioUrl || row.url || '');
-        if (!audioUrl) return null;
-
-        return {
-          id: docSnap.id,
-          title: String(row.title || 'Untitled Track'),
-          uploaderName: String(row.uploaderName || row.artist || 'Shoouter'),
-          userId: String(uploaderId),
-          genre: String(row.genre || 'Unknown'),
-          price: Number(row.price || 0),
-          audioUrl,
-          artworkUrl: String(row.artworkUrl || row.coverUrl || ''),
-          listenCount: Number(row.listenCount || 0),
-        } as DiscoverItem;
-      })
-      .filter((row: DiscoverItem | null): row is DiscoverItem => !!row)
-  ), []);
-
-  const loadFeed = useCallback(async () => {
-    setLoading(true);
-    setLoadError(null);
-
-    try {
-      const primarySnap = await getDocs(
-        query(
-          collectionGroup(db, 'uploads'),
-          where('isPublic', '==', true),
-          orderBy('listenCount', 'desc'),
-          limit(180)
-        )
-      );
-
-      const mapped = mapSnapshotRows(primarySnap);
-      setItems(mapped.length > 0 ? mapped : mapFallbackDiscoverItems());
-      return;
-    } catch (error) {
-      const isIndexIssue = error instanceof FirebaseError && error.code === 'failed-precondition';
-      if (!isIndexIssue) {
-        console.error('Failed to load explore feed:', error);
-      }
-
-      if (isIndexIssue) {
-        try {
-          const fallbackSnap = await getDocs(
-            query(
-              collectionGroup(db, 'uploads'),
-              where('isPublic', '==', true),
-              limit(180)
-            )
-          );
-
-          const fallbackMapped = mapSnapshotRows(fallbackSnap)
-            .sort((a, b) => b.listenCount - a.listenCount)
-            .slice(0, 180);
-
-          setItems(fallbackMapped.length > 0 ? fallbackMapped : mapFallbackDiscoverItems());
-          setLoadError('Top feed ranking is temporarily unavailable. Showing fallback discovery order.');
-          showToast('Explore index missing. Showing fallback discovery order.', 'info');
-          return;
-        } catch (fallbackError) {
-          console.error('Explore fallback query failed:', fallbackError);
-        }
-      }
-
-      setItems(mapFallbackDiscoverItems());
-      const message = getLoadErrorMessage(error);
-      setLoadError(message);
-      showToast(message, 'info');
-    } finally {
-      setLoading(false);
-    }
-  }, [mapSnapshotRows, showToast]);
-
   useEffect(() => {
-    loadFeed();
-  }, [loadFeed]);
+    if (loadError) {
+      showToast(loadError, 'info');
+    }
+  }, [loadError, showToast]);
 
   const buildFeedBatch = useCallback((source: DiscoverItem[], seed: number) => {
     const usable = source.filter((item) => !dislikedTracks[item.id]);
@@ -471,7 +369,7 @@ export default function ExploreScreen() {
       artist: first.uploaderName,
       artworkUrl: first.artworkUrl,
       url: first.audioUrl,
-      uploaderId: first.userId,
+      uploaderId: first.uploaderId,
     }).catch((error) => {
       console.error('Auto-play on feed focus failed:', error);
     });
@@ -489,7 +387,7 @@ export default function ExploreScreen() {
       artist: first.uploaderName,
       artworkUrl: first.artworkUrl,
       url: first.audioUrl,
-      uploaderId: first.userId,
+      uploaderId: first.uploaderId,
     }).catch((error) => {
       console.error('Failed to start initial explore track:', error);
     });
@@ -515,7 +413,7 @@ export default function ExploreScreen() {
       artist: item.uploaderName,
       price: item.price,
       audioUrl: item.audioUrl,
-      uploaderId: item.userId,
+      uploaderId: item.uploaderId,
       category: 'Track',
     });
     showToast('Added to cart.', 'success');
@@ -611,7 +509,7 @@ export default function ExploreScreen() {
                 title: item.title,
                 artist: item.uploaderName,
                 url: item.audioUrl,
-                uploaderId: item.userId,
+                uploaderId: item.uploaderId,
                 artworkUrl: item.artworkUrl,
               }).catch((error) => {
                 console.error('Play from search failed:', error);
@@ -635,6 +533,7 @@ export default function ExploreScreen() {
             renderItem={renderExploreItem}
             onViewableItemsChanged={onViewableItemsChanged}
             viewabilityConfig={viewabilityConfig}
+            ListEmptyComponent={<View style={styles.errorBanner}><Text style={styles.errorBannerText}>No published tracks yet.</Text></View>}
             getItemLayout={(_, index) => ({
               index,
               length: height - 148,

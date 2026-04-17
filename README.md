@@ -1,200 +1,219 @@
-# Shoouts: Complete Technical Setup & Deployment Guide
+# Shoouts
 
-Shoouts is an African-first mobile audio streaming and creator marketplace platform built to help artists, producers, and executives store, monetize, and share their IP securely.
+Shoouts is an Expo + Firebase mobile app with five subscription-driven experiences:
 
-## 📱 Tech Stack
-- **Frontend:** Expo React Native (iOS/Android) using Expo Router
-- **Global State:** Zustand (with persist middleware for cart/session data)
-- **Backend:** Firebase (Cloud Functions, Firestore, Storage, Auth)
-- **Payments:** Flutterwave integration
-- **Deployment:** GitHub Actions CI/CD (lint, test, security, deploy) & Expo Application Services (EAS) for native builds
+- `shoout`: buyer mode for discovery, cart, checkout, and messaging
+- `vault`: private storage, folders, uploads, and secure sharing
+- `vault_pro`: higher-capacity Vault plan
+- `studio`: seller tools for listings, analytics, ads, payouts, and messaging
+- `hybrid`: combined Studio + Vault workflow
 
----
+The current app uses Expo Router for navigation, Zustand for client state, Firebase for auth/data/storage, Cloud Functions for secure server workflows, Flutterwave for verified payments, and EAS for native builds.
 
-## 🚀 Quick Start (Local Development)
+## Current Stack
+
+- Expo SDK 55
+- React 19.2 / React Native 0.83
+- Expo Router
+- Zustand
+- Firebase Auth, Firestore, Storage, Cloud Functions
+- Flutterwave checkout and webhook verification
+- Sentry runtime monitoring
+- Jest + `jest-expo`
+
+## Current App Surface
+
+### Route groups
+
+- `app/index.tsx`: splash / auth entry routing
+- `app/(auth)/*`: onboarding, login, signup, OTP, password reset, role selection, studio creation
+- `app/(tabs)/*`: home, search/explore, cart, marketplace, library, more
+- `app/settings/*`: subscriptions, appearance, notifications, privacy, downloads, localization, payment methods, help
+- `app/studio/*`: upload, analytics, earnings, withdraw, settings, ads flow, seller messages
+- `app/vault/*`: upload, updates, links, folder detail, track detail
+- `app/chat/*`: buyer and seller chat threads
+- `app/admin/*`: creators, moderation, metrics, payouts
+- `app/listing/[id].tsx`: transparent modal listing detail
+
+### Shared UI and state
+
+- App-mode switching is driven by `useAppSwitcher` and persisted `activeAppMode`
+- Server-verified subscription state lives in `useAuthStore`
+- User-facing capabilities are mirrored into `useUserStore`
+- Playback, downloads, cart, localization, appearance, accessibility, notifications, and toast state each have dedicated stores
+
+## Subscription Model In Code
+
+The active plan definitions live in [`utils/subscriptions.ts`](c:/Users/HP/Desktop/Shoouts/shoout/utils/subscriptions.ts).
+
+Current plans and prices:
+
+- `shoout`: free
+- `vault`: free
+- `vault_pro`: USD 5.99 / month
+- `studio`: USD 18.99 / month
+- `hybrid`: USD 24.99 / month
+
+Capabilities are feature-flagged in code, including:
+
+- cart and marketplace messaging
+- Vault storage limits and upload permissions
+- seller publishing and replies
+- analytics and ads access
+- team-access flags for Hybrid
+
+## Backend State
+
+Cloud Functions are exported from [`functions/src/index.ts`](c:/Users/HP/Desktop/Shoouts/shoout/functions/src/index.ts) and currently grouped as:
+
+- `auth`
+- `checkout`
+- `subscription`
+- `webhook`
+- `uploads`
+- `aggregation`
+- `admin`
+- `bootstrap`
+- `migration`
+
+Important backend flows:
+
+- `createCheckoutSession` creates pending checkout sessions and server-calculated totals
+- `activateSubscriptionTier` verifies payment before activating paid plans
+- scheduled downgrades handle expired subscriptions
+- webhook handlers verify Flutterwave callbacks
+- Firestore rules block client writes for purchases and other backend-only records
+
+## Local Development
 
 ### Prerequisites
-- Node.js 20+
-- Firebase CLI (`npm i -g firebase-tools`)
-- Git
-- EAS CLI (`npm i -g eas-cli`)
 
-### Installation & Run
+- Node.js 20+
+- npm
+- Firebase CLI
+- EAS CLI for native builds
+
+### Install
 
 ```bash
-# Clone repository
-git clone https://github.com/elshaddaioheha/shoout
-cd shoout
-
-# Install frontend dependencies
 npm install
-
-# Install backend dependencies
 cd functions && npm install && cd ..
+```
 
-# Start local Expo server
+### Run
+
+```bash
 npm start
 ```
 
----
+Useful scripts:
 
-## 🔐 Environment Variables & Secrets Configuration
-
-Shoouts requires specific secrets for local development, CI/CD, and Native App Builds.
-
-### 1. `EXPO_PUBLIC_*` Variables (Local & EAS Secrets)
-These variables (Firebase keys, Flutterwave Public Key, Google OAuth IDs) configure the frontend app.
-- **Local:** Define them in your `.env` file at the root.
-- **EAS Build:** Expose them directly in Expo using the `eas secret:create` CLI or via the [Expo Dashboard](https://expo.dev).
-- **Monitoring:** Set `EXPO_PUBLIC_SENTRY_DSN` for runtime crash/error capture.
-
-*Warning: Never bake private backend keys into `EXPO_PUBLIC_*` variables.*
-
-### 1b. Sentry Build Secrets (CI/EAS)
-Sentry source map uploads for release builds should use private build-time secrets:
-- `SENTRY_AUTH_TOKEN`
-- `SENTRY_ORG`
-- `SENTRY_PROJECT`
-
-These should be configured as EAS/GitHub secrets, never committed in source.
-
-### 1c. Legal URLs (App Store Readiness)
-Set legal document URLs as public env variables so they are visible in-app:
-- `EXPO_PUBLIC_PRIVACY_POLICY_URL`
-- `EXPO_PUBLIC_TERMS_URL`
-
-If omitted, the app falls back to `https://shoouts.com/privacy` and `https://shoouts.com/terms`.
-
-### 1d. Push Notifications (Expo Notifications + FCM/APNs)
-Push notifications are powered by Expo Notifications with Firebase Cloud Messaging (FCM) on Android and APNs on iOS.
-- **Setup:** Notifications are initialized on app startup (`initNotifications()` in `app/_layout.tsx`).
-- **Permissions:** The app requests notification permissions automatically on the `ios` platform; Android permissions are configured in `app.json`.
-- **Deep Linking:** Push notifications can carry a `route` parameter to deep-link users into specific screens.
-- **Firebase Functions:** Use `admin.messaging()` in Cloud Functions to send notifications to device tokens retrieved at login/signup.
-
-### 2. Native App Files (`google-services.json` / `GoogleService-Info.plist`)
-Native Firebase integration requires the strict configuration files to avoid runtime crashing.
-- Do not commit these files to GitHub (they are specified in `.gitignore`).
-- For EAS Android builds, dynamic configuration is handled in `app.config.ts` via the `GOOGLE_SERVICES_JSON` variable, and each build profile maps to its matching EAS environment in `eas.json`.
-- Upload this file to Expo Secrets using:
-  ```bash
-  eas secret:create --scope project --name GOOGLE_SERVICES_JSON --type file --value google-services.json
-  ```
-
-### 3. Server-side Secrets (Firebase Functions)
-These must be set securely via the Firebase CLI to be accessible strictly within Node runtime environments.
 ```bash
-firebase functions:secrets:set FLUTTERWAVE_SECRET_KEY
-firebase functions:secrets:set FLUTTERWAVE_SECRET_HASH
-firebase functions:secrets:set UPLOAD_BUCKET_NAME
+npm test
+npm run test:coverage
+npm run test:functions
+npm run lint
 ```
 
----
+Seeder and utility scripts also exist under `scripts/`, including:
 
-## 🌍 Localization & Accessibility
+- `dev:seed`
+- `dev:seed:test`
+- `dev:seed:full`
+- `dev:seed:rest`
+- `dev:seed:royalty-free`
+- `dev:seed:media`
+- `dev:backfill:publish-snapshot`
 
-### Localization (i18n)
-The app supports multiple languages and includes a language selector in Settings.
+## Environment and Secrets
 
-- **Current Support:** English (en), Spanish (es), French (fr), Portuguese (pt) — en is the default; others are placeholders.
-- **Storage:** User language preference is persisted in AsyncStorage via `useLocalizationStore`.
-- **Usage:** Import `useTranslation()` hook to access translated strings:
-  ```tsx
-  const t = useTranslation();
-  const label = t('common.appName'); // Returns "Shoouts"
-  ```
-- **Translation Files:** Located in `utils/i18n/` (JSON format with dot-notation keys).
-- **Adding New Locales:** Add a new JSON file (e.g., `utils/i18n/es.json`) and import it in `useLocalizationStore.ts`.
+### Client-side Expo env
 
-### Accessibility (A11y)
-The app includes built-in accessibility features and settings.
+The app currently reads Expo public env values such as:
 
-- **Text Scaling:** Users can increase/decrease text size in Settings → Localization & Accessibility (small/normal/large/extra-large).
-- **Motion Reduction:** Users can disable animations and transitions to reduce motion sickness.
-- **High Contrast Mode:** Option to enable high-contrast colors for better visibility.
-- **Screen Reader Support:** Notifications, navigation, and interactive elements include proper accessibility labels and hints.
-- **Utilities:**
-  - `useTextScale()` — Get current text scale multiplier to apply to font sizes.
-  - `useReducedMotion()` — Check if animations should be disabled.
-  - `useScreenReaderEnabled()` — Detect if screen reader is active.
+- `EXPO_PUBLIC_FIREBASE_API_KEY`
+- `EXPO_PUBLIC_FIREBASE_APP_ID`
+- `EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN`
+- `EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID`
+- `EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`
+- `EXPO_PUBLIC_FIREBASE_PROJECT_ID`
+- `EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET`
+- `EXPO_PUBLIC_FLUTTERWAVE_PUBLIC_KEY`
+- `EXPO_PUBLIC_FLUTTERWAVE_ENCRYPTION_KEY`
+- `EXPO_PUBLIC_FUNCTIONS_URL`
+- `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`
 
----
+Keep private server credentials out of `EXPO_PUBLIC_*`.
 
-## 🛠 Project Architecture
+### EAS native file secrets
 
-```
-shoout/
-├── .github/workflows/deploy.yml       # Production/Dev CI/CD logic
-├── app/                               # Mobile App Routes (Tabs, Auth, Vault, Studio)
-│   ├── (auth)/                        # Authentication flow
-│   └── _layout.tsx                    # Root navigation & auth session listeners
-├── components/                        # Reusable modular UI components
-├── functions/                         # Cloud Functions (Webhook parsing, DB management)
-├── hooks/                             # Custom React hooks
-├── scripts/                           # Local database seeding scripts
-├── store/                             # Zustand slice stores (Auth, Cart, User, etc.)
-├── utils/                             # Error boundaries & responsive styling helpers
-├── .firebaserc                        # Firebase environment routing aliases
-├── app.config.ts                      # Dynamic Expo config for EAS secrets injection
-├── eas.json                           # Expo Application Services profiles config
-└── package.json                       # Dependencies & Jest setup mapping
-```
+Android Firebase config is injected by [`app.config.ts`](c:/Users/HP/Desktop/Shoouts/shoout/app.config.ts). EAS should provide:
 
----
-
-## 🛡 Security & Authentication Lifecycles
-
-### Auth Guards & Store State
-Firebase Authentication dictates the single source of truth for the session.
-- **Startup:** On `onAuthStateChanged`, all relevant stores (user metadata, subscriptions) are explicitly populated.
-- **Logout:** Handled universally by `performLogout()`. This explicitly purges `useUserStore`, `useAuthStore`, `useCartStore`, and `useToastStore`, unmounts listeners to prevent memory leaks/race conditions, and boots the user to the guest interface cleanly.
-- Firebase triggers strict authentication error toasts exclusively when an authentic user tries to access server-locked functionality (e.g., Cloud Functions).
-
-### Subscription Verification
-A user's permission (Vault, Studio, Hybrid plans) depends exclusively on the verified document at `users/{uid}/subscription/current`.
-- Stores fallback to "vault" gracefully pending backend resolution.
-- Firebase automatically demotes expired users seamlessly.
-
----
-
-## 🚀 GitHub Actions CI/CD Pipeline
-
-The `.github/workflows/deploy.yml` pipeline strictly enforces quality before auto-deploying to Firebase environments:
-
-1. **lint-and-type-check**: Runs `tsc --noEmit` on Cloud functions and widespread ESLint.
-2. **test**: Executes the whole Jest suite (`npm run test`) validating store state, auth rendering, UI fallbacks, and component isolation.
-3. **security**: Checks `npm audit` and validates source code with `gitleaks` for any exposed private tokens.
-4. **deploy-dev** (Triggers on `push` to `dev` branch): Automatically uses `FIREBASE_TOKEN_DEV` to push Functions and Firestore rules to the development project.
-5. **deploy-prod** (Triggers on `push` to `master`/`main`): Extracts `proj` ID precisely via `.firebaserc` and uses a mapped GCP Service Account JSON to authorize and deploy to the explicit Production server.
-6. **eas-preview-builds** (Triggers on pull requests from this repository): Starts non-blocking EAS preview builds for both Android and iOS.
-7. **eas-release-builds** (Triggers on `v*` tags): Starts non-blocking EAS production builds for both Android and iOS.
-
-*Ensure all GitHub Repository Secrets listed in `.github/workflows/deploy.yml` are accurately populated before pushing.*
-*For EAS build jobs, add `EXPO_TOKEN` as a GitHub repository secret.*
-
----
-
-## 📱 EAS Android Build Deployment
-
-To trigger an Android build targeting production or preview:
-
-1. Verify the `eas.json` `preview` or `production` profiles.
-2. Confirm the file secret `GOOGLE_SERVICES_JSON` exists in your Expo Dashboard.
-3. Run the non-interactive build:
 ```bash
-eas build --platform android --profile preview --non-interactive
+eas secret:create --scope project --name GOOGLE_SERVICES_JSON --type file --value google-services.json
 ```
-4. Access the generated APK or AAB inside your EAS Dashboard.
 
----
+Locally, `app.config.ts` only sets `googleServicesFile` if the repo-level file actually exists.
 
-## 🐛 Common Troubleshooting
+### Firebase Functions secrets
 
-**"Authentication Error" on Upload**
-If the upload function rejects requests, ensure the server-side environment `UPLOAD_BUCKET_NAME` is actually mapped inside the Firebase secrets, and `auth` is refreshing tokens synchronously before resolving Functions instances (`getIdToken(true)`).
+Server-side payment and upload flows rely on secure secrets set in Firebase, including:
 
-**EAS Build Fails Missing JSON**
-Double-check you are not hardcoding `GOOGLE_SERVICES_JSON` inside `eas.json` (the CLI overrides files with plain string variables if both are declared). Let `app.config.ts` dynamically assign the file location during runtime.
+- `FLUTTERWAVE_SECRET_KEY`
+- `FLUTTERWAVE_SECRET_HASH`
+- `UPLOAD_BUCKET_NAME`
 
-**Jest Expo Import Crashes**
-Our `package.json` natively remaps the `expo/src/winter` polyfills and standardizes tests through `__mocks__/firebase.ts` to prevent UI native bindings from destroying Node test runs. If adding new modules (e.g., `expo-apple-authentication`), you must mock them globally first inside test setups.
+## Notifications and Monitoring
+
+- Notifications are initialized in [`app/_layout.tsx`](c:/Users/HP/Desktop/Shoouts/shoout/app/_layout.tsx)
+- Notification helpers live in [`utils/notifications.ts`](c:/Users/HP/Desktop/Shoouts/shoout/utils/notifications.ts)
+- Sentry initialization is triggered from app startup via `app/monitoring.ts`
+
+## Firebase Project Files
+
+- [`firebase.json`](c:/Users/HP/Desktop/Shoouts/shoout/firebase.json): functions, Firestore, Storage, emulator config
+- [`firestore.rules`](c:/Users/HP/Desktop/Shoouts/shoout/firestore.rules): auth, subscription, uploads, purchases, folders, links, merch, chat-related rules
+- [`storage.rules`](c:/Users/HP/Desktop/Shoouts/shoout/storage.rules): storage permissions
+
+## CI/CD
+
+The current workflow file is [`deploy.yml`](c:/Users/HP/Desktop/Shoouts/shoout/.github/workflows/deploy.yml).
+
+It currently runs:
+
+- lint and Cloud Functions type-check
+- app tests with coverage
+- `npm audit` and gitleaks
+- EAS preview builds on pull requests
+- EAS production builds on version tags
+- Firebase deploys to `dev`
+- Firebase deploys to `main` / `master`
+
+## EAS Builds
+
+Run EAS commands from the app directory:
+
+```bash
+cd c:\Users\HP\Desktop\Shoouts\shoout
+eas build --platform android --profile preview
+```
+
+Current build notes:
+
+- the project now resolves cleanly on Expo SDK 55
+- `expo config --json --full` succeeds
+- Expo Doctor only still warns that `expo-av` is unmaintained
+
+## Testing Notes
+
+Frontend tests live in `__tests__/`.
+
+Functions tests live in `functions/src/__tests__/`.
+
+Jest uses `jest-expo` plus repo-level mocks for Firebase, Expo runtime shims, linear gradients, and Flutterwave.
+
+## Known Gaps
+
+- `README.md` and `PRD.md` were rewritten to reflect the codebase as it exists now, but product copy and screenshots are still absent
+- `expo-av` is still in use for playback and remains the main package-level warning from Expo Doctor
+- some older comments and generated artifacts in the repo still reference earlier plan names and flows

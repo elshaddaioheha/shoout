@@ -38,6 +38,7 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.parseCartItemId = parseCartItemId;
+exports.resolveLicensePriceUsd = resolveLicensePriceUsd;
 exports.resolveCheckoutLine = resolveCheckoutLine;
 exports.calculateCartTotal = calculateCartTotal;
 exports.validateCartTotalMatch = validateCartTotalMatch;
@@ -45,6 +46,11 @@ const functions = __importStar(require("firebase-functions"));
 const types_1 = require("../types");
 const repositories_1 = require("../repositories");
 const formatting_1 = require("../utils/formatting");
+const TIER_TITLES = {
+    basic: 'Basic',
+    premium: 'Premium',
+    exclusive: 'Exclusive',
+};
 function parseCartItemId(rawId) {
     for (const sku of types_1.LICENSE_SKUS_ORDERED) {
         const suf = '_' + sku;
@@ -53,6 +59,19 @@ function parseCartItemId(rawId) {
         }
     }
     return { uploadId: rawId, licenseSku: null };
+}
+function resolveLicensePriceUsd(basePriceUsd, licenseSku) {
+    const basePrice = (0, formatting_1.roundUsd)(Number(basePriceUsd || 0));
+    if (licenseSku === 'premium') {
+        return (0, formatting_1.roundUsd)(basePrice * 2.5);
+    }
+    if (licenseSku === 'exclusive') {
+        return (0, formatting_1.roundUsd)(basePrice * 7);
+    }
+    if (licenseSku && types_1.LICENSE_USD_PRICES[licenseSku] != null) {
+        return types_1.LICENSE_USD_PRICES[licenseSku];
+    }
+    return basePrice;
 }
 async function resolveCheckoutLine(raw) {
     const uploaderId = String(raw.uploaderId || '').trim();
@@ -67,28 +86,29 @@ async function resolveCheckoutLine(raw) {
     if (d.isPublic !== true) {
         throw new functions.https.HttpsError('failed-precondition', 'Listing is not public');
     }
-    let priceUsd;
-    if (licenseSku && types_1.LICENSE_USD_PRICES[licenseSku] != null) {
-        priceUsd = types_1.LICENSE_USD_PRICES[licenseSku];
+    const storedBasePrice = Number(d.price);
+    if (!Number.isFinite(storedBasePrice)) {
+        throw new functions.https.HttpsError('failed-precondition', 'Listing has invalid price');
     }
-    else {
-        priceUsd = Number(d.price);
-        if (!Number.isFinite(priceUsd)) {
-            throw new functions.https.HttpsError('failed-precondition', 'Listing has invalid price');
-        }
-    }
+    const normalizedTierId = licenseSku === 'premium' || licenseSku === 'exclusive'
+        ? licenseSku
+        : (raw.licenseTierId || 'basic');
+    let priceUsd = resolveLicensePriceUsd(storedBasePrice, licenseSku);
     if (priceUsd < 0) {
         throw new functions.https.HttpsError('failed-precondition', 'Invalid listing price');
     }
-    priceUsd = (0, formatting_1.roundUsd)(priceUsd);
     return {
         id: raw.id,
+        listingId: uploadId,
         uploaderId,
         title: String(d.title || raw.title || 'Track'),
         artist: String(d.uploaderName || d.artist || raw.artist || 'Artist'),
         price: priceUsd,
         audioUrl: String(d.audioUrl || raw.audioUrl || ''),
         coverUrl: String(d.coverUrl || raw.coverUrl || ''),
+        licenseTierId: normalizedTierId,
+        licenseTierTitle: TIER_TITLES[normalizedTierId || 'basic'] || raw.licenseTierTitle || 'Basic',
+        licenseSummary: String(raw.licenseSummary || ''),
     };
 }
 async function calculateCartTotal(rawItems) {

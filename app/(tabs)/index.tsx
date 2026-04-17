@@ -5,8 +5,9 @@ import SharedHeader from '@/components/SharedHeader';
 import StudioDashboardScreen from '@/components/studio/StudioDashboardScreen';
 import VaultHomeScreen from '@/components/vault/VaultHomeScreen';
 import { theme } from '@/constants/theme';
-import { ARTISTS, FREE_MUSIC, HOME_SECTIONS, POPULAR_BEATS, TOP_PLAYLISTS, TRENDING_SONGS, type HomeSectionKey } from '@/constants/homeFeed';
+import { HOME_SECTIONS, type HomeSectionKey } from '@/constants/homeFeed';
 import { useAppTheme } from '@/hooks/use-app-theme';
+import { usePublishedUploads, type PublishedUpload } from '@/hooks/usePublishedUploads';
 import { formatUsd } from '@/utils/pricing';
 import { usePlaylists } from '@/hooks/usePlaylists';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
@@ -29,7 +30,6 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Dimensions,
   FlatList,
-  Image as RNImage,
   StatusBar,
   StyleSheet,
   Text,
@@ -79,23 +79,29 @@ export default function HomeScreen() {
   const colorScheme = useColorScheme();
   const { items } = useCartStore();
   const activeAppMode = useUserStore((state) => state.activeAppMode);
+  const {
+    tracks: liveTracks,
+    loading: liveTracksLoading,
+    error: liveTracksError,
+    reload: reloadLiveTracks,
+  } = usePublishedUploads(60, activeAppMode === 'shoout');
 
   const renderSection = useCallback(({ item }: { item: HomeSectionKey }) => {
     switch (item) {
       case 'trending':
-        return <TrendingSection />;
+        return <TrendingSection songs={liveTracks.slice(0, 8)} loading={liveTracksLoading} loadError={liveTracksError} onRetry={reloadLiveTracks} />;
       case 'playlist':
-        return <PlaylistSection />;
+        return <PlaylistSection tracks={liveTracks.slice(0, 8)} loading={liveTracksLoading} />;
       case 'freeMusic':
-        return <FreeMusicSection />;
+        return <FreeMusicSection songs={liveTracks.filter((track) => Number(track.price || 0) <= 0).slice(0, 12)} loading={liveTracksLoading} />;
       case 'artists':
-        return <ArtistsSection />;
+        return <ArtistsSection tracks={liveTracks} loading={liveTracksLoading} />;
       case 'popularBeats':
-        return <PopularBeatsSection />;
+        return <PopularBeatsSection beats={liveTracks.filter((track) => Number(track.price || 0) > 0).slice(0, 12)} loading={liveTracksLoading} />;
       default:
         return null;
     }
-  }, []);
+  }, [liveTracks, liveTracksError, liveTracksLoading, reloadLiveTracks]);
 
   if (activeAppMode === 'vault' || activeAppMode === 'vault_pro') {
     return <VaultHomeScreen />;
@@ -138,10 +144,19 @@ export default function HomeScreen() {
 }
 
 // Sub-sections
-function TrendingSection() {
+function TrendingSection({
+  songs,
+  loading,
+  loadError,
+  onRetry,
+}: {
+  songs: PublishedUpload[];
+  loading: boolean;
+  loadError: string | null;
+  onRetry: () => void;
+}) {
   const styles = useHomeStyles();
   const setTrack = usePlaybackStore(state => state.setTrack);
-  const songs = TRENDING_SONGS;
   const COLORS = useMemo(() => ['#D9D9D9', '#C9A959', '#8B7355'], []);
 
   const renderItem = useCallback(({ item, index }: { item: any; index: number }) => (
@@ -155,6 +170,14 @@ function TrendingSection() {
   return (
     <View style={styles.section}>
       <Text style={[styles.sectionTitle, styles.trendingSectionTitle]}>Trending Song</Text>
+      {loadError ? (
+        <View style={styles.inlineNotice}>
+          <Text style={styles.emptyText}>{loadError}</Text>
+          <TouchableOpacity onPress={onRetry} activeOpacity={0.8}>
+            <Text style={styles.seeAllText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
       <FlatList
         horizontal
         data={songs}
@@ -166,6 +189,7 @@ function TrendingSection() {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.horizontalListContent}
         ItemSeparatorComponent={() => <View style={styles.horizontalSpacer} />}
+        ListEmptyComponent={<Text style={styles.emptyText}>{loading ? 'Loading live uploads...' : 'No published songs yet.'}</Text>}
       />
     </View>
   );
@@ -208,10 +232,9 @@ const TrendingCard = React.memo(function TrendingCard({ song, bgColor, onPlay }:
     </View>
   );
 });
-function PlaylistSection() {
+function PlaylistSection({ tracks, loading }: { tracks: PublishedUpload[]; loading: boolean }) {
   const styles = useHomeStyles();
   const router = useRouter();
-  const playlists = TOP_PLAYLISTS;
 
   const renderItem = useCallback(({ item, index }: { item: any; index: number }) => (
     <TouchableOpacity
@@ -237,18 +260,18 @@ function PlaylistSection() {
         {typeof item.price === 'number' ? <Text style={styles.playlistPrice}>{formatUsd(item.price)}</Text> : null}
       </View>
     </TouchableOpacity>
-  ), [router]);
+  ), [router, styles]);
 
   return (
     <View style={styles.section}>
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Top Playlist</Text>
+        <Text style={styles.sectionTitle}>Latest Releases</Text>
         <TouchableOpacity onPress={() => router.push('/(tabs)/search')}><Text style={styles.seeAllText}>See All</Text></TouchableOpacity>
       </View>
       <FlatList
         horizontal
-        data={playlists}
-        keyExtractor={(item, index) => item.id || `playlist-${index}`}
+        data={tracks}
+        keyExtractor={(item, index) => item.id || `release-${index}`}
         renderItem={renderItem}
         initialNumToRender={3}
         windowSize={3}
@@ -256,23 +279,22 @@ function PlaylistSection() {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.horizontalListContent}
         ItemSeparatorComponent={() => <View style={styles.horizontalSpacer} />}
-        ListEmptyComponent={<Text style={styles.emptyText}>No playlists yet.</Text>}
+        ListEmptyComponent={<Text style={styles.emptyText}>{loading ? 'Loading releases...' : 'No public releases yet.'}</Text>}
       />
     </View>
   );
 }
 
 
-function FreeMusicSection() {
+function FreeMusicSection({ songs, loading }: { songs: PublishedUpload[]; loading: boolean }) {
   const styles = useHomeStyles();
   const router = useRouter();
   const setTrack = usePlaybackStore(state => state.setTrack);
-  const songs = FREE_MUSIC;
 
   const renderItem = useCallback(({ item }: { item: any }) => (
     <FreeMusicCard
       song={item}
-      onPlay={() => setTrack({ id: item.id, title: item.title, artist: item.artist, url: item.audioUrl || item.url, uploaderId: item.uploaderId, artworkUrl: item.artworkUrl })}
+      onPlay={() => setTrack({ id: item.id, title: item.title, artist: item.artist || item.uploaderName, url: item.audioUrl || item.url, uploaderId: item.uploaderId, artworkUrl: item.artworkUrl })}
     />
   ), [setTrack]);
 
@@ -293,6 +315,7 @@ function FreeMusicSection() {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.horizontalListContent}
         ItemSeparatorComponent={() => <View style={styles.horizontalSpacer} />}
+        ListEmptyComponent={<Text style={styles.emptyText}>{loading ? 'Loading free songs...' : 'No free songs published yet.'}</Text>}
       />
     </View>
   );
@@ -309,7 +332,7 @@ const FreeMusicCard = React.memo(function FreeMusicCard({ song, onPlay }: { song
     addItem({
       id: song.id,
       title: song.title,
-      artist: song.artist,
+      artist: song.artist || song.uploaderName,
       price: song.price || 0,
       uploaderId: song.uploaderId || '',
       coverUrl: song.artworkUrl,
@@ -330,7 +353,7 @@ const FreeMusicCard = React.memo(function FreeMusicCard({ song, onPlay }: { song
       )}
       <View style={styles.freeMusicMeta}>
         <Text style={styles.itemTitle}>{song.title}</Text>
-        <Text style={styles.itemSubtitle}>{song.artist}</Text>
+        <Text style={styles.itemSubtitle}>{song.artist || song.uploaderName}</Text>
         <View style={styles.itemActionsSafe}>
           <TouchableOpacity onPress={handleAddToCart}>
             <ShoppingCart size={14} color={inCart ? '#4CAF50' : SHOOUT_ACCENT} />
@@ -344,10 +367,35 @@ const FreeMusicCard = React.memo(function FreeMusicCard({ song, onPlay }: { song
   );
 });
 
-function ArtistsSection() {
+function ArtistsSection({ tracks, loading }: { tracks: PublishedUpload[]; loading: boolean }) {
   const styles = useHomeStyles();
   const router = useRouter();
-  const artists = ARTISTS;
+  const artists = useMemo(() => {
+    const byArtist = new Map<string, { id: string; fullName: string; avatarUrl?: string; score: number }>();
+
+    tracks.forEach((track) => {
+      const artistId = track.uploaderId || track.uploaderName;
+      if (!artistId) return;
+      const existing = byArtist.get(artistId);
+      if (existing) {
+        byArtist.set(artistId, {
+          ...existing,
+          score: existing.score + Number(track.listenCount || 0) + 1,
+          avatarUrl: existing.avatarUrl || track.artworkUrl,
+        });
+        return;
+      }
+
+      byArtist.set(artistId, {
+        id: artistId,
+        fullName: track.uploaderName || track.artist || 'Shoouter',
+        avatarUrl: track.artworkUrl,
+        score: Number(track.listenCount || 0) + 1,
+      });
+    });
+
+    return [...byArtist.values()].sort((a, b) => b.score - a.score).slice(0, 12);
+  }, [tracks]);
 
   const renderItem = useCallback(({ item, index }: { item: any; index: number }) => (
     <TouchableOpacity key={item.id || index} style={styles.artistItem} onPress={() => router.push({ pathname: '/profile/[id]', params: { id: item.id } })}>
@@ -358,7 +406,7 @@ function ArtistsSection() {
       )}
       <Text style={styles.artistNameSmall}>{item.fullName || item.displayName || 'Artist'}</Text>
     </TouchableOpacity>
-  ), [router]);
+  ), [router, styles]);
 
   return (
     <View style={styles.section}>
@@ -377,13 +425,13 @@ function ArtistsSection() {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.horizontalListContent}
         ItemSeparatorComponent={() => <View style={styles.horizontalSpacer} />}
-        ListEmptyComponent={<Text style={styles.emptyText}>No artists yet.</Text>}
+        ListEmptyComponent={<Text style={styles.emptyText}>{loading ? 'Loading artists...' : 'No artists with published songs yet.'}</Text>}
       />
     </View>
   );
 }
 
-function PopularBeatsSection() {
+function PopularBeatsSection({ beats, loading }: { beats: PublishedUpload[]; loading: boolean }) {
   const styles = useHomeStyles();
   const router = useRouter();
   const setTrack = usePlaybackStore(state => state.setTrack);
@@ -398,7 +446,6 @@ function PopularBeatsSection() {
   const [hiddenBeatIds, setHiddenBeatIds] = useState<string[]>([]);
   const [selectedBeat, setSelectedBeat] = useState<any | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
-  const beats = POPULAR_BEATS;
 
   useEffect(() => {
     startFollowingListener();
@@ -466,7 +513,7 @@ function PopularBeatsSection() {
       console.error('Follow artist from home failed:', error);
       showToast('Unable to update follow state right now.', 'error');
     }
-  }, [followingArtistIds, pendingByArtistId, selectedBeat, showToast, toggleFollow]);
+  }, [pendingByArtistId, selectedBeat, showToast, toggleFollow]);
 
   const renderItem = useCallback(({ item, index }: { item: any; index: number }) => (
     <BeatRow
@@ -494,7 +541,7 @@ function PopularBeatsSection() {
         initialNumToRender={4}
         windowSize={5}
         contentContainerStyle={styles.beatsList}
-        ListEmptyComponent={<Text style={styles.emptyText}>No beats available in Home right now.</Text>}
+        ListEmptyComponent={<Text style={styles.emptyText}>{loading ? 'Loading paid songs...' : 'No paid songs available in Home right now.'}</Text>}
       />
 
       <ActionSheet
@@ -666,6 +713,13 @@ const legacyStyles = {
   },
   horizontalSpacer: {
     width: spacing.md,
+  },
+  inlineNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+    marginBottom: spacing.sm,
   },
   trendingCard: {
     width: TRENDING_CARD_WIDTH,

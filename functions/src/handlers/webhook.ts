@@ -126,17 +126,20 @@ export const flutterwaveWebhook = functions.https.onRequest(async (req, res) => 
 
     for (const item of session.items) {
       const txnId = `${txRef}_${item.id}`;
+      const listingId = String(item.listingId || item.id);
       const itemPriceUsd = Number(item.price || 0);
       const itemPriceNgn = Math.round(itemPriceUsd * exchangeRate);
 
       batchWrite.set(transactionRepo.ref(txnId), {
-        trackId: item.id,
+        trackId: listingId,
         buyerId: session.userId,
         sellerId: item.uploaderId,
         priceUsd: itemPriceUsd,
         amountNgn: itemPriceNgn,
         exchangeRateNgnPerUsd: exchangeRate,
         trackTitle: item.title,
+        licenseTierId: item.licenseTierId || 'basic',
+        licenseTierTitle: item.licenseTierTitle || 'Basic',
         status: 'completed',
         paymentProvider: 'flutterwave',
         flutterwaveTxRef: txRef,
@@ -144,7 +147,7 @@ export const flutterwaveWebhook = functions.https.onRequest(async (req, res) => 
       });
 
       batchWrite.set(userRepo.purchaseRef(session.userId, txnId), {
-        trackId: item.id,
+        trackId: listingId,
         title: item.title,
         artist: item.artist,
         priceUsd: itemPriceUsd,
@@ -153,6 +156,8 @@ export const flutterwaveWebhook = functions.https.onRequest(async (req, res) => 
         uploaderId: item.uploaderId,
         audioUrl: item.audioUrl || '',
         coverUrl: item.coverUrl || '',
+        licenseTierId: item.licenseTierId || 'basic',
+        licenseTierTitle: item.licenseTierTitle || 'Basic',
         purchasedAt: now,
       });
     }
@@ -181,8 +186,9 @@ export const flutterwaveWebhook = functions.https.onRequest(async (req, res) => 
         const lineItems = session.items.map((item) => {
           const usd = Number(item.price || 0);
           const lineNgn = Math.round(usd * exchangeRateForEmail);
+          const licenseTitle = String(item.licenseTierTitle || 'Basic').trim();
           return {
-            description: `${item.title} by ${item.artist}`,
+            description: `${item.title} by ${item.artist} (${licenseTitle} license)`,
             qty: 1,
             unitAmountNgn: lineNgn,
             totalAmountNgn: lineNgn,

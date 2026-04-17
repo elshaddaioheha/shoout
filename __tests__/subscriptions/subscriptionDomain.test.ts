@@ -35,7 +35,7 @@ describe('subscription domain access rules', () => {
             canAccessVaultWorkspace: true,
             canUploadToVault: true,
             maxVaultUploads: 50,
-            storageLimitGB: 0.5,
+            storageLimitGB: 0.05,
         });
         expect(getVaultCapabilities('vault_pro')).toMatchObject({
             canAccessVaultWorkspace: true,

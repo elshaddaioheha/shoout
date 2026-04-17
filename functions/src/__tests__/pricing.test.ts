@@ -1,4 +1,4 @@
-import { parseCartItemId, validateCartTotalMatch } from '../services/pricing';
+import { parseCartItemId, resolveLicensePriceUsd, validateCartTotalMatch } from '../services/pricing';
 import { getExpectedAmountNgn } from '../subscriptions/lifecycle';
 
 describe('pricing service', () => {
@@ -11,12 +11,34 @@ describe('pricing service', () => {
       expect(parseCartItemId('track123_mp3_tagged')).toEqual({ uploadId: 'track123', licenseSku: 'mp3_tagged' });
     });
 
+    it('extracts new premium tier suffix', () => {
+      expect(parseCartItemId('track123_premium')).toEqual({ uploadId: 'track123', licenseSku: 'premium' });
+    });
+
     it('extracts longest matching SKU', () => {
       expect(parseCartItemId('track123_unlimited_stems_9_free')).toEqual({ uploadId: 'track123', licenseSku: 'unlimited_stems_9_free' });
     });
 
     it('handles empty string', () => {
       expect(parseCartItemId('')).toEqual({ uploadId: '', licenseSku: null });
+    });
+  });
+
+  describe('resolveLicensePriceUsd', () => {
+    it('uses the listing price for the basic tier', () => {
+      expect(resolveLicensePriceUsd(19.99, null)).toBe(19.99);
+    });
+
+    it('applies the premium multiplier', () => {
+      expect(resolveLicensePriceUsd(20, 'premium')).toBe(50);
+    });
+
+    it('applies the exclusive multiplier', () => {
+      expect(resolveLicensePriceUsd(20, 'exclusive')).toBe(140);
+    });
+
+    it('keeps legacy fixed pricing intact', () => {
+      expect(resolveLicensePriceUsd(20, 'wav_2_free')).toBe(24.99);
     });
   });
 

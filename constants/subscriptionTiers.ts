@@ -28,9 +28,9 @@ export type SubscriptionTierConfig = {
 export const SUBSCRIPTION_TIERS: SubscriptionTierConfig[] = [
   {
     id: 'shoout',
-    title: 'Shoout',
+    title: 'Shoouts',
     subtitle: 'Free marketplace access',
-    welcomeTitle: 'Welcome to Shoout',
+    welcomeTitle: 'Welcome to Shoouts',
     welcomeLine: 'Browse, buy, and message before you upgrade.',
     icon: Headphones,
     gradient: ['#10223A', '#182F4D'],

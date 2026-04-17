@@ -68,7 +68,7 @@ const slides: OnboardingSlide[] = [
         { text: 'Here.', accent: true },
       ],
     ],
-    body: 'Start with discovery, then shape the ShooutS experience that fits you best.',
+    body: 'Start with discovery, then shape the Shoouts experience that fits you best.',
     asset: require('@/assets/images/welcome-3.png'),
     imageScale: 0.92,
   },

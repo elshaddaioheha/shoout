@@ -15,12 +15,21 @@ import { hydrateSubscriptionTier } from '@/utils/subscriptionVerification';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useUserStore } from '@/store/useUserStore';
 import { getDefaultAppModeForPlan } from '@/utils/subscriptions';
-import { initMonitoring } from './monitoring';
+import { initMonitoring } from '../utils/monitoring';
 import { initNotifications, subscribeToNotifications, getLastNotification } from '@/utils/notifications';
 import { notifyError, notifyWarning } from '@/utils/notify';
 import { useAccessibilityStore } from '@/store/useAccessibilityStore';
 
-SplashScreen.preventAutoHideAsync();
+if (Platform.OS !== 'web') {
+  SplashScreen.setOptions({
+    duration: 450,
+    fade: true,
+  });
+
+  SplashScreen.preventAutoHideAsync().catch(() => {
+    // Ignore splash state errors; they should never block app render.
+  });
+}
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -29,12 +38,17 @@ export default function RootLayout() {
   const splashHidden = useRef(false);
   const contentOpacity = useRef(new Animated.Value(0)).current;
 
-  const [loaded, error] = useFonts({
+  const [fontsLoaded, fontError] = Platform.OS === 'web' 
+    ? [true, null] 
+    : useFonts({
     'Poppins-Regular': Poppins_400Regular,
     'Poppins-Medium': Poppins_500Medium,
     'Poppins-SemiBold': Poppins_600SemiBold,
     'Poppins-Bold': Poppins_700Bold,
-  });
+    });
+
+  // Web platform: use system fonts, no need to wait
+  const [loaded, error] = Platform.OS === 'web' ? [true, null] : [fontsLoaded, fontError];
 
   useEffect(() => {
     initMonitoring();
@@ -131,7 +145,15 @@ export default function RootLayout() {
     if (!loaded && !error) return;
     if (splashHidden.current) return;
     splashHidden.current = true;
-    await SplashScreen.hideAsync();
+
+    if (Platform.OS !== 'web') {
+      try {
+        await SplashScreen.hideAsync();
+      } catch (splashError) {
+        notifyWarning('[layout] Failed to hide splash screen', splashError);
+      }
+    }
+
     Animated.timing(contentOpacity, {
       toValue: 1,
       duration: 250,
@@ -191,7 +213,6 @@ export default function RootLayout() {
           <Stack.Screen name="vault/updates" />
           <Stack.Screen name="vault/folder/[id]" />
           <Stack.Screen name="vault/track/[id]" />
-          <Stack.Screen name="cart" />
           <Stack.Screen name="chat/index" />
           <Stack.Screen name="chat/[id]" />
           <Stack.Screen name="merch/index" />
