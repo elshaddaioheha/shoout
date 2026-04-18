@@ -2,6 +2,7 @@ import { Platform } from 'react-native';
 import { normalize } from '../utils/responsive';
 
 export const FontFamily = {
+    light: 'Poppins-Light',
     regular: 'Poppins-Regular',
     medium: 'Poppins-Medium',
     semiBold: 'Poppins-SemiBold',

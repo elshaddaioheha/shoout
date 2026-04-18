@@ -1,11 +1,11 @@
 /**
  * ModePillButton - top-left app switcher pill with embedded rings logo.
  */
-import { ViewMode } from '@/store/useUserStore';
-import { useAppTheme } from '@/hooks/use-app-theme';
-import { typography } from '@/constants/typography';
-import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { Icon } from '@/components/ui/Icon';
+import { FontFamily, typography } from '@/constants/typography';
+import { useAppTheme } from '@/hooks/use-app-theme';
+import { ViewMode } from '@/store/useUserStore';
+import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useRef } from 'react';
@@ -193,6 +193,7 @@ const legacyStyles = {
     },
     label: {
         ...typography.buttonSm,
+        fontFamily: FontFamily.semiBold,
         marginRight: 8,
         color: '#FFFFFF',
     },
@@ -202,15 +203,15 @@ const legacyStyles = {
         marginRight: 6,
     },
     chevronCircle: {
-        width: 24,
-        height: 24,
-        borderRadius: 12,
+        width: 26,
+        height: 26,
+        borderRadius: 13,
         alignItems: 'center',
         justifyContent: 'center',
     },
     chevronCircleCompact: {
-        width: 20,
-        height: 20,
-        borderRadius: 10,
+        width: 22,
+        height: 22,
+        borderRadius: 11,
     },
 };

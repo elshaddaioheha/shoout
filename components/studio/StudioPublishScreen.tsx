@@ -1,16 +1,16 @@
 import { useAppSwitcherContext } from '@/app/(tabs)/_layout';
 import SharedHeader from '@/components/SharedHeader';
+import { Icon } from '@/components/ui/Icon';
+import { IconButton } from '@/components/ui/IconButton';
 import { theme } from '@/constants/theme';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { useStudioWorkspaceData } from '@/hooks/useStudioWorkspaceData';
 import { useAuthStore } from '@/store/useAuthStore';
+import { getModeSurfaceTheme, getModeTheme } from '@/utils/appModeTheme';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
-import { getModeTheme } from '@/utils/appModeTheme';
 import { formatUsd } from '@/utils/pricing';
 import { canUseStudioServices, getEffectivePlan } from '@/utils/subscriptions';
 import { useRouter } from 'expo-router';
-import { Icon } from '@/components/ui/Icon';
-import { IconButton } from '@/components/ui/IconButton';
 import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -32,10 +32,11 @@ export default function StudioPublishScreen() {
   const currentPlan = getEffectivePlan(useAuthStore((state) => state.actualRole));
   const canUseServices = canUseStudioServices(currentPlan);
   const { tracks, drafts, publishedTracks, recentTransactions, loading } = useStudioWorkspaceData();
-  const modeTheme = getModeTheme(viewMode === 'hybrid' ? 'hybrid' : 'studio');
+  const modeTheme = getModeSurfaceTheme(viewMode === 'hybrid' ? 'hybrid' : 'studio', appTheme.isDark);
   const accentColor = modeTheme.accent;
   const accentTint = modeTheme.accentTint;
   const accentCard = modeTheme.accentSoft;
+  const onAccent = modeTheme.onAccent;
 
   const requireStudioSubscription = () => {
     if (canUseServices) return false;
@@ -61,8 +62,8 @@ export default function StudioPublishScreen() {
             if (requireStudioSubscription()) return;
             router.push('/studio/upload' as any);
           }} activeOpacity={0.9}>
-            <Icon name="upload-cloud" size={18} color={appTheme.colors.textPrimary} />
-            <Text style={styles.heroButtonText}>Upload New Track</Text>
+            <Icon name="upload-cloud" size={18} color={onAccent} />
+            <Text style={[styles.heroButtonText, { color: onAccent }]}>Upload New Track</Text>
           </TouchableOpacity>
         </View>
 
@@ -134,7 +135,7 @@ export default function StudioPublishScreen() {
           {recentTransactions.map((tx) => (
             <View key={tx.id} style={styles.trackRow}>
               <View style={styles.trackIcon}>
-                <CircleDollarSign size={18} color={accentColor} />
+                <Icon name="circle-dollar-sign" size={18} color={accentColor} />
               </View>
               <View style={styles.trackInfo}>
                 <Text style={styles.trackTitle} numberOfLines={1}>{tx.trackTitle || 'Track purchased'}</Text>

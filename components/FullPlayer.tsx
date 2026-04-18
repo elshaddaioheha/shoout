@@ -1,28 +1,27 @@
-import { usePlaybackStore } from '@/store/usePlaybackStore';
-import { useCartStore } from '@/store/useCartStore';
-import { useToastStore } from '@/store/useToastStore';
-import { useAccessibilityStore } from '@/store/useAccessibilityStore';
-import { auth, db } from '@/firebaseConfig';
-import { useAppTheme } from '@/hooks/use-app-theme';
-import { spacing } from '@/constants/spacing';
-import { typography, FontFamily } from '@/constants/typography';
-import { useReducedMotion } from '@/hooks/use-reduced-motion';
-import { adaptLegacyColor, adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { Icon } from '@/components/ui/Icon';
 import { IconButton } from '@/components/ui/IconButton';
-import { Image } from 'expo-image';
-import ImageColors from 'react-native-image-colors';
+import { colorPalettes } from '@/constants/colors';
+import { spacing } from '@/constants/spacing';
+import { FontFamily, typography } from '@/constants/typography';
+import { auth, db } from '@/firebaseConfig';
+import { useAppTheme } from '@/hooks/use-app-theme';
+import { useReducedMotion } from '@/hooks/use-reduced-motion';
+import { useAccessibilityStore } from '@/store/useAccessibilityStore';
+import { useCartStore } from '@/store/useCartStore';
+import { usePlaybackStore } from '@/store/usePlaybackStore';
+import { useToastStore } from '@/store/useToastStore';
+import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
-import { useRouter } from 'expo-router';
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
 import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, limit, onSnapshot, query, serverTimestamp, setDoc, where } from 'firebase/firestore';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
     AccessibilityInfo,
     ActivityIndicator,
     Animated,
-    Dimensions,
     LayoutChangeEvent,
     PanResponder,
     Pressable,
@@ -32,15 +31,16 @@ import {
     StyleSheet,
     Text,
     TouchableOpacity,
+    useWindowDimensions,
     View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import ImageColors from 'react-native-image-colors';
 import Reanimated, {
     FadeIn,
     FadeOut,
+    interpolate,
     SlideInDown,
     SlideOutDown,
-    interpolate,
     useAnimatedStyle,
     useFrameCallback,
     useSharedValue,
@@ -48,14 +48,15 @@ import Reanimated, {
     withSpring,
     withTiming,
 } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const { width } = Dimensions.get('window');
 const PLAYER_DISMISS_NAV_DELAY_MS = 300;
 const TRACK_SHARE_BASE_URL = 'https://shoout.app/track';
 
 interface FullPlayerProps {
     visible: boolean;
     onClose: () => void;
+    persistentMode?: boolean;
 }
 
 interface MenuRowProps {
@@ -65,17 +66,62 @@ interface MenuRowProps {
     isDanger?: boolean;
 }
 
+function getRgbFromColor(input: string): [number, number, number] | null {
+    const color = input.trim();
+
+    if (color.startsWith('#')) {
+        const hex = color.slice(1);
+        if (hex.length === 3) {
+            const r = parseInt(hex[0] + hex[0], 16);
+            const g = parseInt(hex[1] + hex[1], 16);
+            const b = parseInt(hex[2] + hex[2], 16);
+            return [r, g, b];
+        }
+        if (hex.length === 6) {
+            const r = parseInt(hex.slice(0, 2), 16);
+            const g = parseInt(hex.slice(2, 4), 16);
+            const b = parseInt(hex.slice(4, 6), 16);
+            return [r, g, b];
+        }
+    }
+
+    const rgbMatch = color.match(/rgba?\(([^)]+)\)/i);
+    if (rgbMatch) {
+        const parts = rgbMatch[1].split(',').map((part) => Number(part.trim()));
+        if (parts.length >= 3 && parts.slice(0, 3).every((value) => Number.isFinite(value))) {
+            return [parts[0], parts[1], parts[2]];
+        }
+    }
+
+    return null;
+}
+
+function getRelativeLuminance(color: string): number | null {
+    const rgb = getRgbFromColor(color);
+    if (!rgb) {
+        return null;
+    }
+
+    const [r, g, b] = rgb.map((channel) => {
+        const value = channel / 255;
+        return value <= 0.03928 ? value / 12.92 : Math.pow((value + 0.055) / 1.055, 2.4);
+    });
+
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
 function useFullPlayerStyles() {
     const appTheme = useAppTheme();
     return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
 }
 
-export default function FullPlayer({ visible, onClose }: FullPlayerProps) {
+export default function FullPlayer({ visible, onClose, persistentMode = false }: FullPlayerProps) {
     const appTheme = useAppTheme();
     const reduceMotion = useReducedMotion();
     const screenReaderEnabled = useAccessibilityStore((state) => state.screenReaderEnabled);
     const styles = useFullPlayerStyles();
-    const darkIconOnLight = adaptLegacyColor('#140F10', 'color', appTheme);
+    const { width: viewportWidth, height: viewportHeight } = useWindowDimensions();
+    const isLargeViewport = persistentMode || viewportWidth >= 1024;
 
     const router = useRouter();
     const { addItem } = useCartStore();
@@ -102,6 +148,27 @@ export default function FullPlayer({ visible, onClose }: FullPlayerProps) {
     const [showTotalOnRight, setShowTotalOnRight] = useState(false);
     const [showOptionsMenu, setShowOptionsMenu] = useState(false);
     const [artColors, setArtColors] = useState({ dominant: '#140F10', vibrant: '#EC5C39' });
+    const dominantLuminance = React.useMemo(() => getRelativeLuminance(artColors.dominant), [artColors.dominant]);
+    const isLightArtwork = (dominantLuminance ?? (appTheme.isDark ? 0 : 1)) > 0.56;
+    const contrastTokens = isLightArtwork ? colorPalettes.light : colorPalettes.dark;
+    const controlDeckTint = isLightArtwork ? 'light' : 'dark';
+    const controlDeckBackground = contrastTokens.backgroundElevated;
+    const controlDeckBorderColor = contrastTokens.borderStrong;
+    const controlDeckBackdropColor = contrastTokens.overlay;
+    const foregroundPrimary = contrastTokens.textPrimary;
+    const foregroundSecondary = contrastTokens.textSecondary;
+    const foregroundTertiary = contrastTokens.textTertiary;
+    const foregroundDisabled = contrastTokens.textDisabled;
+    const controlSurfaceColor = contrastTokens.surfaceMuted;
+    const controlSurfaceBorder = contrastTokens.borderStrong;
+    const playGlyphColor = colorPalettes.light.textPrimary;
+    const seekTrackBackground = controlSurfaceColor;
+    const seekTrackFillStart = contrastTokens.primaryLight;
+    const seekTrackFillEnd = contrastTokens.primary;
+    const seekKnobBackground = colorPalettes.light.textPrimary;
+    const seekKnobBorder = contrastTokens.primary;
+    const purchaseButtonBackground = contrastTokens.primary;
+    const purchaseButtonForeground = isLightArtwork ? colorPalettes.dark.textPrimary : colorPalettes.light.textPrimary;
 
     // Slider state
     const sliderWidth = useRef(0);
@@ -430,7 +497,14 @@ export default function FullPlayer({ visible, onClose }: FullPlayerProps) {
             }}
         >
             <View style={styles.menuIconContainer}>{icon}</View>
-            <Text style={[styles.menuText, isDanger && styles.menuTextDanger]}>{label}</Text>
+            <Text
+                style={[
+                    styles.menuText,
+                    { color: isDanger ? contrastTokens.error : foregroundPrimary },
+                ]}
+            >
+                {label}
+            </Text>
         </TouchableOpacity>
     );
 
@@ -442,9 +516,7 @@ export default function FullPlayer({ visible, onClose }: FullPlayerProps) {
             previousTapTimeoutRef.current = null;
             playPreviousTrack({ goToPreviousTrack: true }).catch((error) => {
                 console.error('Double-tap previous failed:', error);
-                showToast('Could not play previous track.', 'error');
             });
-            showToast('Playing previous track.', 'info');
             return;
         }
 
@@ -452,56 +524,34 @@ export default function FullPlayer({ visible, onClose }: FullPlayerProps) {
             previousTapTimeoutRef.current = null;
             playPreviousTrack().catch((error) => {
                 console.error('Restart track failed:', error);
-                showToast('Could not restart track.', 'error');
             });
-            showToast('Track restarted.', 'info');
         }, windowMs);
     };
 
-    const handlePlayPausePress = async () => {
-        try {
-            await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => null);
-            await togglePlayPause();
-            showToast(isPlaying ? 'Playback paused.' : 'Playback resumed.', 'info');
-        } catch (error) {
+    const handlePlayPausePress = () => {
+        void Haptics.selectionAsync().catch(() => null);
+        void togglePlayPause().catch((error) => {
             console.error('Play/pause failed:', error);
-            showToast('Could not change playback state.', 'error');
-        }
+        });
     };
 
-    const handleNextPress = async () => {
-        try {
-            await playNextTrack();
-            showToast('Playing next track.', 'info');
-        } catch (error) {
+    const handleNextPress = () => {
+        void Haptics.selectionAsync().catch(() => null);
+        void playNextTrack().catch((error) => {
             console.error('Next track failed:', error);
-            showToast('Could not play next track.', 'error');
-        }
+        });
     };
 
-    const handleShuffleToggle = async () => {
-        try {
-            await setShuffleMode(!shuffleActive);
-            showToast(!shuffleActive ? 'Shuffle enabled.' : 'Shuffle disabled.', 'info');
-        } catch (error) {
+    const handleShuffleToggle = () => {
+        void Haptics.selectionAsync().catch(() => null);
+        void setShuffleMode(!shuffleActive).catch((error) => {
             console.error('Shuffle toggle failed:', error);
-            showToast('Could not update shuffle mode.', 'error');
-        }
+        });
     };
 
     const handleRepeatCycle = () => {
-        try {
-            const nextMode = cycleRepeatMode();
-            const message = nextMode === 'off'
-                ? 'Repeat off.'
-                : nextMode === 'all'
-                    ? 'Repeat all enabled.'
-                    : 'Repeat one enabled.';
-            showToast(message, 'info');
-        } catch (error) {
-            console.error('Repeat toggle failed:', error);
-            showToast('Could not update repeat mode.', 'error');
-        }
+        void Haptics.selectionAsync().catch(() => null);
+        return cycleRepeatMode();
     };
 
     useEffect(() => {
@@ -646,7 +696,7 @@ export default function FullPlayer({ visible, onClose }: FullPlayerProps) {
     const releaseYear = ((currentTrack as any)?.releaseYear as string | number | undefined) || '2025' || 'Unknown Year';
 
     return (
-        <View style={styles.container}>
+        <View style={[styles.container, isLargeViewport && styles.containerLarge]}>
             <StatusBar barStyle={appTheme.isDark ? 'light-content' : 'dark-content'} translucent backgroundColor="transparent" />
 
             <LinearGradient
@@ -658,27 +708,32 @@ export default function FullPlayer({ visible, onClose }: FullPlayerProps) {
                 <View style={styles.headerRow}>
                     <IconButton
                         onPress={onClose}
-                        style={styles.headerButton}
+                        style={[styles.headerButton, { backgroundColor: controlSurfaceColor, borderColor: controlSurfaceBorder }]}
                         icon="chevron-down"
                         size={30}
-                        color="#FFFFFF"
+                        color={foregroundPrimary}
                         accessibilityRole="button"
                         accessibilityLabel="Close player"
                         accessibilityHint={screenReaderEnabled ? 'Dismisses the full player.' : undefined}
                     />
                     <IconButton
-                        style={styles.headerButton}
+                        style={[styles.headerButton, { backgroundColor: controlSurfaceColor, borderColor: controlSurfaceBorder }]}
                         onPress={handleMoreOptions}
                         icon="more-horizontal"
                         size={26}
-                        color="#FFFFFF"
+                        color={foregroundPrimary}
                         accessibilityRole="button"
                         accessibilityLabel="More options"
                         accessibilityHint={screenReaderEnabled ? 'Opens the track actions menu.' : undefined}
                     />
                 </View>
 
-                <View style={styles.artworkFrame}>
+                <View
+                    style={[
+                        styles.artworkFrame,
+                        isLargeViewport ? { minHeight: Math.max(260, Math.floor(viewportHeight * 0.42)) } : null,
+                    ]}
+                >
                     <View style={[styles.artworkGlow, { shadowColor: artColors.vibrant, backgroundColor: artColors.vibrant }]} />
                     <LinearGradient
                         colors={[`${artColors.vibrant}66`, 'rgba(10,10,10,0.1)', 'rgba(10,10,10,0.75)']}
@@ -700,22 +755,35 @@ export default function FullPlayer({ visible, onClose }: FullPlayerProps) {
                 </View>
             </View>
 
-            <BlurView intensity={40} tint="dark" style={[styles.controlDeck, { paddingBottom: insets.bottom + spacing.md }]}>
-                <View style={styles.controlDeckInner}>
+            <BlurView
+                intensity={40}
+                tint={controlDeckTint}
+                style={[
+                    styles.controlDeck,
+                    isLargeViewport && styles.controlDeckLarge,
+                    {
+                        paddingBottom: insets.bottom + spacing.md + (isLargeViewport ? spacing.sm : 0),
+                        borderColor: controlDeckBorderColor,
+                        backgroundColor: controlDeckBackground,
+                    },
+                ]}
+            >
+                <View pointerEvents="none" style={[styles.controlDeckBackdrop, { backgroundColor: controlDeckBackdropColor }]} />
+                <View style={[styles.controlDeckInner, isLargeViewport && styles.controlDeckInnerLarge]}>
                     <View style={styles.topControlRow}>
                         <View style={styles.trackInfoLeft}>
-                            <Text numberOfLines={1} style={styles.trackTitle}>{currentTrack.title}</Text>
-                            <Text numberOfLines={1} style={styles.trackArtist}>{currentTrack.artist}</Text>
-                            <Text numberOfLines={1} style={styles.trackMeta}>{`${albumMeta} • ${releaseYear}`}</Text>
+                            <Text numberOfLines={1} style={[styles.trackTitle, { color: foregroundPrimary }]}>{currentTrack.title}</Text>
+                            <Text numberOfLines={1} style={[styles.trackArtist, { color: foregroundSecondary }]}>{currentTrack.artist}</Text>
+                            <Text numberOfLines={1} style={[styles.trackMeta, { color: foregroundTertiary }]}>{`${albumMeta} • ${releaseYear}`}</Text>
                         </View>
                         <View style={styles.socialActionRow}>
                             <Reanimated.View style={heartAnimatedStyle}>
                                 <IconButton
                                     onPress={toggleFavourite}
-                                    style={styles.socialButton}
+                                    style={[styles.socialButton, { backgroundColor: controlSurfaceColor, borderColor: controlSurfaceBorder }]}
                                     icon="heart"
                                     size={26}
-                                    color={liked ? artColors.vibrant : '#FFFFFF'}
+                                    color={liked ? artColors.vibrant : foregroundPrimary}
                                     fill={liked}
                                     iosAnimation={reduceMotion ? undefined : { effect: 'bounce', wholeSymbol: true, speed: 1.05 }}
                                     accessibilityRole="button"
@@ -726,10 +794,10 @@ export default function FullPlayer({ visible, onClose }: FullPlayerProps) {
                             </Reanimated.View>
                             <IconButton
                                 onPress={handleShare}
-                                style={styles.socialButton}
+                                style={[styles.socialButton, { backgroundColor: controlSurfaceColor, borderColor: controlSurfaceBorder }]}
                                 icon="share"
                                 size={22}
-                                color="#FFFFFF"
+                                color={foregroundPrimary}
                                 accessibilityRole="button"
                                 accessibilityLabel="Share track"
                                 accessibilityHint={screenReaderEnabled ? 'Opens the share sheet for this track.' : undefined}
@@ -745,9 +813,9 @@ export default function FullPlayer({ visible, onClose }: FullPlayerProps) {
                             {...panResponder.panHandlers}
                         >
                             <View style={styles.sliderTrack}>
-                                <Reanimated.View style={[styles.sliderFill, sliderFillAnimatedStyle]}>
+                                <Reanimated.View style={[styles.sliderFill, { backgroundColor: seekTrackBackground }, sliderFillAnimatedStyle]}>
                                     <LinearGradient
-                                        colors={[artColors.vibrant, `${artColors.vibrant}CC`]}
+                                        colors={[seekTrackFillStart, seekTrackFillEnd]}
                                         start={{ x: 0, y: 0.5 }}
                                         end={{ x: 1, y: 0.5 }}
                                         style={StyleSheet.absoluteFill}
@@ -758,9 +826,10 @@ export default function FullPlayer({ visible, onClose }: FullPlayerProps) {
                                         styles.sliderKnob,
                                         {
                                             transform: [{ translateX: -10 }, { scale: knobScale }],
-                                            borderColor: artColors.vibrant,
-                                            shadowColor: artColors.vibrant,
+                                            borderColor: seekKnobBorder,
+                                            shadowColor: seekKnobBorder,
                                             opacity: knobGlow,
+                                            backgroundColor: seekKnobBackground,
                                         },
                                         sliderKnobAnimatedStyle,
                                     ]}
@@ -769,9 +838,9 @@ export default function FullPlayer({ visible, onClose }: FullPlayerProps) {
                         </View>
 
                         <View style={styles.timeRow}>
-                            <Text style={styles.timeText}>{formatTime(elapsed)}</Text>
+                            <Text style={[styles.timeText, { color: foregroundPrimary }]}>{formatTime(elapsed)}</Text>
                             <TouchableOpacity onPress={() => setShowTotalOnRight((v) => !v)}>
-                                <Text style={styles.timeText}>{showTotalOnRight ? formatTime(duration) : `-${formatTime(remaining)}`}</Text>
+                                <Text style={[styles.timeText, { color: foregroundPrimary }]}>{showTotalOnRight ? formatTime(duration) : `-${formatTime(remaining)}`}</Text>
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -782,7 +851,7 @@ export default function FullPlayer({ visible, onClose }: FullPlayerProps) {
                             style={styles.skipButton}
                             icon="skip-back"
                             size={30}
-                            color="#FFFFFF"
+                            color={foregroundPrimary}
                             fill
                             accessibilityRole="button"
                             accessibilityLabel="Previous track"
@@ -799,14 +868,14 @@ export default function FullPlayer({ visible, onClose }: FullPlayerProps) {
                         >
                             <Reanimated.View style={playPauseButtonAnimatedStyle}>
                                 {isBuffering ? (
-                                    <ActivityIndicator size="large" color={darkIconOnLight} />
+                                    <ActivityIndicator size="large" color={playGlyphColor} />
                                 ) : (
                                     <View style={styles.playGlyphStack}>
                                         <Reanimated.View style={[styles.playGlyphLayer, playGlyphAnimatedStyle]}>
                                             <Icon
                                                 name="play"
                                                 size={38}
-                                                color={darkIconOnLight}
+                                                color={playGlyphColor}
                                                 fill
                                                 iosAnimation={reduceMotion ? undefined : { effect: 'scale', wholeSymbol: true, speed: 1 }}
                                                 style={{ marginLeft: spacing.xs }}
@@ -816,7 +885,7 @@ export default function FullPlayer({ visible, onClose }: FullPlayerProps) {
                                             <Icon
                                                 name="pause"
                                                 size={38}
-                                                color={darkIconOnLight}
+                                                color={playGlyphColor}
                                                 fill
                                                 iosAnimation={reduceMotion ? undefined : { effect: 'scale', wholeSymbol: true, speed: 1 }}
                                             />
@@ -831,7 +900,7 @@ export default function FullPlayer({ visible, onClose }: FullPlayerProps) {
                             style={styles.skipButton}
                             icon="skip-forward"
                             size={30}
-                            color="#FFFFFF"
+                            color={foregroundPrimary}
                             fill
                             accessibilityRole="button"
                             accessibilityLabel="Next track"
@@ -842,10 +911,14 @@ export default function FullPlayer({ visible, onClose }: FullPlayerProps) {
                     <View style={styles.secondaryModeRow}>
                         <IconButton
                             onPress={handleShuffleToggle}
-                            style={[styles.modeButton, shuffleActive && { borderColor: artColors.vibrant, backgroundColor: 'rgba(255,255,255,0.08)' }]}
+                            style={[
+                                styles.modeButton,
+                                { backgroundColor: controlSurfaceColor, borderColor: controlSurfaceBorder },
+                                shuffleActive && { borderColor: artColors.vibrant, backgroundColor: controlSurfaceColor },
+                            ]}
                             icon="shuffle"
                             size={18}
-                            color={shuffleActive ? artColors.vibrant : 'rgba(255,255,255,0.45)'}
+                            color={shuffleActive ? artColors.vibrant : foregroundTertiary}
                             strokeWidth={shuffleActive ? 2.5 : 1.8}
                             accessibilityRole="button"
                             accessibilityLabel={shuffleActive ? 'Disable shuffle' : 'Enable shuffle'}
@@ -854,10 +927,14 @@ export default function FullPlayer({ visible, onClose }: FullPlayerProps) {
                         />
                         <IconButton
                             onPress={handleRepeatCycle}
-                            style={[styles.modeButton, repeatMode !== 'off' && { borderColor: artColors.vibrant, backgroundColor: 'rgba(255,255,255,0.08)' }]}
+                            style={[
+                                styles.modeButton,
+                                { backgroundColor: controlSurfaceColor, borderColor: controlSurfaceBorder },
+                                repeatMode !== 'off' && { borderColor: artColors.vibrant, backgroundColor: controlSurfaceColor },
+                            ]}
                             icon={repeatMode === 'one' ? 'repeat-one' : 'repeat'}
                             size={18}
-                            color={repeatMode === 'off' ? 'rgba(255,255,255,0.45)' : artColors.vibrant}
+                            color={repeatMode === 'off' ? foregroundTertiary : artColors.vibrant}
                             strokeWidth={repeatMode === 'off' ? 1.8 : 2.5}
                             accessibilityRole="button"
                             accessibilityLabel={repeatMode === 'off' ? 'Enable repeat all' : repeatMode === 'all' ? 'Enable repeat one' : 'Disable repeat'}
@@ -869,14 +946,15 @@ export default function FullPlayer({ visible, onClose }: FullPlayerProps) {
                     <TouchableOpacity
                         style={[
                             styles.purchaseButton,
-                            { backgroundColor: artColors.vibrant },
+                            { backgroundColor: purchaseButtonBackground, borderColor: controlDeckBorderColor },
                             alreadyPurchased && styles.purchaseButtonDisabled,
+                            alreadyPurchased && { backgroundColor: controlSurfaceColor, borderColor: controlSurfaceBorder },
                         ]}
                         onPress={handlePurchase}
                         activeOpacity={0.8}
                         disabled={alreadyPurchased}
                     >
-                        <Text style={styles.purchaseButtonText}>
+                        <Text style={[styles.purchaseButtonText, { color: alreadyPurchased ? foregroundDisabled : purchaseButtonForeground }]}>
                             {alreadyPurchased ? 'License Owned' : 'Purchase Beat • $29.99'}
                         </Text>
                     </TouchableOpacity>
@@ -912,17 +990,17 @@ export default function FullPlayer({ visible, onClose }: FullPlayerProps) {
 
                             <ScrollView bounces={false} showsVerticalScrollIndicator={false} contentContainerStyle={styles.menuScroll}>
                                 <MenuRow
-                                    icon={<Icon name="heart" size={20} color={liked ? artColors.vibrant : '#FFFFFF'} fill={liked} />}
+                                    icon={<Icon name="heart" size={20} color={liked ? artColors.vibrant : foregroundPrimary} fill={liked} />}
                                     label={liked ? 'Remove from Favourites' : 'Add to Favourites'}
                                     onPress={() => runMenuAction(toggleFavourite)}
                                 />
                                 <MenuRow
-                                    icon={<Icon name="list" size={20} color="#FFFFFF" />}
+                                    icon={<Icon name="list" size={20} color={foregroundPrimary} />}
                                     label="Add to Playlist"
                                     onPress={() => runMenuAction(addCurrentTrackToPlaylist)}
                                 />
                                 <MenuRow
-                                    icon={<Icon name="cart" size={20} color="#FFFFFF" />}
+                                    icon={<Icon name="cart" size={20} color={foregroundPrimary} />}
                                     label="Add to Cart"
                                     onPress={() => runMenuAction(quickAddToCart)}
                                 />
@@ -930,17 +1008,17 @@ export default function FullPlayer({ visible, onClose }: FullPlayerProps) {
                                 <View style={styles.menuDivider} />
 
                                 <MenuRow
-                                    icon={<Icon name="info" size={20} color="#FFFFFF" />}
+                                    icon={<Icon name="info" size={20} color={foregroundPrimary} />}
                                     label="View Track Details"
                                     onPress={() => runMenuAction(openTrackDetails)}
                                 />
                                 <MenuRow
-                                    icon={<Icon name="user" size={20} color="#FFFFFF" />}
+                                    icon={<Icon name="user" size={20} color={foregroundPrimary} />}
                                     label="Go to Artist"
                                     onPress={() => runMenuAction(goToArtist)}
                                 />
                                 <MenuRow
-                                    icon={<Icon name="share" size={20} color="#FFFFFF" />}
+                                    icon={<Icon name="share" size={20} color={foregroundPrimary} />}
                                     label="Share Track"
                                     onPress={() => runMenuAction(handleShare)}
                                 />
@@ -948,7 +1026,7 @@ export default function FullPlayer({ visible, onClose }: FullPlayerProps) {
                                 <View style={styles.menuDivider} />
 
                                 <MenuRow
-                                    icon={<Icon name="shield-alert" size={20} color="#FF453A" />}
+                                    icon={<Icon name="shield-alert" size={20} color={contrastTokens.error} />}
                                     label="Report Audio"
                                     isDanger
                                     onPress={() => runMenuAction(reportTrack)}
@@ -966,6 +1044,9 @@ const legacyStyles = {
     container: {
         flex: 1,
         backgroundColor: '#140F10',
+    },
+    containerLarge: {
+        minHeight: 520,
     },
     scrollContent: {
         flexGrow: 1,
@@ -1036,19 +1117,31 @@ const legacyStyles = {
         borderTopLeftRadius: 28,
         borderTopRightRadius: 28,
         borderTopWidth: StyleSheet.hairlineWidth,
-        borderColor: 'rgba(255,255,255,0.18)',
-        backgroundColor: 'rgba(12, 10, 10, 0.72)',
+        borderColor: 'rgba(255,255,255,0.28)',
+        backgroundColor: 'rgba(8, 8, 10, 0.86)',
         overflow: 'hidden',
         shadowColor: '#000000',
         shadowOffset: { width: 0, height: -8 },
-        shadowOpacity: 0.28,
+        shadowOpacity: 0.36,
         shadowRadius: 24,
         elevation: 18,
+    },
+    controlDeckBackdrop: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(0,0,0,0.36)',
+    },
+    controlDeckLarge: {
+        maxHeight: '58%',
     },
     controlDeckInner: {
         paddingHorizontal: spacing.xl,
         paddingTop: spacing.lg,
         gap: spacing.md,
+    },
+    controlDeckInnerLarge: {
+        width: '100%',
+        maxWidth: 540,
+        alignSelf: 'center',
     },
     topControlRow: {
         flexDirection: 'row',
@@ -1065,9 +1158,12 @@ const legacyStyles = {
         ...typography.h2,
         fontFamily: FontFamily.bold,
         letterSpacing: 0.1,
+        textShadowColor: 'rgba(0,0,0,0.45)',
+        textShadowOffset: { width: 0, height: 1 },
+        textShadowRadius: 2,
     },
     trackArtist: {
-        color: 'rgba(255,255,255,0.55)',
+        color: 'rgba(255,255,255,0.82)',
         ...typography.body,
         fontFamily: FontFamily.regular,
         marginTop: spacing.xs,
@@ -1077,7 +1173,7 @@ const legacyStyles = {
         fontFamily: FontFamily.mono,
         marginTop: spacing.sm,
         letterSpacing: 1.1,
-        color: 'rgba(255,255,255,0.45)',
+        color: 'rgba(255,255,255,0.68)',
     },
     socialActionRow: {
         flexDirection: 'row',
@@ -1092,19 +1188,18 @@ const legacyStyles = {
         padding: spacing.sm,
         borderRadius: 18,
         borderWidth: StyleSheet.hairlineWidth,
-        borderColor: 'rgba(255,255,255,0.16)',
-        backgroundColor: 'rgba(255,255,255,0.08)',
+        borderColor: 'rgba(255,255,255,0.3)',
+        backgroundColor: 'rgba(255,255,255,0.16)',
     },
     sliderContainer: {
-        gap: spacing.sm,
+        gap: spacing.xs,
     },
     sliderTouchArea: {
-        height: 40,
+        height: 32,
         justifyContent: 'center',
     },
     sliderTrack: {
-        height: 8,
-        backgroundColor: 'rgba(255,255,255,0.12)',
+        height: 4,
         borderRadius: 999,
         position: 'relative',
         overflow: 'visible',
@@ -1116,16 +1211,15 @@ const legacyStyles = {
     },
     sliderKnob: {
         position: 'absolute',
-        width: 20,
-        height: 20,
-        borderRadius: 10,
-        backgroundColor: 'white',
+        width: 16,
+        height: 16,
+        borderRadius: 8,
         borderWidth: StyleSheet.hairlineWidth,
-        top: -4,
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.8,
-        shadowRadius: 12,
-        elevation: 12,
+        top: -6,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.7,
+        shadowRadius: 8,
+        elevation: 8,
     },
     timeRow: {
         flexDirection: 'row',
@@ -1133,7 +1227,7 @@ const legacyStyles = {
         marginTop: 2,
     },
     timeText: {
-        color: 'rgba(255,255,255,0.92)',
+        color: 'rgba(255,255,255,0.98)',
         ...typography.label,
         fontFamily: FontFamily.mono,
         letterSpacing: 1.1,
@@ -1151,8 +1245,8 @@ const legacyStyles = {
         alignItems: 'center',
         justifyContent: 'center',
         borderWidth: StyleSheet.hairlineWidth,
-        borderColor: 'rgba(255,255,255,0.14)',
-        backgroundColor: 'rgba(255,255,255,0.05)',
+        borderColor: 'rgba(255,255,255,0.24)',
+        backgroundColor: 'rgba(255,255,255,0.14)',
     },
     skipButton: {
         minWidth: spacing.touchTarget,
@@ -1198,7 +1292,6 @@ const legacyStyles = {
         alignItems: 'center',
         justifyContent: 'center',
         borderWidth: StyleSheet.hairlineWidth,
-        borderColor: 'rgba(255,255,255,0.3)',
         marginTop: spacing.sm,
         shadowColor: '#000000',
         shadowOffset: { width: 0, height: 8 },
@@ -1207,7 +1300,7 @@ const legacyStyles = {
         elevation: 8,
     },
     purchaseButtonDisabled: {
-        backgroundColor: 'rgba(255,255,255,0.18)',
+        backgroundColor: 'rgba(255,255,255,0.12)',
     },
     purchaseButtonText: {
         color: '#FFFFFF',

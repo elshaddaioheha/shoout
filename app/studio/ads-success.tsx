@@ -1,5 +1,6 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import { useAppTheme } from '@/hooks/use-app-theme';
+import { getModeSurfaceTheme } from '@/utils/appModeTheme';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Check } from 'lucide-react-native';
@@ -8,11 +9,46 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 function useAdsSuccessStyles() {
   const appTheme = useAppTheme();
-  return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+  const modeTheme = getModeSurfaceTheme('studio', appTheme.isDark);
+  return React.useMemo(() => {
+    const baseStyles = adaptLegacyStyles(legacyStyles, appTheme) as Record<string, any>;
+    const overrides: Record<string, any> = {
+      screen: { backgroundColor: appTheme.colors.background },
+      overlay: { backgroundColor: appTheme.colors.overlay },
+      popupWrap: { backgroundColor: appTheme.colors.backgroundElevated, borderColor: appTheme.colors.borderStrong, borderWidth: 1 },
+      checkRing: { borderColor: modeTheme.actionBorder, backgroundColor: modeTheme.accent },
+      title: { color: appTheme.colors.textPrimary },
+      primaryButton: { borderColor: modeTheme.actionBorder, backgroundColor: modeTheme.accent },
+      primaryText: { color: modeTheme.onAccent },
+    };
+
+    const merged = Object.keys({ ...baseStyles, ...overrides }).reduce<Record<string, any>>((acc, key) => {
+      const baseValue = baseStyles[key];
+      const overrideValue = overrides[key];
+
+      if (
+        baseValue &&
+        overrideValue &&
+        typeof baseValue === 'object' &&
+        typeof overrideValue === 'object' &&
+        !Array.isArray(baseValue) &&
+        !Array.isArray(overrideValue)
+      ) {
+        acc[key] = { ...baseValue, ...overrideValue };
+        return acc;
+      }
+
+      acc[key] = overrideValue ?? baseValue;
+      return acc;
+    }, {});
+
+    return StyleSheet.create(merged as any);
+  }, [appTheme, modeTheme]);
 }
 
 export default function AdsSuccessScreen() {
   const appTheme = useAppTheme();
+  const modeTheme = getModeSurfaceTheme('studio', appTheme.isDark);
   const styles = useAdsSuccessStyles();
 
   const router = useRouter();
@@ -27,7 +63,7 @@ export default function AdsSuccessScreen() {
           <View style={styles.popupCard}>
             <View style={styles.checkRing}>
               <View style={styles.checkCore}>
-                <Check size={28} color={appTheme.colors.textPrimary} strokeWidth={3.2} />
+                <Check size={28} color={modeTheme.onAccent} strokeWidth={3.2} />
               </View>
             </View>
 

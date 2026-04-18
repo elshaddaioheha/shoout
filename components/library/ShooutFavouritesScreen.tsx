@@ -1,21 +1,22 @@
+import { Icon } from '@/components/ui/Icon';
+import { IconButton } from '@/components/ui/IconButton';
+import { FontFamily } from '@/constants/theme';
+import { auth, db } from '@/firebaseConfig';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { usePlaybackStore } from '@/store/usePlaybackStore';
 import { useToastStore } from '@/store/useToastStore';
 import { adaptLegacyColor, adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { notifyError } from '@/utils/notify';
-import { auth, db } from '@/firebaseConfig';
 import { useRouter } from 'expo-router';
 import { collection, deleteDoc, doc, onSnapshot } from 'firebase/firestore';
-import { Icon } from '@/components/ui/Icon';
-import { IconButton } from '@/components/ui/IconButton';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Image,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Image,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -460,7 +461,7 @@ const legacyStyles = {
   },
   filterText: {
     color: '#FFFFFF',
-    fontFamily: 'Poppins-Light',
+    fontFamily: FontFamily.light,
     fontSize: 14,
     lineHeight: 25,
     letterSpacing: -0.5,
@@ -500,7 +501,7 @@ const legacyStyles = {
   },
   emptySubtitle: {
     color: 'rgba(255,255,255,0.85)',
-    fontFamily: 'Poppins-Light',
+    fontFamily: FontFamily.light,
     fontSize: 14,
     lineHeight: 18,
     letterSpacing: -0.5,
@@ -604,7 +605,7 @@ const legacyStyles = {
   },
   cardMeta: {
     color: '#FFFFFF',
-    fontFamily: 'Poppins-Light',
+    fontFamily: FontFamily.light,
     fontSize: 7,
     lineHeight: 9,
     letterSpacing: -0.5,

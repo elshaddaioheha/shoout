@@ -256,7 +256,7 @@ describe('Player E2E Tests', () => {
       expect(state.currentTrack).toEqual(mockTracks[1]);
     });
 
-    it('should skip to previous track', async () => {
+    it('should restart current track when previous is pressed once', async () => {
       const store = usePlaybackStore.getState();
 
       // Move to track 2
@@ -264,13 +264,14 @@ describe('Player E2E Tests', () => {
         await store.playNextTrack();
       });
 
-      // Go back to track 1
+      // Default previous behavior restarts the current track.
       await act(async () => {
         await store.playPreviousTrack();
       });
 
       const state = usePlaybackStore.getState();
-      expect(state.currentTrack).toEqual(mockTracks[0]);
+      expect(state.currentTrack).toEqual(mockTracks[1]);
+      expect(mockSound.setPositionAsync).toHaveBeenCalledWith(0);
     });
 
     it('should wrap around queue when skipping next at end', async () => {

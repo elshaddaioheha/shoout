@@ -1,6 +1,6 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import SettingsHeader from '@/components/settings/SettingsHeader';
-import { app, auth, db, storage } from '../../firebaseConfig';
+import { Icon } from '@/components/ui/Icon';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { useVaultWorkspaceData } from '@/hooks/useVaultWorkspaceData';
 import { useToastStore } from '@/store/useToastStore';
@@ -10,12 +10,12 @@ import { notifyError, notifyWarning } from '@/utils/notify';
 import * as DocumentPicker from 'expo-document-picker';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import { getFunctions, httpsCallable } from 'firebase/functions';
 import { addDoc, collection, doc, getDocs, orderBy, query, serverTimestamp, setDoc } from 'firebase/firestore';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
-import { Icon } from '@/components/ui/Icon';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { app, auth, db, storage } from '../../firebaseConfig';
 type FolderOption = {
   id: string;
   name: string;
@@ -242,7 +242,7 @@ export default function VaultUploadScreen() {
             <Text style={styles.sectionTitle}>Track file</Text>
             <TouchableOpacity style={styles.fileBox} onPress={handlePickAudio} activeOpacity={0.85}>
               <View style={styles.fileIcon}>
-                <Music4 size={22} color="#EC5C39" />
+                <Icon name="music" size={22} color="#EC5C39" />
               </View>
               <View style={styles.fileInfo}>
                 <Text style={styles.fileTitle}>{audioFile?.name || 'Choose audio file'}</Text>
@@ -258,7 +258,7 @@ export default function VaultUploadScreen() {
                 <Image source={{ uri: artworkFile.uri }} style={styles.artworkPreview} contentFit="cover" />
               ) : (
                 <View style={styles.artworkPlaceholder}>
-                  <ImageIcon size={28} color="#EC5C39" />
+                  <Icon name="image" size={28} color="#EC5C39" />
                   <Text style={styles.artworkText}>Add optional cover art</Text>
                 </View>
               )}
@@ -308,7 +308,7 @@ export default function VaultUploadScreen() {
             <View style={styles.inlineCreateRow}>
               <TextInput value={folderName} onChangeText={setFolderName} placeholder="Create new folder" placeholderTextColor={placeholderColor} style={[styles.input, styles.inlineInput]} />
               <TouchableOpacity style={styles.inlineButton} onPress={handleCreateFolder} activeOpacity={0.9}>
-                <FolderPlus size={16} color={appTheme.colors.textPrimary} />
+                <Icon name="folder-plus" size={16} color={appTheme.colors.textPrimary} />
               </TouchableOpacity>
             </View>
           </View>

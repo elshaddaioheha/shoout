@@ -1,38 +1,80 @@
 import { useAppSwitcherContext } from '@/app/(tabs)/_layout';
 import SharedHeader from '@/components/SharedHeader';
+import { Icon } from '@/components/ui/Icon';
 import { theme } from '@/constants/theme';
+import { FontFamily, typography } from '@/constants/typography';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { useStudioWorkspaceData } from '@/hooks/useStudioWorkspaceData';
 import { useAuthStore } from '@/store/useAuthStore';
+import { getModeSurfaceTheme, getModeTheme } from '@/utils/appModeTheme';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
-import { getModeTheme } from '@/utils/appModeTheme';
 import { canUseStudioServices, getEffectivePlan } from '@/utils/subscriptions';
 import { useRouter } from 'expo-router';
-import { Icon } from '@/components/ui/Icon';
 import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const studioTheme = getModeTheme('studio');
-
-function useStudioPromoteStyles() {
+function useStudioPromoteStyles(modeSurfaceTheme: ReturnType<typeof getModeSurfaceTheme>) {
   const appTheme = useAppTheme();
-  return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+  return React.useMemo(() => {
+    const baseStyles = adaptLegacyStyles(legacyStyles, appTheme) as Record<string, any>;
+    const overrides: Record<string, any> = {
+      heroCard: { backgroundColor: appTheme.colors.backgroundElevated, borderColor: appTheme.colors.borderStrong },
+      heroEyebrow: { color: modeSurfaceTheme.accentLabel },
+      heroTitle: { color: appTheme.colors.textPrimary },
+      panel: { backgroundColor: appTheme.colors.backgroundElevated, borderColor: appTheme.colors.borderStrong },
+      panelTitle: { color: appTheme.colors.textPrimary },
+      panelLink: { color: modeSurfaceTheme.accentLabel },
+      statusCard: { backgroundColor: appTheme.colors.surfaceMuted, borderColor: appTheme.colors.borderStrong },
+      statusValue: { color: appTheme.colors.textPrimary },
+      statusLabel: { color: appTheme.colors.textSecondary },
+      placeholder: { color: appTheme.colors.textSecondary },
+      trackIcon: { backgroundColor: appTheme.colors.surfaceMuted },
+      trackTitle: { color: appTheme.colors.textPrimary },
+      trackMeta: { color: appTheme.colors.textTertiary },
+      promoteChipText: { color: modeSurfaceTheme.accentLabel },
+      tipText: { color: appTheme.colors.textPrimary },
+      primaryCtaText: { color: modeSurfaceTheme.onAccent },
+    };
+
+    const merged = Object.keys({ ...baseStyles, ...overrides }).reduce<Record<string, any>>((acc, key) => {
+      const baseValue = baseStyles[key];
+      const overrideValue = overrides[key];
+
+      if (
+        baseValue &&
+        overrideValue &&
+        typeof baseValue === 'object' &&
+        typeof overrideValue === 'object' &&
+        !Array.isArray(baseValue) &&
+        !Array.isArray(overrideValue)
+      ) {
+        acc[key] = { ...baseValue, ...overrideValue };
+        return acc;
+      }
+
+      acc[key] = overrideValue ?? baseValue;
+      return acc;
+    }, {});
+
+    return StyleSheet.create(merged);
+  }, [appTheme, modeSurfaceTheme]);
 }
 
 export default function StudioPromoteScreen() {
   const appTheme = useAppTheme();
-  const styles = useStudioPromoteStyles();
-
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { openSheet, isModeSheetOpen, viewMode } = useAppSwitcherContext();
+  const modeKey = viewMode === 'hybrid' ? 'hybrid' : 'studio';
+  const modeTheme = getModeTheme(modeKey);
+  const modeSurfaceTheme = getModeSurfaceTheme(modeKey, appTheme.isDark);
+  const styles = useStudioPromoteStyles(modeSurfaceTheme);
   const currentPlan = getEffectivePlan(useAuthStore((state) => state.actualRole));
   const canUseServices = canUseStudioServices(currentPlan);
   const { topTracks } = useStudioWorkspaceData();
-  const modeTheme = getModeTheme(viewMode === 'hybrid' ? 'hybrid' : 'studio');
   const accentColor = modeTheme.accent;
-  const accentTint = modeTheme.accentTint;
+  const accentTint = modeSurfaceTheme.actionBorder;
   const accentCard = modeTheme.accentSoft;
 
   const requireStudioSubscription = () => {
@@ -59,7 +101,7 @@ export default function StudioPromoteScreen() {
             if (requireStudioSubscription()) return;
             router.push('/studio/ads-intro' as any);
           }} activeOpacity={0.9}>
-            <Icon name="rocket" size={18} color={appTheme.colors.textPrimary} />
+            <Icon name="rocket" size={18} color={modeSurfaceTheme.onAccent} />
             <Text style={styles.primaryCtaText}>Open Ad Manager</Text>
           </TouchableOpacity>
         </View>
@@ -101,7 +143,7 @@ export default function StudioPromoteScreen() {
           {topTracks.length === 0 ? <Text style={styles.placeholder}>Upload and publish tracks first. Your best-performing releases will appear here.</Text> : null}
           {topTracks.map((track) => (
             <View key={track.id} style={styles.trackRow}>
-              <View style={styles.trackIcon}>
+              <View style={[styles.trackIcon, { backgroundColor: accentCard }]}> 
                 <Icon name="music" size={18} color={accentColor} />
               </View>
               <View style={styles.trackInfo}>
@@ -131,26 +173,26 @@ const legacyStyles = {
   screen: { flex: 1, backgroundColor: theme.colors.background },
   content: { paddingHorizontal: 20, gap: 18 },
   heroCard: { marginTop: 10, backgroundColor: '#1A1A1B', borderRadius: 24, padding: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', gap: 12 },
-  heroEyebrow: { color: studioTheme.accent, fontFamily: 'Poppins-SemiBold', fontSize: 12 },
-  heroTitle: { color: theme.colors.textPrimary, fontFamily: 'Poppins-Bold', fontSize: 22, lineHeight: 30 },
-  primaryCta: { height: 48, borderRadius: 16, backgroundColor: studioTheme.accent, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8, marginTop: 4 },
-  primaryCtaText: { color: '#FFF', fontFamily: 'Poppins-SemiBold', fontSize: 14 },
+  heroEyebrow: { color: '#4CAF50', ...typography.label, fontFamily: FontFamily.semiBold },
+  heroTitle: { color: theme.colors.textPrimary, ...typography.h2, fontFamily: FontFamily.bold },
+  primaryCta: { height: 48, borderRadius: 16, backgroundColor: '#4CAF50', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8, marginTop: 4 },
+  primaryCtaText: { color: '#FFFFFF', ...typography.buttonSm, fontFamily: FontFamily.semiBold },
   panel: { backgroundColor: '#1A1A1B', borderRadius: 22, padding: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', gap: 12 },
   panelHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
-  panelTitle: { color: theme.colors.textPrimary, fontFamily: 'Poppins-SemiBold', fontSize: 17 },
-  panelLink: { color: studioTheme.accent, fontFamily: 'Poppins-Medium', fontSize: 13 },
+  panelTitle: { color: theme.colors.textPrimary, ...typography.section, fontFamily: FontFamily.semiBold },
+  panelLink: { color: '#4CAF50', ...typography.label, fontFamily: FontFamily.medium },
   statusRow: { flexDirection: 'row', gap: 12 },
   statusCard: { flex: 1, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 16, padding: 16, alignItems: 'center', gap: 6 },
-  statusValue: { color: theme.colors.textPrimary, fontFamily: 'Poppins-Bold', fontSize: 20 },
-  statusLabel: { color: 'rgba(255,255,255,0.56)', fontFamily: 'Poppins-Regular', fontSize: 12, textAlign: 'center' },
-  placeholder: { color: 'rgba(255,255,255,0.5)', fontFamily: 'Poppins-Regular', fontSize: 13, lineHeight: 20 },
+  statusValue: { color: theme.colors.textPrimary, ...typography.h3, fontFamily: FontFamily.bold },
+  statusLabel: { color: 'rgba(255,255,255,0.56)', ...typography.caption, fontFamily: FontFamily.regular, textAlign: 'center' },
+  placeholder: { color: 'rgba(255,255,255,0.5)', ...typography.body, fontFamily: FontFamily.regular },
   trackRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8 },
   trackIcon: { width: 38, height: 38, borderRadius: 12, backgroundColor: 'rgba(76,175,80,0.12)', alignItems: 'center', justifyContent: 'center' },
   trackInfo: { flex: 1 },
-  trackTitle: { color: theme.colors.textPrimary, fontFamily: 'Poppins-SemiBold', fontSize: 13 },
-  trackMeta: { color: 'rgba(255,255,255,0.55)', fontFamily: 'Poppins-Regular', fontSize: 11, marginTop: 2 },
+  trackTitle: { color: theme.colors.textPrimary, ...typography.bodyBold, fontFamily: FontFamily.semiBold },
+  trackMeta: { color: 'rgba(255,255,255,0.55)', ...typography.small, fontFamily: FontFamily.regular, marginTop: 2 },
   promoteChip: { borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: 'rgba(76,175,80,0.12)' },
-  promoteChipText: { color: studioTheme.accent, fontFamily: 'Poppins-SemiBold', fontSize: 12 },
+  promoteChipText: { color: '#4CAF50', ...typography.label, fontFamily: FontFamily.semiBold },
   tipCard: { flexDirection: 'row', gap: 12, alignItems: 'flex-start', backgroundColor: 'rgba(76,175,80,0.1)', borderRadius: 18, padding: 16, borderWidth: 1, borderColor: 'rgba(76,175,80,0.2)' },
-  tipText: { flex: 1, color: theme.colors.textPrimary, fontFamily: 'Poppins-Regular', fontSize: 13, lineHeight: 20 },
+  tipText: { flex: 1, color: theme.colors.textPrimary, ...typography.body, fontFamily: FontFamily.regular },
 };

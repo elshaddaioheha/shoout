@@ -1,13 +1,13 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
+import { FontFamily } from '@/constants/theme';
 import { auth, db } from '@/firebaseConfig';
 import { useAppTheme } from '@/hooks/use-app-theme';
-import { formatUsd } from '@/utils/pricing';
 import { useCartStore } from '@/store/useCartStore';
 import { useLayoutMetricsStore } from '@/store/useLayoutMetricsStore';
 import { useToastStore } from '@/store/useToastStore';
 import { adaptLegacyColor, adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
+import { formatUsd } from '@/utils/pricing';
 import { Image } from 'expo-image';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import {
     collection,
@@ -27,7 +27,6 @@ import {
     Alert,
     Dimensions,
     FlatList,
-    LayoutChangeEvent,
     Platform,
     ScrollView,
     StyleSheet,
@@ -501,12 +500,12 @@ const legacyStyles = {
     bestSellerItemArtist: {
         color: 'rgba(255,255,255,0.7)',
         fontSize: 10,
-        fontFamily: 'Poppins-Light',
+        fontFamily: FontFamily.light,
     },
     bestSellerItemPrice: {
         color: '#FFF',
         fontSize: 9,
-        fontFamily: 'Poppins-Light',
+        fontFamily: FontFamily.light,
     },
     footer: {
         position: 'absolute',

@@ -1,18 +1,19 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, useWindowDimensions, Animated, Platform } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { BlurView } from 'expo-blur';
-import { LinearGradient } from 'expo-linear-gradient';
-import { usePathname, useRouter } from 'expo-router';
-import { useAppTheme } from '@/hooks/use-app-theme';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { typography } from '@/constants/typography';
+import { useAppTheme } from '@/hooks/use-app-theme';
+import { useResponsiveBreakpoints } from '@/hooks/use-is-large-screen';
 import { useCartStore } from '@/store/useCartStore';
 import { useLayoutMetricsStore } from '@/store/useLayoutMetricsStore';
 import { useUserStore } from '@/store/useUserStore';
 import { getModeSurfaceTheme } from '@/utils/appModeTheme';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
+import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
+import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
+import { usePathname, useRouter } from 'expo-router';
+import React from 'react';
+import { Animated, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface TabConfig {
     key: string;
@@ -35,12 +36,16 @@ export default function ResponsiveBottomTabBar(props: BottomTabBarProps) {
     const pathname = usePathname();
     const appTheme = useAppTheme();
     const insets = useSafeAreaInsets();
-    const { width } = useWindowDimensions();
+    const { width, isLargeScreen } = useResponsiveBreakpoints();
+    const isNativeLargeScreen = Platform.OS !== 'web' && isLargeScreen;
     const activeAppMode = useUserStore((s) => s.activeAppMode);
     const role = useUserStore((s) => s.role);
+    const useUnifiedPillRoundness = activeAppMode === 'hybrid' || activeAppMode === 'shoout' || activeAppMode === 'studio';
     const setBottomTabBarHeight = useLayoutMetricsStore((s) => s.setBottomTabBarHeight);
     const cartCount = useCartStore((s) => s.items.length);
-    const bottomPadding = insets.bottom > 0 ? insets.bottom : 10;
+    const bottomPadding = isNativeLargeScreen
+        ? Math.max(14, insets.bottom)
+        : (insets.bottom > 0 ? insets.bottom : 10);
     const isVaultMode = activeAppMode === 'vault' || activeAppMode === 'vault_pro';
 
     if (isVaultMode) {
@@ -77,7 +82,9 @@ export default function ResponsiveBottomTabBar(props: BottomTabBarProps) {
             { key: 'more', name: 'more', icon: 'more-horizontal', label: 'More' },
         ];
 
-    const barWidth = Math.min(335, width - 28);
+    const barWidth = isNativeLargeScreen
+        ? Math.min(420, width - 44)
+        : Math.min(335, width - 28);
 
     const getRouteIndex = (tabName: string) => {
         if (!state || !state.routes) return -1;
@@ -98,7 +105,9 @@ export default function ResponsiveBottomTabBar(props: BottomTabBarProps) {
             <View
                 style={[
                     styles.tabBar,
+                    useUnifiedPillRoundness && styles.unifiedPillBar,
                     isVaultMode && styles.vaultTabBar,
+                    isNativeLargeScreen && styles.tabBarLarge,
                     {
                         width: barWidth,
                         backgroundColor: appTheme.isDark ? 'rgba(20, 15, 16, 0.46)' : 'rgba(255,255,255,0.72)',
@@ -151,6 +160,7 @@ export default function ResponsiveBottomTabBar(props: BottomTabBarProps) {
                             activeAppMode={activeAppMode}
                             appTheme={appTheme}
                             styles={styles}
+                            useUnifiedPillRoundness={useUnifiedPillRoundness}
                             onPress={onPress}
                         />
                     );
@@ -160,7 +170,7 @@ export default function ResponsiveBottomTabBar(props: BottomTabBarProps) {
     );
 }
 
-function TabButton({ iconName, label, badgeCount, isFocused, tabKey, fillOnFocus, activeAppMode, appTheme, styles, onPress }: any) {
+function TabButton({ iconName, label, badgeCount, isFocused, tabKey, fillOnFocus, activeAppMode, appTheme, styles, useUnifiedPillRoundness, onPress }: any) {
     const modeTheme = getModeSurfaceTheme(activeAppMode, appTheme.isDark);
     const inactiveColor = appTheme.colors.textTertiary;
     const activeFgColor = modeTheme.accentLabel;
@@ -194,6 +204,7 @@ function TabButton({ iconName, label, badgeCount, isFocused, tabKey, fillOnFocus
             <TouchableOpacity
                 style={[
                     styles.tab,
+                    useUnifiedPillRoundness && styles.unifiedPillTab,
                     isFocused ? [styles.activeTab, { backgroundColor: modeTheme.actionSurface, borderColor: modeTheme.actionBorder }] : styles.inactiveTab,
                 ]}
                 onPress={onPress}
@@ -264,6 +275,15 @@ const legacyStyles = {
         shadowRadius: 12,
         elevation: 8,
     },
+    unifiedPillBar: {
+        height: 64,
+        paddingHorizontal: 10,
+        borderRadius: 40,
+    },
+    tabBarLarge: {
+        height: 64,
+        borderRadius: 40,
+    },
     vaultTabBar: {
         height: 48,
         paddingHorizontal: 8,
@@ -275,8 +295,8 @@ const legacyStyles = {
     tab: {
         flex: 1,
         minWidth: 0,
-        height: 46,
-        borderRadius: 18,
+        height: 48,
+        borderRadius: 999,
         alignItems: 'center',
         justifyContent: 'center',
         flexDirection: 'column',
@@ -287,6 +307,13 @@ const legacyStyles = {
         borderColor: 'transparent',
         overflow: 'hidden',
         position: 'relative',
+    },
+    unifiedPillTab: {
+        height: 50,
+        paddingVertical: 6,
+        paddingHorizontal: 7,
+        gap: 3,
+        borderRadius: 999,
     },
     activeTab: {
         backgroundColor: 'rgba(255,255,255,0.08)',
@@ -305,7 +332,7 @@ const legacyStyles = {
     activeGlow: {
         ...StyleSheet.absoluteFillObject,
         borderWidth: 1,
-        borderRadius: 18,
+        borderRadius: 999,
         shadowOffset: { width: 0, height: 0 },
         shadowOpacity: 0.2,
         shadowRadius: 8,

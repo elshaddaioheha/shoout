@@ -1,6 +1,13 @@
 import GlobalToast from '@/components/GlobalToast';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { Poppins_400Regular, Poppins_500Medium, Poppins_600SemiBold, Poppins_700Bold, useFonts } from '@expo-google-fonts/poppins';
+import { useAccessibilityStore } from '@/store/useAccessibilityStore';
+import { useAuthStore } from '@/store/useAuthStore';
+import { useUserStore } from '@/store/useUserStore';
+import { getLastNotification, initNotifications, subscribeToNotifications } from '@/utils/notifications';
+import { notifyError, notifyWarning } from '@/utils/notify';
+import { getDefaultAppModeForPlan } from '@/utils/subscriptions';
+import { hydrateSubscriptionTier } from '@/utils/subscriptionVerification';
+import { Poppins_300Light, Poppins_400Regular, Poppins_500Medium, Poppins_600SemiBold, Poppins_700Bold, useFonts } from '@expo-google-fonts/poppins';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack, useRouter } from 'expo-router';
@@ -12,14 +19,7 @@ import { Animated, Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 import { auth } from '../firebaseConfig';
-import { hydrateSubscriptionTier } from '@/utils/subscriptionVerification';
-import { useAuthStore } from '@/store/useAuthStore';
-import { useUserStore } from '@/store/useUserStore';
-import { getDefaultAppModeForPlan } from '@/utils/subscriptions';
 import { initMonitoring } from '../utils/monitoring';
-import { initNotifications, subscribeToNotifications, getLastNotification } from '@/utils/notifications';
-import { notifyError, notifyWarning } from '@/utils/notify';
-import { useAccessibilityStore } from '@/store/useAccessibilityStore';
 
 if (Platform.OS !== 'web') {
   SplashScreen.setOptions({
@@ -40,6 +40,7 @@ export default function RootLayout() {
   const contentOpacity = useRef(new Animated.Value(0)).current;
 
   const [fontsLoaded, fontError] = useFonts({
+    'Poppins-Light': Poppins_300Light,
     'Poppins-Regular': Poppins_400Regular,
     'Poppins-Medium': Poppins_500Medium,
     'Poppins-SemiBold': Poppins_600SemiBold,

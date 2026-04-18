@@ -1,16 +1,17 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
+import SettingsHeader from '@/components/settings/SettingsHeader';
 import { auth, db } from '@/firebaseConfig';
 import { useAppTheme } from '@/hooks/use-app-theme';
-import { formatUsd } from '@/utils/pricing';
 import { useToastStore } from '@/store/useToastStore';
+import { getModeSurfaceTheme } from '@/utils/appModeTheme';
 import { adaptLegacyColor, adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { notifyError } from '@/utils/notify';
+import { formatUsd } from '@/utils/pricing';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
-import { ArrowLeft, ChevronDown, Image as ImageIcon, Megaphone, Play, Repeat2, Shuffle, SkipBack, SkipForward, Target } from 'lucide-react-native';
+import { ChevronDown, Image as ImageIcon, Megaphone, Play, Repeat2, Shuffle, SkipBack, SkipForward, Target } from 'lucide-react-native';
 import React, { useMemo, useState } from 'react';
 import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import SettingsHeader from '@/components/settings/SettingsHeader';
 
 type StepCard = {
   id: string;
@@ -76,11 +77,85 @@ const STEP_TITLES = {
 
 function useAdsStyles() {
   const appTheme = useAppTheme();
-  return useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme)), [appTheme]);
+  const modeTheme = getModeSurfaceTheme('studio', appTheme.isDark);
+  return useMemo(() => {
+    const baseStyles = adaptLegacyStyles(legacyStyles, appTheme) as Record<string, any>;
+    const overrides: Record<string, any> = {
+      container: { backgroundColor: appTheme.colors.background },
+      trackBanner: { backgroundColor: modeTheme.actionSurface, borderColor: modeTheme.actionBorder },
+      trackBannerText: { color: appTheme.colors.textSecondary },
+      profileDot: { backgroundColor: modeTheme.accent },
+      profileLetter: { color: modeTheme.onAccent },
+      stepTitle: { color: appTheme.colors.textPrimary },
+      stepSub: { color: appTheme.colors.textSecondary },
+      optionCard: { borderColor: appTheme.colors.borderStrong, backgroundColor: appTheme.colors.backgroundElevated },
+      optionCardActive: { borderColor: modeTheme.accent },
+      optionTitle: { color: appTheme.colors.textPrimary },
+      optionSub: { color: appTheme.colors.textSecondary },
+      formLabel: { color: appTheme.colors.textPrimary },
+      dropdown: { borderColor: appTheme.colors.borderStrong, backgroundColor: appTheme.colors.backgroundElevated },
+      dropdownText: { color: appTheme.colors.textPrimary },
+      previewTitle: { color: appTheme.colors.textPrimary },
+      compactPreview: { borderColor: modeTheme.actionBorder, backgroundColor: appTheme.colors.backgroundElevated },
+      sponsoredText: { color: modeTheme.accentLabel },
+      previewHeadline: { color: appTheme.colors.textPrimary },
+      previewSub: { color: appTheme.colors.textSecondary },
+      listenBtn: { backgroundColor: modeTheme.accent },
+      listenText: { color: modeTheme.onAccent },
+      uploadBox: { borderColor: appTheme.colors.borderStrong, backgroundColor: appTheme.colors.surfaceMuted },
+      uploadText: { color: appTheme.colors.textSecondary },
+      inputWrap: { borderColor: appTheme.colors.borderStrong, backgroundColor: appTheme.colors.backgroundElevated },
+      input: { color: appTheme.colors.textPrimary },
+      counterText: { color: appTheme.colors.textTertiary },
+      audioWrap: { backgroundColor: appTheme.colors.backgroundElevated },
+      audioCover: { backgroundColor: appTheme.colors.surfaceMuted },
+      audioTitle: { color: appTheme.colors.textPrimary },
+      audioArtist: { color: appTheme.colors.textSecondary },
+      timeText: { color: appTheme.colors.textSecondary },
+      playBtn: { backgroundColor: modeTheme.accent },
+      summaryCard: { borderColor: appTheme.colors.borderStrong, backgroundColor: appTheme.colors.backgroundElevated },
+      summaryLabel: { color: appTheme.colors.textTertiary },
+      summaryKey: { color: appTheme.colors.textTertiary },
+      summaryValue: { color: appTheme.colors.textPrimary },
+      summaryBold: { color: appTheme.colors.textPrimary },
+      summaryDivider: { backgroundColor: appTheme.colors.borderStrong },
+      paymentTitle: { color: appTheme.colors.textPrimary },
+      paymentCard: { borderColor: appTheme.colors.borderStrong, backgroundColor: appTheme.colors.backgroundElevated },
+      paymentCardActive: { borderColor: modeTheme.accent },
+      paymentMain: { color: appTheme.colors.textPrimary },
+      paymentSub: { color: appTheme.colors.textTertiary },
+      walletBadge: { backgroundColor: modeTheme.accent },
+      ctaButton: { borderColor: modeTheme.actionBorder, backgroundColor: modeTheme.accent },
+      ctaText: { color: modeTheme.onAccent },
+    };
+
+    const merged = Object.keys({ ...baseStyles, ...overrides }).reduce<Record<string, any>>((acc, key) => {
+      const baseValue = baseStyles[key];
+      const overrideValue = overrides[key];
+
+      if (
+        baseValue &&
+        overrideValue &&
+        typeof baseValue === 'object' &&
+        typeof overrideValue === 'object' &&
+        !Array.isArray(baseValue) &&
+        !Array.isArray(overrideValue)
+      ) {
+        acc[key] = { ...baseValue, ...overrideValue };
+        return acc;
+      }
+
+      acc[key] = overrideValue ?? baseValue;
+      return acc;
+    }, {});
+
+    return StyleSheet.create(merged as any);
+  }, [appTheme, modeTheme]);
 }
 
 export default function AdsCreationScreen() {
   const appTheme = useAppTheme();
+  const modeTheme = getModeSurfaceTheme('studio', appTheme.isDark);
   const styles = useAdsStyles();
   const router = useRouter();
   const params = useLocalSearchParams<{ step?: string; trackId?: string; trackTitle?: string; coverUrl?: string }>();
@@ -108,11 +183,11 @@ export default function AdsCreationScreen() {
   const progressColors = useMemo(() => {
     return Array.from({ length: 5 }, (_, index) => {
       const idx = index + 1;
-      if (idx === step) return '#EC5C39';
-      if (idx < step) return appTheme.isDark ? '#AB452D' : 'rgba(236,92,57,0.6)';
+      if (idx === step) return modeTheme.accent;
+      if (idx < step) return modeTheme.actionBorder;
       return appTheme.isDark ? 'rgba(255,255,255,0.85)' : 'rgba(23,18,19,0.16)';
     });
-  }, [appTheme.isDark, step]);
+  }, [appTheme.isDark, modeTheme.accent, modeTheme.actionBorder, step]);
 
   const canContinue = useMemo(() => {
     if (step === 1) return selectedGoal.length > 0;
@@ -208,9 +283,9 @@ export default function AdsCreationScreen() {
         {/* Track context banner — shown when promoting a specific track */}
         {promotingTrackTitle ? (
           <View style={styles.trackBanner}>
-            <Megaphone size={14} color={adaptLegacyColor('#EC5C39', 'color', appTheme)} />
+            <Megaphone size={14} color={modeTheme.accentLabel} />
             <Text style={styles.trackBannerText} numberOfLines={1}>
-              Promoting: <Text style={{ color: adaptLegacyColor('#EC5C39', 'color', appTheme) }}>{promotingTrackTitle}</Text>
+              Promoting: <Text style={{ color: modeTheme.accentLabel }}>{promotingTrackTitle}</Text>
             </Text>
           </View>
         ) : null}
@@ -254,7 +329,7 @@ export default function AdsCreationScreen() {
                 </View>
             ) : (
                 <TouchableOpacity style={styles.uploadBox} activeOpacity={0.9} onPress={() => showToast('Image upload coming soon', 'info')}>
-                  <ImageIcon size={28} color={adaptLegacyColor('#737373', 'color', appTheme)} />
+                  <ImageIcon size={28} color={appTheme.colors.textTertiary} />
                   <Text style={styles.uploadText}>Upload img Jpegs and Pngs only</Text>
                 </TouchableOpacity>
             )}
@@ -441,7 +516,7 @@ function AudioAdPreview({ trackTitle, coverUrl }: { trackTitle?: string; coverUr
                 {
                   height,
                   backgroundColor: active
-                    ? '#EC5C39'
+                    ? modeTheme.accent
                     : (appTheme.isDark ? '#747578' : 'rgba(23,18,19,0.28)'),
                 },
               ]}
@@ -458,7 +533,7 @@ function AudioAdPreview({ trackTitle, coverUrl }: { trackTitle?: string; coverUr
       <View style={styles.playerRow}>
         <Shuffle size={17} color={appTheme.colors.textSecondary} />
         <SkipBack size={17} color={appTheme.colors.textSecondary} />
-        <View style={styles.playBtn}><Play size={16} color={adaptLegacyColor('#000000', 'color', appTheme)} fill={adaptLegacyColor('#000000', 'color', appTheme)} /></View>
+        <View style={styles.playBtn}><Play size={16} color={modeTheme.onAccent} fill={modeTheme.onAccent} /></View>
         <SkipForward size={17} color={appTheme.colors.textSecondary} />
         <Repeat2 size={17} color={appTheme.colors.textSecondary} />
       </View>

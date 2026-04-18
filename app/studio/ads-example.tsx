@@ -1,19 +1,62 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
+import SettingsHeader from '@/components/settings/SettingsHeader';
 import { useAppTheme } from '@/hooks/use-app-theme';
-import { adaptLegacyColor, adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
+import { getModeSurfaceTheme } from '@/utils/appModeTheme';
+import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ArrowLeft, MoreHorizontal, Play, Repeat2, Shuffle, SkipBack, SkipForward } from 'lucide-react-native';
+import { MoreHorizontal, Play, Repeat2, Shuffle, SkipBack, SkipForward } from 'lucide-react-native';
 import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import SettingsHeader from '@/components/settings/SettingsHeader';
 
 function useAdsExampleStyles() {
   const appTheme = useAppTheme();
-  return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+  const modeTheme = getModeSurfaceTheme('studio', appTheme.isDark);
+  return React.useMemo(() => {
+    const baseStyles = adaptLegacyStyles(legacyStyles, appTheme) as Record<string, any>;
+    const overrides: Record<string, any> = {
+      container: { backgroundColor: appTheme.colors.background },
+      coverArt: { backgroundColor: appTheme.colors.surfaceMuted },
+      adLabel: { color: appTheme.colors.textPrimary },
+      trackTitle: { color: appTheme.colors.textPrimary },
+      trackArtist: { color: appTheme.colors.textSecondary },
+      timeText: { color: appTheme.colors.textSecondary },
+      playBtn: { backgroundColor: modeTheme.accent },
+      sponsoredStrip: { borderColor: modeTheme.actionBorder, backgroundColor: appTheme.colors.backgroundElevated },
+      stripImage: { backgroundColor: appTheme.colors.surfaceMuted },
+      sponsored: { color: modeTheme.accentLabel },
+      stripHeadline: { color: appTheme.colors.textPrimary },
+      stripSub: { color: appTheme.colors.textSecondary },
+      listenBtn: { backgroundColor: modeTheme.accent },
+      listenText: { color: modeTheme.onAccent },
+    };
+
+    const merged = Object.keys({ ...baseStyles, ...overrides }).reduce<Record<string, any>>((acc, key) => {
+      const baseValue = baseStyles[key];
+      const overrideValue = overrides[key];
+
+      if (
+        baseValue &&
+        overrideValue &&
+        typeof baseValue === 'object' &&
+        typeof overrideValue === 'object' &&
+        !Array.isArray(baseValue) &&
+        !Array.isArray(overrideValue)
+      ) {
+        acc[key] = { ...baseValue, ...overrideValue };
+        return acc;
+      }
+
+      acc[key] = overrideValue ?? baseValue;
+      return acc;
+    }, {});
+
+    return StyleSheet.create(merged as any);
+  }, [appTheme, modeTheme]);
 }
 
 export default function AdsExampleScreen() {
   const appTheme = useAppTheme();
+  const modeTheme = getModeSurfaceTheme('studio', appTheme.isDark);
   const styles = useAdsExampleStyles();
 
   const router = useRouter();
@@ -47,7 +90,7 @@ export default function AdsExampleScreen() {
           {Array.from({ length: 88 }).map((_, idx) => {
             const height = 5 + ((idx * 13) % 44);
             const active = idx <= 44;
-            return <View key={idx} style={[styles.waveBar, { height, backgroundColor: active ? '#EC5C39' : (appTheme.isDark ? '#747578' : 'rgba(23,18,19,0.28)') }]} />;
+            return <View key={idx} style={[styles.waveBar, { height, backgroundColor: active ? modeTheme.accent : (appTheme.isDark ? '#747578' : 'rgba(23,18,19,0.28)') }]} />;
           })}
         </View>
 
@@ -60,7 +103,7 @@ export default function AdsExampleScreen() {
           <Shuffle size={34} color={appTheme.colors.textSecondary} />
           <SkipBack size={30} color={appTheme.colors.textSecondary} />
           <View style={styles.playBtn}>
-            <Play size={28} color={adaptLegacyColor('#000000', 'color', appTheme)} fill={adaptLegacyColor('#000000', 'color', appTheme)} />
+            <Play size={28} color={modeTheme.onAccent} fill={modeTheme.onAccent} />
           </View>
           <SkipForward size={30} color={appTheme.colors.textSecondary} />
           <Repeat2 size={34} color={appTheme.colors.textSecondary} />

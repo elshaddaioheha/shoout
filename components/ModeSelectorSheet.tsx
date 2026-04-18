@@ -1,10 +1,11 @@
 /**
  * ModeSelectorSheet - bottom sheet listing all available product experiences.
  */
-import { ViewMode } from '@/store/useUserStore';
+import { Icon } from '@/components/ui/Icon';
+import { FontFamily, typography } from '@/constants/typography';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { useAuthStore } from '@/store/useAuthStore';
-import { Icon } from '@/components/ui/Icon';
+import { ViewMode } from '@/store/useUserStore';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { formatPlanLabel, getSubscriptionPlan, type AppMode } from '@/utils/subscriptions';
 import { BlurView } from 'expo-blur';
@@ -15,12 +16,12 @@ import {
     Animated,
     Easing,
     Modal,
+    Platform,
     Pressable,
     ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
-    Platform,
     useWindowDimensions,
     View,
 } from 'react-native';
@@ -317,8 +318,8 @@ const legacyStyles = {
         marginBottom: 12,
     },
     sheetTitle: {
-        fontSize: 20,
-        fontFamily: 'Poppins-Bold',
+        ...typography.h3,
+        fontFamily: FontFamily.bold,
         marginBottom: 4,
     },
     sheetTitleCompact: {
@@ -326,8 +327,8 @@ const legacyStyles = {
         marginBottom: 2,
     },
     sheetSubtitle: {
-        fontSize: 13,
-        fontFamily: 'Poppins-Regular',
+        ...typography.caption,
+        fontFamily: FontFamily.regular,
         marginBottom: 20,
     },
     sheetSubtitleCompact: {
@@ -350,13 +351,13 @@ const legacyStyles = {
         borderRadius: 20,
     },
     planBadgeText: {
-        fontSize: 11,
-        fontFamily: 'Poppins-SemiBold',
+        ...typography.small,
+        fontFamily: FontFamily.semiBold,
     },
     modeRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        borderRadius: 18,
+        borderRadius: 20,
         padding: 14,
         borderWidth: 1,
         gap: 14,
@@ -400,24 +401,23 @@ const legacyStyles = {
         marginBottom: 3,
     },
     modeLabel: {
-        fontSize: 16,
-        fontFamily: 'Poppins-SemiBold',
+        ...typography.button,
+        fontFamily: FontFamily.semiBold,
     },
     modeLabelCompact: {
         fontSize: 14,
     },
     modeDesc: {
-        fontSize: 12,
-        fontFamily: 'Poppins-Regular',
-        lineHeight: 17,
+        ...typography.caption,
+        fontFamily: FontFamily.regular,
     },
     modeDescCompact: {
         fontSize: 11,
         lineHeight: 15,
     },
     modePrice: {
-        fontSize: 11,
-        fontFamily: 'Poppins-SemiBold',
+        ...typography.small,
+        fontFamily: FontFamily.semiBold,
         marginTop: 6,
     },
     modePriceCompact: {
@@ -437,8 +437,8 @@ const legacyStyles = {
         borderWidth: 1,
     },
     unlockText: {
-        fontSize: 11,
-        fontFamily: 'Poppins-SemiBold',
+        ...typography.small,
+        fontFamily: FontFamily.semiBold,
     },
     radioOuter: {
         width: 22,

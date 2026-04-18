@@ -1,6 +1,7 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import { PremiumBackButton } from '@/components/ui/PremiumBackButton';
 import { useAppTheme } from '@/hooks/use-app-theme';
+import { getModeSurfaceTheme } from '@/utils/appModeTheme';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { useRouter } from 'expo-router';
 import { Megaphone } from 'lucide-react-native';
@@ -9,11 +10,51 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 
 function useAdsIntroStyles() {
   const appTheme = useAppTheme();
-  return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+  const modeTheme = getModeSurfaceTheme('studio', appTheme.isDark);
+  return React.useMemo(() => {
+    const baseStyles = adaptLegacyStyles(legacyStyles, appTheme) as Record<string, any>;
+    const overrides: Record<string, any> = {
+      container: { backgroundColor: appTheme.colors.background },
+      headerTitle: { color: appTheme.colors.textPrimary },
+      profileDot: { backgroundColor: modeTheme.accent },
+      profileLetter: { color: modeTheme.onAccent },
+      heroCircle: { backgroundColor: modeTheme.actionSurface, borderColor: modeTheme.actionBorder, borderWidth: 1 },
+      heroTitle: { color: modeTheme.accentLabel },
+      heroSub: { color: appTheme.colors.textSecondary },
+      whyTitle: { color: modeTheme.accentLabel },
+      whyCard: { borderColor: modeTheme.actionBorder, backgroundColor: appTheme.colors.backgroundElevated },
+      whyText: { color: appTheme.colors.textPrimary },
+      ctaButton: { borderColor: modeTheme.actionBorder, backgroundColor: modeTheme.accent },
+      ctaText: { color: modeTheme.onAccent },
+    };
+
+    const merged = Object.keys({ ...baseStyles, ...overrides }).reduce<Record<string, any>>((acc, key) => {
+      const baseValue = baseStyles[key];
+      const overrideValue = overrides[key];
+
+      if (
+        baseValue &&
+        overrideValue &&
+        typeof baseValue === 'object' &&
+        typeof overrideValue === 'object' &&
+        !Array.isArray(baseValue) &&
+        !Array.isArray(overrideValue)
+      ) {
+        acc[key] = { ...baseValue, ...overrideValue };
+        return acc;
+      }
+
+      acc[key] = overrideValue ?? baseValue;
+      return acc;
+    }, {});
+
+    return StyleSheet.create(merged as any);
+  }, [appTheme, modeTheme]);
 }
 
 export default function AdsIntroScreen() {
   const appTheme = useAppTheme();
+  const modeTheme = getModeSurfaceTheme('studio', appTheme.isDark);
   const styles = useAdsIntroStyles();
 
   const router = useRouter();
@@ -33,7 +74,7 @@ export default function AdsIntroScreen() {
         </View>
 
         <View style={styles.heroCircle}>
-          <Megaphone size={60} color={appTheme.colors.textPrimary} strokeWidth={2.2} />
+          <Megaphone size={60} color={modeTheme.accentLabel} strokeWidth={2.2} />
         </View>
 
         <View style={styles.heroTextWrap}>

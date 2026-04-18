@@ -1,15 +1,17 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
-import { useAppTheme } from '@/hooks/use-app-theme';
 import SettingsHeader from '@/components/settings/SettingsHeader';
+import { useAppTheme } from '@/hooks/use-app-theme';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useToastStore } from '@/store/useToastStore';
-import { adaptLegacyColor, adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
+import { useUserStore } from '@/store/useUserStore';
+import { getModeSurfaceTheme, getModeTheme } from '@/utils/appModeTheme';
+import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { notifyError, notifyWarning } from '@/utils/notify';
 import * as DocumentPicker from 'expo-document-picker';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { addDoc, collection, doc, getDoc, getDocs, limit, orderBy, query, serverTimestamp, setDoc, updateDoc, writeBatch } from 'firebase/firestore';
+import { addDoc, collection, doc, getDoc, getDocs, limit, orderBy, query, serverTimestamp, setDoc, writeBatch } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getDownloadURL, ref, uploadBytesResumable } from 'firebase/storage';
 import {
@@ -27,12 +29,12 @@ import {
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
     ActivityIndicator,
+    Animated,
     KeyboardAvoidingView,
     Platform,
     ScrollView,
     Share,
     StyleSheet,
-    Animated,
     Text,
     TextInput,
     TouchableOpacity,
@@ -60,7 +62,11 @@ type PublisherProfile = {
     letFansSubscribe: boolean;
 };
 
-function getUploadThemeOverrides(appTheme: ReturnType<typeof useAppTheme>) {
+function getUploadThemeOverrides(
+    appTheme: ReturnType<typeof useAppTheme>,
+    modeTheme: ReturnType<typeof getModeTheme>,
+    modeSurfaceTheme: ReturnType<typeof getModeSurfaceTheme>
+) {
     return {
         container: { backgroundColor: appTheme.colors.background },
         scrollContent: { backgroundColor: appTheme.colors.background },
@@ -83,29 +89,31 @@ function getUploadThemeOverrides(appTheme: ReturnType<typeof useAppTheme>) {
             color: appTheme.colors.textPrimary,
         },
         helperTitle: { color: appTheme.colors.textPrimary },
-        inlineLinkText: { color: appTheme.colors.primary },
+        inlineLinkText: { color: modeTheme.accent },
+        primaryButton: { backgroundColor: modeTheme.accent },
+        primaryButtonText: { color: modeSurfaceTheme.onAccent },
         toggleRow: { backgroundColor: 'transparent' },
         checkbox: {
-            borderColor: appTheme.colors.border,
+            borderColor: modeSurfaceTheme.actionBorder,
             backgroundColor: appTheme.colors.surfaceMuted,
         },
-        checkboxActive: { backgroundColor: appTheme.colors.primary, borderColor: appTheme.colors.primary },
+        checkboxActive: { backgroundColor: modeTheme.accent, borderColor: modeTheme.accent },
         sourceSwitchRow: { backgroundColor: appTheme.colors.surfaceMuted },
         sourceSwitchButton: {
             backgroundColor: 'transparent',
             borderColor: appTheme.colors.border,
         },
         sourceSwitchButtonActive: {
-            backgroundColor: appTheme.colors.primary,
-            borderColor: appTheme.colors.primary,
+            backgroundColor: modeSurfaceTheme.actionSurface,
+            borderColor: modeSurfaceTheme.actionBorder,
         },
         sourceSwitchText: { color: appTheme.colors.textSecondary },
-        sourceSwitchTextActive: { color: appTheme.colors.textPrimary },
+        sourceSwitchTextActive: { color: modeTheme.accent },
         fileUploadBox: {
-            backgroundColor: appTheme.colors.backgroundElevated,
-            borderColor: appTheme.colors.border,
+            backgroundColor: modeSurfaceTheme.actionSurface,
+            borderColor: modeSurfaceTheme.actionBorder,
         },
-        fileIconContainer: { backgroundColor: appTheme.colors.surfaceMuted },
+        fileIconContainer: { backgroundColor: modeSurfaceTheme.actionSurface },
         fileTitle: { color: appTheme.colors.textPrimary },
         fileSub: { color: appTheme.colors.textSecondary },
         pickerTrigger: {
@@ -131,12 +139,12 @@ function getUploadThemeOverrides(appTheme: ReturnType<typeof useAppTheme>) {
         },
         scheduleHint: { color: appTheme.colors.textSecondary },
         publishButton: {
-            shadowColor: appTheme.colors.primary,
+            shadowColor: modeTheme.accent,
         },
         publishGradient: {
-            backgroundColor: appTheme.colors.primary,
+            backgroundColor: modeTheme.accent,
         },
-        publishText: { color: appTheme.colors.textPrimary },
+        publishText: { color: modeSurfaceTheme.onAccent },
         secondaryActionButton: {
             backgroundColor: appTheme.colors.surfaceMuted,
             borderColor: appTheme.colors.border,
@@ -154,17 +162,17 @@ function getUploadThemeOverrides(appTheme: ReturnType<typeof useAppTheme>) {
         splashContainer: { backgroundColor: appTheme.colors.background },
         splashTitle: { color: appTheme.colors.textPrimary },
         splashSub: { color: appTheme.colors.textSecondary },
-        splashLinkBox: { borderColor: appTheme.colors.border, backgroundColor: appTheme.colors.backgroundElevated },
-        splashLinkText: { color: appTheme.colors.textPrimary },
-        splashShareBtn: { backgroundColor: appTheme.colors.primary },
-        splashShareText: { color: appTheme.colors.background },
-        splashPromoteBtn: { backgroundColor: appTheme.colors.backgroundElevated, borderColor: appTheme.colors.border },
-        splashPromoteText: { color: appTheme.colors.primary },
+        splashLinkBox: { borderColor: modeSurfaceTheme.actionBorder, backgroundColor: modeSurfaceTheme.actionSurface },
+        splashLinkText: { color: modeTheme.accent },
+        splashShareBtn: { backgroundColor: modeTheme.accent },
+        splashShareText: { color: modeSurfaceTheme.onAccent },
+        splashPromoteBtn: { backgroundColor: modeSurfaceTheme.actionSurface, borderColor: modeSurfaceTheme.actionBorder },
+        splashPromoteText: { color: modeTheme.accent },
         splashDoneBtn: { backgroundColor: appTheme.colors.surfaceMuted, borderColor: appTheme.colors.border },
         splashDoneText: { color: appTheme.colors.textPrimary },
-        splashRingOuter: { backgroundColor: appTheme.colors.primary },
-        splashRingInner: { backgroundColor: appTheme.colors.background },
-        splashCheckCircle: { backgroundColor: appTheme.colors.primary },
+        splashRingOuter: { borderColor: modeSurfaceTheme.actionBorder },
+        splashRingInner: { backgroundColor: appTheme.colors.background, borderColor: modeTheme.accent },
+        splashCheckCircle: { backgroundColor: modeTheme.accent },
         inputGroup: { backgroundColor: 'transparent' },
         pickerHeader: { borderBottomColor: appTheme.colors.border },
         helperText: { color: appTheme.colors.textSecondary },
@@ -173,10 +181,38 @@ function getUploadThemeOverrides(appTheme: ReturnType<typeof useAppTheme>) {
 
 export default function UploadScreen() {
     const appTheme = useAppTheme();
-    const styles = useMemo(() => StyleSheet.create({
-        ...(adaptLegacyStyles(legacyStyles, appTheme) as any),
-        ...getUploadThemeOverrides(appTheme),
-    }), [appTheme]);
+    const viewMode = useUserStore((state) => state.activeAppMode);
+    const uploadMode = viewMode === 'hybrid' ? 'hybrid' : 'studio';
+    const modeTheme = getModeTheme(uploadMode);
+    const modeSurfaceTheme = getModeSurfaceTheme(uploadMode, appTheme.isDark);
+    const accentColor = modeTheme.accent;
+    const accentStrongColor = modeTheme.accentStrong;
+    const styles = useMemo(() => {
+        const baseStyles = adaptLegacyStyles(legacyStyles, appTheme) as Record<string, any>;
+        const overrides = getUploadThemeOverrides(appTheme, modeTheme, modeSurfaceTheme) as Record<string, any>;
+
+        const merged = Object.keys({ ...baseStyles, ...overrides }).reduce<Record<string, any>>((acc, key) => {
+            const baseValue = baseStyles[key];
+            const overrideValue = overrides[key];
+
+            if (
+                baseValue &&
+                overrideValue &&
+                typeof baseValue === 'object' &&
+                typeof overrideValue === 'object' &&
+                !Array.isArray(baseValue) &&
+                !Array.isArray(overrideValue)
+            ) {
+                acc[key] = { ...baseValue, ...overrideValue };
+                return acc;
+            }
+
+            acc[key] = overrideValue ?? baseValue;
+            return acc;
+        }, {});
+
+        return StyleSheet.create(merged as any);
+    }, [appTheme, modeTheme, modeSurfaceTheme]);
     const placeholderColor = appTheme.colors.textPlaceholder;
     const iconPrimary = appTheme.colors.textPrimary;
     const iconMuted = appTheme.colors.textSecondary;
@@ -866,7 +902,7 @@ export default function UploadScreen() {
                     <Text style={styles.splashTitle}>Track Published! 🎉</Text>
                     <Text style={styles.splashSub}>Your track "{uploadedTitle}" is now live on Shoout.</Text>
                     <View style={styles.splashLinkBox}>
-                        <Link2 size={16} color={appTheme.colors.primary} />
+                        <Link2 size={16} color={accentColor} />
                         <Text style={styles.splashLinkText} numberOfLines={1} selectable>{shareUrl}</Text>
                     </View>
                     <TouchableOpacity style={styles.splashShareBtn} onPress={handleShare}>
@@ -887,7 +923,7 @@ export default function UploadScreen() {
                             },
                         })}
                     >
-                        <Megaphone size={18} color={appTheme.colors.primary} />
+                        <Megaphone size={18} color={accentColor} />
                         <Text style={styles.splashPromoteText}>Promote this Track</Text>
                     </TouchableOpacity>
 
@@ -961,7 +997,7 @@ export default function UploadScreen() {
                                 </View>
 
                                 <TouchableOpacity style={styles.publishButton} onPress={handleCreateFolder}>
-                                    <LinearGradient colors={[appTheme.colors.primary, appTheme.colors.primaryDark]} style={styles.publishGradient}>
+                                    <LinearGradient colors={[accentColor, accentStrongColor]} style={styles.publishGradient}>
                                         <Text style={styles.publishText}>Create Folder</Text>
                                     </LinearGradient>
                                 </TouchableOpacity>
@@ -978,7 +1014,7 @@ export default function UploadScreen() {
                                     <Text style={styles.inlineLinkText}>Upload new track from local device</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity style={styles.publishButton} onPress={() => goToPublishStep(sourceChoice || 'local')}>
-                                    <LinearGradient colors={[appTheme.colors.primary, appTheme.colors.primaryDark]} style={styles.publishGradient}>
+                                    <LinearGradient colors={[accentColor, accentStrongColor]} style={styles.publishGradient}>
                                         <Text style={styles.publishText}>Proceed to Publish</Text>
                                     </LinearGradient>
                                 </TouchableOpacity>
@@ -989,7 +1025,7 @@ export default function UploadScreen() {
                             <>
                                 {profileLoading && (
                                     <View style={{ paddingVertical: 24 }}>
-                                        <ActivityIndicator color={appTheme.colors.primary} />
+                                        <ActivityIndicator color={accentColor} />
                                     </View>
                                 )}
 
@@ -1117,13 +1153,13 @@ export default function UploadScreen() {
                                     {sourceChoice !== 'storage' ? (
                                         <TouchableOpacity style={styles.fileUploadBox} onPress={handleSelectFile}>
                                             <View style={styles.fileIconContainer}>
-                                                <Music size={24} color={appTheme.colors.primary} />
+                                                <Music size={24} color={accentColor} />
                                             </View>
                                             <View style={styles.fileInfo}>
                                                 <Text style={styles.fileTitle} numberOfLines={1}>{audioFile ? audioFile.name : 'Select Audio File'}</Text>
                                                 <Text style={styles.fileSub}>{audioFile && audioFile.size ? `${(audioFile.size / (1024 * 1024)).toFixed(2)} MB` : 'MP3, WAV or FLAC (Max 50MB)'}</Text>
                                             </View>
-                                            <UploadIcon size={20} color={audioFile ? appTheme.colors.primary : iconMuted} />
+                                            <UploadIcon size={20} color={audioFile ? accentColor : iconMuted} />
                                         </TouchableOpacity>
                                     ) : null}
 
@@ -1333,7 +1369,7 @@ export default function UploadScreen() {
                                         disabled={uploading}
                                     >
                                         <LinearGradient
-                                            colors={['#EC5C39', '#863420']}
+                                            colors={[accentColor, accentStrongColor]}
                                             style={styles.publishGradient}
                                         >
                                             {uploading && activeUploadAction === 'publish' ? (
@@ -1377,7 +1413,7 @@ export default function UploadScreen() {
                                         setShowGenrePicker(false);
                                     }}
                                 >
-                                            <Text style={[styles.genreItemText, genre === g && { color: appTheme.colors.primary }]}>
+                                            <Text style={[styles.genreItemText, genre === g && { color: accentColor }]}>
                                         {g}
                                     </Text>
                                     {genre === g && (
@@ -1416,7 +1452,7 @@ export default function UploadScreen() {
                                         setShowAssetTypePicker(false);
                                     }}
                                 >
-                                    <Text style={[styles.genreItemText, assetType === type && { color: appTheme.colors.primary }]}>
+                                    <Text style={[styles.genreItemText, assetType === type && { color: accentColor }]}>
                                         {type}
                                     </Text>
                                     {assetType === type && (
@@ -1457,7 +1493,7 @@ export default function UploadScreen() {
                                             setShowFolderPicker(false);
                                         }}
                                     >
-                                        <Text style={[styles.genreItemText, selectedFolderId === folder.id && { color: appTheme.colors.primary }]}>
+                                        <Text style={[styles.genreItemText, selectedFolderId === folder.id && { color: accentColor }]}>
                                             {folder.name}
                                         </Text>
                                         {selectedFolderId === folder.id && (
@@ -1500,7 +1536,7 @@ export default function UploadScreen() {
                                         <Text
                                             style={[
                                                 styles.genreItemText,
-                                                selectedTrackIds.includes(track.id) && { color: appTheme.colors.primary },
+                                                selectedTrackIds.includes(track.id) && { color: accentColor },
                                             ]}
                                         >
                                             {track.title}

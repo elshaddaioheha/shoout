@@ -1,15 +1,18 @@
+import { Icon } from '@/components/ui/Icon';
+import { IconButton } from '@/components/ui/IconButton';
+import { FontFamily } from '@/constants/theme';
+import { auth, db } from '@/firebaseConfig';
 import { useAppTheme } from '@/hooks/use-app-theme';
-import { useUserStore } from '@/store/useUserStore';
+import { useIsLargeScreen } from '@/hooks/use-is-large-screen';
 import { useAuthStore } from '@/store/useAuthStore';
 import { usePlaybackStore } from '@/store/usePlaybackStore';
 import { useToastStore } from '@/store/useToastStore';
+import { useUserStore } from '@/store/useUserStore';
+import { getModeSurfaceTheme } from '@/utils/appModeTheme';
 import { adaptLegacyColor, adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { notifyError } from '@/utils/notify';
-import { auth, db } from '@/firebaseConfig';
 import { useRouter } from 'expo-router';
 import { addDoc, collection, deleteDoc, doc, onSnapshot, orderBy, query, serverTimestamp } from 'firebase/firestore';
-import { Icon } from '@/components/ui/Icon';
-import { IconButton } from '@/components/ui/IconButton';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Image,
@@ -60,14 +63,59 @@ type FavouriteTrack = {
 
 function useLibraryStyles() {
   const appTheme = useAppTheme();
-  return useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+  const hybridSurface = getModeSurfaceTheme('hybrid', appTheme.isDark);
+
+  return useMemo(() => {
+    const baseStyles = adaptLegacyStyles(legacyStyles, appTheme) as Record<string, any>;
+    const overrides: Record<string, any> = {
+      screen: { backgroundColor: appTheme.colors.background },
+      planPill: { backgroundColor: hybridSurface.accentSoft },
+      planPillText: { color: hybridSurface.accentLabel },
+      addFolderButton: { backgroundColor: appTheme.colors.surfaceMuted },
+      fab: { backgroundColor: hybridSurface.accent },
+      linkFab: { backgroundColor: hybridSurface.accent, borderColor: hybridSurface.actionBorder },
+      createBtn: { backgroundColor: hybridSurface.accent },
+      createBtnText: { color: hybridSurface.onAccent },
+      seeAll: { color: hybridSurface.accentLabel },
+      findSongsBtn: { backgroundColor: hybridSurface.accent },
+      findSongsBtnText: { color: hybridSurface.onAccent },
+      favouriteActionBtn: { backgroundColor: hybridSurface.accentSoft },
+      submitBtn: { backgroundColor: hybridSurface.accent },
+      submitBtnText: { color: hybridSurface.onAccent },
+      checkBadge: { backgroundColor: hybridSurface.accent },
+    };
+
+    const merged = Object.keys({ ...baseStyles, ...overrides }).reduce<Record<string, any>>((acc, key) => {
+      const baseValue = baseStyles[key];
+      const overrideValue = overrides[key];
+
+      if (
+        baseValue &&
+        overrideValue &&
+        typeof baseValue === 'object' &&
+        typeof overrideValue === 'object' &&
+        !Array.isArray(baseValue) &&
+        !Array.isArray(overrideValue)
+      ) {
+        acc[key] = { ...baseValue, ...overrideValue };
+        return acc;
+      }
+
+      acc[key] = overrideValue ?? baseValue;
+      return acc;
+    }, {});
+
+    return StyleSheet.create(merged as any);
+  }, [appTheme, hybridSurface]);
 }
 
 export default function HybridLibraryScreen() {
   const appTheme = useAppTheme();
+  const hybridSurface = getModeSurfaceTheme('hybrid', appTheme.isDark);
   const styles = useLibraryStyles();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const isLargeScreen = useIsLargeScreen();
   const { showToast } = useToastStore();
   const user = useUserStore((s) => s);
   const authState = useAuthStore((s) => s);
@@ -146,7 +194,7 @@ export default function HybridLibraryScreen() {
   }, [activeRole, user.storageLimitGB]);
 
   const hasVaultContent = folders.length > 0 || uploads.length > 0;
-  const libraryTitle = 'Library';
+  const libraryTitle = 'Vault';
 
   const planLabel = useMemo(() => {
     const tier = authState.subscriptionTier || activeRole || 'shoout';
@@ -240,7 +288,7 @@ export default function HybridLibraryScreen() {
           styles.content,
           {
             paddingTop: insets.top + 14,
-            paddingBottom: insets.bottom + 120,
+            paddingBottom: insets.bottom + (isLargeScreen ? 56 : 120),
           },
         ]}
       >
@@ -310,7 +358,7 @@ export default function HybridLibraryScreen() {
                           accessibilityLabel="Remove favourite"
                           accessibilityHint="Remove this track from your favourites"
                           icon="heart"
-                          color="#EC5C39"
+                          color={hybridSurface.accentLabel}
                           size={16}
                           fill
                           onPress={() => removeFavourite(track.id)}
@@ -340,7 +388,7 @@ export default function HybridLibraryScreen() {
             {!hasVaultContent ? (
               <View style={styles.emptyWrap}>
                 <View style={styles.emptyIconWrap}>
-                  <Icon name="archive" size={84} color={adaptLegacyColor('#767676', 'color', appTheme)} />
+                  <Icon name="archive" size={84} color={hybridSurface.accentLabel} />
                 </View>
 
                 <Text style={styles.emptyTitle}>No saved or uploaded items yet</Text>
@@ -511,10 +559,12 @@ function VaultHeader({
 }: {
   storageText: string;
   userLabel: string;
-  title: 'Vault' | 'Studio' | 'Hybrid';
+  title: 'Vault' | 'Studio' | 'Hybrid' | 'Library';
   showStorage: boolean;
   planLabel: string;
 }) {
+  const appTheme = useAppTheme();
+  const hybridSurface = getModeSurfaceTheme('hybrid', appTheme.isDark);
   const styles = useLibraryStyles();
   const initials = userLabel
     .split(' ')
@@ -526,7 +576,7 @@ function VaultHeader({
   return (
     <View style={styles.header}>
       <View style={styles.headerLeft}>
-        <Icon name="archive" size={22} color="#EC5C39" />
+        <Icon name="archive" size={22} color={hybridSurface.accentLabel} />
 
         <View style={styles.headerTextWrap}>
           <Text style={styles.headerTitle}>{title}</Text>
@@ -555,6 +605,8 @@ function StatCard({ title, value }: { title: string; value: string }) {
 }
 
 function FolderCard({ folder }: { folder: VaultFolder }) {
+  const appTheme = useAppTheme();
+  const hybridSurface = getModeSurfaceTheme('hybrid', appTheme.isDark);
   const styles = useLibraryStyles();
   const router = useRouter();
   return (
@@ -569,7 +621,7 @@ function FolderCard({ folder }: { folder: VaultFolder }) {
           {folder.artworkUrl ? (
             <Image source={{ uri: folder.artworkUrl }} style={styles.folderImage} />
           ) : (
-            <Icon name="archive" size={30} color="#EC5C39" />
+            <Icon name="archive" size={30} color={hybridSurface.accentLabel} />
           )}
         </View>
       </View>
@@ -635,14 +687,14 @@ const legacyStyles = {
   },
   headerTitle: {
     color: 'rgba(255,255,255,0.95)',
-    fontFamily: 'Poppins-Medium',
+    fontFamily: FontFamily.medium,
     fontSize: 16,
     lineHeight: 20,
     letterSpacing: -0.5,
   },
   headerStorage: {
     color: '#FFFFFF',
-    fontFamily: 'Poppins-Regular',
+    fontFamily: FontFamily.regular,
     fontSize: 10,
     lineHeight: 12,
     letterSpacing: -0.5,
@@ -656,7 +708,7 @@ const legacyStyles = {
   },
   planPillText: {
     color: '#FFFFFF',
-    fontFamily: 'Poppins-Medium',
+    fontFamily: FontFamily.medium,
     fontSize: 8,
     lineHeight: 12,
     letterSpacing: 0.1,
@@ -671,7 +723,7 @@ const legacyStyles = {
   },
   avatarText: {
     color: '#FFFFFF',
-    fontFamily: 'Poppins-SemiBold',
+    fontFamily: FontFamily.semiBold,
     fontSize: 10,
   },
   actionsRow: {
@@ -689,7 +741,7 @@ const legacyStyles = {
   },
   filterText: {
     color: '#FFFFFF',
-    fontFamily: 'Poppins-Light',
+    fontFamily: FontFamily.light,
     fontSize: 14,
     lineHeight: 25,
     letterSpacing: -0.5,
@@ -704,7 +756,7 @@ const legacyStyles = {
   },
   addFolderText: {
     color: '#FFFFFF',
-    fontFamily: 'Poppins-Medium',
+    fontFamily: FontFamily.medium,
     fontSize: 10,
     lineHeight: 12,
     letterSpacing: -0.5,
@@ -722,14 +774,14 @@ const legacyStyles = {
   },
   emptyTitle: {
     color: 'rgba(255,255,255,0.37)',
-    fontFamily: 'Poppins-Medium',
+    fontFamily: FontFamily.medium,
     fontSize: 15,
     lineHeight: 25,
     letterSpacing: -0.5,
   },
   emptySubtitle: {
     color: 'rgba(255,255,255,0.85)',
-    fontFamily: 'Poppins-Light',
+    fontFamily: FontFamily.light,
     fontSize: 14,
     lineHeight: 18,
     letterSpacing: -0.5,
@@ -746,7 +798,7 @@ const legacyStyles = {
   },
   createBtnText: {
     color: '#FFFFFF',
-    fontFamily: 'Poppins-Medium',
+    fontFamily: FontFamily.medium,
     fontSize: 10,
     lineHeight: 12,
     letterSpacing: -0.5,
@@ -760,14 +812,14 @@ const legacyStyles = {
   },
   sectionTitle: {
     color: '#FFFFFF',
-    fontFamily: 'Poppins-SemiBold',
+    fontFamily: FontFamily.semiBold,
     fontSize: 14,
     lineHeight: 25,
     letterSpacing: -0.5,
   },
   seeAll: {
     color: '#EC5C39',
-    fontFamily: 'Poppins-Regular',
+    fontFamily: FontFamily.regular,
     fontSize: 14,
     lineHeight: 25,
     letterSpacing: -0.5,
@@ -826,14 +878,14 @@ const legacyStyles = {
   },
   cardTitle: {
     color: '#FFFFFF',
-    fontFamily: 'Poppins-Regular',
+    fontFamily: FontFamily.regular,
     fontSize: 12,
     lineHeight: 25,
     letterSpacing: -0.5,
   },
   cardMeta: {
     color: '#FFFFFF',
-    fontFamily: 'Poppins-Light',
+    fontFamily: FontFamily.light,
     fontSize: 7,
     lineHeight: 9,
     letterSpacing: -0.5,
@@ -893,7 +945,7 @@ const legacyStyles = {
   },
   legendText: {
     color: '#FFFFFF',
-    fontFamily: 'Poppins-SemiBold',
+    fontFamily: FontFamily.semiBold,
     fontSize: 15,
     lineHeight: 25,
     letterSpacing: -0.5,
@@ -924,7 +976,7 @@ const legacyStyles = {
   analyticsGridLabel: {
     alignSelf: 'flex-end',
     color: '#9E9FAD',
-    fontFamily: 'Poppins-Regular',
+    fontFamily: FontFamily.regular,
     fontSize: 12,
     lineHeight: 16,
   },
@@ -934,7 +986,7 @@ const legacyStyles = {
   },
   analyticsLink: {
     color: '#FFFFFF',
-    fontFamily: 'Poppins-Medium',
+    fontFamily: FontFamily.medium,
     fontSize: 12,
     lineHeight: 15,
     letterSpacing: -0.5,
@@ -949,13 +1001,13 @@ const legacyStyles = {
   },
   listingsTitle: {
     color: '#FFFFFF',
-    fontFamily: 'Poppins-Medium',
+    fontFamily: FontFamily.medium,
     fontSize: 16,
     lineHeight: 18,
   },
   listingsViewAll: {
     color: '#FFFFFF',
-    fontFamily: 'Poppins-Medium',
+    fontFamily: FontFamily.medium,
     fontSize: 12,
     lineHeight: 15,
     letterSpacing: -0.5,
@@ -963,7 +1015,7 @@ const legacyStyles = {
   },
   likedCount: {
     color: 'rgba(255,255,255,0.72)',
-    fontFamily: 'Poppins-Regular',
+    fontFamily: FontFamily.regular,
     fontSize: 12,
     lineHeight: 15,
   },
@@ -980,13 +1032,13 @@ const legacyStyles = {
   },
   favouritesEmptyTitle: {
     color: 'rgba(255,255,255,0.85)',
-    fontFamily: 'Poppins-SemiBold',
+    fontFamily: FontFamily.semiBold,
     fontSize: 15,
     lineHeight: 20,
   },
   favouritesEmptySubtitle: {
     color: 'rgba(255,255,255,0.6)',
-    fontFamily: 'Poppins-Regular',
+    fontFamily: FontFamily.regular,
     fontSize: 12,
     lineHeight: 17,
     textAlign: 'center',
@@ -1002,7 +1054,7 @@ const legacyStyles = {
   },
   findSongsBtnText: {
     color: '#FFFFFF',
-    fontFamily: 'Poppins-SemiBold',
+    fontFamily: FontFamily.semiBold,
     fontSize: 12,
     lineHeight: 16,
   },
@@ -1047,14 +1099,14 @@ const legacyStyles = {
   },
   favouriteTitle: {
     color: '#FFFFFF',
-    fontFamily: 'Poppins-Medium',
+    fontFamily: FontFamily.medium,
     fontSize: 12,
     lineHeight: 16,
     letterSpacing: -0.3,
   },
   favouriteArtist: {
     color: 'rgba(255,255,255,0.68)',
-    fontFamily: 'Poppins-Regular',
+    fontFamily: FontFamily.regular,
     fontSize: 10,
     lineHeight: 14,
     letterSpacing: -0.3,
@@ -1087,7 +1139,7 @@ const legacyStyles = {
   },
   listingsEmptyText: {
     color: '#FFFFFF',
-    fontFamily: 'Poppins-Regular',
+    fontFamily: FontFamily.regular,
     fontSize: 12,
     lineHeight: 12,
   },
@@ -1101,7 +1153,7 @@ const legacyStyles = {
   },
   createListingText: {
     color: '#FFFFFF',
-    fontFamily: 'Poppins-Regular',
+    fontFamily: FontFamily.regular,
     fontSize: 14,
     lineHeight: 12,
   },
@@ -1116,7 +1168,7 @@ const legacyStyles = {
   },
   salesHeaderText: {
     color: '#FFFFFF',
-    fontFamily: 'Poppins-Medium',
+    fontFamily: FontFamily.medium,
     fontSize: 14,
     lineHeight: 25,
     letterSpacing: -0.5,
@@ -1138,7 +1190,7 @@ const legacyStyles = {
   },
   statTitle: {
     color: '#FFFFFF',
-    fontFamily: 'Poppins-SemiBold',
+    fontFamily: FontFamily.semiBold,
     fontSize: 12,
     lineHeight: 15,
     letterSpacing: -0.5,
@@ -1146,7 +1198,7 @@ const legacyStyles = {
   },
   statValue: {
     color: '#FFFFFF',
-    fontFamily: 'Poppins-Regular',
+    fontFamily: FontFamily.regular,
     fontSize: 12,
     lineHeight: 25,
     letterSpacing: -0.5,
@@ -1170,7 +1222,7 @@ const legacyStyles = {
   },
   earningLabel: {
     color: '#FFFFFF',
-    fontFamily: 'Poppins-Regular',
+    fontFamily: FontFamily.regular,
     fontSize: 12,
     lineHeight: 21,
     letterSpacing: -0.5,
@@ -1178,7 +1230,7 @@ const legacyStyles = {
   },
   earningAmount: {
     color: '#FFFFFF',
-    fontFamily: 'Poppins-Regular',
+    fontFamily: FontFamily.regular,
     fontSize: 12,
     lineHeight: 25,
     letterSpacing: -0.5,
@@ -1229,7 +1281,7 @@ const legacyStyles = {
   },
   sheetOptionTitle: {
     color: 'rgba(255,255,255,0.76)',
-    fontFamily: 'Poppins-SemiBold',
+    fontFamily: FontFamily.semiBold,
     fontSize: 24,
     lineHeight: 25,
     letterSpacing: -0.5,
@@ -1237,7 +1289,7 @@ const legacyStyles = {
   folderSheetTitle: {
     textAlign: 'center',
     color: '#FFFFFF',
-    fontFamily: 'Poppins-SemiBold',
+    fontFamily: FontFamily.semiBold,
     fontSize: 24,
     lineHeight: 25,
     letterSpacing: -0.5,
@@ -1254,7 +1306,7 @@ const legacyStyles = {
   },
   folderInput: {
     color: '#FFFFFF',
-    fontFamily: 'Poppins-Regular',
+    fontFamily: FontFamily.regular,
     fontSize: 13,
     lineHeight: 25,
     letterSpacing: -0.5,
@@ -1272,7 +1324,7 @@ const legacyStyles = {
   },
   submitBtnText: {
     color: '#FFFFFF',
-    fontFamily: 'Poppins-Medium',
+    fontFamily: FontFamily.medium,
     fontSize: 14,
     lineHeight: 20,
   },
@@ -1307,7 +1359,7 @@ const legacyStyles = {
   },
   successText: {
     color: 'rgba(255,255,255,0.85)',
-    fontFamily: 'Poppins-SemiBold',
+    fontFamily: FontFamily.semiBold,
     fontSize: 12,
     lineHeight: 25,
     letterSpacing: -0.5,

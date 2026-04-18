@@ -1,17 +1,17 @@
+import FullPlayer from '@/components/FullPlayer';
 import MiniPlayer from '@/components/MiniPlayer';
 import ModeSelectorSheet from '@/components/ModeSelectorSheet';
 import ModeTransitionOverlay from '@/components/ModeTransitionOverlay';
 import ResponsiveBottomTabBar from '@/components/ResponsiveBottomTabBar';
-import FullPlayer from '@/components/FullPlayer';
 import VaultMiniPlayer from '@/components/VaultMiniPlayer';
+import { useIsLargeScreen } from '@/hooks/use-is-large-screen';
 import { useAppSwitcher } from '@/hooks/useAppSwitcher';
 import { useExplorePlayerStore } from '@/store/useExplorePlayerStore';
 import { useUIStore } from '@/store/useUIStore';
-import { Tabs, usePathname } from 'expo-router';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { createContext, useContext } from 'react';
-import { Animated, StyleSheet, useWindowDimensions } from 'react-native';
+import { Tabs, usePathname } from 'expo-router';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { Animated, Easing, Platform, StyleSheet, useWindowDimensions } from 'react-native';
 
 type SwitcherMode = 'shoout' | 'vault' | 'vault_pro' | 'studio' | 'hybrid';
 
@@ -67,19 +67,29 @@ export default function TabLayout() {
   const isFullPlayerVisible = useUIStore((state) => state.isFullPlayerVisible);
   const setFullPlayerVisible = useUIStore((state) => state.setFullPlayerVisible);
   const pathname = usePathname();
-  const { height } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const fullPlayerSlideAnim = useRef(new Animated.Value(0)).current;
   const [isFullPlayerMounted, setIsFullPlayerMounted] = useState(false);
+  const isLargeScreen = useIsLargeScreen();
+  const isNativeLargeScreen = Platform.OS !== 'web' && isLargeScreen;
+  const persistentPlayerWidth = Math.max(360, Math.min(520, Math.round(width * 0.36)));
 
   const shouldHidePlayer = pathname === '/modal'
     || pathname === '/checkout-review'
     || pathname?.startsWith('/listing/');
   const shouldShowPlayer = !isExploreImmersiveMode && !shouldHidePlayer;
+  const shouldShowMiniPlayer = shouldShowPlayer && !isFullPlayerVisible;
 
   useEffect(() => {
     if (shouldHidePlayer && isFullPlayerVisible) {
       setFullPlayerVisible(false);
       setIsFullPlayerMounted(false);
+      return;
+    }
+
+    if (isNativeLargeScreen) {
+      setIsFullPlayerMounted(isFullPlayerVisible);
+      fullPlayerSlideAnim.setValue(isFullPlayerVisible ? 1 : 0);
       return;
     }
 
@@ -89,14 +99,17 @@ export default function TabLayout() {
 
     Animated.timing(fullPlayerSlideAnim, {
       toValue: isFullPlayerVisible ? 1 : 0,
-      duration: 240,
+      duration: isFullPlayerVisible ? 240 : 160,
+      easing: isFullPlayerVisible
+        ? Easing.out(Easing.cubic)
+        : Easing.in(Easing.cubic),
       useNativeDriver: true,
     }).start(({ finished }) => {
       if (finished && !isFullPlayerVisible) {
         setIsFullPlayerMounted(false);
       }
     });
-  }, [fullPlayerSlideAnim, isFullPlayerVisible, setFullPlayerVisible, shouldHidePlayer]);
+  }, [fullPlayerSlideAnim, isFullPlayerVisible, isNativeLargeScreen, setFullPlayerVisible, shouldHidePlayer]);
 
   const handleCloseFullPlayer = useCallback(() => {
     setFullPlayerVisible(false);
@@ -123,6 +136,7 @@ export default function TabLayout() {
       <Animated.View
         style={[
           styles.contentShell,
+          shouldShowPlayer && isNativeLargeScreen && isFullPlayerVisible ? { paddingRight: persistentPlayerWidth } : null,
           {
             opacity: contentFadeAnim,
             transform: [
@@ -183,7 +197,7 @@ export default function TabLayout() {
           <Tabs.Screen name="explore" options={{ href: null }} />
         </Tabs>
 
-        {shouldShowPlayer
+        {shouldShowMiniPlayer
           ? ((viewMode === 'vault' || viewMode === 'vault_pro')
             ? <VaultMiniPlayer onPress={() => setFullPlayerVisible(true)} />
             : <MiniPlayer onPress={() => setFullPlayerVisible(true)} />)
@@ -194,21 +208,38 @@ export default function TabLayout() {
             pointerEvents={isFullPlayerVisible ? 'auto' : 'none'}
             style={[
               styles.fullPlayerOverlay,
-              {
-                height,
-                transform: [
+              isNativeLargeScreen
+                ? [
+                  styles.fullPlayerPersistentOverlay,
                   {
-                    translateY: fullPlayerSlideAnim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [height, 0],
-                    }),
+                    width: persistentPlayerWidth,
+                    transform: [
+                      {
+                        translateX: fullPlayerSlideAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [persistentPlayerWidth + 24, 0],
+                        }),
+                      },
+                    ],
                   },
-                ],
-              },
+                ]
+                : {
+                  height,
+                  transform: [
+                    {
+                      translateY: fullPlayerSlideAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [height, 0],
+                      }),
+                    },
+                  ],
+                },
             ]}
           >
             <FullPlayer
-                visible={isFullPlayerMounted}
+              key={isNativeLargeScreen ? 'full-player-large' : 'full-player-mobile'}
+              visible={isFullPlayerMounted}
+              persistentMode={isNativeLargeScreen}
               onClose={handleCloseFullPlayer}
             />
           </Animated.View>
@@ -246,5 +277,10 @@ const styles = StyleSheet.create({
     zIndex: 200,
     elevation: 40,
     backgroundColor: '#140F10',
+  },
+  fullPlayerPersistentOverlay: {
+    left: undefined,
+    borderLeftWidth: StyleSheet.hairlineWidth,
+    borderLeftColor: 'rgba(255,255,255,0.12)',
   },
 });
