@@ -1,12 +1,13 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, useWindowDimensions, Animated, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Home, Library, Megaphone, MoreHorizontal, Search, ShoppingCart, Upload } from 'lucide-react-native';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { usePathname, useRouter } from 'expo-router';
 import { useAppTheme } from '@/hooks/use-app-theme';
+import { Icon, type IconName } from '@/components/ui/Icon';
+import { typography } from '@/constants/typography';
 import { useCartStore } from '@/store/useCartStore';
 import { useLayoutMetricsStore } from '@/store/useLayoutMetricsStore';
 import { useUserStore } from '@/store/useUserStore';
@@ -17,8 +18,9 @@ interface TabConfig {
     key: string;
     name?: string;
     routePath?: string;
-    icon: React.ComponentType<any>;
+    icon: IconName;
     label: string;
+    fillOnFocus?: boolean;
 }
 
 function useResponsiveBottomTabBarStyles() {
@@ -47,32 +49,32 @@ export default function ResponsiveBottomTabBar(props: BottomTabBarProps) {
 
     const tabs: TabConfig[] = activeAppMode === 'studio'
         ? [
-            { key: 'index', name: 'index', icon: Home, label: 'Home' },
-            { key: 'search', name: 'search', icon: UploadCloudIcon, label: 'Publish' },
-            { key: 'marketplace', name: 'marketplace', icon: MegaphoneIcon, label: 'Promote' },
-            { key: 'more', name: 'more', icon: MoreHorizontal, label: 'More' },
+            { key: 'index', name: 'index', icon: 'home', label: 'Home', fillOnFocus: true },
+            { key: 'search', name: 'search', icon: 'upload', label: 'Publish' },
+            { key: 'marketplace', name: 'marketplace', icon: 'megaphone', label: 'Promote' },
+            { key: 'more', name: 'more', icon: 'more-horizontal', label: 'More' },
         ]
         : activeAppMode === 'hybrid'
         ? [
-            { key: 'index', name: 'index', icon: Home, label: 'Home' },
-            { key: 'search', name: 'search', icon: UploadCloudIcon, label: 'Publish' },
-            { key: 'marketplace', name: 'marketplace', icon: MegaphoneIcon, label: 'Promote' },
-            { key: 'library', name: 'library', icon: Library, label: 'Vault' },
-            { key: 'more', name: 'more', icon: MoreHorizontal, label: 'More' },
+            { key: 'index', name: 'index', icon: 'home', label: 'Home', fillOnFocus: true },
+            { key: 'search', name: 'search', icon: 'upload', label: 'Publish' },
+            { key: 'marketplace', name: 'marketplace', icon: 'megaphone', label: 'Promote' },
+            { key: 'library', name: 'library', icon: 'library', label: 'Vault', fillOnFocus: true },
+            { key: 'more', name: 'more', icon: 'more-horizontal', label: 'More' },
         ]
         : activeAppMode === 'shoout'
         ? [
-            { key: 'index', name: 'index', icon: Home, label: 'Home' },
-            { key: 'search', name: 'search', icon: Search, label: 'Search' },
-            { key: 'cart', name: 'cart', icon: ShoppingCart, label: 'Cart' },
-            { key: 'more', name: 'more', icon: MoreHorizontal, label: 'More' },
+            { key: 'index', name: 'index', icon: 'home', label: 'Home', fillOnFocus: true },
+            { key: 'search', name: 'search', icon: 'search', label: 'Search' },
+            { key: 'cart', name: 'cart', icon: 'cart', label: 'Cart', fillOnFocus: true },
+            { key: 'more', name: 'more', icon: 'more-horizontal', label: 'More' },
         ]
         : [
-            { key: 'index', name: 'index', icon: Home, label: 'Home' },
-            { key: 'search', name: 'search', icon: Search, label: 'Explore' },
-            { key: 'marketplace', name: 'marketplace', icon: ShoppingCart, label: 'Market Place' },
-            { key: 'library', name: 'library', icon: Library, label: role === 'studio' || role === 'hybrid' ? 'Studio' : 'Vault' },
-            { key: 'more', name: 'more', icon: MoreHorizontal, label: 'More' },
+            { key: 'index', name: 'index', icon: 'home', label: 'Home', fillOnFocus: true },
+            { key: 'search', name: 'search', icon: 'search', label: 'Explore' },
+            { key: 'marketplace', name: 'marketplace', icon: 'cart', label: 'Market Place', fillOnFocus: true },
+            { key: 'library', name: 'library', icon: 'library', label: role === 'studio' || role === 'hybrid' ? 'Studio' : 'Vault', fillOnFocus: true },
+            { key: 'more', name: 'more', icon: 'more-horizontal', label: 'More' },
         ];
 
     const barWidth = Math.min(335, width - 28);
@@ -106,7 +108,6 @@ export default function ResponsiveBottomTabBar(props: BottomTabBarProps) {
             >
                 <BlurView intensity={34} tint={appTheme.isDark ? 'dark' : 'light'} style={styles.tabBarBlur} />
                 {tabs.map((tab) => {
-                    const Icon = tab.icon;
                     const routeIndex = tab.name ? getRouteIndex(tab.name) : -1;
                     const isFocused = tab.routePath
                         ? pathname === tab.routePath
@@ -140,11 +141,12 @@ export default function ResponsiveBottomTabBar(props: BottomTabBarProps) {
                     return (
                         <TabButton
                             key={tab.key}
-                            Icon={Icon}
+                            iconName={tab.icon}
                             label={tab.label}
                             badgeCount={tab.key === 'cart' ? cartCount : 0}
                             isFocused={isFocused}
                             tabKey={tab.key}
+                            fillOnFocus={tab.fillOnFocus}
                             isCompact={isVaultMode}
                             activeAppMode={activeAppMode}
                             appTheme={appTheme}
@@ -158,7 +160,7 @@ export default function ResponsiveBottomTabBar(props: BottomTabBarProps) {
     );
 }
 
-function TabButton({ Icon, label, badgeCount, isFocused, tabKey, isCompact, activeAppMode, appTheme, styles, onPress }: any) {
+function TabButton({ iconName, label, badgeCount, isFocused, tabKey, fillOnFocus, activeAppMode, appTheme, styles, onPress }: any) {
     const modeTheme = getModeSurfaceTheme(activeAppMode, appTheme.isDark);
     const inactiveColor = appTheme.colors.textTertiary;
     const activeFgColor = modeTheme.accentLabel;
@@ -220,9 +222,10 @@ function TabButton({ Icon, label, badgeCount, isFocused, tabKey, isCompact, acti
                 <View style={[styles.topSheen, { backgroundColor: isFocused ? modeTheme.actionBorder : 'transparent' }]} />
 
                 <Icon
+                    name={iconName}
                     size={18}
                     color={isFocused ? activeFgColor : inactiveColor}
-                    fill={isFocused && tabKey === 'index' ? activeFgColor : 'none'}
+                    fill={isFocused && fillOnFocus}
                 />
                 <Text style={[styles.labelActive, { color: isFocused ? activeFgColor : inactiveColor }]} numberOfLines={1}>
                     {label}
@@ -235,14 +238,6 @@ function TabButton({ Icon, label, badgeCount, isFocused, tabKey, isCompact, acti
             </TouchableOpacity>
         </Animated.View>
     );
-}
-
-function UploadCloudIcon(props: any) {
-    return <Upload {...props} />;
-}
-
-function MegaphoneIcon(props: any) {
-    return <Megaphone {...props} />;
 }
 
 const legacyStyles = {
@@ -300,7 +295,7 @@ const legacyStyles = {
         backgroundColor: 'transparent',
     },
     labelActive: {
-        fontFamily: 'Poppins-Medium',
+        ...typography.label,
         fontSize: 10,
         lineHeight: 12,
     },
@@ -336,8 +331,8 @@ const legacyStyles = {
         borderWidth: 1,
     },
     cartBadgeText: {
+        ...typography.label,
         color: '#FFFFFF',
-        fontFamily: 'Poppins-SemiBold',
         fontSize: 9,
         lineHeight: 11,
     },

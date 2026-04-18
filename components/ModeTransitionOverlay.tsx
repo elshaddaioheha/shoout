@@ -3,7 +3,8 @@
  */
 import { ViewMode } from '@/store/useUserStore';
 import { useAppTheme } from '@/hooks/use-app-theme';
-import { Disc3, FolderLock, Library, Mic2, Music } from 'lucide-react-native';
+import { typography } from '@/constants/typography';
+import { Icon, IconName } from '@/components/ui/Icon';
 import React from 'react';
 import { Animated, Dimensions, Platform, StyleSheet, Text, View } from 'react-native';
 
@@ -17,12 +18,12 @@ interface ModeTransitionOverlayProps {
     welcomeOpacityAnim: Animated.Value;
 }
 
-const MODE_CONFIG: Record<ViewMode, { label: string; badge: string; Icon: any; color: string; subtitle: string; accent: string }> = {
-    shoout: { label: 'Shoouts', badge: 'Marketplace Mode', Icon: Disc3, color: '#6AA7FF', accent: '#D8E8FF', subtitle: 'Marketplace mode for discovery, buying, and digging through fresh sounds.' },
-    vault: { label: 'Vault', badge: 'Private Workspace', Icon: Music, color: '#EC5C39', accent: '#F8D8D0', subtitle: 'Your private music universe for uploads, folders, and secure sharing.' },
-    vault_pro: { label: 'Vault Pro', badge: 'Expanded Private Workspace', Icon: FolderLock, color: '#EC5C39', accent: '#F6D8CF', subtitle: 'The same private Vault workflow with higher limits and deeper control.' },
-    studio: { label: 'Studio', badge: 'Seller Workspace', Icon: Mic2, color: '#4CAF50', accent: '#DCEFD9', subtitle: 'Create, upload, and sell your music with a focused creator dashboard.' },
-    hybrid: { label: 'Hybrid', badge: 'Unified Creator Mode', Icon: Library, color: '#C99A06', accent: '#F8EAB8', subtitle: 'A combined creator workspace across Vault and Studio for everything in one place.' },
+const MODE_CONFIG: Record<ViewMode, { label: string; badge: string; iconName: IconName; color: string; subtitle: string; accent: string }> = {
+    shoout: { label: 'Shoouts', badge: 'Marketplace Mode', iconName: 'disc3', color: '#6AA7FF', accent: '#D8E8FF', subtitle: 'Marketplace mode for discovery, buying, and digging through fresh sounds.' },
+    vault: { label: 'Vault', badge: 'Private Workspace', iconName: 'music', color: '#EC5C39', accent: '#F8D8D0', subtitle: 'Your private music universe for uploads, folders, and secure sharing.' },
+    vault_pro: { label: 'Vault Pro', badge: 'Expanded Private Workspace', iconName: 'folder-lock', color: '#EC5C39', accent: '#F6D8CF', subtitle: 'The same private Vault workflow with higher limits and deeper control.' },
+    studio: { label: 'Studio', badge: 'Seller Workspace', iconName: 'mic2', color: '#4CAF50', accent: '#DCEFD9', subtitle: 'Create, upload, and sell your music with a focused creator dashboard.' },
+    hybrid: { label: 'Hybrid', badge: 'Unified Creator Mode', iconName: 'library', color: '#C99A06', accent: '#F8EAB8', subtitle: 'A combined creator workspace across Vault and Studio for everything in one place.' },
 };
 
 const DOODLE_POSITIONS = [
@@ -108,7 +109,7 @@ export default function ModeTransitionOverlay({
                         },
                     ]}
                 >
-                    <config.Icon size={doodle.size} color={config.color} strokeWidth={1.8} />
+                    <Icon name={config.iconName} size={doodle.size} color={config.color} strokeWidth={1.8} />
                 </Animated.View>
             ))}
 
@@ -125,7 +126,7 @@ export default function ModeTransitionOverlay({
                 <View style={[styles.accentRingOuter, { borderColor: `${config.color}30` }]} />
                 <View style={[styles.accentRingInner, { borderColor: `${config.color}45` }]} />
                 <View style={[styles.accentCore, { backgroundColor: config.color }]}>
-                    <config.Icon size={40} color="#FFFFFF" />
+                    <Icon name={config.iconName} size={40} color="#FFFFFF" />
                 </View>
             </Animated.View>
 
@@ -226,14 +227,13 @@ const legacyStyles = {
         bottom: 76,
     },
     motionGhostLabel: {
-        fontSize: 15,
-        fontFamily: 'Poppins-Regular',
+        ...typography.body,
         marginBottom: 6,
         letterSpacing: 0.2,
     },
     motionGhostMode: {
+        ...typography.display,
         fontSize: 52,
-        fontFamily: 'Poppins-Bold',
         lineHeight: 58,
         letterSpacing: -1.2,
     },
@@ -261,28 +261,25 @@ const legacyStyles = {
         marginRight: 8,
     },
     badgeText: {
-        fontSize: 12,
-        fontFamily: 'Poppins-SemiBold',
+        ...typography.label,
         letterSpacing: 0.15,
     },
     textBlock: {
         maxWidth: width * 0.66,
     },
     welcomeLabel: {
-        fontSize: 15,
-        fontFamily: 'Poppins-Regular',
+        ...typography.body,
         marginBottom: 6,
         letterSpacing: 0.2,
     },
     welcomeMode: {
+        ...typography.display,
         fontSize: 52,
-        fontFamily: 'Poppins-Bold',
         lineHeight: 58,
         letterSpacing: -1.2,
     },
     welcomeSubtitle: {
-        fontSize: 15,
-        fontFamily: 'Poppins-Regular',
+        ...typography.body,
         lineHeight: 23,
         marginTop: 10,
     },

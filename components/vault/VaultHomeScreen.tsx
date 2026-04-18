@@ -1,8 +1,11 @@
 import { useAppSwitcherContext } from '@/app/(tabs)/_layout';
 import ActionSheet from '@/components/ActionSheet';
+import { Icon } from '@/components/ui/Icon';
+import { IconButton } from '@/components/ui/IconButton';
 import SharedHeader from '@/components/SharedHeader';
 import VaultFloatingActionMenu from '@/components/vault/VaultFloatingActionMenu';
 import { useAppTheme } from '@/hooks/use-app-theme';
+import { typography, FontFamily } from '@/constants/typography';
 import { useVaultWorkspaceData } from '@/hooks/useVaultWorkspaceData';
 import { useToastStore } from '@/store/useToastStore';
 import { useUserStore } from '@/store/useUserStore';
@@ -14,7 +17,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { addDoc, collection, doc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
-import { Bell, FolderPlus, Grid3x3, Music4, RefreshCw, Search, Share2, Upload, User, View as ViewIcon } from 'lucide-react-native';
 import React, { useMemo, useRef, useState } from 'react';
 import { Animated, Dimensions, Easing, Modal, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -96,17 +98,15 @@ function useVaultHomeStyles() {
         borderBottomColor: 'rgba(20, 15, 16, 0.08)',
       };
       adaptedStyles.modalTitle = {
+        ...typography.title,
         color: '#171213',
-        fontFamily: 'Poppins-Bold',
-        fontSize: 20,
       };
       adaptedStyles.modalSubtitle = {
+        ...typography.caption,
         color: 'rgba(20, 15, 16, 0.68)',
-        fontFamily: 'Poppins-Regular',
-        fontSize: 13,
-        lineHeight: 20,
       };
       adaptedStyles.input = {
+        ...typography.body,
         backgroundColor: 'rgba(20, 15, 16, 0.06)',
         borderRadius: 14,
         borderWidth: 1,
@@ -114,8 +114,8 @@ function useVaultHomeStyles() {
         paddingHorizontal: 16,
         paddingVertical: 14,
         color: '#171213',
-        fontFamily: 'Poppins-Regular',
         fontSize: 14,
+        lineHeight: 20,
       };
       adaptedStyles.modalSecondaryButton = {
         flex: 1,
@@ -127,9 +127,8 @@ function useVaultHomeStyles() {
         paddingVertical: 14,
       };
       adaptedStyles.modalSecondaryText = {
+        ...typography.buttonSm,
         color: '#171213',
-        fontFamily: 'Poppins-Medium',
-        fontSize: 14,
       };
       adaptedStyles.modalPrimaryButton = {
         flex: 1,
@@ -140,14 +139,12 @@ function useVaultHomeStyles() {
         paddingVertical: 14,
       };
       adaptedStyles.modalPrimaryText = {
+        ...typography.buttonSm,
         color: '#FFFFFF',
-        fontFamily: 'Poppins-Medium',
-        fontSize: 14,
       };
       adaptedStyles.placeholderText = {
+        ...typography.caption,
         color: 'rgba(20, 15, 16, 0.56)',
-        fontFamily: 'Poppins-Regular',
-        fontSize: 13,
         paddingHorizontal: 16,
         paddingVertical: 14,
       };
@@ -627,27 +624,36 @@ export default function VaultHomeScreen() {
         showCart={false}
         customRightContent={(
           <View style={styles.vaultHeaderActions}>
-            <TouchableOpacity
+            <IconButton
               style={styles.vaultHeaderButton}
               onPress={() => router.push('/vault/updates' as any)}
               activeOpacity={0.8}
-            >
-              <Bell size={17} color={iconPrimary} />
-            </TouchableOpacity>
-            <TouchableOpacity
+              icon="bell"
+              size={17}
+              color={iconPrimary}
+              accessibilityRole="button"
+              accessibilityLabel="Open vault updates"
+            />
+            <IconButton
               style={styles.vaultHeaderButton}
               onPress={openSearchSheet}
               activeOpacity={0.8}
-            >
-              <Search size={17} color={iconPrimary} />
-            </TouchableOpacity>
-            <TouchableOpacity
+              icon="search"
+              size={17}
+              color={iconPrimary}
+              accessibilityRole="button"
+              accessibilityLabel="Search vault"
+            />
+            <IconButton
               style={[styles.vaultHeaderButton, styles.profileButton]}
               onPress={() => router.push('/(tabs)/more' as any)}
               activeOpacity={0.8}
-            >
-              <User size={17} color={iconPrimary} />
-            </TouchableOpacity>
+              icon="user"
+              size={17}
+              color={iconPrimary}
+              accessibilityRole="button"
+              accessibilityLabel="Open profile and settings"
+            />
           </View>
         )}
       />
@@ -656,74 +662,76 @@ export default function VaultHomeScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 168 }]}
       >
-        <View style={[styles.heroCard, { borderColor: accentTint, backgroundColor: heroSurfaceColor }]}>
-          <View style={styles.heroHeaderRow}>
-            <View style={styles.heroTextBlock}>
-              <Text style={[styles.heroEyebrow, { color: accentTextColor }]}>Vault Workspace</Text>
-              <Text style={styles.heroTitle}>Your private uploads, folders, and share links</Text>
+        {vaultIsEmpty ? (
+          <View style={[styles.heroCard, { borderColor: accentTint, backgroundColor: heroSurfaceColor }]}>
+            <View style={styles.heroHeaderRow}>
+              <View style={styles.heroTextBlock}>
+                <Text style={[styles.heroEyebrow, { color: accentTextColor }]}>Vault Workspace</Text>
+                <Text style={styles.heroTitle}>Your private uploads, folders, and share links</Text>
+              </View>
+              <View style={[styles.planPill, { borderColor: accentTint, backgroundColor: accentSoft }]}> 
+                <Text style={[styles.planPillText, { color: accentTextColor }]}>{currentPlanLabel}</Text>
+              </View>
             </View>
-            <View style={[styles.planPill, { borderColor: accentTint, backgroundColor: accentSoft }]}> 
-              <Text style={[styles.planPillText, { color: accentTextColor }]}>{currentPlanLabel}</Text>
+
+            {isHybridMode ? (
+              <View style={styles.heroActionRow}>
+                <TouchableOpacity
+                  activeOpacity={0.92}
+                  style={[styles.heroPrimaryAction, { borderColor: accentTint }]}
+                  onPress={handleStartUpload}
+                >
+                  {appTheme.isDark ? (
+                    <LinearGradient
+                      colors={['#F4D03F', '#D4AF37']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={StyleSheet.absoluteFillObject}
+                    />
+                  ) : null}
+                  <Icon name="upload" size={16} color={actionButtonTextColor} />
+                  <Text style={[styles.heroPrimaryActionText, { color: actionButtonTextColor }]}>Add Upload</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  activeOpacity={0.9}
+                  style={[styles.heroSecondaryAction, { backgroundColor: actionSecondaryBackground, borderColor: accentTint }]}
+                  onPress={() => router.push('/vault/updates' as any)}
+                >
+                  <Icon name="refresh" size={16} color={accentTextColor} />
+                  <Text style={[styles.heroSecondaryActionText, { color: accentTextColor }]}>Updates</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  activeOpacity={0.9}
+                  style={[styles.heroSecondaryAction, { backgroundColor: actionSecondaryBackground, borderColor: accentTint }]}
+                  onPress={() => setShowCreateFolderSheet(true)}
+                >
+                  <Icon name="folder-plus" size={16} color={accentTextColor} />
+                  <Text style={[styles.heroSecondaryActionText, { color: accentTextColor }]}>Create Folder</Text>
+                </TouchableOpacity>
+              </View>
+            ) : null}
+
+            <View style={styles.statRow}>
+              <View style={[styles.statCard, styles.statCardFull]}>
+                <Text style={styles.statLabel}>Storage</Text>
+                <Text style={styles.statValue}>{storageSummary}</Text>
+                <Text style={styles.statMeta}>Uploads: {uploadSummary}</Text>
+              </View>
             </View>
+            {(uploadLimitReached || storageLimitReached) ? (
+              <Text style={[styles.limitWarning, { color: accentTextColor }] }>
+                {uploadLimitReached ? 'Upload limit reached.' : 'Storage limit reached.'} Upgrade to Vault Pro for more room.
+              </Text>
+            ) : null}
           </View>
-
-          {isHybridMode ? (
-            <View style={styles.heroActionRow}>
-              <TouchableOpacity
-                activeOpacity={0.92}
-                style={[styles.heroPrimaryAction, { borderColor: accentTint }]}
-                onPress={handleStartUpload}
-              >
-                {appTheme.isDark ? (
-                  <LinearGradient
-                    colors={['#F4D03F', '#D4AF37']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={StyleSheet.absoluteFillObject}
-                  />
-                ) : null}
-                <Upload size={16} color={actionButtonTextColor} />
-                <Text style={[styles.heroPrimaryActionText, { color: actionButtonTextColor }]}>Add Upload</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                activeOpacity={0.9}
-                style={[styles.heroSecondaryAction, { backgroundColor: actionSecondaryBackground, borderColor: accentTint }]}
-                onPress={() => router.push('/vault/updates' as any)}
-              >
-                <RefreshCw size={16} color={accentTextColor} />
-                <Text style={[styles.heroSecondaryActionText, { color: accentTextColor }]}>Updates</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                activeOpacity={0.9}
-                style={[styles.heroSecondaryAction, { backgroundColor: actionSecondaryBackground, borderColor: accentTint }]}
-                onPress={() => setShowCreateFolderSheet(true)}
-              >
-                <FolderPlus size={16} color={accentTextColor} />
-                <Text style={[styles.heroSecondaryActionText, { color: accentTextColor }]}>Create Folder</Text>
-              </TouchableOpacity>
-            </View>
-          ) : null}
-
-          <View style={styles.statRow}>
-            <View style={[styles.statCard, styles.statCardFull]}>
-              <Text style={styles.statLabel}>Storage</Text>
-              <Text style={styles.statValue}>{storageSummary}</Text>
-              <Text style={styles.statMeta}>Uploads: {uploadSummary}</Text>
-            </View>
-          </View>
-          {(uploadLimitReached || storageLimitReached) ? (
-            <Text style={[styles.limitWarning, { color: accentTextColor }] }>
-              {uploadLimitReached ? 'Upload limit reached.' : 'Storage limit reached.'} Upgrade to Vault Pro for more room.
-            </Text>
-          ) : null}
-        </View>
+        ) : null}
 
         {vaultIsEmpty ? (
           <View style={styles.emptyState}>
             <View style={[styles.emptyIcon, { backgroundColor: accentSoft }]}>
-              <FolderPlus size={44} color={accentTextColor} />
+              <Icon name="folder-plus" size={44} color={accentTextColor} />
             </View>
             <Text style={styles.emptyTitle}>Start building your Vault</Text>
             <Text style={styles.emptySubtitle}>
@@ -742,20 +750,28 @@ export default function VaultHomeScreen() {
               <Text style={[styles.sectionAction, { color: accentTextColor }]}>Open updates</Text>
             </TouchableOpacity>
             <View style={styles.layoutToggle}>
-              <TouchableOpacity
+              <IconButton
                 style={[styles.layoutToggleBtn, layoutMode === 'grid' && styles.layoutToggleBtnActive]}
                 activeOpacity={0.8}
                 onPress={() => setLayoutMode('grid')}
-              >
-                <Grid3x3 size={15} color={layoutMode === 'grid' ? accentTextColor : appTheme.colors.textSecondary} />
-              </TouchableOpacity>
-              <TouchableOpacity
+                icon="grid-3x3"
+                size={15}
+                color={layoutMode === 'grid' ? accentTextColor : appTheme.colors.textSecondary}
+                accessibilityRole="button"
+                accessibilityLabel="Use grid layout"
+                accessibilityState={{ selected: layoutMode === 'grid' }}
+              />
+              <IconButton
                 style={[styles.layoutToggleBtn, layoutMode === 'list' && styles.layoutToggleBtnActive]}
                 activeOpacity={0.8}
                 onPress={() => setLayoutMode('list')}
-              >
-                <ViewIcon size={15} color={layoutMode === 'list' ? accentTextColor : appTheme.colors.textSecondary} />
-              </TouchableOpacity>
+                icon="list"
+                size={15}
+                color={layoutMode === 'list' ? accentTextColor : appTheme.colors.textSecondary}
+                accessibilityRole="button"
+                accessibilityLabel="Use list layout"
+                accessibilityState={{ selected: layoutMode === 'list' }}
+              />
             </View>
           </View>
         </View>
@@ -780,7 +796,7 @@ export default function VaultHomeScreen() {
                 activeOpacity={0.8}
               >
                 <View style={[styles.rowIconWrap, { backgroundColor: accentSoft }]}> 
-                  <FolderPlus size={18} color={accentTextColor} />
+                  <Icon name="folder-plus" size={18} color={accentTextColor} />
                 </View>
                 <View style={styles.rowInfo}>
                   <Text style={styles.rowTitle} numberOfLines={1}>{folder.name}</Text>
@@ -801,7 +817,7 @@ export default function VaultHomeScreen() {
                     activeOpacity={0.86}
                   >
                     <View style={styles.gridCardIcon}>
-                      <FolderPlus size={16} color={accentTextColor} />
+                      <Icon name="folder-plus" size={16} color={accentTextColor} />
                     </View>
                     <Text style={styles.gridCardTitle} numberOfLines={2}>{folder.name}</Text>
                     <Text style={styles.gridCardMeta}>{Number(folder.itemCount || 0)} item{Number(folder.itemCount || 0) === 1 ? '' : 's'}</Text>
@@ -834,7 +850,7 @@ export default function VaultHomeScreen() {
                 activeOpacity={0.8}
               >
                 <View style={[styles.rowIconWrap, { backgroundColor: accentSoft }]}> 
-                  <Music4 size={18} color={accentTextColor} />
+                  <Icon name="music" size={18} color={accentTextColor} />
                 </View>
                 <View style={styles.rowInfo}>
                   <Text style={styles.rowTitle} numberOfLines={1}>{upload.title || 'Untitled Track'}</Text>
@@ -855,7 +871,7 @@ export default function VaultHomeScreen() {
                     activeOpacity={0.86}
                   >
                     <View style={styles.gridCardIcon}>
-                      <Music4 size={16} color={accentTextColor} />
+                      <Icon name="music" size={16} color={accentTextColor} />
                     </View>
                     <Text style={styles.gridCardTitle} numberOfLines={2}>{upload.title || 'Untitled Track'}</Text>
                     <Text style={styles.gridCardMeta} numberOfLines={1}>{upload.artist || upload.uploaderName || 'Private vault track'}</Text>
@@ -879,7 +895,7 @@ export default function VaultHomeScreen() {
         }}
         title={selectedTrack?.title || 'Track Options'}
         options={[
-          { label: 'Share', icon: <Share2 size={18} />, onPress: handleTrackShare },
+          { label: 'Share', icon: <Icon name="share" size={18} />, onPress: handleTrackShare },
           { label: 'Pin to Favorites', onPress: handleTrackPin },
           { label: 'Move to Folder', onPress: handleTrackMove },
           { label: 'Delete', destructive: true, onPress: handleTrackDelete },
@@ -896,7 +912,7 @@ export default function VaultHomeScreen() {
         title={selectedFolder?.name || 'Folder Options'}
         options={[
           { label: 'Rename', onPress: handleFolderRename },
-          { label: 'Share', icon: <Share2 size={18} />, onPress: handleFolderShare },
+          { label: 'Share', icon: <Icon name="share" size={18} />, onPress: handleFolderShare },
           { label: 'Pin to Favorites', onPress: handleFolderPin },
           { label: 'Delete', destructive: true, onPress: handleFolderDelete },
         ]}
@@ -956,7 +972,7 @@ export default function VaultHomeScreen() {
               {searchResults.map((result) => (
                 <TouchableOpacity key={result.id} style={styles.searchResultRow} onPress={result.onPress} activeOpacity={0.85}>
                   <View style={styles.rowIconWrap}>
-                    <Search size={16} color={adaptLegacyColor('#EC5C39', 'color', appTheme)} />
+                    <Icon name="search" size={16} color={adaptLegacyColor('#EC5C39', 'color', appTheme)} />
                   </View>
                   <View style={styles.rowInfo}>
                     <Text style={styles.rowTitle} numberOfLines={1}>{result.title}</Text>
@@ -1040,17 +1056,14 @@ const legacyStyles = {
     paddingRight: 4,
   },
   heroEyebrow: {
+    ...typography.chip,
     color: '#EC5C39',
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 12,
-    lineHeight: 16,
     marginBottom: 4,
   },
   heroTitle: {
+    ...typography.h3,
     color: '#FFFFFF',
-    fontFamily: 'Poppins-Bold',
-    fontSize: 20,
-    lineHeight: 27,
+    fontFamily: FontFamily.bold,
     flexShrink: 1,
   },
   planPill: {
@@ -1062,9 +1075,8 @@ const legacyStyles = {
     maxWidth: 112,
   },
   planPillText: {
+    ...typography.small,
     color: '#EC5C39',
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 11,
     textAlign: 'center',
   },
   heroActionRow: {
@@ -1084,8 +1096,7 @@ const legacyStyles = {
     overflow: 'hidden',
   },
   heroPrimaryActionText: {
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 13,
+    ...typography.buttonSm,
   },
   heroSecondaryAction: {
     minHeight: 42,
@@ -1098,8 +1109,7 @@ const legacyStyles = {
     gap: 8,
   },
   heroSecondaryActionText: {
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 13,
+    ...typography.buttonSm,
   },
   statRow: {
     flexDirection: 'row',
@@ -1117,25 +1127,20 @@ const legacyStyles = {
     width: '100%',
   },
   statLabel: {
+    ...typography.caption,
     color: 'rgba(255,255,255,0.68)',
-    fontFamily: 'Poppins-Regular',
-    fontSize: 12,
   },
   statValue: {
+    ...typography.bodyBold,
     color: '#FFFFFF',
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 16,
   },
   statMeta: {
+    ...typography.small,
     color: 'rgba(255,255,255,0.66)',
-    fontFamily: 'Poppins-Regular',
-    fontSize: 11,
   },
   limitWarning: {
+    ...typography.caption,
     color: '#F8B6A7',
-    fontFamily: 'Poppins-Regular',
-    fontSize: 12,
-    lineHeight: 18,
   },
   emptyState: {
     backgroundColor: '#1A1A1B',
@@ -1155,16 +1160,13 @@ const legacyStyles = {
     justifyContent: 'center',
   },
   emptyTitle: {
+    ...typography.title,
     color: '#FFFFFF',
-    fontFamily: 'Poppins-Bold',
-    fontSize: 20,
     textAlign: 'center',
   },
   emptySubtitle: {
+    ...typography.caption,
     color: 'rgba(255,255,255,0.7)',
-    fontFamily: 'Poppins-Regular',
-    fontSize: 13,
-    lineHeight: 20,
     textAlign: 'center',
   },
   emptyButton: {
@@ -1175,9 +1177,8 @@ const legacyStyles = {
     paddingVertical: 14,
   },
   emptyButtonText: {
+    ...typography.buttonSm,
     color: '#FFFFFF',
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 14,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -1191,14 +1192,12 @@ const legacyStyles = {
     gap: 10,
   },
   sectionTitle: {
+    ...typography.section,
     color: '#FFFFFF',
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 17,
   },
   sectionAction: {
+    ...typography.chip,
     color: '#EC5C39',
-    fontFamily: 'Poppins-Medium',
-    fontSize: 13,
   },
   layoutToggle: {
     flexDirection: 'row',
@@ -1240,14 +1239,12 @@ const legacyStyles = {
     paddingBottom: 6,
   },
   sectionBlockTitle: {
+    ...typography.bodyBold,
     color: '#FFFFFF',
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 14,
   },
   sectionBlockAction: {
+    ...typography.label,
     color: '#EC5C39',
-    fontFamily: 'Poppins-Medium',
-    fontSize: 12,
   },
   sectionDivider: {
     height: 1,
@@ -1280,25 +1277,20 @@ const legacyStyles = {
     justifyContent: 'center',
   },
   gridCardTitle: {
+    ...typography.chip,
     color: '#FFFFFF',
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 13,
-    lineHeight: 18,
   },
   gridCardMeta: {
+    ...typography.small,
     color: 'rgba(255,255,255,0.66)',
-    fontFamily: 'Poppins-Regular',
-    fontSize: 11,
-    lineHeight: 15,
   },
   gridCardActive: {
     backgroundColor: 'rgba(255,255,255,0.08)',
     borderColor: 'rgba(255,255,255,0.16)',
   },
   placeholderText: {
+    ...typography.caption,
     color: 'rgba(255,255,255,0.64)',
-    fontFamily: 'Poppins-Regular',
-    fontSize: 13,
     paddingHorizontal: 16,
     paddingVertical: 14,
   },
@@ -1327,20 +1319,17 @@ const legacyStyles = {
     flex: 1,
   },
   rowTitle: {
+    ...typography.chip,
     color: '#FFFFFF',
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 13,
   },
   rowSubtitle: {
+    ...typography.small,
     color: 'rgba(255,255,255,0.68)',
-    fontFamily: 'Poppins-Regular',
-    fontSize: 11,
     marginTop: 2,
   },
   rowMeta: {
+    ...typography.small,
     color: 'rgba(255,255,255,0.56)',
-    fontFamily: 'Poppins-Regular',
-    fontSize: 11,
   },
   modalOverlay: {
     flex: 1,
@@ -1390,17 +1379,15 @@ const legacyStyles = {
     borderBottomColor: 'rgba(255,255,255,0.07)',
   },
   modalTitle: {
+    ...typography.title,
     color: '#FFFFFF',
-    fontFamily: 'Poppins-Bold',
-    fontSize: 20,
   },
   modalSubtitle: {
+    ...typography.caption,
     color: 'rgba(255,255,255,0.68)',
-    fontFamily: 'Poppins-Regular',
-    fontSize: 13,
-    lineHeight: 20,
   },
   input: {
+    ...typography.body,
     backgroundColor: 'rgba(255,255,255,0.05)',
     borderRadius: 14,
     borderWidth: 1,
@@ -1408,8 +1395,8 @@ const legacyStyles = {
     paddingHorizontal: 16,
     paddingVertical: 14,
     color: '#FFFFFF',
-    fontFamily: 'Poppins-Regular',
     fontSize: 14,
+    lineHeight: 20,
   },
   modalActions: {
     flexDirection: 'row',
@@ -1426,9 +1413,8 @@ const legacyStyles = {
     paddingVertical: 14,
   },
   modalSecondaryText: {
+    ...typography.buttonSm,
     color: '#FFFFFF',
-    fontFamily: 'Poppins-Medium',
-    fontSize: 14,
   },
   modalPrimaryButton: {
     flex: 1,
@@ -1439,8 +1425,7 @@ const legacyStyles = {
     paddingVertical: 14,
   },
   modalPrimaryText: {
+    ...typography.buttonSm,
     color: '#FFFFFF',
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 14,
   },
 };

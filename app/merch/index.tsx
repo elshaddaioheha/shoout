@@ -1,11 +1,12 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
+import SettingsHeader from '@/components/settings/SettingsHeader';
 import Sidebar from '@/components/Sidebar';
 import { db } from '@/firebaseConfig';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { adaptLegacyColor, adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { formatUsd } from '@/utils/pricing';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
-import { ChevronLeft, ShoppingBag, Star, Tag } from 'lucide-react-native';
+import { ShoppingBag, Star, Tag } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
 import {
@@ -57,15 +58,7 @@ export default function MerchStoreScreen() {
     return (
         <SafeScreenWrapper>
             <View style={styles.container}>
-                <View style={styles.headerRow}>
-                    <TouchableOpacity
-                        onPress={() => router.back()}
-                        style={styles.backBtn}
-                    >
-                        <ChevronLeft size={22} color={appTheme.colors.textPrimary} />
-                    </TouchableOpacity>
-                    <Text style={styles.headerTitle}>Merch Store</Text>
-                </View>
+                <SettingsHeader title="Merch Store" onBack={() => router.back()} style={styles.headerRow} />
 
                 <View style={styles.searchBar}>
                     <ShoppingBag size={20} color={mutedIconColor} />
@@ -142,14 +135,7 @@ function MerchCard({ item, styles, appTheme }: any) {
 const legacyStyles = {
     container: { flex: 1, backgroundColor: '#140F10' },
     center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    headerRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16 },
-    headerTitle: { color: '#FFF', fontSize: 22, fontFamily: 'Poppins-Bold', flex: 1 },
-    backBtn: {
-        width: 38, height: 38, borderRadius: 19,
-        backgroundColor: 'rgba(255,255,255,0.06)',
-        alignItems: 'center', justifyContent: 'center',
-        marginRight: 12,
-    },
+    headerRow: { paddingHorizontal: 20, paddingVertical: 8 },
     searchBar: {
         flexDirection: 'row',
         alignItems: 'center',

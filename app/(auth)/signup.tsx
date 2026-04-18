@@ -6,6 +6,7 @@ import { GoogleAuthProvider, OAuthProvider, signInWithCredential } from 'firebas
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
+import { PremiumBackButton } from '@/components/ui/PremiumBackButton';
 import React from 'react';
 import { Animated, KeyboardAvoidingView, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import Reanimated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
@@ -251,6 +252,10 @@ export default function SignupScreen() {
                 <Animated.View style={{ flex: 1, opacity: opacityAnim, transform: [{ translateX: slideAnim }] }}>
                     <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
                     <View style={styles.guestRow}>
+                        <PremiumBackButton
+                            variant="transparent"
+                            containerStyle={styles.inlineBackButton}
+                        />
                         <TouchableOpacity onPress={goGuestHome}>
                             <Text style={[styles.guestText, isLightMode && { color: lightMutedText }]}>Continue as Guest</Text>
                         </TouchableOpacity>
@@ -385,8 +390,15 @@ const legacyStyles = {
     },
     guestRow: {
         width: '100%',
-        alignItems: 'flex-end',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
         marginBottom: 12,
+    },
+    inlineBackButton: {
+        position: 'relative',
+        top: 0,
+        left: 0,
     },
     guestText: {
         color: '#B7B7B7',

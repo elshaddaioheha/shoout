@@ -1,7 +1,7 @@
 import { BlurView } from 'expo-blur';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
-import { FolderPlus, Mic, RefreshCcw, UploadCloud } from 'lucide-react-native';
+import { Icon, IconName } from '@/components/ui/Icon';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
@@ -27,11 +27,11 @@ interface VaultFloatingActionMenuProps {
 }
 
 const ACTION_ICONS = {
-  upload: UploadCloud,
-  convert: RefreshCcw,
-  record: Mic,
-  folder: FolderPlus,
-} as const;
+  upload: 'upload-cloud',
+  convert: 'refresh-ccw',
+  record: 'mic',
+  folder: 'folder-plus',
+} as const satisfies Record<string, IconName>;
 
 function useVaultFloatingMenuStyles() {
   const appTheme = useAppTheme();
@@ -308,6 +308,9 @@ export default function VaultFloatingActionMenu({ actions }: VaultFloatingAction
             onPress={openMenu}
             onPressIn={handleLauncherPressIn}
             onPressOut={handleLauncherPressOut}
+            accessibilityRole="button"
+            accessibilityLabel="Open vault quick actions"
+            accessibilityState={{ expanded: visible }}
           >
             {isLightMode ? (
               <View style={styles.launcherBlur}>
@@ -344,7 +347,7 @@ export default function VaultFloatingActionMenu({ actions }: VaultFloatingAction
               <View style={styles.menuBlur}>
                 <View style={styles.menuGrid}>
                   {actions.map((action, index) => {
-                    const Icon = ACTION_ICONS[action.key as keyof typeof ACTION_ICONS] ?? FolderPlus;
+                    const iconName = ACTION_ICONS[action.key as keyof typeof ACTION_ICONS] ?? 'folder-plus';
                     const itemAnimation = actionAnimations[index];
                     const iconColor = '#B7331B';
                     return (
@@ -367,9 +370,11 @@ export default function VaultFloatingActionMenu({ actions }: VaultFloatingAction
                             closeMenu();
                             setTimeout(action.onPress, 140);
                           }}
+                          accessibilityRole="button"
+                          accessibilityLabel={action.label}
                         >
                           <View style={styles.menuIconWrap}>
-                            <Icon size={18} color={iconColor} />
+                            <Icon name={iconName} size={18} color={iconColor} />
                           </View>
                           <Text style={styles.menuLabel}>{action.label}</Text>
                         </TouchableOpacity>
@@ -382,7 +387,7 @@ export default function VaultFloatingActionMenu({ actions }: VaultFloatingAction
               <BlurView intensity={28} tint="dark" style={styles.menuBlur}>
                 <View style={styles.menuGrid}>
                   {actions.map((action, index) => {
-                    const Icon = ACTION_ICONS[action.key as keyof typeof ACTION_ICONS] ?? FolderPlus;
+                    const iconName = ACTION_ICONS[action.key as keyof typeof ACTION_ICONS] ?? 'folder-plus';
                     const itemAnimation = actionAnimations[index];
                     const iconColor = appTheme.colors.primary;
                     return (
@@ -405,9 +410,11 @@ export default function VaultFloatingActionMenu({ actions }: VaultFloatingAction
                             closeMenu();
                             setTimeout(action.onPress, 140);
                           }}
+                          accessibilityRole="button"
+                          accessibilityLabel={action.label}
                         >
                           <View style={styles.menuIconWrap}>
-                            <Icon size={18} color={iconColor} />
+                            <Icon name={iconName} size={18} color={iconColor} />
                           </View>
                           <Text style={styles.menuLabel}>{action.label}</Text>
                         </TouchableOpacity>

@@ -9,7 +9,8 @@ import { getModeTheme } from '@/utils/appModeTheme';
 import { formatUsd } from '@/utils/pricing';
 import { canUseStudioServices, getEffectivePlan } from '@/utils/subscriptions';
 import { useRouter } from 'expo-router';
-import { CircleDollarSign, FilePenLine, Music4, UploadCloud } from 'lucide-react-native';
+import { Icon } from '@/components/ui/Icon';
+import { IconButton } from '@/components/ui/IconButton';
 import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -60,7 +61,7 @@ export default function StudioPublishScreen() {
             if (requireStudioSubscription()) return;
             router.push('/studio/upload' as any);
           }} activeOpacity={0.9}>
-            <UploadCloud size={18} color={appTheme.colors.textPrimary} />
+            <Icon name="upload-cloud" size={18} color={appTheme.colors.textPrimary} />
             <Text style={styles.heroButtonText}>Upload New Track</Text>
           </TouchableOpacity>
         </View>
@@ -95,7 +96,7 @@ export default function StudioPublishScreen() {
           {!loading && tracks.slice(0, 8).map((track) => (
             <View key={track.id} style={styles.trackRow}>
               <View style={styles.trackIcon}>
-                <Music4 size={18} color={accentColor} />
+                <Icon name="music" size={18} color={accentColor} />
               </View>
               <View style={styles.trackInfo}>
                 <Text style={styles.trackTitle} numberOfLines={1}>{track.title || 'Untitled Track'}</Text>
@@ -103,12 +104,18 @@ export default function StudioPublishScreen() {
                   {track.published === true || track.lifecycleStatus === 'published' ? 'Published' : 'Draft'} · {formatUsd(Number(track.price || 0))}
                 </Text>
               </View>
-              <TouchableOpacity style={[styles.inlineAction, { backgroundColor: accentTint }]} onPress={() => {
-                if (requireStudioSubscription()) return;
-                router.push('/studio/upload' as any);
-              }} activeOpacity={0.8}>
-                <FilePenLine size={16} color={accentColor} />
-              </TouchableOpacity>
+              <IconButton
+                style={[styles.inlineAction, { backgroundColor: accentTint }]}
+                icon="file-pen-line"
+                color={accentColor}
+                size={16}
+                accessibilityLabel="Edit track"
+                accessibilityHint="Open the track editor"
+                onPress={() => {
+                  if (requireStudioSubscription()) return;
+                  router.push('/studio/upload' as any);
+                }}
+              />
             </View>
           ))}
         </View>

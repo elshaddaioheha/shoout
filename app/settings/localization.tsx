@@ -127,7 +127,8 @@ export default function LocalizationAccessibilityScreen() {
 
               {/* Reduce Motion */}
               <SettingsSwitchRow
-                label={t('settings.reduceMotion')}
+                title={t('settings.reduceMotion')}
+                subtitle="Reduce animations and motion effects across the app"
                 value={reduceMotion}
                 onValueChange={setReduceMotion}
                 accessibilityLabel={`Reduce motion: ${reduceMotion ? 'enabled' : 'disabled'}`}

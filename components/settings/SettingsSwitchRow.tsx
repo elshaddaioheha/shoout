@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, Switch, Text, View } from 'react-native';
 import { useAppTheme } from '@/hooks/use-app-theme';
+import { typography } from '@/constants/typography';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 
 interface SettingsSwitchRowProps {
@@ -52,13 +53,11 @@ const legacyStyles = {
         paddingRight: 16,
     },
     settingTitle: {
-        fontSize: 16,
-        fontFamily: 'Poppins-Medium',
+        ...typography.bodyBold,
         color: '#FFF',
     },
     settingSub: {
-        fontSize: 13,
-        fontFamily: 'Poppins-Regular',
+        ...typography.caption,
         color: 'rgba(255,255,255,0.5)',
         marginTop: 2,
     },

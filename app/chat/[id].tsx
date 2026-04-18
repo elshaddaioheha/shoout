@@ -1,4 +1,5 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
+import { PremiumBackButton } from '@/components/ui/PremiumBackButton';
 import { auth, db } from '@/firebaseConfig';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { useUserStore } from '@/store/useUserStore';
@@ -19,7 +20,6 @@ import {
     where
 } from 'firebase/firestore';
 import {
-    ChevronLeft,
     Phone,
     Send,
     User,
@@ -244,9 +244,11 @@ export default function ChatConversationScreen() {
             >
                 {/* Custom Header */}
                 <View style={styles.header}>
-                    <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn}>
-                        <ChevronLeft size={24} color={appTheme.colors.textPrimary} />
-                    </TouchableOpacity>
+                    <PremiumBackButton
+                        onPressOverride={() => router.back()}
+                        variant="transparent"
+                        containerStyle={styles.headerBtn}
+                    />
 
                     <View style={styles.headerCenter}>
                         <View style={styles.headerAvatar}>
@@ -333,11 +335,9 @@ const legacyStyles = {
         borderBottomColor: 'rgba(255,255,255,0.05)',
     },
     headerBtn: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        alignItems: 'center',
-        justifyContent: 'center',
+        position: 'relative',
+        top: 0,
+        left: 0,
     },
     headerCenter: {
         flex: 1,

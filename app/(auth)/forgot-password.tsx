@@ -1,9 +1,9 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ChevronLeft } from 'lucide-react-native';
 import React, { useMemo, useState } from 'react';
 import { KeyboardAvoidingView, Platform, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
+import { PremiumBackButton } from '@/components/ui/PremiumBackButton';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { useToastStore } from '@/store/useToastStore';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
@@ -65,9 +65,10 @@ export default function ForgotPasswordScreen() {
         keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}
         style={styles.flex}
       >
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <ChevronLeft color={appTheme.colors.textPrimary} size={24} />
-        </TouchableOpacity>
+        <PremiumBackButton
+          variant="transparent"
+          containerStyle={styles.backButton}
+        />
 
         <View style={styles.headerWrap}>
           <Text style={[styles.headerTitle, isLightMode && { color: lightText }]}>Forget Password</Text>
@@ -126,11 +127,10 @@ const legacyStyles = {
     paddingHorizontal: 20,
   },
   backButton: {
+    position: 'relative',
+    top: 0,
+    left: 0,
     marginTop: 8,
-    width: 31,
-    height: 31,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   headerWrap: {
     alignItems: 'center',

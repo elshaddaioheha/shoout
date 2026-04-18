@@ -1,4 +1,5 @@
 import { useAppTheme } from '@/hooks/use-app-theme';
+import { typography } from '@/constants/typography';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { formatUsd } from '@/utils/pricing';
 import type { LicenseTierId, LicenseTierOption } from '@/utils/licenseTiers';
@@ -70,14 +71,12 @@ const legacyStyles = {
         marginTop: 14,
     },
     label: {
+        ...typography.title,
         color: '#FFFFFF',
-        fontSize: 18,
-        fontFamily: 'Poppins-SemiBold',
     },
     subLabel: {
+        ...typography.caption,
         color: 'rgba(255,255,255,0.56)',
-        fontSize: 12,
-        fontFamily: 'Poppins-Regular',
         marginTop: 3,
     },
     rows: {
@@ -110,9 +109,8 @@ const legacyStyles = {
         flexShrink: 1,
     },
     rowTitle: {
+        ...typography.bodyBold,
         color: '#FFFFFF',
-        fontSize: 16,
-        fontFamily: 'Poppins-SemiBold',
     },
     badge: {
         borderRadius: 999,
@@ -123,14 +121,12 @@ const legacyStyles = {
         borderColor: 'rgba(106,167,255,0.34)',
     },
     badgeText: {
+        ...typography.small,
         color: '#8BBCFF',
-        fontSize: 10,
-        fontFamily: 'Poppins-SemiBold',
     },
     rowPrice: {
+        ...typography.title,
         color: '#FFFFFF',
-        fontSize: 18,
-        fontFamily: 'Poppins-Bold',
         flexShrink: 0,
     },
     rowPriceSelected: {
@@ -144,11 +140,10 @@ const legacyStyles = {
         gap: 12,
     },
     rowSummary: {
+        ...typography.caption,
         flex: 1,
         color: 'rgba(255,255,255,0.7)',
-        fontSize: 12,
         lineHeight: 18,
-        fontFamily: 'Poppins-Regular',
     },
     radioOuter: {
         width: 20,

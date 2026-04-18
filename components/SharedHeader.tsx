@@ -4,11 +4,12 @@ import { ViewMode } from '@/store/useUserStore';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { getModeSurfaceTheme } from '@/utils/appModeTheme';
+import { Icon } from '@/components/ui/Icon';
+import { IconButton } from '@/components/ui/IconButton';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { Bell, MessageSquare, ShoppingCart } from 'lucide-react-native';
 import React from 'react';
-import { Platform, SafeAreaView, StatusBar, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Platform, SafeAreaView, StatusBar, StyleSheet, View } from 'react-native';
 
 function withAlpha(hex: string, alphaHex: string) {
     if (/^#[0-9a-fA-F]{6}$/.test(hex)) {
@@ -73,33 +74,40 @@ export default function SharedHeader({
                     {customRightContent ?? (
                         <>
                             {shouldShowMessages && (
-                                <TouchableOpacity
+                                <IconButton
                                     style={[styles.iconButton, { marginRight: 8, backgroundColor: modeTheme.actionSurface, borderColor: modeTheme.actionBorder }]}
                                     onPress={() => router.push('/chat' as any)}
-                                >
-                                    <MessageSquare size={18} color={appTheme.colors.textPrimary} />
-                                </TouchableOpacity>
+                                    icon="message-square"
+                                    size={18}
+                                    color={appTheme.colors.textPrimary}
+                                    accessibilityRole="button"
+                                    accessibilityLabel="Open messages"
+                                />
                             )}
                             {shouldShowCart && (
-                                <TouchableOpacity
+                                <IconButton
                                     style={[styles.iconButton, { marginRight: 8, backgroundColor: modeTheme.actionSurface, borderColor: modeTheme.actionBorder }]}
                                     onPress={() => router.push('/cart' as any)}
+                                    accessibilityRole="button"
+                                    accessibilityLabel="Open cart"
                                 >
-                                    <ShoppingCart size={18} color={appTheme.colors.textPrimary} />
+                                    <Icon name="cart" size={18} color={appTheme.colors.textPrimary} />
                                     {cartCount != null && cartCount > 0 && (
                                         <View style={[styles.badge, { backgroundColor: accentColor, borderColor: appTheme.colors.background }]} />
                                     )}
-                                </TouchableOpacity>
+                                </IconButton>
                             )}
-                            <TouchableOpacity
+                            <IconButton
                                 style={[styles.iconButton, { backgroundColor: modeTheme.actionSurface, borderColor: modeTheme.actionBorder }]}
                                 onPress={() => router.push('/notifications' as any)}
+                                accessibilityRole="button"
+                                accessibilityLabel="Open notifications"
                             >
-                                <Bell size={18} color={appTheme.colors.textPrimary} />
+                                <Icon name="bell" size={18} color={appTheme.colors.textPrimary} />
                                 {unreadCount > 0 && (
                                     <View style={[styles.badge, { backgroundColor: accentColor, borderColor: appTheme.colors.background }]} />
                                 )}
-                            </TouchableOpacity>
+                            </IconButton>
                         </>
                     )}
                 </View>

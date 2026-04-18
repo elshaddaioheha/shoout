@@ -1,4 +1,5 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
+import { PremiumBackButton } from '@/components/ui/PremiumBackButton';
 import { auth, db } from '@/firebaseConfig';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { formatUsd } from '@/utils/pricing';
@@ -23,7 +24,6 @@ import { PayWithFlutterwave } from 'flutterwave-react-native';
 
 import {
     ArrowRight,
-    ChevronLeft,
     CreditCard,
     Trash2
 } from 'lucide-react-native';
@@ -217,11 +217,11 @@ export default function CheckoutReviewScreen() {
             <SafeScreenWrapper>
                 <View style={[styles.container, { backgroundColor: appTheme.colors.background }]}>
                     <View style={styles.header}>
-                        <TouchableOpacity onPress={() => router.back()}>
-                            <View style={[styles.backBtn, { backgroundColor: '#6AA7FF' }]}>
-                                <ChevronLeft size={20} color="#FFFFFF" strokeWidth={2.5} />
-                            </View>
-                        </TouchableOpacity>
+                        <PremiumBackButton
+                            onPressOverride={() => router.back()}
+                            variant="solid"
+                            containerStyle={styles.headerBackButton}
+                        />
                         <Text style={[styles.headerTitle, isLightMode && { color: '#1E3A5F' }]}>Order Review</Text>
                         <View style={{ width: 40 }} />
                     </View>
@@ -247,11 +247,11 @@ export default function CheckoutReviewScreen() {
             <View style={[styles.container, { backgroundColor: appTheme.colors.background }]}>
                 {/* Header */}
                 <View style={styles.header}>
-                    <TouchableOpacity onPress={() => router.back()}>
-                        <View style={[styles.backBtn, { backgroundColor: '#6AA7FF' }]}>
-                            <ChevronLeft size={20} color="#FFFFFF" strokeWidth={2.5} />
-                        </View>
-                    </TouchableOpacity>
+                    <PremiumBackButton
+                        onPressOverride={() => router.back()}
+                        variant="solid"
+                        containerStyle={styles.headerBackButton}
+                    />
                     <Text style={[styles.headerTitle, isLightMode && { color: '#1E3A5F' }]}>Order Review</Text>
                     <View style={{ width: 40 }} />
                 </View>
@@ -338,7 +338,7 @@ export default function CheckoutReviewScreen() {
                             }}
                             options={{
                                 tx_ref: checkoutTxRef,
-                                authorization: process.env.EXPO_PUBLIC_FLUTTERWAVE_PUBLIC_KEY || '',
+                                authorization: process.env.EXPO_PUBLIC_FLUTTERWAVE_PUBLIC_KEY!,
                                 customer: {
                                     email: auth.currentUser.email!,
                                 },
@@ -382,6 +382,11 @@ const legacyStyles = {
         borderRadius: 20,
         justifyContent: 'center' as const,
         alignItems: 'center' as const,
+    },
+    headerBackButton: {
+        position: 'relative',
+        top: 0,
+        left: 0,
     },
     headerTitle: {
         fontSize: 18,

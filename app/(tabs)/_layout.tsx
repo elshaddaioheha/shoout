@@ -2,14 +2,16 @@ import MiniPlayer from '@/components/MiniPlayer';
 import ModeSelectorSheet from '@/components/ModeSelectorSheet';
 import ModeTransitionOverlay from '@/components/ModeTransitionOverlay';
 import ResponsiveBottomTabBar from '@/components/ResponsiveBottomTabBar';
+import FullPlayer from '@/components/FullPlayer';
 import VaultMiniPlayer from '@/components/VaultMiniPlayer';
 import { useAppSwitcher } from '@/hooks/useAppSwitcher';
 import { useExplorePlayerStore } from '@/store/useExplorePlayerStore';
-import { Tabs } from 'expo-router';
-import React from 'react';
+import { useUIStore } from '@/store/useUIStore';
+import { Tabs, usePathname } from 'expo-router';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { createContext, useContext } from 'react';
-import { Animated, StyleSheet } from 'react-native';
+import { Animated, StyleSheet, useWindowDimensions } from 'react-native';
 
 type SwitcherMode = 'shoout' | 'vault' | 'vault_pro' | 'studio' | 'hybrid';
 
@@ -62,6 +64,43 @@ export default function TabLayout() {
     studioAccessLevel,
   } = useAppSwitcher();
   const isExploreImmersiveMode = useExplorePlayerStore((state) => state.isImmersiveMode);
+  const isFullPlayerVisible = useUIStore((state) => state.isFullPlayerVisible);
+  const setFullPlayerVisible = useUIStore((state) => state.setFullPlayerVisible);
+  const pathname = usePathname();
+  const { height } = useWindowDimensions();
+  const fullPlayerSlideAnim = useRef(new Animated.Value(0)).current;
+  const [isFullPlayerMounted, setIsFullPlayerMounted] = useState(false);
+
+  const shouldHidePlayer = pathname === '/modal'
+    || pathname === '/checkout-review'
+    || pathname?.startsWith('/listing/');
+  const shouldShowPlayer = !isExploreImmersiveMode && !shouldHidePlayer;
+
+  useEffect(() => {
+    if (shouldHidePlayer && isFullPlayerVisible) {
+      setFullPlayerVisible(false);
+      setIsFullPlayerMounted(false);
+      return;
+    }
+
+    if (isFullPlayerVisible) {
+      setIsFullPlayerMounted(true);
+    }
+
+    Animated.timing(fullPlayerSlideAnim, {
+      toValue: isFullPlayerVisible ? 1 : 0,
+      duration: 240,
+      useNativeDriver: true,
+    }).start(({ finished }) => {
+      if (finished && !isFullPlayerVisible) {
+        setIsFullPlayerMounted(false);
+      }
+    });
+  }, [fullPlayerSlideAnim, isFullPlayerVisible, setFullPlayerVisible, shouldHidePlayer]);
+
+  const handleCloseFullPlayer = useCallback(() => {
+    setFullPlayerVisible(false);
+  }, [setFullPlayerVisible]);
 
   const contextValue: AppSwitcherContextValue = {
     openSheet,
@@ -131,7 +170,7 @@ export default function TabLayout() {
           <Tabs.Screen
             name="library"
             options={{
-              title: 'Creator',
+              title: 'Library',
             }}
           />
           <Tabs.Screen
@@ -144,9 +183,36 @@ export default function TabLayout() {
           <Tabs.Screen name="explore" options={{ href: null }} />
         </Tabs>
 
-        {!isExploreImmersiveMode
-          ? ((viewMode === 'vault' || viewMode === 'vault_pro') ? <VaultMiniPlayer /> : <MiniPlayer />)
+        {shouldShowPlayer
+          ? ((viewMode === 'vault' || viewMode === 'vault_pro')
+            ? <VaultMiniPlayer onPress={() => setFullPlayerVisible(true)} />
+            : <MiniPlayer onPress={() => setFullPlayerVisible(true)} />)
           : null}
+
+        {shouldShowPlayer && isFullPlayerMounted ? (
+          <Animated.View
+            pointerEvents={isFullPlayerVisible ? 'auto' : 'none'}
+            style={[
+              styles.fullPlayerOverlay,
+              {
+                height,
+                transform: [
+                  {
+                    translateY: fullPlayerSlideAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [height, 0],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
+            <FullPlayer
+                visible={isFullPlayerMounted}
+              onClose={handleCloseFullPlayer}
+            />
+          </Animated.View>
+        ) : null}
       </Animated.View>
 
       <ModeSelectorSheet
@@ -174,5 +240,11 @@ export default function TabLayout() {
 const styles = StyleSheet.create({
   contentShell: {
     flex: 1,
+  },
+  fullPlayerOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 200,
+    elevation: 40,
+    backgroundColor: '#140F10',
   },
 });

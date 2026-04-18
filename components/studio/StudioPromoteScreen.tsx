@@ -8,7 +8,7 @@ import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { getModeTheme } from '@/utils/appModeTheme';
 import { canUseStudioServices, getEffectivePlan } from '@/utils/subscriptions';
 import { useRouter } from 'expo-router';
-import { Megaphone, Music4, Rocket, Sparkles, TrendingUp } from 'lucide-react-native';
+import { Icon } from '@/components/ui/Icon';
 import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -59,7 +59,7 @@ export default function StudioPromoteScreen() {
             if (requireStudioSubscription()) return;
             router.push('/studio/ads-intro' as any);
           }} activeOpacity={0.9}>
-            <Rocket size={18} color={appTheme.colors.textPrimary} />
+            <Icon name="rocket" size={18} color={appTheme.colors.textPrimary} />
             <Text style={styles.primaryCtaText}>Open Ad Manager</Text>
           </TouchableOpacity>
         </View>
@@ -76,12 +76,12 @@ export default function StudioPromoteScreen() {
           </View>
           <View style={styles.statusRow}>
             <View style={[styles.statusCard, { borderColor: accentTint, backgroundColor: accentCard, borderWidth: 1 }]}>
-              <Megaphone size={18} color={accentColor} />
+              <Icon name="megaphone" size={18} color={accentColor} />
               <Text style={styles.statusValue}>0</Text>
               <Text style={styles.statusLabel}>Active campaigns</Text>
             </View>
-            <View style={[styles.statusCard, { borderColor: accentTint, backgroundColor: accentCard, borderWidth: 1 }]}>
-              <TrendingUp size={18} color={accentColor} />
+            <View style={[styles.statusCard, { borderColor: accentTint, backgroundColor: accentCard, borderWidth: 1 }]}> 
+              <Icon name="trending-up" size={18} color={accentColor} />
               <Text style={styles.statusValue}>{topTracks.length}</Text>
               <Text style={styles.statusLabel}>Tracks ready</Text>
             </View>
@@ -102,7 +102,7 @@ export default function StudioPromoteScreen() {
           {topTracks.map((track) => (
             <View key={track.id} style={styles.trackRow}>
               <View style={styles.trackIcon}>
-                <Music4 size={18} color={accentColor} />
+                <Icon name="music" size={18} color={accentColor} />
               </View>
               <View style={styles.trackInfo}>
                 <Text style={styles.trackTitle} numberOfLines={1}>{track.title || 'Untitled Track'}</Text>
@@ -119,7 +119,7 @@ export default function StudioPromoteScreen() {
         </View>
 
         <View style={[styles.tipCard, { backgroundColor: accentCard, borderColor: accentTint }]}>
-          <Sparkles size={18} color={accentColor} />
+          <Icon name="sparkles" size={18} color={accentColor} />
           <Text style={styles.tipText}>Use Promote to launch ads, refine campaign messaging, and connect new listeners back to your releases.</Text>
         </View>
       </ScrollView>

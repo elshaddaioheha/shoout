@@ -4,20 +4,12 @@
 import { ViewMode } from '@/store/useUserStore';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { useAuthStore } from '@/store/useAuthStore';
+import { Icon } from '@/components/ui/Icon';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { formatPlanLabel, getSubscriptionPlan, type AppMode } from '@/utils/subscriptions';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import {
-    CheckCircle2,
-    Disc3,
-    FolderLock,
-    Library,
-    Lock,
-    Mic2,
-    Music,
-} from 'lucide-react-native';
 import React, { useEffect, useRef } from 'react';
 import {
     Animated,
@@ -38,7 +30,7 @@ interface ViewModeEntry {
     id: ViewMode;
     label: string;
     description: string;
-    Icon: any;
+    icon: 'refresh' | 'music' | 'mic' | 'library';
     color: string;
 }
 
@@ -47,28 +39,28 @@ const VIEW_MODES: ViewModeEntry[] = [
         id: 'shoout',
         label: 'Shoouts',
         description: 'Discover, cart and buy beats in the marketplace',
-        Icon: Disc3,
+        icon: 'refresh',
         color: '#6AA7FF',
     },
     {
         id: 'vault',
         label: 'Vault',
         description: 'Upload, store and share your music privately',
-        Icon: Music,
+        icon: 'music',
         color: '#EC5C39',
     },
     {
         id: 'studio',
         label: 'Studio',
         description: 'Sell beats, manage listings and earnings',
-        Icon: Mic2,
+        icon: 'mic',
         color: '#4CAF50',
     },
     {
         id: 'hybrid',
         label: 'Hybrid',
         description: 'Combined creator mode across Vault and Studio',
-        Icon: Library,
+        icon: 'library',
         color: '#D4AF37',
     },
 ];
@@ -215,6 +207,10 @@ export default function ModeSelectorSheet({
                                         onSelect(mode.id);
                                     }}
                                     activeOpacity={0.7}
+                                    accessibilityRole="button"
+                                    accessibilityLabel={`${mode.label} mode`}
+                                    accessibilityHint={accessible ? `Switches to ${mode.label} experience.` : `Locked. Opens subscriptions to unlock ${mode.label}.`}
+                                    accessibilityState={{ selected: isActive, disabled: !accessible }}
                                 >
                                     <View
                                         style={[
@@ -241,7 +237,7 @@ export default function ModeSelectorSheet({
                                     ) : null}
 
                                     <View style={[styles.modeIconBg, compactLayout && styles.modeIconBgCompact, { backgroundColor: mode.color + '18' }]}> 
-                                        <mode.Icon size={compactLayout ? 19 : 22} color={mode.color} />
+                                        <Icon name={mode.icon} size={compactLayout ? 19 : 22} color={mode.color} />
                                     </View>
 
                                     <View style={styles.modeInfo}>
@@ -261,10 +257,10 @@ export default function ModeSelectorSheet({
 
                                     <View style={styles.modeRight}>
                                         {isActive ? (
-                                            <CheckCircle2 size={22} color={mode.color} fill={mode.color} />
+                                            <Icon name="check" size={22} color={mode.color} fill />
                                         ) : !accessible ? (
                                             <View style={[styles.unlockBtn, { borderColor: mode.color + '60' }]}>
-                                                <Lock size={11} color={mode.color} />
+                                                <Icon name="lock" size={11} color={mode.color} />
                                                 <Text style={[styles.unlockText, { color: mode.color }]}>Unlock</Text>
                                             </View>
                                         ) : (

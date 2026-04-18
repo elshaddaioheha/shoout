@@ -23,7 +23,8 @@ import {
 } from 'react-native';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
-import { Music, X } from 'lucide-react-native';
+import { Icon } from '@/components/ui/Icon';
+import { IconButton } from '@/components/ui/IconButton';
 
 interface CartPreviewItem {
   id: string;
@@ -68,18 +69,21 @@ export default function CartPreviewCarousel({
           />
         ) : (
           <View style={[styles.artwork, styles.artworkPlaceholder]}>
-            <Music size={32} color={appTheme.colors.textSecondary} />
+            <Icon name="music" size={32} color={appTheme.colors.textSecondary} />
           </View>
         )}
 
         {/* Remove Button */}
-        <TouchableOpacity
+        <IconButton
           style={styles.removeButton}
           onPress={() => item.onRemove?.()}
           activeOpacity={0.7}
-        >
-          <X size={16} color="#FFFFFF" />
-        </TouchableOpacity>
+          icon="x"
+          size={16}
+          color="#FFFFFF"
+          accessibilityRole="button"
+          accessibilityLabel={`Remove ${item.title} from cart`}
+        />
 
         {/* License Badge */}
         {item.licenseTierTitle && (

@@ -50,3 +50,14 @@ export async function getSignedUrl(
   });
   return url;
 }
+
+export async function deleteFile(filePath: string, bucketName?: string): Promise<void> {
+  const file = bucket(bucketName).file(filePath);
+  await file.delete();
+}
+
+export async function getFileMetadata(filePath: string, bucketName?: string): Promise<admin.storage.File['metadata']> {
+  const file = bucket(bucketName).file(filePath);
+  const [metadata] = await file.getMetadata();
+  return metadata;
+}

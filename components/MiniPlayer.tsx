@@ -1,33 +1,44 @@
 import { usePlaybackStore } from '@/store/usePlaybackStore';
 import { useToastStore } from '@/store/useToastStore';
+import { useAccessibilityStore } from '@/store/useAccessibilityStore';
 import { useAppTheme } from '@/hooks/use-app-theme';
+import { spacing } from '@/constants/spacing';
+import { typography } from '@/constants/typography';
 import { useReducedMotion } from '@/hooks/use-reduced-motion';
+import { usePlayerControls } from '@/hooks/usePlayerControls';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
+import { Icon } from '@/components/ui/Icon';
+import { IconButton } from '@/components/ui/IconButton';
+import * as Haptics from 'expo-haptics';
 import { BlurView } from 'expo-blur';
-import { Music, Pause, Play, SkipBack, SkipForward, X } from 'lucide-react-native';
 import React from 'react';
 import {
+    GestureResponderEvent,
     Image,
     Platform,
     Pressable,
     StyleSheet,
     Text,
-    TouchableOpacity,
     View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import FullPlayer from './FullPlayer';
+
+type MiniPlayerProps = {
+    onPress?: () => void;
+};
 
 function useMiniPlayerStyles() {
     const appTheme = useAppTheme();
     return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
 }
 
-export default function MiniPlayer() {
+export default function MiniPlayer({ onPress }: MiniPlayerProps) {
     const appTheme = useAppTheme();
     const reduceMotion = useReducedMotion();
+    const screenReaderEnabled = useAccessibilityStore((state) => state.screenReaderEnabled);
     const styles = useMiniPlayerStyles();
     const { showToast } = useToastStore();
+    const { handlePrevious } = usePlayerControls();
 
     const {
         currentTrack,
@@ -35,41 +46,26 @@ export default function MiniPlayer() {
         isBuffering,
         togglePlayPause,
         playNextTrack,
-        playPreviousTrack,
         clearTrack,
         position,
         duration,
     } = usePlaybackStore();
-    const [isFullPlayerVisible, setIsFullPlayerVisible] = React.useState(false);
-    const previousTapTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
     const insets = useSafeAreaInsets();
 
     const handlePreviousPress = () => {
-        const windowMs = 260;
-
-        if (previousTapTimeoutRef.current) {
-            clearTimeout(previousTapTimeoutRef.current);
-            previousTapTimeoutRef.current = null;
-            playPreviousTrack({ goToPreviousTrack: true }).catch((error) => {
-                console.error('MiniPlayer double-tap previous failed:', error);
-                showToast('Could not play previous track.', 'error');
-            });
-            showToast('Playing previous track.', 'info');
-            return;
-        }
-
-        previousTapTimeoutRef.current = setTimeout(() => {
-            previousTapTimeoutRef.current = null;
-            playPreviousTrack().catch((error) => {
-                console.error('MiniPlayer restart track failed:', error);
-                showToast('Could not restart track.', 'error');
-            });
-            showToast('Track restarted.', 'info');
-        }, windowMs);
+        handlePrevious({
+            onGoToPreviousTrack: () => showToast('Playing previous track.', 'info'),
+            onRestart: () => showToast('Track restarted.', 'info'),
+            onError: (error) => {
+                console.error('MiniPlayer previous track failed:', error);
+                showToast('Could not change previous track.', 'error');
+            },
+        });
     };
 
     const handlePlayPausePress = async () => {
         try {
+            await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => null);
             await togglePlayPause();
             showToast(isPlaying ? 'Playback paused.' : 'Playback resumed.', 'info');
         } catch (error) {
@@ -98,15 +94,6 @@ export default function MiniPlayer() {
         }
     };
 
-    React.useEffect(() => {
-        return () => {
-            if (previousTapTimeoutRef.current) {
-                clearTimeout(previousTapTimeoutRef.current);
-                previousTapTimeoutRef.current = null;
-            }
-        };
-    }, []);
-
     if (!currentTrack) return null;
 
     const tabHeight = Platform.OS === 'ios' ? 90 : (60 + insets.bottom);
@@ -128,7 +115,7 @@ export default function MiniPlayer() {
                         borderColor: glassBorder,
                     },
                 ]}
-                onPress={() => setIsFullPlayerVisible(true)}
+                onPress={onPress}
                 android_ripple={{ color: appTheme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(23,18,19,0.06)' }}
             >
                 <BlurView intensity={blurIntensity} tint={appTheme.isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
@@ -140,7 +127,7 @@ export default function MiniPlayer() {
                         {currentTrack.artworkUrl ? (
                             <Image source={{ uri: currentTrack.artworkUrl }} style={styles.artwork} />
                         ) : (
-                            <Music size={20} color={appTheme.colors.primary} />
+                            <Icon name="music" size={20} color={appTheme.colors.primary} />
                         )}
                     </View>
 
@@ -152,43 +139,57 @@ export default function MiniPlayer() {
 
                     {/* Controls – each stops the Pressable from opening the full player */}
                     <View style={styles.controls}>
-                        <TouchableOpacity
+                        <IconButton
                             style={styles.controlButton}
-                            hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
-                            onPress={(e) => { e.stopPropagation(); handlePreviousPress(); }}
-                        >
-                            <SkipBack size={20} color={appTheme.colors.textPrimary} fill={appTheme.colors.textPrimary} />
-                        </TouchableOpacity>
+                            onPress={(e: GestureResponderEvent) => { e.stopPropagation(); handlePreviousPress(); }}
+                            icon="skip-back"
+                            size={20}
+                            color={appTheme.colors.textPrimary}
+                            fill
+                            accessibilityRole="button"
+                            accessibilityLabel="Previous track"
+                            accessibilityHint={screenReaderEnabled ? 'Plays the previous track in the queue.' : undefined}
+                        />
 
-                        <TouchableOpacity
+                        <IconButton
                             style={styles.controlButton}
-                            hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
-                            onPress={(e) => { e.stopPropagation(); handlePlayPausePress(); }}
+                            onPress={(e: GestureResponderEvent) => { e.stopPropagation(); handlePlayPausePress(); }}
+                            accessibilityRole="button"
+                            accessibilityLabel={isPlaying ? 'Pause track' : 'Play track'}
+                            accessibilityState={{ selected: isPlaying }}
+                            accessibilityHint={screenReaderEnabled ? (isPlaying ? 'Pauses current playback.' : 'Starts current playback.') : undefined}
                         >
                             {isBuffering ? (
                                 <View style={styles.bufferingDot} />
                             ) : isPlaying ? (
-                                <Pause size={24} color={appTheme.colors.textPrimary} fill={appTheme.colors.textPrimary} />
+                                <Icon name="pause" size={24} color={appTheme.colors.textPrimary} fill />
                             ) : (
-                                <Play size={24} color={appTheme.colors.textPrimary} fill={appTheme.colors.textPrimary} />
+                                <Icon name="play" size={24} color={appTheme.colors.textPrimary} fill />
                             )}
-                        </TouchableOpacity>
+                        </IconButton>
 
-                        <TouchableOpacity
+                        <IconButton
                             style={styles.controlButton}
-                            hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
-                            onPress={(e) => { e.stopPropagation(); handleNextPress(); }}
-                        >
-                            <SkipForward size={20} color={appTheme.colors.textPrimary} fill={appTheme.colors.textPrimary} />
-                        </TouchableOpacity>
+                            onPress={(e: GestureResponderEvent) => { e.stopPropagation(); handleNextPress(); }}
+                            icon="skip-forward"
+                            size={20}
+                            color={appTheme.colors.textPrimary}
+                            fill
+                            accessibilityRole="button"
+                            accessibilityLabel="Next track"
+                            accessibilityHint={screenReaderEnabled ? 'Plays the next track in the queue.' : undefined}
+                        />
 
-                        <TouchableOpacity
+                        <IconButton
                             style={styles.controlButton}
-                            hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
-                            onPress={(e) => { e.stopPropagation(); handleClearTrack(); }}
-                        >
-                            <X size={18} color={appTheme.colors.textDisabled} />
-                        </TouchableOpacity>
+                            onPress={(e: GestureResponderEvent) => { e.stopPropagation(); handleClearTrack(); }}
+                            icon="x"
+                            size={18}
+                            color={appTheme.colors.textDisabled}
+                            accessibilityRole="button"
+                            accessibilityLabel="Clear player"
+                            accessibilityHint={screenReaderEnabled ? 'Stops playback and clears the current track.' : undefined}
+                        />
                     </View>
                 </View>
 
@@ -198,11 +199,6 @@ export default function MiniPlayer() {
                 </View>
             </Pressable>
 
-            {/* Full Screen Player */}
-            <FullPlayer
-                visible={isFullPlayerVisible}
-                onClose={() => setIsFullPlayerVisible(false)}
-            />
         </>
     );
 }
@@ -216,7 +212,7 @@ const legacyStyles = {
         borderRadius: 14,
         overflow: 'hidden',
         backgroundColor: 'rgba(26, 21, 24, 0.9)',
-        borderWidth: 1,
+        borderWidth: StyleSheet.hairlineWidth,
         borderColor: 'rgba(255,255,255,0.1)',
         zIndex: 1000,
     },
@@ -248,22 +244,24 @@ const legacyStyles = {
         marginRight: 8,
     },
     title: {
+        ...typography.chip,
         color: '#FFF',
-        fontSize: 13,
-        fontFamily: 'Poppins-SemiBold',
     },
     artist: {
+        ...typography.small,
         color: 'rgba(255,255,255,0.55)',
-        fontSize: 11,
-        fontFamily: 'Poppins-Regular',
     },
     controls: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 4,
+        gap: spacing.xs,
     },
     controlButton: {
-        padding: 6,
+        minWidth: spacing.touchTarget,
+        minHeight: spacing.touchTarget,
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: spacing.sm,
         borderRadius: 20,
     },
     bufferingDot: {

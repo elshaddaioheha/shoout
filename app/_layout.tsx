@@ -9,6 +9,7 @@ import { StatusBar } from 'expo-status-bar';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useCallback, useEffect, useRef } from 'react';
 import { Animated, Platform } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 import { auth } from '../firebaseConfig';
 import { hydrateSubscriptionTier } from '@/utils/subscriptionVerification';
@@ -38,17 +39,14 @@ export default function RootLayout() {
   const splashHidden = useRef(false);
   const contentOpacity = useRef(new Animated.Value(0)).current;
 
-  const [fontsLoaded, fontError] = Platform.OS === 'web' 
-    ? [true, null] 
-    : useFonts({
+  const [fontsLoaded, fontError] = useFonts({
     'Poppins-Regular': Poppins_400Regular,
     'Poppins-Medium': Poppins_500Medium,
     'Poppins-SemiBold': Poppins_600SemiBold,
     'Poppins-Bold': Poppins_700Bold,
-    });
+  });
 
-  // Web platform: use system fonts, no need to wait
-  const [loaded, error] = Platform.OS === 'web' ? [true, null] : [fontsLoaded, fontError];
+  const [loaded, error] = [fontsLoaded, fontError];
 
   useEffect(() => {
     initMonitoring();
@@ -172,9 +170,10 @@ export default function RootLayout() {
   }
 
   return (
-    <Animated.View style={{ flex: 1, opacity: contentOpacity }} onLayout={onRootLayout}>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <Stack
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <Animated.View style={{ flex: 1, opacity: contentOpacity }} onLayout={onRootLayout}>
+        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+          <Stack
           initialRouteName="index"
           screenOptions={{
             headerShown: false,
@@ -195,11 +194,14 @@ export default function RootLayout() {
           <Stack.Screen name="(auth)/signup-otp" options={{ animation: 'fade_from_bottom' }} />
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="admin" />
-          <Stack.Screen name="settings/payment-methods" />
-          <Stack.Screen name="settings/subscriptions" />
-          <Stack.Screen name="settings/appearance" />
-          <Stack.Screen name="settings/notifications" />
-          <Stack.Screen name="settings/privacy" />
+          <Stack.Screen name="settings/payment-methods" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen name="settings/subscriptions" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen name="settings/downloads" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen name="settings/localization" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen name="settings/help-center" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen name="settings/appearance" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen name="settings/notifications" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen name="settings/privacy" options={{ animation: 'slide_from_right' }} />
           <Stack.Screen name="notifications" />
           <Stack.Screen name="studio/analytics" />
           <Stack.Screen name="studio/ads-intro" />
@@ -233,10 +235,11 @@ export default function RootLayout() {
             }}
           />
           <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-        </Stack>
-        <GlobalToast />
-        <StatusBar style="auto" />
-      </ThemeProvider>
-    </Animated.View>
+          </Stack>
+          <GlobalToast />
+          <StatusBar style="auto" />
+        </ThemeProvider>
+      </Animated.View>
+    </GestureHandlerRootView>
   );
 }

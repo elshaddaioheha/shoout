@@ -9,7 +9,7 @@ import { Audio } from 'expo-av';
 import { useRouter } from 'expo-router';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
-import { Mic, Square, UploadCloud } from 'lucide-react-native';
+import { Icon } from '@/components/ui/Icon';
 import React, { useMemo, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { auth, db, storage } from '../../firebaseConfig';
@@ -137,8 +137,15 @@ export default function VaultRecordScreen() {
 
       showToast('Recording saved to Vault.', 'success');
       router.replace({ pathname: '/vault/track/[id]', params: { id: uploadDoc.id } } as any);
-    } catch (error) {
+    } catch (error: any) {
       notifyError('Upload recording failed', error);
+      if (error?.code === 'storage/unauthorized') {
+        showToast(
+          'Upload blocked by Firebase Storage rules. Confirm you are signed in, deploy the latest storage.rules, and retry.',
+          'error'
+        );
+        return;
+      }
       showToast('Could not upload recording.', 'error');
     } finally {
       setSubmitting(false);
@@ -182,7 +189,7 @@ export default function VaultRecordScreen() {
             disabled={!recordingUri || submitting}
             activeOpacity={0.9}
           >
-            {submitting ? <ActivityIndicator color="#FFFFFF" /> : <UploadCloud size={18} color="#FFFFFF" />}
+            {submitting ? <ActivityIndicator color="#FFFFFF" /> : <Icon name="upload-cloud" size={18} color="#FFFFFF" />}
             <Text style={styles.actionButtonText}>{submitting ? 'Saving...' : 'Save to Vault'}</Text>
           </TouchableOpacity>
         </ScrollView>

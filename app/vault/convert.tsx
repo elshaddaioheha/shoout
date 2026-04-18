@@ -72,8 +72,15 @@ export default function VaultConvertScreen() {
 
       showToast('Video queued for MP3 conversion.', 'success');
       router.back();
-    } catch (error) {
+    } catch (error: any) {
       notifyError('Queue convert job failed', error);
+      if (error?.code === 'storage/unauthorized') {
+        showToast(
+          'Upload blocked by Firebase Storage rules. Confirm you are signed in, deploy the latest storage.rules, and retry.',
+          'error'
+        );
+        return;
+      }
       showToast('Could not queue conversion right now.', 'error');
     } finally {
       setSubmitting(false);

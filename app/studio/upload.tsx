@@ -9,7 +9,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { addDoc, collection, doc, getDoc, getDocs, limit, orderBy, query, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
+import { addDoc, collection, doc, getDoc, getDocs, limit, orderBy, query, serverTimestamp, setDoc, updateDoc, writeBatch } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getDownloadURL, ref, uploadBytesResumable } from 'firebase/storage';
 import {
@@ -60,9 +60,123 @@ type PublisherProfile = {
     letFansSubscribe: boolean;
 };
 
+function getUploadThemeOverrides(appTheme: ReturnType<typeof useAppTheme>) {
+    return {
+        container: { backgroundColor: appTheme.colors.background },
+        scrollContent: { backgroundColor: appTheme.colors.background },
+        flowBlock: { backgroundColor: 'transparent' },
+        choiceCard: {
+            backgroundColor: appTheme.colors.backgroundElevated,
+            borderColor: appTheme.colors.border,
+        },
+        choiceTitle: { color: appTheme.colors.textPrimary },
+        choiceSub: { color: appTheme.colors.textSecondary },
+        choiceIcon: { backgroundColor: appTheme.colors.surfaceMuted },
+        sectionCard: {
+            backgroundColor: appTheme.colors.backgroundElevated,
+            borderColor: appTheme.colors.border,
+        },
+        label: { color: appTheme.colors.textPrimary },
+        input: {
+            backgroundColor: appTheme.colors.surfaceMuted,
+            borderColor: appTheme.colors.border,
+            color: appTheme.colors.textPrimary,
+        },
+        helperTitle: { color: appTheme.colors.textPrimary },
+        inlineLinkText: { color: appTheme.colors.primary },
+        toggleRow: { backgroundColor: 'transparent' },
+        checkbox: {
+            borderColor: appTheme.colors.border,
+            backgroundColor: appTheme.colors.surfaceMuted,
+        },
+        checkboxActive: { backgroundColor: appTheme.colors.primary, borderColor: appTheme.colors.primary },
+        sourceSwitchRow: { backgroundColor: appTheme.colors.surfaceMuted },
+        sourceSwitchButton: {
+            backgroundColor: 'transparent',
+            borderColor: appTheme.colors.border,
+        },
+        sourceSwitchButtonActive: {
+            backgroundColor: appTheme.colors.primary,
+            borderColor: appTheme.colors.primary,
+        },
+        sourceSwitchText: { color: appTheme.colors.textSecondary },
+        sourceSwitchTextActive: { color: appTheme.colors.textPrimary },
+        fileUploadBox: {
+            backgroundColor: appTheme.colors.backgroundElevated,
+            borderColor: appTheme.colors.border,
+        },
+        fileIconContainer: { backgroundColor: appTheme.colors.surfaceMuted },
+        fileTitle: { color: appTheme.colors.textPrimary },
+        fileSub: { color: appTheme.colors.textSecondary },
+        pickerTrigger: {
+            backgroundColor: appTheme.colors.surfaceMuted,
+            borderColor: appTheme.colors.border,
+        },
+        pickerText: { color: appTheme.colors.textPrimary },
+        pricePill: {
+            backgroundColor: appTheme.colors.surfaceMuted,
+            borderColor: appTheme.colors.border,
+        },
+        pricePillText: { color: appTheme.colors.textPrimary },
+        artworkUpload: {
+            backgroundColor: appTheme.colors.backgroundElevated,
+            borderColor: appTheme.colors.border,
+        },
+        artworkGradient: { backgroundColor: appTheme.colors.surfaceMuted },
+        uploadArtText: { color: appTheme.colors.textPrimary },
+        uploadArtSub: { color: appTheme.colors.textSecondary },
+        scheduleCard: {
+            backgroundColor: appTheme.colors.backgroundElevated,
+            borderColor: appTheme.colors.border,
+        },
+        scheduleHint: { color: appTheme.colors.textSecondary },
+        publishButton: {
+            shadowColor: appTheme.colors.primary,
+        },
+        publishGradient: {
+            backgroundColor: appTheme.colors.primary,
+        },
+        publishText: { color: appTheme.colors.textPrimary },
+        secondaryActionButton: {
+            backgroundColor: appTheme.colors.surfaceMuted,
+            borderColor: appTheme.colors.border,
+        },
+        secondaryActionText: { color: appTheme.colors.textPrimary },
+        modalOverlay: { backgroundColor: 'rgba(0,0,0,0.55)' },
+        pickerContent: {
+            backgroundColor: appTheme.colors.backgroundElevated,
+            borderColor: appTheme.colors.border,
+        },
+        pickerTitle: { color: appTheme.colors.textPrimary },
+        genreItem: { borderBottomColor: appTheme.colors.border },
+        genreItemText: { color: appTheme.colors.textPrimary },
+        emptyPickerText: { color: appTheme.colors.textSecondary },
+        splashContainer: { backgroundColor: appTheme.colors.background },
+        splashTitle: { color: appTheme.colors.textPrimary },
+        splashSub: { color: appTheme.colors.textSecondary },
+        splashLinkBox: { borderColor: appTheme.colors.border, backgroundColor: appTheme.colors.backgroundElevated },
+        splashLinkText: { color: appTheme.colors.textPrimary },
+        splashShareBtn: { backgroundColor: appTheme.colors.primary },
+        splashShareText: { color: appTheme.colors.background },
+        splashPromoteBtn: { backgroundColor: appTheme.colors.backgroundElevated, borderColor: appTheme.colors.border },
+        splashPromoteText: { color: appTheme.colors.primary },
+        splashDoneBtn: { backgroundColor: appTheme.colors.surfaceMuted, borderColor: appTheme.colors.border },
+        splashDoneText: { color: appTheme.colors.textPrimary },
+        splashRingOuter: { backgroundColor: appTheme.colors.primary },
+        splashRingInner: { backgroundColor: appTheme.colors.background },
+        splashCheckCircle: { backgroundColor: appTheme.colors.primary },
+        inputGroup: { backgroundColor: 'transparent' },
+        pickerHeader: { borderBottomColor: appTheme.colors.border },
+        helperText: { color: appTheme.colors.textSecondary },
+    } as const;
+}
+
 export default function UploadScreen() {
     const appTheme = useAppTheme();
-    const styles = useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+    const styles = useMemo(() => StyleSheet.create({
+        ...(adaptLegacyStyles(legacyStyles, appTheme) as any),
+        ...getUploadThemeOverrides(appTheme),
+    }), [appTheme]);
     const placeholderColor = appTheme.colors.textPlaceholder;
     const iconPrimary = appTheme.colors.textPrimary;
     const iconMuted = appTheme.colors.textSecondary;
@@ -132,9 +246,19 @@ export default function UploadScreen() {
     const parseScheduledRelease = () => {
         const raw = String(scheduledReleaseInput || '').trim();
         if (!raw) return null;
+        // Validate format: YYYY-MM-DD HH:mm or YYYY-MM-DDTHH:mm (ISO 8601)
+        const iso8601Pattern = /^\d{4}-\d{2}-\d{2}[T\s]\d{2}:\d{2}$/;
+        if (!iso8601Pattern.test(raw)) {
+            console.warn('Invalid scheduled release format:', raw);
+            return null;
+        }
         const normalized = raw.includes('T') ? raw : raw.replace(' ', 'T');
-        const date = new Date(normalized);
-        if (Number.isNaN(date.getTime())) return null;
+        // Parse with explicit UTC handling to avoid timezone ambiguity
+        const date = new Date(normalized + 'Z');
+        if (Number.isNaN(date.getTime())) {
+            console.warn('Date parsing failed for:', normalized);
+            return null;
+        }
         return {
             atMs: date.getTime(),
             atIsoUtc: date.toISOString(),
@@ -256,6 +380,9 @@ export default function UploadScreen() {
 
     const goToPublishStep = async (source: 'storage' | 'local') => {
         setSourceChoice(source);
+        if (source === 'local') {
+            setSelectedTrackIds([]);
+        }
         await Promise.all([checkPublisherProfile(), loadFolders(), loadExistingTracks()]);
         setFlowStep('publish');
     };
@@ -505,6 +632,9 @@ export default function UploadScreen() {
                     scheduledReleaseAtIso: scheduled ? scheduled.atIsoUtc : null,
                 };
 
+                // Batch all updates atomically to ensure consistency and reduce network calls
+                const batch = writeBatch(db);
+
                 for (const trackId of selectedTrackIds) {
                     const trackRef = doc(db, `users/${auth.currentUser.uid}/uploads/${trackId}`);
                     const trackSnap = await getDoc(trackRef);
@@ -524,17 +654,33 @@ export default function UploadScreen() {
                             : null,
                     };
 
-                    await updateDoc(trackRef, storageUpdates);
+                    // Add track update to batch
+                    batch.update(trackRef, storageUpdates);
 
                     if (selectedFolderId) {
-                        await upsertFolderTrackReference(trackId, {
+                        // Add folder track reference to same batch
+                        const folderTrackRef = doc(db, `users/${auth.currentUser.uid}/folders/${selectedFolderId}/tracks/${trackId}`);
+                        batch.set(folderTrackRef, {
+                            uploadId: trackId,
+                            uploaderId: auth.currentUser.uid,
                             title: String(trackData.title || 'Untitled'),
                             artist: String(trackData.artist || trackData.uploaderName || auth.currentUser.displayName || 'Unknown Artist'),
                             artworkUrl: String(trackData.coverUrl || trackData.artworkUrl || ''),
                             audioUrl: String(trackData.audioUrl || ''),
+                            addedAt: serverTimestamp(),
+                            source: 'upload-flow-reference',
+                        }, { merge: true });
+
+                        // Update folder metadata within batch
+                        const folderRef = doc(db, `users/${auth.currentUser.uid}/folders/${selectedFolderId}`);
+                        batch.update(folderRef, {
+                            updatedAt: serverTimestamp(),
                         });
                     }
                 }
+
+                // Commit all writes atomically — if any fails, none are applied
+                await batch.commit();
 
                 showToast(
                     action === 'publish'
@@ -548,29 +694,41 @@ export default function UploadScreen() {
                 return;
             }
 
-            let downloadUrl = '';
             let fileName = '';
             let fileSizeBytes = 0;
+            let uploadedAudioUrl = '';
 
             if (audioFile) {
                 // 1. Convert local URI into a blob that Firebase Cloud Storage can digest
                 const response = await fetch(audioFile.uri);
                 const blob = await response.blob();
 
-                // 2. Reference in Cloud Storage bucket (/vaults/userId/trackName_timestamp.mp3)
-                const safeFileName = `${title.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}`;
+                // 2. Reference in Cloud Storage bucket for studio publishing pipeline
+                const originalName = String(audioFile.name || 'track.mp3');
+                const extMatch = originalName.match(/\.[a-zA-Z0-9]+$/);
+                const safeExt = extMatch ? extMatch[0].toLowerCase() : '.mp3';
+                const safeBaseName = title.replace(/[^a-zA-Z0-9]/g, '_') || 'track';
+                const safeFileName = `${safeBaseName}_${Date.now()}${safeExt}`;
                 const storageRef = ref(storage, `vaults/${auth.currentUser.uid}/${safeFileName}`);
+                const inferredContentType = blob.type || ({
+                    '.mp3': 'audio/mpeg',
+                    '.m4a': 'audio/mp4',
+                    '.aac': 'audio/aac',
+                    '.wav': 'audio/wav',
+                    '.mp4': 'audio/mp4',
+                } as Record<string, string>)[safeExt] || 'audio/mpeg';
 
                 // 3. Upload bytes to bucket
                 const uploadTask = await uploadBytesResumable(storageRef, blob, {
-                    contentType: blob.type || 'audio/mpeg',
+                    contentType: inferredContentType,
                     customMetadata: {
                         storageLedger: 'studio',
+                        originalName,
                     },
                 });
 
-                // 4. Get the permanent streamable URL
-                downloadUrl = await getDownloadURL(uploadTask.ref);
+                // 4. Use a downloadable URL so newly published tracks are immediately playable in Shoout feeds.
+                uploadedAudioUrl = await getDownloadURL(uploadTask.ref);
                 fileName = String(audioFile.name || safeFileName);
                 fileSizeBytes = Number(audioFile.size || 0);
             }
@@ -599,7 +757,7 @@ export default function UploadScreen() {
                 bpm: parseInt(bpm) || 0,
                 price: normalizedPrice,
                 description,
-                audioUrl: downloadUrl,
+                audioUrl: uploadedAudioUrl,
                 coverUrl,
                 fileName,
                 fileSizeBytes,
@@ -628,7 +786,7 @@ export default function UploadScreen() {
                         bpm: parseInt(bpm) || 0,
                         price: normalizedPrice,
                         description,
-                        audioUrl: downloadUrl,
+                        audioUrl: uploadedAudioUrl,
                         coverUrl,
                         isPublic: true,
                         subscriberOnly: canMonetize ? subscriberOnly : false,
@@ -645,12 +803,12 @@ export default function UploadScreen() {
                     title,
                     artist: auth.currentUser.displayName || 'Unknown Artist',
                     artworkUrl: coverUrl,
-                    audioUrl: downloadUrl,
+                    audioUrl: uploadedAudioUrl,
                 });
             }
 
             if (action === 'publish' && publishNow) {
-                showToast("Track published successfully!", "success");
+                showToast("Track published to Shoout successfully!", "success");
                 setUploadedTrackId(uploadDoc.id);
                 setUploadedTitle(title);
                 setUploadSuccess(true);
@@ -658,11 +816,18 @@ export default function UploadScreen() {
                 showToast('Track scheduled as Upcoming.', 'success');
                 router.back();
             } else {
-                showToast("Draft saved to Vault.", "success");
+                showToast("Draft saved to Studio drafts.", "success");
                 router.back();
             }
         } catch (error: any) {
             notifyError('Upload error', error);
+            if (error?.code === 'storage/unauthorized') {
+                showToast(
+                    'Upload blocked by Storage rules. Deploy the updated storage rules, then try again.',
+                    'error'
+                );
+                return;
+            }
             if (error.code === 'resource-exhausted') {
                 showToast("Storage limit exceeded. Please upgrade your subscription plan.", "error");
             } else {
@@ -694,18 +859,18 @@ export default function UploadScreen() {
                     <View style={styles.splashRingOuter}>
                         <View style={styles.splashRingInner}>
                             <View style={styles.splashCheckCircle}>
-                                <Check size={36} color={adaptLegacyColor('#140F10', 'color', appTheme)} strokeWidth={3} />
+                                <Check size={36} color={appTheme.colors.background} strokeWidth={3} />
                             </View>
                         </View>
                     </View>
                     <Text style={styles.splashTitle}>Track Published! 🎉</Text>
-                    <Text style={styles.splashSub}>Your track "{uploadedTitle}" is now live in your Vault.</Text>
+                    <Text style={styles.splashSub}>Your track "{uploadedTitle}" is now live on Shoout.</Text>
                     <View style={styles.splashLinkBox}>
-                        <Link2 size={16} color={adaptLegacyColor('#EC5C39', 'color', appTheme)} />
+                        <Link2 size={16} color={appTheme.colors.primary} />
                         <Text style={styles.splashLinkText} numberOfLines={1} selectable>{shareUrl}</Text>
                     </View>
                     <TouchableOpacity style={styles.splashShareBtn} onPress={handleShare}>
-                        <Share2 size={18} color={adaptLegacyColor('#140F10', 'color', appTheme)} />
+                        <Share2 size={18} color={appTheme.colors.background} />
                         <Text style={styles.splashShareText}>Share Link</Text>
                     </TouchableOpacity>
 
@@ -722,7 +887,7 @@ export default function UploadScreen() {
                             },
                         })}
                     >
-                        <Megaphone size={18} color={adaptLegacyColor('#EC5C39', 'color', appTheme)} />
+                        <Megaphone size={18} color={appTheme.colors.primary} />
                         <Text style={styles.splashPromoteText}>Promote this Track</Text>
                     </TouchableOpacity>
 
@@ -796,7 +961,7 @@ export default function UploadScreen() {
                                 </View>
 
                                 <TouchableOpacity style={styles.publishButton} onPress={handleCreateFolder}>
-                                    <LinearGradient colors={['#EC5C39', '#863420']} style={styles.publishGradient}>
+                                    <LinearGradient colors={[appTheme.colors.primary, appTheme.colors.primaryDark]} style={styles.publishGradient}>
                                         <Text style={styles.publishText}>Create Folder</Text>
                                     </LinearGradient>
                                 </TouchableOpacity>
@@ -807,13 +972,13 @@ export default function UploadScreen() {
                             <View style={styles.flowBlock}>
                                 <Text style={styles.helperTitle}>Select track source</Text>
                                 <TouchableOpacity style={styles.inlineLink} onPress={() => goToPublishStep('storage')}>
-                                    <Text style={styles.inlineLinkText}>Select items from Storage</Text>
+                                    <Text style={styles.inlineLinkText}>Use existing tracks from Vault (optional)</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity style={styles.inlineLink} onPress={() => goToPublishStep('local')}>
-                                    <Text style={styles.inlineLinkText}>Select items from Local device</Text>
+                                    <Text style={styles.inlineLinkText}>Upload new track from local device</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity style={styles.publishButton} onPress={() => goToPublishStep(sourceChoice || 'local')}>
-                                    <LinearGradient colors={['#EC5C39', '#863420']} style={styles.publishGradient}>
+                                    <LinearGradient colors={[appTheme.colors.primary, appTheme.colors.primaryDark]} style={styles.publishGradient}>
                                         <Text style={styles.publishText}>Proceed to Publish</Text>
                                     </LinearGradient>
                                 </TouchableOpacity>
@@ -824,7 +989,7 @@ export default function UploadScreen() {
                             <>
                                 {profileLoading && (
                                     <View style={{ paddingVertical: 24 }}>
-                                        <ActivityIndicator color="#EC5C39" />
+                                        <ActivityIndicator color={appTheme.colors.primary} />
                                     </View>
                                 )}
 
@@ -930,17 +1095,37 @@ export default function UploadScreen() {
 
                                 {/* Main publish block */}
                                 <View style={styles.sectionCard}>
+                                    <View style={styles.inputGroup}>
+                                        <Text style={styles.label}>Track Source</Text>
+                                        <View style={styles.sourceSwitchRow}>
+                                            <TouchableOpacity
+                                                style={[styles.sourceSwitchButton, sourceChoice === 'local' && styles.sourceSwitchButtonActive]}
+                                                onPress={() => setSourceChoice('local')}
+                                            >
+                                                <Text style={[styles.sourceSwitchText, sourceChoice === 'local' && styles.sourceSwitchTextActive]}>Local Upload</Text>
+                                            </TouchableOpacity>
+                                            <TouchableOpacity
+                                                style={[styles.sourceSwitchButton, sourceChoice === 'storage' && styles.sourceSwitchButtonActive]}
+                                                onPress={() => setSourceChoice('storage')}
+                                            >
+                                                <Text style={[styles.sourceSwitchText, sourceChoice === 'storage' && styles.sourceSwitchTextActive]}>Vault Storage</Text>
+                                            </TouchableOpacity>
+                                        </View>
+                                    </View>
+
                                     {/* File Upload Section */}
-                                    <TouchableOpacity style={styles.fileUploadBox} onPress={handleSelectFile}>
-                                        <View style={styles.fileIconContainer}>
-                                            <Music size={24} color="#EC5C39" />
-                                        </View>
-                                        <View style={styles.fileInfo}>
-                                            <Text style={styles.fileTitle} numberOfLines={1}>{audioFile ? audioFile.name : 'Select Audio File'}</Text>
-                                            <Text style={styles.fileSub}>{audioFile && audioFile.size ? `${(audioFile.size / (1024 * 1024)).toFixed(2)} MB` : 'MP3, WAV or FLAC (Max 50MB)'}</Text>
-                                        </View>
-                                        <UploadIcon size={20} color={audioFile ? '#EC5C39' : iconMuted} />
-                                    </TouchableOpacity>
+                                    {sourceChoice !== 'storage' ? (
+                                        <TouchableOpacity style={styles.fileUploadBox} onPress={handleSelectFile}>
+                                            <View style={styles.fileIconContainer}>
+                                                <Music size={24} color={appTheme.colors.primary} />
+                                            </View>
+                                            <View style={styles.fileInfo}>
+                                                <Text style={styles.fileTitle} numberOfLines={1}>{audioFile ? audioFile.name : 'Select Audio File'}</Text>
+                                                <Text style={styles.fileSub}>{audioFile && audioFile.size ? `${(audioFile.size / (1024 * 1024)).toFixed(2)} MB` : 'MP3, WAV or FLAC (Max 50MB)'}</Text>
+                                            </View>
+                                            <UploadIcon size={20} color={audioFile ? appTheme.colors.primary : iconMuted} />
+                                        </TouchableOpacity>
+                                    ) : null}
 
                                     <View style={styles.inputGroup}>
                                         <Text style={styles.label}>Type of Track</Text>
@@ -966,18 +1151,20 @@ export default function UploadScreen() {
                                         />
                                     </View>
 
-                                    <View style={styles.inputGroup}>
-                                        <Text style={styles.label}>Select Track (Multiple Selection)</Text>
-                                        <TouchableOpacity
-                                            style={styles.pickerTrigger}
-                                            onPress={() => setShowTrackPicker(true)}
-                                        >
-                                            <Text style={[styles.pickerText, selectedTrackIds.length === 0 && { color: placeholderColor }]}>
-                                                {selectedTrackIds.length > 0 ? `${selectedTrackIds.length} selected` : 'Select Tracks'}
-                                            </Text>
-                                            <ChevronDown size={18} color={iconMuted} />
-                                        </TouchableOpacity>
-                                    </View>
+                                    {sourceChoice === 'storage' ? (
+                                        <View style={styles.inputGroup}>
+                                            <Text style={styles.label}>Select Track (Multiple Selection)</Text>
+                                            <TouchableOpacity
+                                                style={styles.pickerTrigger}
+                                                onPress={() => setShowTrackPicker(true)}
+                                            >
+                                                <Text style={[styles.pickerText, selectedTrackIds.length === 0 && { color: placeholderColor }]}> 
+                                                    {selectedTrackIds.length > 0 ? `${selectedTrackIds.length} selected` : 'Select Tracks'}
+                                                </Text>
+                                                <ChevronDown size={18} color={iconMuted} />
+                                            </TouchableOpacity>
+                                        </View>
+                                    ) : null}
 
                                     <View style={styles.inputGroup}>
                                         <Text style={styles.label}>Select Genre</Text>
@@ -1055,7 +1242,7 @@ export default function UploadScreen() {
                                                 <Image source={{ uri: artworkPreviewUri }} style={StyleSheet.absoluteFillObject} contentFit="cover" />
                                             ) : (
                                                 <LinearGradient
-                                                    colors={['rgba(255,255,255,0.05)', 'rgba(255,255,255,0.02)']}
+                                                    colors={[appTheme.colors.surface, appTheme.colors.backgroundElevated]}
                                                     style={styles.artworkGradient}
                                                 >
                                                     <ImageIcon size={32} color={iconMuted} />
@@ -1190,7 +1377,7 @@ export default function UploadScreen() {
                                         setShowGenrePicker(false);
                                     }}
                                 >
-                                    <Text style={[styles.genreItemText, genre === g && { color: '#EC5C39' }]}>
+                                            <Text style={[styles.genreItemText, genre === g && { color: appTheme.colors.primary }]}>
                                         {g}
                                     </Text>
                                     {genre === g && (
@@ -1229,7 +1416,7 @@ export default function UploadScreen() {
                                         setShowAssetTypePicker(false);
                                     }}
                                 >
-                                    <Text style={[styles.genreItemText, assetType === type && { color: '#EC5C39' }]}>
+                                    <Text style={[styles.genreItemText, assetType === type && { color: appTheme.colors.primary }]}>
                                         {type}
                                     </Text>
                                     {assetType === type && (
@@ -1270,7 +1457,7 @@ export default function UploadScreen() {
                                             setShowFolderPicker(false);
                                         }}
                                     >
-                                        <Text style={[styles.genreItemText, selectedFolderId === folder.id && { color: '#EC5C39' }]}>
+                                        <Text style={[styles.genreItemText, selectedFolderId === folder.id && { color: appTheme.colors.primary }]}>
                                             {folder.name}
                                         </Text>
                                         {selectedFolderId === folder.id && (
@@ -1313,7 +1500,7 @@ export default function UploadScreen() {
                                         <Text
                                             style={[
                                                 styles.genreItemText,
-                                                selectedTrackIds.includes(track.id) && { color: '#EC5C39' },
+                                                selectedTrackIds.includes(track.id) && { color: appTheme.colors.primary },
                                             ]}
                                         >
                                             {track.title}
@@ -1452,6 +1639,32 @@ const legacyStyles = {
         fontFamily: 'Poppins-Regular',
         fontSize: 12,
         textDecorationLine: 'underline',
+    },
+    sourceSwitchRow: {
+        flexDirection: 'row',
+        gap: 10,
+    },
+    sourceSwitchButton: {
+        flex: 1,
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.12)',
+        backgroundColor: 'rgba(255,255,255,0.03)',
+        paddingVertical: 10,
+        alignItems: 'center',
+    },
+    sourceSwitchButtonActive: {
+        borderColor: '#EC5C39',
+        backgroundColor: 'rgba(236, 92, 57, 0.14)',
+    },
+    sourceSwitchText: {
+        fontFamily: 'Poppins-Medium',
+        fontSize: 13,
+        color: 'rgba(255,255,255,0.74)',
+    },
+    sourceSwitchTextActive: {
+        color: '#EC5C39',
+        fontFamily: 'Poppins-SemiBold',
     },
     scheduleCard: {
         backgroundColor: 'rgba(255,255,255,0.03)',

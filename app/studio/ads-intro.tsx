@@ -1,4 +1,5 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
+import { PremiumBackButton } from '@/components/ui/PremiumBackButton';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { useRouter } from 'expo-router';
@@ -21,6 +22,10 @@ export default function AdsIntroScreen() {
     <SafeScreenWrapper>
       <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.headerRow}>
+          <PremiumBackButton
+            variant="transparent"
+            containerStyle={styles.inlineBackButton}
+          />
           <Text style={styles.headerTitle}>Promote</Text>
           <View style={styles.profileDot}>
             <Text style={styles.profileLetter}>C</Text>
@@ -65,6 +70,11 @@ const legacyStyles = {
   container: { flex: 1, backgroundColor: '#140F10' },
   content: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 120 },
   headerRow: { height: 57, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  inlineBackButton: {
+    position: 'relative',
+    top: 0,
+    left: 0,
+  },
   headerTitle: {
     color: '#FFFFFF',
     fontFamily: 'Poppins-SemiBold',

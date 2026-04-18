@@ -13,7 +13,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   ];
   const localGoogleServicesFile = localGoogleServicesCandidates.find((candidate) => fs.existsSync(candidate));
   const googleServicesFile = process.env.GOOGLE_SERVICES_JSON || localGoogleServicesFile;
-  const plugins = (config.plugins ?? []).flatMap((plugin) => {
+  const plugins = (config.plugins ?? []).flatMap((plugin: any) => {
     const pluginName = Array.isArray(plugin) ? plugin[0] : plugin;
 
     if (pluginName !== '@sentry/react-native/expo') {

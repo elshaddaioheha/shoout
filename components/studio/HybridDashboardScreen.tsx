@@ -10,7 +10,7 @@ import { getModeTheme } from '@/utils/appModeTheme';
 import { formatUsd } from '@/utils/pricing';
 import { canUseHybridServices, formatPlanLabel, getVaultCapabilities } from '@/utils/subscriptions';
 import { useRouter } from 'expo-router';
-import { DollarSign, Link2, Megaphone, Music4, PlayCircle, TrendingUp, UploadCloud, Users } from 'lucide-react-native';
+import { Icon, type IconName } from '@/components/ui/Icon';
 import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -21,9 +21,47 @@ function formatStorage(value: number) {
 
 const hybridTheme = getModeTheme('hybrid');
 
+function getHybridThemeOverrides(appTheme: ReturnType<typeof useAppTheme>) {
+  return {
+    screen: { backgroundColor: appTheme.colors.background },
+    heroCard: { backgroundColor: appTheme.colors.backgroundElevated, borderColor: appTheme.colors.border },
+    heroEyebrow: { color: appTheme.colors.primary },
+    heroTitle: { color: appTheme.colors.textPrimary },
+    planPill: { backgroundColor: appTheme.colors.surfaceMuted },
+    planPillText: { color: appTheme.colors.primary },
+    primaryCta: { backgroundColor: appTheme.colors.primary },
+    primaryCtaText: { color: appTheme.colors.background },
+    secondaryCta: { backgroundColor: appTheme.colors.backgroundElevated, borderColor: appTheme.colors.border },
+    secondaryCtaText: { color: appTheme.colors.primary },
+    kpiCard: { backgroundColor: appTheme.colors.backgroundElevated, borderColor: appTheme.colors.border },
+    kpiIcon: { backgroundColor: appTheme.colors.surfaceMuted },
+    kpiValue: { color: appTheme.colors.textPrimary },
+    kpiLabel: { color: appTheme.colors.textSecondary },
+    panel: { backgroundColor: appTheme.colors.backgroundElevated, borderColor: appTheme.colors.border },
+    panelTitle: { color: appTheme.colors.textPrimary },
+    panelLink: { color: appTheme.colors.primary },
+    summaryCard: { backgroundColor: appTheme.colors.surfaceMuted },
+    summaryLabel: { color: appTheme.colors.textSecondary },
+    summaryValue: { color: appTheme.colors.textPrimary },
+    summaryMeta: { color: appTheme.colors.textTertiary },
+    inlineAction: { backgroundColor: appTheme.colors.surfaceMuted, borderColor: appTheme.colors.border },
+    inlineActionText: { color: appTheme.colors.primary },
+    placeholder: { color: appTheme.colors.textSecondary },
+    trackIcon: { backgroundColor: appTheme.colors.surfaceMuted },
+    trackTitle: { color: appTheme.colors.textPrimary },
+    trackMeta: { color: appTheme.colors.textSecondary },
+    operationCard: { backgroundColor: appTheme.colors.surfaceMuted },
+    operationValue: { color: appTheme.colors.textPrimary },
+    operationLabel: { color: appTheme.colors.textSecondary },
+  } as const;
+}
+
 function useHybridDashboardStyles() {
   const appTheme = useAppTheme();
-  return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+  return React.useMemo(() => StyleSheet.create({
+    ...(adaptLegacyStyles(legacyStyles, appTheme) as any),
+    ...getHybridThemeOverrides(appTheme),
+  }), [appTheme]);
 }
 
 export default function HybridDashboardScreen() {
@@ -54,11 +92,11 @@ export default function HybridDashboardScreen() {
     loading: vaultLoading,
   } = useVaultWorkspaceData();
 
-  const kpis = [
-    { label: 'Plays', value: totalPlays.toLocaleString(), Icon: PlayCircle },
-    { label: 'Followers', value: followersCount.toLocaleString(), Icon: Users },
-    { label: 'Engagement', value: totalEngagement.toLocaleString(), Icon: TrendingUp },
-    { label: 'Revenue', value: formatUsd(totalRevenue), Icon: DollarSign },
+  const kpis: Array<{ label: string; value: string; iconName: IconName }> = [
+    { label: 'Plays', value: totalPlays.toLocaleString(), iconName: 'play-circle' },
+    { label: 'Followers', value: followersCount.toLocaleString(), iconName: 'users' },
+    { label: 'Engagement', value: totalEngagement.toLocaleString(), iconName: 'trending-up' },
+    { label: 'Revenue', value: formatUsd(totalRevenue), iconName: 'dollar-sign' },
   ];
 
   const requireHybridSubscription = () => {
@@ -98,7 +136,7 @@ export default function HybridDashboardScreen() {
               }}
               activeOpacity={0.9}
             >
-              <UploadCloud size={18} color={appTheme.colors.background} />
+              <Icon name="upload-cloud" size={18} color={appTheme.colors.background} />
               <Text style={styles.primaryCtaText}>Publish</Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -109,17 +147,17 @@ export default function HybridDashboardScreen() {
               }}
               activeOpacity={0.9}
             >
-              <Megaphone size={18} color={hybridTheme.accent} />
+              <Icon name="megaphone" size={18} color={appTheme.colors.primary} />
               <Text style={styles.secondaryCtaText}>Promote</Text>
             </TouchableOpacity>
           </View>
         </View>
 
         <View style={styles.kpiGrid}>
-          {kpis.map(({ label, value, Icon }) => (
+          {kpis.map(({ label, value, iconName }) => (
             <View key={label} style={styles.kpiCard}>
               <View style={styles.kpiIcon}>
-                <Icon size={18} color={hybridTheme.accent} />
+                <Icon name={iconName} size={18} color={appTheme.colors.primary} />
               </View>
               <Text style={styles.kpiValue}>{value}</Text>
               <Text style={styles.kpiLabel}>{label}</Text>
@@ -134,7 +172,7 @@ export default function HybridDashboardScreen() {
               onPress={() => router.push('/(tabs)/library' as any)}
               activeOpacity={0.8}
             >
-              <Text style={[styles.panelLink, { color: hybridTheme.accent }]}>Open Vault</Text>
+              <Text style={styles.panelLink}>Open Vault</Text>
             </TouchableOpacity>
           </View>
 
@@ -159,7 +197,7 @@ export default function HybridDashboardScreen() {
               }}
               activeOpacity={0.85}
             >
-              <UploadCloud size={16} color={hybridTheme.accent} />
+              <Icon name="upload-cloud" size={16} color={hybridTheme.accent} />
               <Text style={styles.inlineActionText}>Vault Upload</Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -170,7 +208,7 @@ export default function HybridDashboardScreen() {
               }}
               activeOpacity={0.85}
             >
-              <Link2 size={16} color={hybridTheme.accent} />
+              <Icon name="link-2" size={16} color={hybridTheme.accent} />
               <Text style={styles.inlineActionText}>Shared Links</Text>
             </TouchableOpacity>
           </View>
@@ -187,7 +225,7 @@ export default function HybridDashboardScreen() {
               }}
               activeOpacity={0.8}
             >
-              <Text style={[styles.panelLink, { color: hybridTheme.accent }]}>Open analytics</Text>
+              <Text style={styles.panelLink}>Open analytics</Text>
             </TouchableOpacity>
           </View>
           {studioLoading ? <Text style={styles.placeholder}>Loading creator stats...</Text> : null}
@@ -195,7 +233,7 @@ export default function HybridDashboardScreen() {
           {!studioLoading && topTracks.map((track) => (
             <View key={track.id} style={styles.trackRow}>
               <View style={styles.trackIcon}>
-                <Music4 size={18} color={hybridTheme.accent} />
+                <Icon name="music" size={18} color={hybridTheme.accent} />
               </View>
               <View style={styles.trackInfo}>
                 <Text style={styles.trackTitle} numberOfLines={1}>{track.title || 'Untitled Track'}</Text>
@@ -217,7 +255,7 @@ export default function HybridDashboardScreen() {
               }}
               activeOpacity={0.8}
             >
-              <Text style={[styles.panelLink, { color: hybridTheme.accent }]}>Settings</Text>
+              <Text style={styles.panelLink}>Settings</Text>
             </TouchableOpacity>
           </View>
 

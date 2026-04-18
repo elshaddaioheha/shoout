@@ -3,10 +3,11 @@
  */
 import { ViewMode } from '@/store/useUserStore';
 import { useAppTheme } from '@/hooks/use-app-theme';
+import { typography } from '@/constants/typography';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
+import { Icon } from '@/components/ui/Icon';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ChevronDown } from 'lucide-react-native';
 import React, { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 
@@ -141,7 +142,7 @@ export default function ModePillButton({ viewMode, isOpen, onPress }: ModePillBu
                     { backgroundColor: chevronBgColor, transform: [{ rotate: chevronRotate }] },
                 ]}
             >
-                <ChevronDown size={isCompact ? 11 : 12} color={labelColor} strokeWidth={2.5} />
+                <Icon name="chevron-down" size={isCompact ? 11 : 12} color={labelColor} strokeWidth={2.5} />
             </Animated.View>
         </TouchableOpacity>
     );
@@ -191,13 +192,13 @@ const legacyStyles = {
         height: 18,
     },
     label: {
-        fontSize: 14,
-        fontFamily: 'Poppins-SemiBold',
+        ...typography.buttonSm,
         marginRight: 8,
         color: '#FFFFFF',
     },
     labelCompact: {
         fontSize: 12,
+        lineHeight: 16,
         marginRight: 6,
     },
     chevronCircle: {

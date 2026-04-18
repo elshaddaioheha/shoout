@@ -13,7 +13,7 @@ import { useRouter } from 'expo-router';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { addDoc, collection, doc, getDocs, orderBy, query, serverTimestamp, setDoc } from 'firebase/firestore';
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
-import { FolderPlus, Image as ImageIcon, Music4, UploadCloud } from 'lucide-react-native';
+import { Icon } from '@/components/ui/Icon';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 type FolderOption = {
@@ -211,8 +211,15 @@ export default function VaultUploadScreen() {
 
       showToast('Track uploaded to Vault.', 'success');
       router.replace({ pathname: '/vault/track/[id]', params: { id: uploadDoc.id } } as any);
-    } catch (error) {
+    } catch (error: any) {
       notifyError('Vault upload failed', error);
+      if (error?.code === 'storage/unauthorized') {
+        showToast(
+          'Upload blocked by Firebase Storage rules. Confirm you are signed in, deploy the latest storage.rules, and retry.',
+          'error'
+        );
+        return;
+      }
       showToast('Upload failed. Please try again.', 'error');
     } finally {
       setSubmitting(false);
@@ -312,7 +319,7 @@ export default function VaultUploadScreen() {
             disabled={submitting || uploadLimitReached || storageLimitReached}
             activeOpacity={0.9}
           >
-            {submitting ? <ActivityIndicator color={appTheme.colors.textPrimary} /> : <UploadCloud size={18} color={appTheme.colors.textPrimary} />}
+            {submitting ? <ActivityIndicator color={appTheme.colors.textPrimary} /> : <Icon name="upload-cloud" size={18} color={appTheme.colors.textPrimary} />}
             <Text style={styles.submitButtonText}>{submitting ? 'Uploading...' : 'Upload to Vault'}</Text>
           </TouchableOpacity>
         </ScrollView>

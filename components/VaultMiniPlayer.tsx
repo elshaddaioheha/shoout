@@ -1,32 +1,38 @@
 import { usePlaybackStore } from '@/store/usePlaybackStore';
 import { useAppTheme } from '@/hooks/use-app-theme';
+import { useAccessibilityStore } from '@/store/useAccessibilityStore';
+import { typography } from '@/constants/typography';
 import { useReducedMotion } from '@/hooks/use-reduced-motion';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
+import { Icon } from '@/components/ui/Icon';
+import { IconButton } from '@/components/ui/IconButton';
 import { BlurView } from 'expo-blur';
-import { Music, Pause, Play, X } from 'lucide-react-native';
+import * as Haptics from 'expo-haptics';
 import React from 'react';
 import {
   Image,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
   useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import FullPlayer from './FullPlayer';
+
+type VaultMiniPlayerProps = {
+  onPress?: () => void;
+};
 
 function useVaultMiniPlayerStyles() {
   const appTheme = useAppTheme();
   return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
 }
 
-export default function VaultMiniPlayer() {
+export default function VaultMiniPlayer({ onPress }: VaultMiniPlayerProps) {
   const appTheme = useAppTheme();
   const reduceMotion = useReducedMotion();
   const styles = useVaultMiniPlayerStyles();
+  const { screenReaderEnabled } = useAccessibilityStore();
 
   const {
     currentTrack,
@@ -37,7 +43,6 @@ export default function VaultMiniPlayer() {
     position,
     duration,
   } = usePlaybackStore();
-  const [isFullPlayerVisible, setIsFullPlayerVisible] = React.useState(false);
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
 
@@ -52,6 +57,24 @@ export default function VaultMiniPlayer() {
   const glassBorder = appTheme.colors.borderStrong;
   const blurIntensity = reduceMotion ? 0 : 34;
 
+  type PressEventWithStop = { stopPropagation?: () => void };
+
+  const handleTogglePlayPause = React.useCallback((e?: PressEventWithStop) => {
+    e?.stopPropagation?.();
+    if (!reduceMotion) {
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+    togglePlayPause();
+  }, [reduceMotion, togglePlayPause]);
+
+  const handleClearTrack = React.useCallback((e?: PressEventWithStop) => {
+    e?.stopPropagation?.();
+    if (!reduceMotion) {
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    }
+    clearTrack();
+  }, [clearTrack, reduceMotion]);
+
   return (
     <>
       <Pressable
@@ -64,7 +87,7 @@ export default function VaultMiniPlayer() {
             borderColor: glassBorder,
           },
         ]}
-        onPress={() => setIsFullPlayerVisible(true)}
+        onPress={onPress}
         android_ripple={{ color: appTheme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(23,18,19,0.06)' }}
       >
         <BlurView intensity={blurIntensity} tint={appTheme.isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
@@ -74,7 +97,7 @@ export default function VaultMiniPlayer() {
             {currentTrack.artworkUrl ? (
               <Image source={{ uri: currentTrack.artworkUrl }} style={styles.artwork} />
             ) : (
-              <Music size={16} color={appTheme.colors.primary} />
+              <Icon name="music" size={16} color={appTheme.colors.primary} />
             )}
           </View>
 
@@ -84,27 +107,46 @@ export default function VaultMiniPlayer() {
           </View>
 
           <View style={styles.controls}>
-            <TouchableOpacity
+            <IconButton
               style={styles.controlButton}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              onPress={(e) => { e.stopPropagation(); togglePlayPause(); }}
+              onPress={handleTogglePlayPause}
+              accessibilityRole="button"
+              accessibilityLabel={isPlaying ? 'Pause playback' : 'Play track'}
+              accessibilityState={{ busy: isBuffering }}
+              accessibilityHint={screenReaderEnabled ? 'Toggles playback in Vault mini player.' : undefined}
             >
               {isBuffering ? (
                 <View style={styles.bufferingDot} />
               ) : isPlaying ? (
-                <Pause size={20} color={appTheme.colors.textPrimary} fill={appTheme.colors.textPrimary} />
+                <Icon
+                  name="pause"
+                  size={20}
+                  color={appTheme.colors.textPrimary}
+                  fill
+                  iosAnimation={reduceMotion ? undefined : { effect: 'scale', wholeSymbol: true, speed: 1 }}
+                />
               ) : (
-                <Play size={20} color={appTheme.colors.textPrimary} fill={appTheme.colors.textPrimary} />
+                <Icon
+                  name="play"
+                  size={20}
+                  color={appTheme.colors.textPrimary}
+                  fill
+                  iosAnimation={reduceMotion ? undefined : { effect: 'scale', wholeSymbol: true, speed: 1 }}
+                />
               )}
-            </TouchableOpacity>
+            </IconButton>
 
-            <TouchableOpacity
+            <IconButton
               style={styles.controlButton}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              onPress={(e) => { e.stopPropagation(); clearTrack(); }}
-            >
-              <X size={16} color={appTheme.colors.textDisabled} />
-            </TouchableOpacity>
+              onPress={handleClearTrack}
+              icon="x"
+              size={16}
+              color={appTheme.colors.textDisabled}
+              accessibilityRole="button"
+              accessibilityLabel="Clear track"
+              accessibilityHint={screenReaderEnabled ? 'Removes the current track from Vault mini player.' : undefined}
+              iosAnimation={reduceMotion ? undefined : { effect: 'pulse', wholeSymbol: true, speed: 1.05 }}
+            />
           </View>
         </View>
 
@@ -113,10 +155,6 @@ export default function VaultMiniPlayer() {
         </View>
       </Pressable>
 
-      <FullPlayer
-        visible={isFullPlayerVisible}
-        onClose={() => setIsFullPlayerVisible(false)}
-      />
     </>
   );
 }
@@ -129,7 +167,7 @@ const legacyStyles = {
     borderRadius: 14,
     overflow: 'hidden',
     backgroundColor: 'rgba(26, 21, 24, 0.92)',
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(255,255,255,0.1)',
     zIndex: 42,
   },
@@ -160,14 +198,12 @@ const legacyStyles = {
     marginRight: 4,
   },
   title: {
+    ...typography.chip,
     color: '#FFF',
-    fontSize: 12,
-    fontFamily: 'Poppins-SemiBold',
   },
   artist: {
+    ...typography.small,
     color: 'rgba(255,255,255,0.6)',
-    fontSize: 10,
-    fontFamily: 'Poppins-Regular',
   },
   controls: {
     flexDirection: 'row',
@@ -175,7 +211,6 @@ const legacyStyles = {
     gap: 2,
   },
   controlButton: {
-    padding: 4,
     borderRadius: 18,
   },
   bufferingDot: {

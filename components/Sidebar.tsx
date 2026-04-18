@@ -1,9 +1,11 @@
 import { useUserStore } from '@/store/useUserStore';
 import { useAppTheme } from '@/hooks/use-app-theme';
+import { typography } from '@/constants/typography';
 import { adaptLegacyColor, adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
+import { Icon } from '@/components/ui/Icon';
+import { IconButton } from '@/components/ui/IconButton';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
-import { ChevronRight, LogOut, Mic2, Music, Sparkles, User, X, Zap } from 'lucide-react-native';
 import React from 'react';
 import { Animated, Dimensions, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
@@ -89,16 +91,22 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             <Animated.View style={[styles.sidebar, { transform: [{ translateX }] }]}>
                 <View style={styles.header}>
                     <Text style={styles.headerTitle}>Account Mode</Text>
-                    <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                        <X size={24} color={appTheme.colors.textPrimary} />
-                    </TouchableOpacity>
+                    <IconButton
+                        onPress={onClose}
+                        style={styles.closeButton}
+                        icon="x"
+                        size={24}
+                        color={appTheme.colors.textPrimary}
+                        accessibilityRole="button"
+                        accessibilityLabel="Close sidebar"
+                    />
                 </View>
 
                 <View style={styles.content}>
                     <Text style={styles.sectionTitle}>Switch View</Text>
 
                     <ModeItem
-                        icon={Music}
+                        icon="music"
                         label="Vault Mode"
                         active={viewMode === 'vault'}
                         onPress={() => handleModeSwitch('vault')}
@@ -108,7 +116,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                     />
 
                     <ModeItem
-                        icon={Mic2}
+                        icon="mic"
                         label="Studio Mode"
                         active={viewMode === 'studio'}
                         onPress={() => handleModeSwitch('studio')}
@@ -119,31 +127,46 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
                     {isHybrid && (
                         <View style={styles.hybridBadge}>
-                            <Sparkles size={16} color="#EC5C39" />
+                            <Icon name="sparkles" size={16} color="#EC5C39" />
                             <Text style={styles.hybridText}>Hybrid Access Active</Text>
                         </View>
                     )}
 
                     <View style={styles.divider} />
 
-                    <TouchableOpacity style={styles.profileLink} onPress={() => { router.push('/(tabs)/profile' as any); onClose(); }}>
+                    <TouchableOpacity
+                        style={styles.profileLink}
+                        onPress={() => { router.push('/(tabs)/profile' as any); onClose(); }}
+                        accessibilityRole="button"
+                        accessibilityLabel="Open profile"
+                    >
                         <View style={styles.profileIcon}>
-                            <User size={20} color={appTheme.colors.textPrimary} />
+                            <Icon name="user" size={20} color={appTheme.colors.textPrimary} />
                         </View>
                         <Text style={styles.profileLabel}>View Profile</Text>
-                        <ChevronRight size={18} color={appTheme.colors.textDisabled} />
+                        <Icon name="chevron-right" size={18} color={appTheme.colors.textDisabled} />
                     </TouchableOpacity>
 
-                    <TouchableOpacity style={styles.profileLink} onPress={() => { router.push('/settings/subscriptions' as any); onClose(); }}>
+                    <TouchableOpacity
+                        style={styles.profileLink}
+                        onPress={() => { router.push('/settings/subscriptions' as any); onClose(); }}
+                        accessibilityRole="button"
+                        accessibilityLabel="Open premium plans"
+                    >
                         <View style={styles.profileIcon}>
-                            <Zap size={20} color={appTheme.colors.textPrimary} />
+                            <Icon name="zap" size={20} color={appTheme.colors.textPrimary} />
                         </View>
                         <Text style={styles.profileLabel}>Premium Plans</Text>
-                        <ChevronRight size={18} color={appTheme.colors.textDisabled} />
+                        <Icon name="chevron-right" size={18} color={appTheme.colors.textDisabled} />
                     </TouchableOpacity>
 
-                    <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-                        <LogOut size={20} color={adaptLegacyColor('#EF4444', 'color', appTheme)} />
+                    <TouchableOpacity
+                        style={styles.logoutButton}
+                        onPress={handleLogout}
+                        accessibilityRole="button"
+                        accessibilityLabel="Log out"
+                    >
+                        <Icon name="log-out" size={20} color={adaptLegacyColor('#EF4444', 'color', appTheme)} />
                         <Text style={styles.logoutText}>Log Out</Text>
                     </TouchableOpacity>
                 </View>
@@ -156,7 +179,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     );
 }
 
-function ModeItem({ icon: Icon, label, active, onPress, disabled, styles, appTheme }: any) {
+function ModeItem({ icon, label, active, onPress, disabled, styles, appTheme }: any) {
     const iconMuted = adaptLegacyColor('rgba(255,255,255,0.4)', 'color', appTheme);
 
     return (
@@ -164,9 +187,12 @@ function ModeItem({ icon: Icon, label, active, onPress, disabled, styles, appThe
             style={[styles.modeItem, active && styles.modeItemActive, disabled && styles.modeItemDisabled]}
             onPress={onPress}
             disabled={disabled || active}
+            accessibilityRole="button"
+            accessibilityLabel={label}
+            accessibilityState={{ selected: active, disabled: disabled || active }}
         >
             <View style={[styles.modeIcon, active && styles.modeIconActive]}>
-                <Icon size={20} color={active ? appTheme.colors.textPrimary : iconMuted} />
+                <Icon name={icon} size={20} color={active ? appTheme.colors.textPrimary : iconMuted} />
             </View>
             <Text style={[styles.modeLabel, active && styles.modeLabelActive]}>{label}</Text>
             {active && <View style={styles.activeDot} />}
@@ -195,10 +221,10 @@ const legacyStyles = {
         paddingHorizontal: 24,
         marginBottom: 32,
     },
-    headerTitle: { fontSize: 20, fontFamily: 'Poppins-Bold', color: '#FFF' },
+    headerTitle: { ...typography.title, color: '#FFF' },
     closeButton: { padding: 4 },
     content: { paddingHorizontal: 16, flex: 1 },
-    sectionTitle: { fontSize: 13, fontFamily: 'Poppins-Bold', color: 'rgba(255,255,255,0.3)', marginBottom: 16, paddingHorizontal: 8, textTransform: 'uppercase', letterSpacing: 1 },
+    sectionTitle: { ...typography.label, color: 'rgba(255,255,255,0.3)', marginBottom: 16, paddingHorizontal: 8, textTransform: 'uppercase', letterSpacing: 1 },
     modeItem: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -211,17 +237,17 @@ const legacyStyles = {
     modeItemDisabled: { opacity: 0.3 },
     modeIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
     modeIconActive: { backgroundColor: '#EC5C39' },
-    modeLabel: { flex: 1, marginLeft: 16, fontSize: 15, fontFamily: 'Poppins-Medium', color: 'rgba(255,255,255,0.5)' },
-    modeLabelActive: { color: '#FFF', fontFamily: 'Poppins-Bold' },
+    modeLabel: { ...typography.body, flex: 1, marginLeft: 16, color: 'rgba(255,255,255,0.5)' },
+    modeLabelActive: { color: '#FFF', fontFamily: typography.title.fontFamily },
     activeDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#EC5C39' },
     hybridBadge: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, marginTop: 16 },
-    hybridText: { color: '#EC5C39', fontSize: 12, fontFamily: 'Poppins-Medium' },
+    hybridText: { ...typography.label, color: '#EC5C39' },
     divider: { height: 1, backgroundColor: 'rgba(255,255,255,0.05)', marginVertical: 32, marginHorizontal: 8 },
     profileLink: { flexDirection: 'row', alignItems: 'center', padding: 12 },
     profileIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
-    profileLabel: { flex: 1, marginLeft: 12, color: '#FFF', fontSize: 15, fontFamily: 'Poppins-Medium' },
+    profileLabel: { ...typography.body, flex: 1, marginLeft: 12, color: '#FFF' },
     logoutButton: { flexDirection: 'row', alignItems: 'center', padding: 12, marginTop: 'auto', marginBottom: 40 },
-    logoutText: { marginLeft: 12, color: '#EF4444', fontSize: 15, fontFamily: 'Poppins-Medium' },
+    logoutText: { ...typography.body, marginLeft: 12, color: '#EF4444' },
     footer: { padding: 24, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)' },
-    versionText: { color: 'rgba(255,255,255,0.2)', fontSize: 12, textAlign: 'center' },
+    versionText: { ...typography.small, color: 'rgba(255,255,255,0.2)', textAlign: 'center' },
 };

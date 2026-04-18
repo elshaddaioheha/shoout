@@ -1,5 +1,5 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
-import SettingsHeader from '@/components/settings/SettingsHeader';
+import { PremiumBackButton } from '@/components/ui/PremiumBackButton';
 import { auth, db } from '@/firebaseConfig';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { useCartStore } from '@/store/useCartStore';
@@ -247,16 +247,13 @@ export default function PlaylistScreen() {
   return (
     <SafeScreenWrapper>
       <View style={styles.container}>
-        <SettingsHeader
-          title={playlistName}
-          onBack={() => router.back()}
-          rightElement={
-            <TouchableOpacity style={styles.iconButton} onPress={() => Alert.alert('Coming Soon')}>
-              <MoreVertical size={22} color={appTheme.colors.textPrimary} />
-            </TouchableOpacity>
-          }
-          style={{ paddingHorizontal: 0, paddingVertical: 0, marginBottom: 2 }}
-        />
+        <View style={styles.topBar}>
+          <View style={styles.topBarSpacer} />
+          <TouchableOpacity style={styles.iconButton} onPress={() => Alert.alert('Coming Soon')}>
+            <MoreVertical size={22} color={appTheme.colors.textPrimary} />
+          </TouchableOpacity>
+        </View>
+        <Text style={styles.headerTitle}>{playlistName}</Text>
         {playlistSubtitle ? <Text style={styles.headerSubtitle}>{playlistSubtitle}</Text> : null}
 
         {loading ? (
@@ -266,16 +263,18 @@ export default function PlaylistScreen() {
         ) : (
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
             <View style={styles.coverWrap}>
-              {coverUri ? (
-                <Image source={{ uri: coverUri }} style={styles.coverImage} />
-              ) : (
-                <View style={styles.coverPlaceholder}>
-                  <Text style={styles.coverInitials}>{playlistName.slice(0, 2).toUpperCase()}</Text>
-                </View>
-              )}
+              <View style={styles.coverCard}>
+                {coverUri ? (
+                  <Image source={{ uri: coverUri }} style={styles.coverImage} />
+                ) : (
+                  <View style={styles.coverPlaceholder}>
+                    <Text style={styles.coverInitials}>{playlistName.slice(0, 2).toUpperCase()}</Text>
+                  </View>
+                )}
+                <PremiumBackButton variant="glass" containerStyle={styles.coverBackButton} />
+              </View>
             </View>
 
-            <Text style={styles.title}>{playlistName}</Text>
             <Text style={styles.subtitle}>{playlistSubtitle}</Text>
 
             <View style={styles.actionsRow}>
@@ -355,14 +354,37 @@ const legacyStyles = {
     alignItems: 'center',
     justifyContent: 'center',
   },
+  topBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 2,
+  },
+  topBarSpacer: {
+    width: 40,
+    height: 40,
+  },
+  headerTitle: {
+    color: '#FFF',
+    fontFamily: 'Poppins-Bold',
+    fontSize: 22,
+    textAlign: 'center',
+  },
   loadingWrap: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  headerSubtitle: { color: 'rgba(255,255,255,0.6)', fontFamily: 'Poppins-Regular', fontSize: 12 },
+  headerSubtitle: { color: 'rgba(255,255,255,0.6)', fontFamily: 'Poppins-Regular', fontSize: 12, textAlign: 'center' },
   content: { padding: 20, paddingBottom: 60 },
   coverWrap: { alignItems: 'center', marginBottom: 18 },
+  coverCard: {
+    width: 260,
+    height: 260,
+    borderRadius: 16,
+    overflow: 'hidden',
+    position: 'relative',
+  },
   coverImage: { width: 260, height: 260, borderRadius: 16, resizeMode: 'cover' },
   coverPlaceholder: {
     width: 260,
@@ -375,7 +397,11 @@ const legacyStyles = {
     justifyContent: 'center',
   },
   coverInitials: { color: '#EC5C39', fontFamily: 'Poppins-Bold', fontSize: 42, letterSpacing: 1 },
-  title: { color: '#FFF', fontFamily: 'Poppins-Bold', fontSize: 22, textAlign: 'center' },
+  coverBackButton: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+  },
   subtitle: { color: 'rgba(255,255,255,0.7)', fontFamily: 'Poppins-Regular', fontSize: 14, textAlign: 'center', marginTop: 6 },
   actionsRow: { flexDirection: 'row', gap: 12, marginTop: 18, marginBottom: 8 },
   cta: {

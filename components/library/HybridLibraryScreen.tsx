@@ -8,18 +8,8 @@ import { notifyError } from '@/utils/notify';
 import { auth, db } from '@/firebaseConfig';
 import { useRouter } from 'expo-router';
 import { addDoc, collection, deleteDoc, doc, onSnapshot, orderBy, query, serverTimestamp } from 'firebase/firestore';
-import {
-  Archive,
-  Check,
-  Filter,
-  FolderPlus,
-  Heart,
-  Link2,
-  Music,
-  Play,
-  Plus,
-  X,
-} from 'lucide-react-native';
+import { Icon } from '@/components/ui/Icon';
+import { IconButton } from '@/components/ui/IconButton';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Image,
@@ -269,7 +259,7 @@ export default function HybridLibraryScreen() {
 
             {favouriteTracks.length === 0 ? (
               <View style={styles.favouritesEmptyWrap}>
-                <Heart size={52} color={adaptLegacyColor('rgba(255,255,255,0.24)', 'color', appTheme)} strokeWidth={1.7} />
+                <Icon name="heart" size={52} color={adaptLegacyColor('rgba(255,255,255,0.24)', 'color', appTheme)} />
                 <Text style={styles.favouritesEmptyTitle}>No liked tracks yet</Text>
                 <Text style={styles.favouritesEmptySubtitle}>Tap the heart icon while playing songs to save them here.</Text>
                 <TouchableOpacity
@@ -295,7 +285,7 @@ export default function HybridLibraryScreen() {
                           {art ? (
                             <Image source={{ uri: art }} style={styles.favouriteArt} />
                           ) : (
-                            <Music size={18} color={adaptLegacyColor('rgba(255,255,255,0.5)', 'color', appTheme)} />
+                            <Icon name="music" size={18} color={adaptLegacyColor('rgba(255,255,255,0.5)', 'color', appTheme)} />
                           )}
                         </View>
                         <View style={styles.favouriteInfo}>
@@ -305,20 +295,26 @@ export default function HybridLibraryScreen() {
                       </TouchableOpacity>
 
                       <View style={styles.favouriteActions}>
-                        <TouchableOpacity
+                        <IconButton
                           style={styles.favouriteActionBtn}
-                          activeOpacity={0.8}
+                          accessibilityLabel="Play track"
+                          accessibilityHint="Play this favourite track"
+                          icon="play"
+                          color={appTheme.colors.textPrimary}
+                          size={16}
+                          fill
                           onPress={() => openFavourite(track)}
-                        >
-                          <Play size={16} color={appTheme.colors.textPrimary} fill={appTheme.colors.textPrimary} />
-                        </TouchableOpacity>
-                        <TouchableOpacity
+                        />
+                        <IconButton
                           style={styles.favouriteActionBtn}
-                          activeOpacity={0.8}
+                          accessibilityLabel="Remove favourite"
+                          accessibilityHint="Remove this track from your favourites"
+                          icon="heart"
+                          color="#EC5C39"
+                          size={16}
+                          fill
                           onPress={() => removeFavourite(track.id)}
-                        >
-                          <Heart size={16} color="#EC5C39" fill="#EC5C39" />
-                        </TouchableOpacity>
+                        />
                       </View>
                     </View>
                   );
@@ -328,7 +324,7 @@ export default function HybridLibraryScreen() {
 
             <View style={styles.actionsRow}>
               <TouchableOpacity style={styles.filterButton} activeOpacity={0.8} onPress={() => showToast('Coming soon', 'info')}>
-                <Filter size={18} color={appTheme.colors.textPrimary} />
+                <Icon name="filter" size={18} color={appTheme.colors.textPrimary} />
                 <Text style={styles.filterText}>filter</Text>
               </TouchableOpacity>
 
@@ -344,7 +340,7 @@ export default function HybridLibraryScreen() {
             {!hasVaultContent ? (
               <View style={styles.emptyWrap}>
                 <View style={styles.emptyIconWrap}>
-                  <Archive size={84} color={adaptLegacyColor('#767676', 'color', appTheme)} strokeWidth={1.6} />
+                  <Icon name="archive" size={84} color={adaptLegacyColor('#767676', 'color', appTheme)} />
                 </View>
 
                 <Text style={styles.emptyTitle}>No saved or uploaded items yet</Text>
@@ -382,21 +378,25 @@ export default function HybridLibraryScreen() {
       </ScrollView>
 
       <>
-        <TouchableOpacity
+        <IconButton
           style={[styles.fab, { bottom: insets.bottom + 145 }]}
-          activeOpacity={0.85}
+          accessibilityLabel="Create item"
+          accessibilityHint="Open the create item menu"
+          icon="plus"
+          color={appTheme.colors.textPrimary}
+          size={20}
           onPress={() => setShowCreateSheet(true)}
-        >
-          <Plus size={20} color={appTheme.colors.textPrimary} />
-        </TouchableOpacity>
+        />
 
-        <TouchableOpacity
+        <IconButton
           style={[styles.linkFab, { bottom: insets.bottom + 92 }]}
-          activeOpacity={0.85}
+          accessibilityLabel="Shared links"
+          accessibilityHint="Open shared links"
+          icon="link-2"
+          color={appTheme.colors.textPrimary}
+          size={20}
           onPress={() => showToast('Coming soon', 'info')}
-        >
-          <Link2 size={20} color={appTheme.colors.textPrimary} />
-        </TouchableOpacity>
+        />
       </>
 
       <Modal transparent visible={showCreateSheet} animationType="slide" onRequestClose={() => setShowCreateSheet(false)}>
@@ -404,13 +404,15 @@ export default function HybridLibraryScreen() {
           <View style={styles.sheetCard}>
             <View style={styles.sheetHandle} />
 
-            <TouchableOpacity
+            <IconButton
               style={styles.closeBtn}
-              activeOpacity={0.8}
+              accessibilityLabel="Close sheet"
+              accessibilityHint="Close the create menu"
+              icon="x"
+              color={appTheme.colors.textSecondary}
+              size={20}
               onPress={() => setShowCreateSheet(false)}
-            >
-              <X size={20} color={appTheme.colors.textSecondary} />
-            </TouchableOpacity>
+            />
 
             <TouchableOpacity
               style={styles.sheetOption}
@@ -421,7 +423,7 @@ export default function HybridLibraryScreen() {
               }}
             >
               <Text style={styles.sheetOptionTitle}>Create Folder</Text>
-              <FolderPlus size={52} color={adaptLegacyColor('rgba(255,255,255,0.58)', 'color', appTheme)} strokeWidth={2.6} />
+              <Icon name="folder-plus" size={52} color={adaptLegacyColor('rgba(255,255,255,0.58)', 'color', appTheme)} />
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -433,7 +435,7 @@ export default function HybridLibraryScreen() {
               }}
             >
               <Text style={styles.sheetOptionTitle}>Upload Track</Text>
-              <Music size={52} color={adaptLegacyColor('rgba(255,255,255,0.58)', 'color', appTheme)} strokeWidth={2.6} />
+              <Icon name="music" size={52} color={adaptLegacyColor('rgba(255,255,255,0.58)', 'color', appTheme)} />
             </TouchableOpacity>
           </View>
         </View>
@@ -449,18 +451,24 @@ export default function HybridLibraryScreen() {
           <View style={[styles.sheetCard, styles.folderSheetCard]}>
             <View style={styles.sheetHandle} />
 
-            <TouchableOpacity style={styles.closeBtn} activeOpacity={0.8} onPress={closeFolderSheet}>
-              <X size={20} color={appTheme.colors.textSecondary} />
-            </TouchableOpacity>
+            <IconButton
+            style={styles.closeBtn}
+            accessibilityLabel="Close folder sheet"
+            accessibilityHint="Close the folder creation sheet"
+            icon="x"
+            color={appTheme.colors.textSecondary}
+            size={20}
+            onPress={closeFolderSheet}
+          />
 
             <Text style={styles.folderSheetTitle}>Create Folder</Text>
 
             {folderCreated ? (
               <View style={styles.successCard}>
                 <View style={styles.successIconWrap}>
-                  <FolderPlus size={38} color={adaptLegacyColor('rgba(255,255,255,0.53)', 'color', appTheme)} strokeWidth={2.2} />
+                  <Icon name="folder-plus" size={38} color={adaptLegacyColor('rgba(255,255,255,0.53)', 'color', appTheme)} />
                   <View style={styles.checkBadge}>
-                    <Check size={14} color={appTheme.colors.textPrimary} strokeWidth={3} />
+                    <Icon name="check" size={14} color={appTheme.colors.textPrimary} />
                   </View>
                 </View>
                 <Text style={styles.successText}>Folder Uploaded successfully</Text>
@@ -518,7 +526,7 @@ function VaultHeader({
   return (
     <View style={styles.header}>
       <View style={styles.headerLeft}>
-        <Archive size={22} color="#EC5C39" strokeWidth={2.2} />
+        <Icon name="archive" size={22} color="#EC5C39" />
 
         <View style={styles.headerTextWrap}>
           <Text style={styles.headerTitle}>{title}</Text>
@@ -561,7 +569,7 @@ function FolderCard({ folder }: { folder: VaultFolder }) {
           {folder.artworkUrl ? (
             <Image source={{ uri: folder.artworkUrl }} style={styles.folderImage} />
           ) : (
-            <Archive size={30} color="#EC5C39" />
+            <Icon name="archive" size={30} color="#EC5C39" />
           )}
         </View>
       </View>
@@ -581,7 +589,7 @@ function UploadCard({ item }: { item: UploadItem }) {
         {artwork ? (
           <Image source={{ uri: artwork }} style={styles.trackArtImage} />
         ) : (
-          <Music size={28} color={adaptLegacyColor('rgba(255,255,255,0.65)', 'color', appTheme)} />
+          <Icon name="music" size={28} color={adaptLegacyColor('rgba(255,255,255,0.65)', 'color', appTheme)} />
         )}
       </View>
       <Text style={styles.cardTitle} numberOfLines={1}>{item.title || 'Untitled Track'}</Text>

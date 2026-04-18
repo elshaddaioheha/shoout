@@ -42,6 +42,7 @@ extensions/*.env
 GoogleService-Info.plist
 google-services.json
 serviceAccountKey.json
+*.md
 
 app-example
 

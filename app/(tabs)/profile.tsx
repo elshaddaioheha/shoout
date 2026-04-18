@@ -13,21 +13,7 @@ import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { collection, doc, getDocs, onSnapshot, setDoc } from 'firebase/firestore';
-import {
-    Bell,
-    ChevronLeft,
-    ChevronRight,
-    CreditCard,
-    Crown,
-    Download,
-    LogOut,
-    Music,
-    Settings,
-    Share2,
-    Shield,
-    Sparkles,
-    User
-} from 'lucide-react-native';
+import { Icon } from '@/components/ui/Icon';
 import React, { useEffect, useRef } from 'react';
 import {
     Alert,
@@ -276,11 +262,11 @@ export default function ProfileScreen() {
                 {/* Header */}
                 <View style={styles.header}>
                     <TouchableOpacity style={styles.iconButton} onPress={handleBack}>
-                        <ChevronLeft size={22} color={appTheme.colors.textPrimary} />
+                        <Icon name="chevron-left" size={22} color={appTheme.colors.textPrimary} />
                     </TouchableOpacity>
                     <Text style={styles.headerTitle}>Profile</Text>
                     <TouchableOpacity style={styles.iconButton} onPress={handleShare}>
-                        <Share2 size={22} color={appTheme.colors.textPrimary} />
+                        <Icon name="share" size={22} color={appTheme.colors.textPrimary} />
                     </TouchableOpacity>
                 </View>
 
@@ -294,10 +280,10 @@ export default function ProfileScreen() {
                     />
                     <View style={styles.avatarContainer}>
                         <View style={[styles.avatar, { backgroundColor: accentSoft, borderColor: accentColor }]}>
-                            <User size={40} color={appTheme.colors.textPrimary} />
+                            <Icon name="user" size={40} color={appTheme.colors.textPrimary} />
                         </View>
                         <TouchableOpacity style={[styles.editBadge, { backgroundColor: accentColor }]} onPress={handleEditProfile}>
-                            <Settings size={14} color={appTheme.colors.textPrimary} />
+                            <Icon name="settings" size={14} color={appTheme.colors.textPrimary} />
                         </TouchableOpacity>
                     </View>
 
@@ -312,7 +298,7 @@ export default function ProfileScreen() {
                             borderColor: accentTint,
                         }
                     ]}>
-                        {isPremium && <Crown size={12} color={accentColor} style={{ marginRight: 4 }} />}
+                        {isPremium && <Icon name="crown" size={12} color={accentColor} style={{ marginRight: 4 }} />}
                         <Text style={[
                             styles.roleText,
                             ((role.startsWith('studio') || role.startsWith('hybrid') || role === 'shoout') || isPremium) && { color: accentColor },
@@ -343,20 +329,20 @@ export default function ProfileScreen() {
                 <Text style={styles.sectionTitle}>Account</Text>
                 <View style={styles.menuContainer}>
                     <MenuItem
-                        icon={Crown}
+                        iconName="crown"
                         label="Subscription"
                         value={role.replace('_', ' ').toUpperCase()}
                         color={accentColor}
                         onPress={() => router.push('/settings/subscriptions' as any)}
                     />
                     <MenuItem
-                        icon={CreditCard}
+                        iconName="credit-card"
                         label="Payment Methods"
                         color={accentColor}
                         onPress={() => router.push('/settings/payment-methods' as any)}
                     />
                     <MenuItem
-                        icon={Music}
+                        iconName="music"
                         label="Artist Dashboard"
                         color={accentColor}
                         onPress={() => {
@@ -379,17 +365,17 @@ export default function ProfileScreen() {
                 {/* Preferences Section */}
                 <Text style={styles.sectionTitle}>Preferences</Text>
                 <View style={styles.menuContainer}>
-                    <MenuItem icon={Sparkles} label="Appearance" color={accentColor} onPress={() => router.push('/settings/appearance' as any)} />
-                    <MenuItem icon={Bell} label="Notifications" color={accentColor} onPress={() => router.push('/settings/notifications' as any)} />
-                    <MenuItem icon={Download} label="Downloads" color={accentColor} onPress={() => router.push('/settings/downloads' as any)} />
-                    <MenuItem icon={Shield} label="Privacy & Security" color={accentColor} onPress={() => router.push('/settings/privacy' as any)} />
+                    <MenuItem iconName="sparkles" label="Appearance" color={accentColor} onPress={() => router.push('/settings/appearance' as any)} />
+                    <MenuItem iconName="bell" label="Notifications" color={accentColor} onPress={() => router.push('/settings/notifications' as any)} />
+                    <MenuItem iconName="download" label="Downloads" color={accentColor} onPress={() => router.push('/settings/downloads' as any)} />
+                    <MenuItem iconName="shield" label="Privacy & Security" color={accentColor} onPress={() => router.push('/settings/privacy' as any)} />
                 </View>
 
                 {/* Support Section */}
                 <Text style={styles.sectionTitle}>Support</Text>
                 <View style={styles.menuContainer}>
-                    <MenuItem icon={Sparkles} label="Help Center" color={accentColor} onPress={() => router.push('/settings/help-center' as any)} />
-                    <MenuItem icon={LogOut} label="Log Out" color="#EF4444" onPress={handleLogout} hideChevron />
+                    <MenuItem iconName="sparkles" label="Help Center" color={accentColor} onPress={() => router.push('/settings/help-center' as any)} />
+                    <MenuItem iconName="log-out" label="Log Out" color="#EF4444" onPress={handleLogout} hideChevron />
                 </View>
 
                 <View style={{ height: 100 }} />
@@ -438,20 +424,20 @@ export default function ProfileScreen() {
     );
 }
 
-function MenuItem({ icon: Icon, label, value, color, onPress, hideChevron }: any) {
+function MenuItem({ iconName, label, value, color, onPress, hideChevron }: any) {
     const appTheme = useAppTheme();
     const styles = useProfileStyles();
 
     return (
         <TouchableOpacity style={styles.menuItem} onPress={onPress}>
             <View style={[styles.menuIconContainer, { backgroundColor: `${color}15` }]}>
-                <Icon size={20} color={color} />
+                <Icon name={iconName} size={20} color={color} />
             </View>
             <View style={styles.menuTextContainer}>
                 <Text style={styles.menuLabel}>{label}</Text>
                 {value && <Text style={styles.menuValue}>{value}</Text>}
             </View>
-            {!hideChevron && <ChevronRight size={18} color={appTheme.colors.textTertiary} />}
+            {!hideChevron && <Icon name="chevron-right" size={18} color={appTheme.colors.textTertiary} />}
         </TouchableOpacity>
     );
 }

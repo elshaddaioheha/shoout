@@ -1,5 +1,6 @@
 import LicenseTierPicker from '@/components/LicenseTierPicker';
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
+import { PremiumBackButton } from '@/components/ui/PremiumBackButton';
 import { auth, db } from '@/firebaseConfig';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { useCartStore } from '@/store/useCartStore';
@@ -272,6 +273,10 @@ export default function ListingLicenseModal() {
     return (
         <SafeScreenWrapper>
             <View style={styles.screen}>
+                <PremiumBackButton
+                    variant="glass"
+                    containerStyle={styles.floatingBackButton}
+                />
                 <Pressable style={styles.backdrop} onPress={() => router.back()}>
                     <BlurView intensity={34} tint={appTheme.isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
                     <View style={styles.backdropDim} />
@@ -346,7 +351,7 @@ export default function ListingLicenseModal() {
                             }}
                             options={{
                                 tx_ref: checkoutTxRef,
-                                authorization: process.env.EXPO_PUBLIC_FLUTTERWAVE_PUBLIC_KEY || '',
+                                authorization: process.env.EXPO_PUBLIC_FLUTTERWAVE_PUBLIC_KEY!,
                                 customer: { email: auth.currentUser.email! },
                                 amount: checkoutAmountNgn,
                                 currency: 'NGN',
@@ -388,6 +393,10 @@ const legacyStyles = {
     },
     backdrop: {
         ...StyleSheet.absoluteFillObject,
+    },
+    floatingBackButton: {
+        top: 18,
+        left: 16,
     },
     backdropDim: {
         ...StyleSheet.absoluteFillObject,

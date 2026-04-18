@@ -15,15 +15,27 @@ service firebase.storage {
     }
 
     function isAudio() {
-      return request.resource.contentType.matches('audio/(mpeg|mp3|wav|aac|x-m4a|mp4|m4a)');
+      return request.resource.contentType != null
+        && request.resource.contentType.matches('audio/.*');
+    }
+
+    function isVaultAudioUpload(path) {
+      return isAudio()
+        || path.matches('.*[.]mp3$')
+        || path.matches('.*[.]m4a$')
+        || path.matches('.*[.]wav$')
+        || path.matches('.*[.]aac$')
+        || path.matches('.*[.]mp4$');
     }
 
     function isVideo() {
-      return request.resource.contentType.matches('video/(mp4|quicktime|webm|x-matroska)');
+      return request.resource.contentType != null
+        && request.resource.contentType.matches('video/.*');
     }
 
     function isImage() {
-      return request.resource.contentType.matches('image/(jpeg|png|webp)');
+      return request.resource.contentType != null
+        && request.resource.contentType.matches('image/.*');
     }
 
     function maxSize(mb) {
@@ -56,17 +68,17 @@ service firebase.storage {
       allow read: if isOwner(userId) || isAdmin();
 
       allow create: if isOwner(userId)
-        && maxSize(50)
+        && maxSize(200)
         && (
           (allPaths.matches('conversion-inputs/.*') && isVideo()) ||
-          (!allPaths.matches('conversion-inputs/.*') && isAudio())
+          (!allPaths.matches('conversion-inputs/.*') && isVaultAudioUpload(allPaths))
         );
 
       allow update: if isOwner(userId)
-        && maxSize(50)
+        && maxSize(200)
         && (
           (allPaths.matches('conversion-inputs/.*') && isVideo()) ||
-          (!allPaths.matches('conversion-inputs/.*') && isAudio())
+          (!allPaths.matches('conversion-inputs/.*') && isVaultAudioUpload(allPaths))
         );
 
       allow delete: if isOwner(userId) || isAdmin();

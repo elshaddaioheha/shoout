@@ -23,11 +23,14 @@
     "dev:seed:storage-sample": "node ./scripts/seed-storage-sample.mjs",
     "dev:seed:auth-admin": "node ./scripts/seed-auth-users-admin.mjs",
     "dev:backfill:publish-snapshot": "node ./scripts/backfill-publish-snapshot.mjs",
-    "dev:backfill:publish-snapshot:apply": "node ./scripts/backfill-publish-snapshot.mjs --apply"
+    "dev:backfill:publish-snapshot:apply": "node ./scripts/backfill-publish-snapshot.mjs --apply",
+    "dev:backfill:publish-audio-url": "node ./scripts/backfill-publish-audio-url.mjs",
+    "dev:backfill:publish-audio-url:apply": "node ./scripts/backfill-publish-audio-url.mjs --apply"
   },
   "dependencies": {
     "@expo-google-fonts/poppins": "^0.4.1",
     "@expo/vector-icons": "^15.0.2",
+    "@gorhom/bottom-sheet": "^5.2.9",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/netinfo": "11.5.2",
     "@react-native-firebase/app": "^23.8.8",
@@ -66,6 +69,7 @@
     "react-dom": "19.2.0",
     "react-native": "0.83.4",
     "react-native-gesture-handler": "~2.30.0",
+    "react-native-image-colors": "^2.6.0",
     "react-native-reanimated": "4.2.1",
     "react-native-safe-area-context": "~5.6.2",
     "react-native-screens": "~4.23.0",
@@ -110,6 +114,7 @@
       "^@/firebaseConfig$": "<rootDir>/__mocks__/firebaseConfig.ts",
       "^../../firebaseConfig$": "<rootDir>/__mocks__/firebaseConfig.ts",
       "^../firebaseConfig$": "<rootDir>/__mocks__/firebaseConfig.ts",
+      "^expo-symbols$": "<rootDir>/__mocks__/expo-symbols.tsx",
       "expo-linear-gradient": "<rootDir>/__mocks__/expo-linear-gradient.js",
       "flutterwave-react-native": "<rootDir>/__mocks__/flutterwave-react-native.js",
       "expo/src/winter/(.*)$": "<rootDir>/__mocks__/expoRuntime.js",

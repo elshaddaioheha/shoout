@@ -47,6 +47,13 @@ const USERS = [
         subscriptionTier: 'hybrid',
         fullAccess: true,
     },
+    {
+        email: 'e2e-tester@shoouts.com',
+        displayName: 'E2E Automation User',
+        role: 'hybrid',
+        subscriptionTier: 'hybrid',
+        fullAccess: true,
+    },
 ];
 
 const FULL_ACCESS_ENTITLEMENTS = {
@@ -82,6 +89,12 @@ async function ensureUser(auth, db, user) {
             displayName: user.displayName,
         });
     }
+
+    // Keep seeded credentials deterministic for test automation.
+    await auth.updateUser(userRecord.uid, {
+        password,
+        displayName: user.displayName,
+    });
 
     const uid = userRecord.uid;
     const now = admin.firestore.Timestamp.now();

@@ -189,7 +189,7 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => ({
           });
 
           if (status.didJustFinish) {
-            const { queue, repeatMode } = get();
+            const { repeatMode } = get();
 
             if (repeatMode === 'one') {
               const currentSound = get().sound;
@@ -202,30 +202,8 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => ({
               return;
             }
 
-            // Auto-play behavior picks a random next track from the active playlist.
-            if (queue.length > 0) {
-              const { queue: q, shuffledQueue, shuffleActive, currentTrackIndex } = get();
-              const activeList = shuffleActive ? shuffledQueue : q;
-
-              if (activeList.length <= 1) {
-                if (repeatMode === 'all' && activeList.length === 1) {
-                  get().playTrackAtIndex(0).catch((err) => console.error('Repeat-all single-track restart failed:', err));
-                } else {
-                  set({ isPlaying: false, position: 0 });
-                }
-                return;
-              }
-
-              const candidateIndexes = activeList
-                .map((_, idx) => idx)
-                .filter((idx) => idx !== currentTrackIndex);
-
-              const randomIndex = candidateIndexes[Math.floor(Math.random() * candidateIndexes.length)];
-              get().playTrackAtIndex(randomIndex).catch((err) => console.error('Auto-play random next failed:', err));
-              return;
-            }
-
-            set({ isPlaying: false, position: 0 });
+            get().playNextTrack().catch((err) => console.error('Auto-advance failed:', err));
+            return;
           }
         }
       );

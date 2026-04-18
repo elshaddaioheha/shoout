@@ -6,14 +6,8 @@ import { notifyError } from '@/utils/notify';
 import { auth, db } from '@/firebaseConfig';
 import { useRouter } from 'expo-router';
 import { collection, deleteDoc, doc, onSnapshot } from 'firebase/firestore';
-import {
-  ChevronLeft,
-  Grid3x3,
-  Heart,
-  Music,
-  Play,
-  View as ViewIcon,
-} from 'lucide-react-native';
+import { Icon } from '@/components/ui/Icon';
+import { IconButton } from '@/components/ui/IconButton';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Image,
@@ -175,13 +169,15 @@ export default function ShooutsFavouritesScreen() {
         <>
             {/* Library Header */}
             <View style={styles.pageHeader}>
-              <TouchableOpacity
+              <IconButton
                 style={styles.backButton}
-                activeOpacity={0.8}
+                accessibilityLabel="Go back"
+                accessibilityHint="Return to more options"
+                icon="chevron-left"
+                color={appTheme.colors.textPrimary}
+                size={24}
                 onPress={() => router.push('/(tabs)/more' as any)}
-              >
-                <ChevronLeft size={24} color={appTheme.colors.textPrimary} strokeWidth={2.5} />
-              </TouchableOpacity>
+              />
               <Text style={styles.pageTitle}>Library</Text>
               <View style={{ width: 40 }} />
             </View>
@@ -192,20 +188,24 @@ export default function ShooutsFavouritesScreen() {
                 <Text style={styles.likedCount}>{filteredTracks.length} tracks</Text>
               </View>
               <View style={styles.layoutToggle}>
-                <TouchableOpacity
+                <IconButton
                   style={[styles.layoutToggleBtn, layoutMode === 'grid' && styles.layoutToggleBtnActive]}
-                  activeOpacity={0.8}
+                  accessibilityLabel="Grid view"
+                  accessibilityState={{ selected: layoutMode === 'grid' }}
+                  icon="grid-3x3"
+                  color={layoutMode === 'grid' ? '#6AA7FF' : appTheme.colors.textSecondary}
+                  size={16}
                   onPress={() => setLayoutMode('grid')}
-                >
-                  <Grid3x3 size={16} color={layoutMode === 'grid' ? '#6AA7FF' : appTheme.colors.textSecondary} />
-                </TouchableOpacity>
-                <TouchableOpacity
+                />
+                <IconButton
                   style={[styles.layoutToggleBtn, layoutMode === 'list' && styles.layoutToggleBtnActive]}
-                  activeOpacity={0.8}
+                  accessibilityLabel="List view"
+                  accessibilityState={{ selected: layoutMode === 'list' }}
+                  icon="view"
+                  color={layoutMode === 'list' ? '#6AA7FF' : appTheme.colors.textSecondary}
+                  size={16}
                   onPress={() => setLayoutMode('list')}
-                >
-                  <ViewIcon size={16} color={layoutMode === 'list' ? '#6AA7FF' : appTheme.colors.textSecondary} />
-                </TouchableOpacity>
+                />
               </View>
             </View>
 
@@ -238,7 +238,7 @@ export default function ShooutsFavouritesScreen() {
 
             {filteredTracks.length === 0 ? (
               <View style={styles.favouritesEmptyWrap}>
-                <Heart size={52} color={adaptLegacyColor('rgba(255,255,255,0.24)', 'color', appTheme)} strokeWidth={1.7} />
+                <Icon name="heart" size={52} color={adaptLegacyColor('rgba(255,255,255,0.24)', 'color', appTheme)} />
                 <Text style={styles.favouritesEmptyTitle}>No liked tracks yet</Text>
                 <Text style={styles.favouritesEmptySubtitle}>Tap the heart icon while playing songs to save them here.</Text>
                 <TouchableOpacity
@@ -264,29 +264,36 @@ export default function ShooutsFavouritesScreen() {
                           <Image source={{ uri: art }} style={styles.gridItemArt} />
                         ) : (
                           <View style={styles.gridItemPlaceholder}>
-                            <Music size={28} color={adaptLegacyColor('rgba(255,255,255,0.5)', 'color', appTheme)} />
+                            <Icon name="music" size={28} color={adaptLegacyColor('rgba(255,255,255,0.5)', 'color', appTheme)} />
                           </View>
                         )}
                         <View style={styles.gridItemOverlay}>
-                          <TouchableOpacity
+                          <IconButton
                             style={styles.gridItemPlayBtn}
-                            activeOpacity={0.8}
+                            accessibilityLabel="Play track"
+                            accessibilityHint="Play this favourite track"
+                            icon="play"
+                            color="#FFFFFF"
+                            size={16}
+                            fill
                             onPress={() => openFavourite(track)}
-                          >
-                            <Play size={16} color="#FFFFFF" fill="#FFFFFF" />
-                          </TouchableOpacity>
+                          />
                         </View>
                       </TouchableOpacity>
                       <View style={styles.gridItemInfo}>
                         <Text style={styles.gridItemTitle} numberOfLines={2}>{track.title || 'Untitled Track'}</Text>
                         <View style={styles.gridItemFooter}>
                           <Text style={styles.gridItemArtist} numberOfLines={1}>{track.artist || 'Creator'}</Text>
-                          <TouchableOpacity
-                            activeOpacity={0.8}
+                          <IconButton
+                            style={styles.transparentIconButton}
+                            accessibilityLabel="Remove favourite"
+                            accessibilityHint="Remove this track from favourites"
+                            icon="heart"
+                            color="#6AA7FF"
+                            size={14}
+                            fill
                             onPress={() => removeFavourite(track.id)}
-                          >
-                            <Heart size={14} color="#6AA7FF" fill="#6AA7FF" />
-                          </TouchableOpacity>
+                          />
                         </View>
                       </View>
                     </View>
@@ -308,7 +315,7 @@ export default function ShooutsFavouritesScreen() {
                           {art ? (
                             <Image source={{ uri: art }} style={styles.favouriteArt} />
                           ) : (
-                            <Music size={18} color={adaptLegacyColor('rgba(255,255,255,0.5)', 'color', appTheme)} />
+                            <Icon name="music" size={18} color={adaptLegacyColor('rgba(255,255,255,0.5)', 'color', appTheme)} />
                           )}
                         </View>
                         <View style={styles.favouriteInfo}>
@@ -318,20 +325,26 @@ export default function ShooutsFavouritesScreen() {
                       </TouchableOpacity>
 
                       <View style={styles.favouriteActions}>
-                        <TouchableOpacity
+                        <IconButton
                           style={styles.favouriteActionBtn}
-                          activeOpacity={0.8}
+                          accessibilityLabel="Play track"
+                          accessibilityHint="Play this favourite track"
+                          icon="play"
+                          color={appTheme.colors.textPrimary}
+                          size={16}
+                          fill
                           onPress={() => openFavourite(track)}
-                        >
-                          <Play size={16} color={appTheme.colors.textPrimary} fill={appTheme.colors.textPrimary} />
-                        </TouchableOpacity>
-                        <TouchableOpacity
+                        />
+                        <IconButton
                           style={styles.favouriteActionBtn}
-                          activeOpacity={0.8}
+                          accessibilityLabel="Remove favourite"
+                          accessibilityHint="Remove this track from favourites"
+                          icon="heart"
+                          color="#6AA7FF"
+                          size={16}
+                          fill
                           onPress={() => removeFavourite(track.id)}
-                        >
-                          <Heart size={16} color="#6AA7FF" fill="#6AA7FF" />
-                        </TouchableOpacity>
+                        />
                       </View>
                     </View>
                   );

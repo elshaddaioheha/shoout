@@ -10,6 +10,7 @@ import { hydrateSubscriptionTier } from '@/utils/subscriptionVerification';
 import { formatUsd, usdToNgn } from '@/utils/pricing';
 import { getSubscriptionPlan, SUBSCRIPTION_PLANS, type SubscriptionPlanId } from '@/utils/subscriptions';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
 import { PayWithFlutterwave } from 'flutterwave-react-native';
 import { Check, CreditCard, PartyPopper, ShieldCheck, Sparkles, Star, ChevronLeft } from 'lucide-react-native';
@@ -129,10 +130,25 @@ export default function SubscriptionsScreen() {
     const handlePaymentVerifiedUpgrade = async (planId: SubscriptionPlanId, txRef?: string) => {
         try {
             setIsVerifying(true);
-            await activatePlanOnServer(planId, txRef);
-            await hydrateSubscriptionTier();
-            setActiveAppMode(planId);
-            showUpgradeSuccess(planId);
+            // For free upgrades (e.g., 'shoout' plan or $0 price), activate immediately
+            // For paid plans, the client must WAIT for the webhook to process before calling this
+            // DO NOT call activatePlanOnServer() on the Flutterwave callback - that's a security vulnerability!
+            // Instead, rely on the backend webhook and Firestore listener below
+            
+            if (!txRef) {
+                // Free upgrade path - safe to activate immediately
+                await activatePlanOnServer(planId, txRef);
+                await hydrateSubscriptionTier();
+                setActiveAppMode(planId);
+                showUpgradeSuccess(planId);
+            } else {
+                // Paid upgrade path - DO NOT activate on client callback
+                // The webhook will process the transaction and update Firestore
+                // We'll listen to Firestore and show splash when backend confirms
+                console.info('Payment received - awaiting webhook validation for txRef:', txRef);
+                // For now, just show a waiting message
+                showToast('Payment received. Confirming with our server...', 'info');
+            }
         } catch (error: any) {
             showToast(error?.message || 'Could not verify your payment.', 'error');
         } finally {
@@ -145,6 +161,12 @@ export default function SubscriptionsScreen() {
             handlePaymentVerifiedUpgrade(plan.id as SubscriptionPlanId);
             return;
         }
+        
+        // Validate Flutterwave configuration before proceeding
+        if (!process.env.EXPO_PUBLIC_FLUTTERWAVE_PUBLIC_KEY) {
+            throw new Error('EXPO_PUBLIC_FLUTTERWAVE_PUBLIC_KEY is not configured. Payment cannot be processed.');
+        }
+        
         setSelectedPlan(plan);
         setPendingTxRef(buildSubscriptionTxRef());
         setShowPaymentModal(true);
@@ -156,55 +178,57 @@ export default function SubscriptionsScreen() {
                 <SettingsHeader title="Premium Plans" onBack={() => router.back()} />
 
                 <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-                    <View style={styles.introSection}>
-                        <Sparkles size={40} color={activeCategoryColor} />
-                        <Text style={styles.introTitle}>Choose Your Shoouts Experience</Text>
-                        <Text style={styles.introSubtitle}>One switcher. Five experiences. Upgrade when you are ready.</Text>
+                    <BlurView intensity={Platform.OS === 'ios' ? 80 : 0} style={styles.introBlurWrapper}>
+                        <View style={styles.introSection}>
+                            <Sparkles size={40} color={activeCategoryColor} />
+                            <Text style={styles.introTitle}>Choose Your Shoouts Experience</Text>
+                            <Text style={styles.introSubtitle}>One switcher. Five experiences. Upgrade when you are ready.</Text>
 
-                        <View style={styles.categoryTabsRow}>
-                            {CATEGORY_TABS.map((tab) => {
-                                const isActive = activeCategory === tab.id;
-                                return (
-                                    <TouchableOpacity
-                                        key={tab.id}
-                                        style={[
-                                            styles.categoryTab,
-                                            isActive && { backgroundColor: tab.color + '22', borderColor: tab.color },
-                                        ]}
-                                        onPress={() => setActiveCategory(tab.id)}
-                                        activeOpacity={0.75}
-                                    >
-                                        <Text style={[
-                                            styles.categoryTabText,
-                                            isActive && { color: tab.color, fontFamily: 'Poppins-Bold' },
-                                        ]}>
-                                            {tab.label}
-                                        </Text>
-                                    </TouchableOpacity>
-                                );
-                            })}
-                        </View>
+                            <View style={styles.categoryTabsRow}>
+                                {CATEGORY_TABS.map((tab) => {
+                                    const isActive = activeCategory === tab.id;
+                                    return (
+                                        <TouchableOpacity
+                                            key={tab.id}
+                                            style={[
+                                                styles.categoryTab,
+                                                isActive && { backgroundColor: tab.color + '22', borderColor: tab.color },
+                                            ]}
+                                            onPress={() => setActiveCategory(tab.id)}
+                                            activeOpacity={0.75}
+                                        >
+                                            <Text style={[
+                                                styles.categoryTabText,
+                                                isActive && { color: tab.color, fontFamily: 'Poppins-Bold' },
+                                            ]}>
+                                                {tab.label}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    );
+                                })}
+                            </View>
 
-                        <Text style={styles.hybridNote}>Current plan: {currentPlan.replace('_', ' ').toUpperCase()} | Active switcher mode: {activeAppMode.replace('_', ' ').toUpperCase()}</Text>
+                            <Text style={styles.hybridNote}>Current plan: {currentPlan.replace('_', ' ').toUpperCase()} | Active switcher mode: {activeAppMode.replace('_', ' ').toUpperCase()}</Text>
 
-                        <View style={styles.billingToggleRow}>
-                            <Text style={[styles.billingToggleText, !isAnnual && styles.activeBillingText]}>Monthly</Text>
-                            <Switch
-                                value={isAnnual}
-                                onValueChange={setIsAnnual}
-                                trackColor={{ false: appTheme.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(23,18,19,0.18)', true: activeCategoryColor }}
-                                thumbColor={appTheme.colors.backgroundElevated}
-                                style={styles.billingToggleSwitch}
-                            />
-                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                <Text style={[styles.billingToggleText, isAnnual && styles.activeBillingText]}>Annually </Text>
-                                <View style={[styles.discountBadge, { backgroundColor: hexToRgba(activeCategoryColor, 0.2) }]}>
-                                    <Text style={[styles.discountBadgeText, { color: activeCategoryColor }]}>Switcher Ready</Text>
+                            <View style={styles.billingToggleRow}>
+                                <Text style={[styles.billingToggleText, !isAnnual && styles.activeBillingText]}>Monthly</Text>
+                                <Switch
+                                    value={isAnnual}
+                                    onValueChange={setIsAnnual}
+                                    trackColor={{ false: appTheme.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(23,18,19,0.18)', true: activeCategoryColor }}
+                                    thumbColor={appTheme.colors.backgroundElevated}
+                                    style={styles.billingToggleSwitch}
+                                />
+                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                    <Text style={[styles.billingToggleText, isAnnual && styles.activeBillingText]}>Annually </Text>
+                                    <View style={[styles.discountBadge, { backgroundColor: hexToRgba(activeCategoryColor, 0.2) }]}>
+                                        <Text style={[styles.discountBadgeText, { color: activeCategoryColor }]}>Switcher Ready</Text>
+                                    </View>
                                 </View>
                             </View>
+                            <Text style={[styles.discountNote, { color: hexToRgba(activeCategoryColor, 0.8) }]}>All five subscriptions are represented in the app switcher.</Text>
                         </View>
-                        <Text style={[styles.discountNote, { color: hexToRgba(activeCategoryColor, 0.8) }]}>All five subscriptions are represented in the app switcher.</Text>
-                    </View>
+                    </BlurView>
 
                     {visiblePlans.map((plan) => {
                         const isCurrentPlan = currentPlan === plan.id;
@@ -306,7 +330,8 @@ export default function SubscriptionsScreen() {
                 </ScrollView>
 
                 <Modal visible={showPaymentModal} transparent animationType="slide">
-                    <View style={styles.modalOverlay}>
+                    <BlurView intensity={appTheme.isDark ? 30 : 20} tint={appTheme.isDark ? 'dark' : 'light'} style={styles.modalOverlay}>
+                        <View style={[styles.modalOverlayDim, { backgroundColor: appTheme.isDark ? 'rgba(10,10,16,0.44)' : 'rgba(20,15,16,0.32)' }]} />
                         <View style={styles.modalContent}>
                             <View style={styles.modalHeader}>
                                 <Text style={styles.modalTitle}>Select Payment Method</Text>
@@ -321,7 +346,7 @@ export default function SubscriptionsScreen() {
 
                             {Platform.OS === 'web' ? (
                                 <View style={styles.webPaymentNotice}>
-                                    <CreditCard color={adaptLegacyColor('#EC5C39', 'color', appTheme)} size={28} />
+                                    <CreditCard color={appTheme.colors.textTertiary} size={28} />
                                     <Text style={styles.webPaymentTitle}>Mobile Payment Required</Text>
                                     <Text style={styles.webPaymentSub}>
                                         Flutterwave payments are not supported in the browser.{"\n"}
@@ -332,16 +357,28 @@ export default function SubscriptionsScreen() {
                                 <PayWithFlutterwave
                                     onRedirect={(data) => {
                                         setShowPaymentModal(false);
+                                        // === CRITICAL SECURITY FIX ===
+                                        // DO NOT activate the subscription here based on client-side callback
+                                        // The Flutterwave callback can be spoofed with network interception tools
+                                        // INSTEAD:
+                                        // 1. The backend webhook will validate the payment
+                                        // 2. The webhook updates subscriptionTier in Firestore
+                                        // 3. The client listens to Firestore and shows splash when backend confirms
+                                        
                                         if (data.status === 'successful' && selectedPlan) {
+                                            // Payment callback received - now wait for webhook confirmation
                                             const txRef = data?.tx_ref || pendingTxRef;
-                                            handlePaymentVerifiedUpgrade(selectedPlan.id as SubscriptionPlanId, txRef);
+                                            showToast('Payment processing... Please wait for confirmation', 'info');
+                                            console.info('Flutterwave callback received, awaiting backend webhook verification:', txRef);
+                                            // Do NOT call handlePaymentVerifiedUpgrade here!
+                                            // The backend webhook will handle the actual plan activation
                                         } else {
                                             showToast('Payment was not successful.', 'error');
                                         }
                                     }}
                                     options={{
                                         tx_ref: pendingTxRef || buildSubscriptionTxRef(),
-                                        authorization: process.env.EXPO_PUBLIC_FLUTTERWAVE_PUBLIC_KEY || 'FLWPUBK_TEST-dummy-X',
+                                        authorization: process.env.EXPO_PUBLIC_FLUTTERWAVE_PUBLIC_KEY!,
                                         customer: {
                                             email: auth.currentUser?.email || 'customer@shoouts.com'
                                         },
@@ -351,7 +388,7 @@ export default function SubscriptionsScreen() {
                                     }}
                                     customButton={(props) => (
                                         <TouchableOpacity style={styles.paymentOption} onPress={props.onPress} disabled={props.disabled}>
-                                            <CreditCard color={adaptLegacyColor('#EC5C39', 'color', appTheme)} size={24} />
+                                            <CreditCard color={appTheme.colors.textSecondary} size={24} />
                                             <View style={styles.payOptionTexts}>
                                                 <Text style={styles.payOptionTitle}>Pay with Flutterwave</Text>
                                                 <Text style={styles.payOptionSub}>Secured localized payment (NGN)</Text>
@@ -367,7 +404,7 @@ export default function SubscriptionsScreen() {
                                 <Text style={styles.disabledPaymentNoticeText}>Stripe is temporarily unavailable. Flutterwave is currently the active checkout option.</Text>
                             </View>
                         </View>
-                    </View>
+                    </BlurView>
                 </Modal>
 
                 {isVerifying && (
@@ -396,7 +433,8 @@ export default function SubscriptionsScreen() {
 const legacyStyles = {
     container: { flex: 1, backgroundColor: '#140F10' },
     scrollContent: { paddingHorizontal: 20, paddingTop: 10 },
-    introSection: { alignItems: 'center', marginBottom: 35, textAlign: 'center' },
+    introBlurWrapper: { borderRadius: 16, overflow: 'hidden', marginBottom: 8 },
+    introSection: { alignItems: 'center', marginBottom: 35, textAlign: 'center', paddingVertical: 12 },
     introTitle: { fontSize: 24, fontFamily: 'Poppins-Bold', color: '#FFF', marginTop: 15, textAlign: 'center' },
     introSubtitle: { fontSize: 15, fontFamily: 'Poppins-Regular', color: 'rgba(255,255,255,0.72)', marginTop: 8, textAlign: 'center' },
     categoryTabsRow: { flexDirection: 'row', marginTop: 20, gap: 8, flexWrap: 'wrap', justifyContent: 'center' },
@@ -434,8 +472,9 @@ const legacyStyles = {
     actionButtonText: { color: '#FFF', fontSize: 16, fontFamily: 'Poppins-Bold' },
     footerInfo: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, marginTop: 20, backgroundColor: 'rgba(255,255,255,0.03)', padding: 18, borderRadius: 16 },
     footerText: { flex: 1, fontSize: 13, fontFamily: 'Poppins-Regular', color: 'rgba(255,255,255,0.74)', textAlign: 'center' },
-    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
-    modalContent: { backgroundColor: '#1E1A1A', borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 24, paddingBottom: 40 },
+    modalOverlay: { flex: 1, backgroundColor: 'transparent', justifyContent: 'flex-end' },
+    modalOverlayDim: { ...StyleSheet.absoluteFillObject },
+    modalContent: { backgroundColor: 'rgba(30, 26, 27, 0.76)', borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 24, paddingBottom: 40, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', borderBottomWidth: 0 },
     modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
     modalTitle: { fontSize: 18, fontFamily: 'Poppins-Bold', color: '#FFF' },
     closeText: { fontSize: 14, fontFamily: 'Poppins-Bold', color: 'rgba(255,255,255,0.8)' },
@@ -467,7 +506,7 @@ const legacyStyles = {
     splashOverlay: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', zIndex: 1000, backgroundColor: '#140F10' },
     splashTitle: { color: '#FFF', fontSize: 28, fontFamily: 'Poppins-Bold', textAlign: 'center', marginHorizontal: 20 },
     splashSub: { color: '#D4AF37', fontSize: 16, fontFamily: 'Poppins-Medium', textAlign: 'center', marginTop: 10, marginHorizontal: 20 },
-    webPaymentNotice: { backgroundColor: 'rgba(236, 92, 57, 0.08)', borderWidth: 1, borderColor: 'rgba(236, 92, 57, 0.25)', borderRadius: 16, padding: 20, alignItems: 'center', marginBottom: 16, gap: 10 },
+    webPaymentNotice: { borderRadius: 16, padding: 20, alignItems: 'center', marginBottom: 16, gap: 10, backgroundColor: 'rgba(236, 92, 57, 0.08)', borderWidth: 1, borderColor: 'rgba(236, 92, 57, 0.25)' },
     webPaymentTitle: { fontSize: 16, fontFamily: 'Poppins-Bold', color: '#FFF', textAlign: 'center' },
     webPaymentSub: { fontSize: 13, fontFamily: 'Poppins-Regular', color: 'rgba(255,255,255,0.82)', textAlign: 'center', lineHeight: 20 },
 };

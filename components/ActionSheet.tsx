@@ -14,6 +14,7 @@
 import React, { useEffect, useRef } from 'react';
 import { BlurView } from 'expo-blur';
 import { useAppTheme } from '@/hooks/use-app-theme';
+import { typography } from '@/constants/typography';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import {
     Animated,
@@ -143,9 +144,8 @@ const legacyStyles = {
         marginBottom: 16,
     },
     title: {
+        ...typography.caption,
         color: 'rgba(255,255,255,0.5)',
-        fontFamily: 'Poppins-Regular',
-        fontSize: 13,
         textAlign: 'center',
         marginBottom: 12,
     },
@@ -164,9 +164,8 @@ const legacyStyles = {
         alignItems: 'center',
     },
     optionLabel: {
+        ...typography.buttonSm,
         color: '#FFF',
-        fontFamily: 'Poppins-SemiBold',
-        fontSize: 15,
     },
     cancel: {
         marginTop: 10,
@@ -176,8 +175,7 @@ const legacyStyles = {
         borderRadius: 14,
     },
     cancelText: {
+        ...typography.buttonSm,
         color: 'rgba(255,255,255,0.6)',
-        fontFamily: 'Poppins-SemiBold',
-        fontSize: 15,
     },
 };

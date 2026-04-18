@@ -56,6 +56,10 @@ service cloud.firestore {
         && get(subPath).data.isSubscribed == true;
     }
 
+    function canReadPublishedUpload() {
+      return isAuthenticated() || resource.data.isPublic == true;
+    }
+
     // Client-only subscription writes: unpaid tier intent / vault baseline.
     // Paid activation (isSubscribed true, payment fields) is backend-only via Admin SDK.
     function clientSubscriptionUnpaidOk() {
@@ -113,7 +117,7 @@ service cloud.firestore {
       // - Public publish with price > 0 requires active studio/hybrid subscription.
       // - Vault users can still publish free tracks.
       match /uploads/{uploadId} {
-        allow read: if isAuthenticated() || resource.data.isPublic == true;
+        allow read: if canReadPublishedUpload();
 
         allow create: if isOwner(uid)
           && isValidString(request.resource.data.title)
@@ -374,13 +378,25 @@ service cloud.firestore {
     //
     // ─────────────────────────────────────────────────────────────────────────
     match /uploads/{uploadId} {
-      // Users can read upload metadata (to check transcoding progress)
-      allow read: if isAuthenticated();
+      // Users can read upload metadata (to check transcoding progress).
+      // Public discovery queries also reuse this collection name, so anonymous
+      // reads are allowed only for uploads that were explicitly published.
+      allow read: if canReadPublishedUpload();
       
       // Backend-only writes via Cloud Functions
       allow create: if backendOnly(); // 🔒 CRITICAL: Triggered by processAudioUpload()
       allow update: if backendOnly(); // 🔒 CRITICAL: Updated by onHlsTranscodingComplete()
       allow delete: if backendOnly(); // 🔒 CRITICAL: Cleanup via backend job
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Public Upload Discovery
+    // Collection-group queries over any uploads subtree need a recursive rule.
+    // This keeps reads consistent for published tracks while leaving writes
+    // locked to the owner/backend-specific rules above.
+    // ─────────────────────────────────────────────────────────────────────────
+    match /{path=**}/uploads/{uploadId} {
+      allow read: if canReadPublishedUpload();
     }
 
     // ─────────────────────────────────────────────────────────────────────────

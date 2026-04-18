@@ -3,6 +3,8 @@ import { useToastStore } from '@/store/useToastStore';
 import { hydrateSubscriptionTier } from '@/utils/subscriptionVerification';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
+import { Icon } from '@/components/ui/Icon';
+import { PremiumBackButton } from '@/components/ui/PremiumBackButton';
 import { SUBSCRIPTION_TIERS } from '@/constants/subscriptionTiers';
 import { markSelectedExperience } from '@/utils/authFlow';
 import * as Haptics from 'expo-haptics';
@@ -175,6 +177,10 @@ export default function RoleSelectionScreen() {
                 keyboardShouldPersistTaps="handled"
                 bounces={false}
             >
+                <PremiumBackButton
+                    variant="transparent"
+                    containerStyle={styles.inlineBackButton}
+                />
                 {/* Header */}
                 <Animated.View style={[styles.header, {
                     opacity: headerAnim,
@@ -368,6 +374,13 @@ const legacyStyles = {
         paddingHorizontal: theme.spacing.screenPadding,
         paddingTop: theme.spacing.xxl,
         paddingBottom: theme.spacing.xxl * 2,
+    },
+    inlineBackButton: {
+        position: 'relative',
+        top: 0,
+        left: 0,
+        alignSelf: 'flex-start',
+        marginBottom: theme.spacing.sm,
     },
     bgCircle1: {
         position: 'absolute',

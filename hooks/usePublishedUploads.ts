@@ -19,6 +19,8 @@ export type PublishedUpload = {
   category?: string;
   lifecycleStatus?: string;
   published?: boolean;
+  publishedAtMs?: number;
+  createdAtMs?: number;
 };
 
 function getFeedErrorMessage(error: unknown) {
@@ -35,6 +37,22 @@ function isVisiblePublishedTrack(row: any) {
   const scheduledMs = Number(row.scheduledReleaseAtMs || 0);
   const isFutureRelease = row.lifecycleStatus === 'upcoming' && (!scheduledMs || scheduledMs > Date.now());
   return row.isPublic === true && !isFutureRelease;
+}
+
+function getTimestampMs(value: any) {
+  if (!value) return 0;
+  if (typeof value?.toMillis === 'function') return value.toMillis();
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string') {
+    const parsedNumber = Number(value);
+    if (Number.isFinite(parsedNumber)) return parsedNumber;
+    const parsedDate = Date.parse(value);
+    if (Number.isFinite(parsedDate)) return parsedDate;
+  }
+  if (typeof value?._seconds === 'number') {
+    return Number(value._seconds) * 1000;
+  }
+  return 0;
 }
 
 export function mapPublishedUpload(docSnap: any): PublishedUpload | null {
@@ -65,7 +83,40 @@ export function mapPublishedUpload(docSnap: any): PublishedUpload | null {
     category: row.category ? String(row.category) : undefined,
     lifecycleStatus: row.lifecycleStatus ? String(row.lifecycleStatus) : undefined,
     published: row.published === true,
+    publishedAtMs: getTimestampMs(row.publishedAt),
+    createdAtMs: getTimestampMs(row.createdAt),
   };
+}
+
+function mergeUniqueTracks(...trackGroups: Array<Array<PublishedUpload>>) {
+  const merged = new Map<string, PublishedUpload>();
+
+  for (const group of trackGroups) {
+    for (const track of group) {
+      if (!merged.has(track.id)) {
+        merged.set(track.id, track);
+      }
+    }
+  }
+
+  return Array.from(merged.values());
+}
+
+function sortPublishedTracks(tracks: PublishedUpload[]) {
+  return tracks.sort((a, b) => {
+    const aFreshness = a.publishedAtMs || a.createdAtMs || 0;
+    const bFreshness = b.publishedAtMs || b.createdAtMs || 0;
+
+    if (bFreshness !== aFreshness) {
+      return bFreshness - aFreshness;
+    }
+
+    if (b.listenCount !== a.listenCount) {
+      return b.listenCount - a.listenCount;
+    }
+
+    return a.title.localeCompare(b.title);
+  });
 }
 
 export function usePublishedUploads(maxItems = 180, enabled = true) {
@@ -85,16 +136,34 @@ export function usePublishedUploads(maxItems = 180, enabled = true) {
     setError(null);
 
     try {
-      const rankedSnap = await getDocs(
-        query(
-          collectionGroup(db, 'uploads'),
-          where('isPublic', '==', true),
-          orderBy('listenCount', 'desc'),
-          limit(maxItems)
-        )
+      const rankedQuery = query(
+        collectionGroup(db, 'uploads'),
+        where('isPublic', '==', true),
+        orderBy('listenCount', 'desc'),
+        limit(maxItems)
       );
 
-      setTracks(rankedSnap.docs.map(mapPublishedUpload).filter((item): item is PublishedUpload => !!item));
+      const recentQuery = query(
+        collectionGroup(db, 'uploads'),
+        where('isPublic', '==', true),
+        orderBy('publishedAt', 'desc'),
+        limit(maxItems)
+      );
+
+      const [rankedSnap, recentSnap] = await Promise.allSettled([getDocs(rankedQuery), getDocs(recentQuery)]);
+
+      const rankedTracks = rankedSnap.status === 'fulfilled'
+        ? rankedSnap.value.docs.map(mapPublishedUpload).filter((item): item is PublishedUpload => !!item)
+        : [];
+      const recentTracks = recentSnap.status === 'fulfilled'
+        ? recentSnap.value.docs.map(mapPublishedUpload).filter((item): item is PublishedUpload => !!item)
+        : [];
+
+      if (rankedSnap.status === 'rejected' && recentSnap.status === 'rejected') {
+        throw rankedSnap.reason;
+      }
+
+      setTracks(sortPublishedTracks(mergeUniqueTracks(recentTracks, rankedTracks)).slice(0, maxItems));
     } catch (primaryError) {
       const needsIndex = primaryError instanceof FirebaseError && primaryError.code === 'failed-precondition';
 
@@ -113,10 +182,11 @@ export function usePublishedUploads(maxItems = 180, enabled = true) {
             limit(maxItems)
           )
         );
-        const rows = unrankedSnap.docs
-          .map(mapPublishedUpload)
-          .filter((item): item is PublishedUpload => !!item)
-          .sort((a, b) => b.listenCount - a.listenCount);
+        const rows = sortPublishedTracks(
+          unrankedSnap.docs
+            .map(mapPublishedUpload)
+            .filter((item): item is PublishedUpload => !!item)
+        ).slice(0, maxItems);
 
         setTracks(rows);
         setError('Live upload ranking needs a Firestore index. Showing unranked uploads.');

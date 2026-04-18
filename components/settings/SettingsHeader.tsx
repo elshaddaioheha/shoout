@@ -1,8 +1,11 @@
 import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View, ViewStyle } from 'react-native';
-import { ChevronLeft } from 'lucide-react-native';
+import { StyleSheet, Text, View, ViewStyle } from 'react-native';
+import * as Haptics from 'expo-haptics';
+import { useRouter } from 'expo-router';
 import { useAppTheme } from '@/hooks/use-app-theme';
+import { typography } from '@/constants/typography';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
+import { PremiumBackButton } from '@/components/ui/PremiumBackButton';
 
 interface SettingsHeaderProps {
     title: string;
@@ -17,14 +20,32 @@ function useSettingsHeaderStyles() {
 }
 
 export default function SettingsHeader({ title, onBack, rightElement, style }: SettingsHeaderProps) {
-    const appTheme = useAppTheme();
     const styles = useSettingsHeaderStyles();
+    const router = useRouter();
+
+    const handleBackPress = React.useCallback(async () => {
+        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => null);
+
+        if (onBack) {
+            onBack();
+            return;
+        }
+
+        if (router.canGoBack()) {
+            router.back();
+            return;
+        }
+
+        router.replace('/(tabs)');
+    }, [onBack, router]);
 
     return (
         <View style={[styles.header, style]}>
-            <TouchableOpacity onPress={onBack} style={styles.backButton}>
-                <ChevronLeft size={24} color={appTheme.colors.textPrimary} />
-            </TouchableOpacity>
+            <PremiumBackButton
+                onPressOverride={handleBackPress}
+                variant="transparent"
+                containerStyle={styles.backButtonTouchable}
+            />
             <Text style={styles.headerTitle}>{title}</Text>
             {rightElement ?? <View style={styles.rightPlaceholder} />}
         </View>
@@ -39,20 +60,16 @@ const legacyStyles = {
         paddingHorizontal: 20,
         paddingVertical: 15,
     },
-    backButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: 'rgba(255,255,255,0.05)',
-        alignItems: 'center',
-        justifyContent: 'center',
+    backButtonTouchable: {
+        position: 'relative',
+        top: 0,
+        left: 0,
     },
     headerTitle: {
-        fontSize: 18,
-        fontFamily: 'Poppins-Bold',
+        ...typography.title,
         color: '#FFF',
     },
     rightPlaceholder: {
-        width: 40,
+        width: 44,
     },
 };

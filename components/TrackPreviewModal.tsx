@@ -22,11 +22,12 @@ import {
 } from 'react-native';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { adaptLegacyStyles, adaptLegacyColor } from '@/utils/legacyThemeAdapter';
+import { Icon } from '@/components/ui/Icon';
+import { IconButton } from '@/components/ui/IconButton';
 import LicenseTierPicker from '@/components/LicenseTierPicker';
 import { useCartStore } from '@/store/useCartStore';
 import { useToastStore } from '@/store/useToastStore';
 import { buildLicenseTierOptions, buildLicenseCartItemId } from '@/utils/licenseTiers';
-import { Music, X, ShoppingCart, Play, Pause } from 'lucide-react-native';
 import { usePlaybackStore } from '@/store/usePlaybackStore';
 
 interface TrackPreviewModalProps {
@@ -164,13 +165,16 @@ export default function TrackPreviewModal({
           showsVerticalScrollIndicator={false}
         >
           {/* Close Button */}
-          <TouchableOpacity
+          <IconButton
             style={styles.closeButton}
             onPress={onClose}
             activeOpacity={0.7}
-          >
-            <X size={24} color={appTheme.colors.textPrimary} />
-          </TouchableOpacity>
+            icon="x"
+            size={24}
+            color={appTheme.colors.textPrimary}
+            accessibilityRole="button"
+            accessibilityLabel="Close track preview"
+          />
 
           {/* Artwork */}
           <View style={styles.artworkContainer}>
@@ -181,25 +185,25 @@ export default function TrackPreviewModal({
               />
             ) : (
               <View style={[styles.artwork, styles.artworkPlaceholder]}>
-                <Music
-                  size={64}
-                  color={appTheme.colors.textSecondary}
-                />
+                <Icon name="music" size={64} color={appTheme.colors.textSecondary} />
               </View>
             )}
 
             {/* Play Preview Button */}
-            <TouchableOpacity
+            <IconButton
               style={styles.playButton}
               onPress={handlePlayPreview}
               activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel={isCurrentTrack && isPlaying ? 'Pause preview' : 'Play preview'}
+              accessibilityState={{ selected: isCurrentTrack && isPlaying }}
             >
               {isCurrentTrack && isPlaying ? (
-                <Pause size={32} color="#FFFFFF" fill="#FFFFFF" />
+                <Icon name="pause" size={32} color="#FFFFFF" fill />
               ) : (
-                <Play size={32} color="#FFFFFF" fill="#FFFFFF" />
+                <Icon name="play" size={32} color="#FFFFFF" fill />
               )}
-            </TouchableOpacity>
+            </IconButton>
           </View>
 
           {/* Track Info */}
@@ -258,8 +262,10 @@ export default function TrackPreviewModal({
               style={[styles.button, styles.addToCartButton]}
               onPress={handleAddToCart}
               activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel="Add to cart"
             >
-              <ShoppingCart size={18} color="#FFFFFF" />
+              <Icon name="cart" size={18} color="#FFFFFF" />
               <Text style={styles.addToCartText}>Add to Cart</Text>
             </TouchableOpacity>
 
