@@ -1,8 +1,8 @@
-import { useAppTheme } from '@/hooks/use-app-theme';
 import { typography } from '@/constants/typography';
+import { useAppTheme } from '@/hooks/use-app-theme';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
-import { formatUsd } from '@/utils/pricing';
 import type { LicenseTierId, LicenseTierOption } from '@/utils/licenseTiers';
+import { formatUsd } from '@/utils/pricing';
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -72,11 +72,11 @@ const legacyStyles = {
     },
     label: {
         ...typography.title,
-        color: '#FFFFFF',
+        color: 'rgba(255,255,255,0.95)',
     },
     subLabel: {
         ...typography.caption,
-        color: 'rgba(255,255,255,0.56)',
+        color: 'rgba(255,255,255,0.65)',
         marginTop: 3,
     },
     rows: {
@@ -86,14 +86,14 @@ const legacyStyles = {
     row: {
         borderRadius: 16,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.08)',
-        backgroundColor: 'rgba(255,255,255,0.04)',
+        borderColor: 'rgba(255,255,255,0.1)',
+        backgroundColor: 'rgba(255,255,255,0.06)',
         paddingHorizontal: 14,
         paddingVertical: 14,
     },
     rowSelected: {
-        borderColor: 'rgba(236,92,57,0.72)',
-        backgroundColor: 'rgba(236,92,57,0.10)',
+        borderColor: 'rgba(236,92,57,0.6)',
+        backgroundColor: 'rgba(236,92,57,0.12)',
     },
     rowHeader: {
         flexDirection: 'row',
@@ -110,27 +110,27 @@ const legacyStyles = {
     },
     rowTitle: {
         ...typography.bodyBold,
-        color: '#FFFFFF',
+        color: 'rgba(255,255,255,0.95)',
     },
     badge: {
         borderRadius: 999,
         paddingHorizontal: 8,
         paddingVertical: 3,
-        backgroundColor: 'rgba(106,167,255,0.16)',
+        backgroundColor: 'rgba(106,167,255,0.15)',
         borderWidth: 1,
-        borderColor: 'rgba(106,167,255,0.34)',
+        borderColor: 'rgba(106,167,255,0.35)',
     },
     badgeText: {
         ...typography.small,
-        color: '#8BBCFF',
+        color: 'rgba(139,188,255,0.95)',
     },
     rowPrice: {
         ...typography.title,
-        color: '#FFFFFF',
+        color: 'rgba(255,255,255,0.95)',
         flexShrink: 0,
     },
     rowPriceSelected: {
-        color: '#EC5C39',
+        color: 'rgba(236,92,57,0.95)',
     },
     rowFooter: {
         marginTop: 8,
@@ -142,7 +142,7 @@ const legacyStyles = {
     rowSummary: {
         ...typography.caption,
         flex: 1,
-        color: 'rgba(255,255,255,0.7)',
+        color: 'rgba(255,255,255,0.65)',
         lineHeight: 18,
     },
     radioOuter: {
@@ -150,17 +150,17 @@ const legacyStyles = {
         height: 20,
         borderRadius: 10,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.28)',
+        borderColor: 'rgba(255,255,255,0.25)',
         alignItems: 'center',
         justifyContent: 'center',
     },
     radioOuterSelected: {
-        borderColor: '#EC5C39',
+        borderColor: 'rgba(236,92,57,0.85)',
     },
     radioInner: {
         width: 10,
         height: 10,
         borderRadius: 5,
-        backgroundColor: '#EC5C39',
+        backgroundColor: 'rgba(236,92,57,0.9)',
     },
 };

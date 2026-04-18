@@ -3,16 +3,16 @@ import SettingsCard from '@/components/settings/SettingsCard';
 import SettingsDivider from '@/components/settings/SettingsDivider';
 import SettingsHeader from '@/components/settings/SettingsHeader';
 import SettingsSwitchRow from '@/components/settings/SettingsSwitchRow';
+import { typography } from '@/constants/typography';
 import { useAppTheme } from '@/hooks/use-app-theme';
-import { useAccessibilityStore, A11Y_TEXT_SCALE } from '@/store/useAccessibilityStore';
-import { useLocalizationStore } from '@/store/useLocalizationStore';
-import { useTranslation } from '@/store/useLocalizationStore';
+import { A11Y_TEXT_SCALE, useAccessibilityStore } from '@/store/useAccessibilityStore';
+import { useLocalizationStore, useTranslation } from '@/store/useLocalizationStore';
 import { SUPPORTED_LOCALES } from '@/utils/i18n/types';
+import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { useRouter } from 'expo-router';
-import { Globe, Eye, Type } from 'lucide-react-native';
+import { Eye, Globe, Type } from 'lucide-react-native';
 import React from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 
 function useLocalizationStyles() {
   const appTheme = useAppTheme();
@@ -180,9 +180,7 @@ const legacyStyles = {
     marginBottom: 12,
   },
   sectionTitle: {
-    color: '#FFF',
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 14,
+    ...typography.section,
     marginLeft: 8,
     textTransform: 'uppercase' as const,
   },
@@ -194,14 +192,10 @@ const legacyStyles = {
     paddingHorizontal: 12,
   },
   settingLabel: {
-    color: '#FFF',
-    fontFamily: 'Poppins-Medium',
-    fontSize: 14,
+    ...typography.body,
   },
   settingValue: {
-    color: 'rgba(255, 255, 255, 0.6)',
-    fontFamily: 'Poppins-Regular',
-    fontSize: 13,
+    ...typography.caption,
     marginTop: 2,
   },
   textSizeIcon: {
@@ -216,16 +210,14 @@ const legacyStyles = {
     paddingVertical: 6,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-    backgroundColor: 'transparent',
+    borderColor: 'transparent',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
   },
   contrastButtonActive: {
-    backgroundColor: '#EC5C39',
-    borderColor: '#EC5C39',
+    backgroundColor: 'rgba(236, 92, 57, 0.3)',
+    borderColor: 'rgba(236, 92, 57, 0.6)',
   },
   contrastButtonText: {
-    color: '#FFF',
-    fontFamily: 'Poppins-Medium',
-    fontSize: 12,
+    ...typography.caption,
   },
 };

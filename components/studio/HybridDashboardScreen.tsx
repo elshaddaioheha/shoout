@@ -20,6 +20,10 @@ function formatStorage(value: number) {
   return `${value.toFixed(2)}GB`;
 }
 
+function formatStorageCompact(value: number) {
+  return `${value.toFixed(1)}GB`;
+}
+
 function toMs(value: any) {
   if (!value) return 0;
   if (typeof value?.toDate === 'function') return value.toDate().getTime();
@@ -405,7 +409,7 @@ export default function HybridDashboardScreen() {
           <View style={styles.panelHeader}>
             <View style={styles.heroTextBlock}>
               <Text style={styles.panelTitle}>Vault Snapshot</Text>
-              <Text style={styles.placeholder}>Private storage first, then publish and distribute when ready.</Text>
+              <Text style={styles.placeholder}>Private first. Publish when ready.</Text>
             </View>
             <TouchableOpacity
               onPress={() => router.push('/(tabs)/library' as any)}
@@ -415,11 +419,11 @@ export default function HybridDashboardScreen() {
             </TouchableOpacity>
           </View>
 
-          <View style={styles.summaryRow}>
+          <View style={[styles.summaryRow, compactLayout && styles.summaryRowCompact]}>
             <View style={styles.summaryCard}>
               <Text style={styles.summaryLabel}>Storage</Text>
-              <Text style={styles.summaryValue}>{formatStorage(usedStorageGB)} / {formatStorage(hybridVault.storageLimitGB)}</Text>
-              <Text style={styles.summaryMeta}>Uploads: {uploads.length} / {hybridVault.maxVaultUploads}</Text>
+              <Text style={styles.summaryValue}>{formatStorageCompact(usedStorageGB)} / {formatStorageCompact(hybridVault.storageLimitGB)}</Text>
+              <Text style={styles.summaryMeta}>{uploads.length} / {hybridVault.maxVaultUploads} uploads</Text>
             </View>
             <View style={styles.summaryCard}>
               <Text style={styles.summaryLabel}>Folders</Text>
@@ -427,7 +431,7 @@ export default function HybridDashboardScreen() {
             </View>
           </View>
 
-          <View style={styles.inlineActions}>
+          <View style={[styles.inlineActions, compactLayout && styles.inlineActionsCompact]}>
             <TouchableOpacity
               style={styles.inlineAction}
               onPress={() => {
@@ -437,7 +441,7 @@ export default function HybridDashboardScreen() {
               activeOpacity={0.85}
             >
               <Icon name="upload-cloud" size={16} color={hybridTheme.accent} />
-              <Text style={styles.inlineActionText}>Vault Upload</Text>
+              <Text style={styles.inlineActionText}>Upload</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.inlineAction}
@@ -448,7 +452,7 @@ export default function HybridDashboardScreen() {
               activeOpacity={0.85}
             >
               <Icon name="link-2" size={16} color={hybridTheme.accent} />
-              <Text style={styles.inlineActionText}>Shared Links</Text>
+              <Text style={styles.inlineActionText}>Links</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.inlineAction}
@@ -459,7 +463,7 @@ export default function HybridDashboardScreen() {
               activeOpacity={0.85}
             >
               <Icon name="rocket" size={16} color={hybridTheme.accent} />
-              <Text style={styles.inlineActionText}>Publish & Distribute</Text>
+              <Text style={styles.inlineActionText}>Publish</Text>
             </TouchableOpacity>
           </View>
           {(vaultLoading && uploads.length === 0) ? <Text style={styles.placeholder}>Loading your Vault snapshot...</Text> : null}
@@ -669,11 +673,13 @@ const legacyStyles = {
   panelTitle: { color: theme.colors.textPrimary, ...typography.section, fontFamily: FontFamily.semiBold },
   panelLink: { color: hybridTheme.accent, ...typography.label, fontFamily: FontFamily.medium },
   summaryRow: { flexDirection: 'row', gap: 12 },
+  summaryRowCompact: { gap: 10 },
   summaryCard: { flex: 1, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 18, padding: 14, gap: 4 },
   summaryLabel: { color: 'rgba(255,255,255,0.68)', ...typography.label, fontFamily: FontFamily.regular },
   summaryValue: { color: theme.colors.textPrimary, ...typography.bodyBold, fontFamily: FontFamily.bold },
   summaryMeta: { color: 'rgba(255,255,255,0.66)', ...typography.small, fontFamily: FontFamily.regular },
   inlineActions: { flexDirection: 'row', gap: 12 },
+  inlineActionsCompact: { flexDirection: 'column', gap: 8 },
   inlineAction: {
     flexGrow: 1,
     flexBasis: '30%',

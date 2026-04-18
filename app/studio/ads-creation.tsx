@@ -1,5 +1,6 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import SettingsHeader from '@/components/settings/SettingsHeader';
+import { typography } from '@/constants/typography';
 import { auth, db } from '@/firebaseConfig';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { useToastStore } from '@/store/useToastStore';
@@ -575,7 +576,6 @@ const legacyStyles = {
   },
   trackBannerText: {
     color: 'rgba(255,255,255,0.8)',
-    fontFamily: 'Poppins-Regular',
     fontSize: 12,
     flex: 1,
   },
@@ -588,24 +588,18 @@ const legacyStyles = {
     justifyContent: 'center',
   },
   profileLetter: {
-    color: '#FFFFFF',
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 16,
+    ...typography.title,
     lineHeight: 25,
     letterSpacing: -0.5,
   },
   stepWrap: { marginTop: 16, gap: 4 },
   stepTitle: {
-    color: '#FFFFFF',
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 14,
+    ...typography.section,
     lineHeight: 20,
     letterSpacing: -0.5,
   },
   stepSub: {
-    color: '#FFFFFF',
-    fontFamily: 'Poppins-Regular',
-    fontSize: 10,
+    ...typography.small,
     lineHeight: 16,
     letterSpacing: -0.5,
   },
@@ -728,21 +722,18 @@ const legacyStyles = {
   },
   sponsoredText: {
     color: 'rgba(236, 92, 57, 0.75)',
-    fontFamily: 'Poppins-Medium',
     fontSize: 8,
     lineHeight: 11,
     letterSpacing: -0.5,
   },
   previewHeadline: {
     color: 'rgba(255,255,255,0.85)',
-    fontFamily: 'Poppins-Medium',
     fontSize: 10,
     lineHeight: 11,
     letterSpacing: -0.5,
   },
   previewSub: {
     color: 'rgba(255,255,255,0.85)',
-    fontFamily: 'Poppins-Regular',
     fontSize: 8,
     lineHeight: 11,
     letterSpacing: -0.5,
@@ -756,9 +747,7 @@ const legacyStyles = {
     justifyContent: 'center',
   },
   listenText: {
-    color: '#FFFFFF',
-    fontFamily: 'Poppins-Medium',
-    fontSize: 10,
+    ...typography.small,
     lineHeight: 11,
     letterSpacing: -0.5,
   },
@@ -774,8 +763,6 @@ const legacyStyles = {
     gap: 6,
   },
   uploadText: {
-    color: '#FFFFFF',
-    fontFamily: 'Poppins-Medium',
     fontSize: 8,
     lineHeight: 12,
     letterSpacing: -0.5,
@@ -792,15 +779,12 @@ const legacyStyles = {
   },
   input: {
     flex: 1,
-    color: '#FFFFFF',
-    fontFamily: 'Poppins-Regular',
-    fontSize: 10,
+    ...typography.small,
     lineHeight: 15,
   },
   counterText: {
     color: '#737373',
-    fontFamily: 'Poppins-Regular',
-    fontSize: 10,
+    ...typography.small,
     lineHeight: 15,
   },
   audioWrap: {
@@ -886,9 +870,7 @@ const legacyStyles = {
     gap: 8,
   },
   summaryLabel: {
-    color: 'rgba(255,255,255,0.65)',
-    fontFamily: 'Poppins-Regular',
-    fontSize: 8,
+    ...typography.small,
     lineHeight: 12,
   },
   summaryRow: {
@@ -898,18 +880,14 @@ const legacyStyles = {
   },
   summaryKey: {
     color: 'rgba(255,255,255,0.65)',
-    fontFamily: 'Poppins-Regular',
-    fontSize: 8,
+    ...typography.small,
     lineHeight: 12,
   },
   summaryValue: {
-    color: '#FFFFFF',
-    fontFamily: 'Poppins-Medium',
-    fontSize: 8,
+    ...typography.small,
     lineHeight: 12,
   },
   summaryBold: {
-    color: '#FFFFFF',
     fontSize: 10,
     lineHeight: 15,
   },
@@ -920,9 +898,7 @@ const legacyStyles = {
     backgroundColor: 'rgba(255,255,255,0.65)',
   },
   paymentTitle: {
-    color: '#FFFFFF',
-    fontFamily: 'Poppins-Medium',
-    fontSize: 16,
+    ...typography.h3,
     lineHeight: 24,
   },
   paymentCard: {
@@ -941,15 +917,12 @@ const legacyStyles = {
     borderColor: '#EC5C39',
   },
   paymentMain: {
-    color: '#FFFFFF',
-    fontFamily: 'Poppins-Regular',
-    fontSize: 10,
+    ...typography.small,
     lineHeight: 15,
   },
   paymentSub: {
     color: 'rgba(255,255,255,0.65)',
-    fontFamily: 'Poppins-Regular',
-    fontSize: 6,
+    ...typography.small,
     lineHeight: 9,
   },
   walletBadge: {
@@ -996,9 +969,7 @@ const legacyStyles = {
     opacity: 0.45,
   },
   ctaText: {
-    color: '#FFFFFF',
-    fontFamily: 'Poppins-Regular',
-    fontSize: 16,
+    ...typography.body,
     lineHeight: 16,
   },
 };

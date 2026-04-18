@@ -16,41 +16,13 @@
         "backgroundColor": "#140F10",
         "foregroundImage": "./assets/Shoout-icon.png"
       },
-      "versionCode": 28
+      "versionCode": 31
     },
     "web": {
       "output": "static",
       "favicon": "./assets/images/favicon.png"
     },
-    "plugins": [
-      "expo-router",
-      [
-        "expo-splash-screen",
-        {
-          "image": "./assets/ShooutS-Transparent3splash.png",
-          "imageWidth": 200,
-          "resizeMode": "contain",
-          "backgroundColor": "#FFFFFF",
-          "dark": {
-            "image": "./assets/ShooutS-Transparent2splash.png",
-            "backgroundColor": "#000000"
-          }
-        }
-      ],
-      "expo-font",
-      "@sentry/react-native/expo",
-      "@react-native-google-signin/google-signin",
-      [
-        "expo-notifications",
-        {
-          "icon": "./assets/Shoout-icon.png",
-          "color": "#EC5C39",
-          "modes": [
-            "production"
-          ]
-        }
-      ]
-    ],
+    "plugins": [],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": false
