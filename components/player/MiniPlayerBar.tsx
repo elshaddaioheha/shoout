@@ -5,7 +5,7 @@ import { usePlaybackStore } from '@/store/usePlaybackStore';
 import { BlurView } from 'expo-blur';
 import { Image } from 'expo-image';
 import React, { memo, useCallback } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 type Props = {
   onExpand: () => void;
@@ -27,6 +27,9 @@ function MiniPlayerBarBase({ onExpand }: Props) {
   const onNext = useCallback(() => {
     void playNextTrack();
   }, [playNextTrack]);
+  const onExpandPress = useCallback(() => {
+    onExpand();
+  }, [onExpand]);
 
   const progress = duration > 0 ? Math.max(0, Math.min(1, position / duration)) : 0;
 
@@ -34,19 +37,19 @@ function MiniPlayerBarBase({ onExpand }: Props) {
     <View style={[styles.container, { borderColor: appTheme.colors.borderStrong }]}>
       <BlurView intensity={36} tint={appTheme.isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
       <View style={styles.content}>
-        <IconButton onPress={onExpand} style={styles.expandButton}>
+        <IconButton onPress={onExpandPress} style={styles.expandButton}>
           {currentTrack?.artworkUrl ? (
             <Image source={{ uri: currentTrack.artworkUrl }} contentFit="cover" style={styles.artwork} />
           ) : (
             <Icon name="music" size={20} color={appTheme.colors.textSecondary} />
           )}
         </IconButton>
-        <View style={styles.texts}>
+        <Pressable style={styles.texts} onPress={onExpandPress} hitSlop={8}>
           <Text style={[styles.title, { color: appTheme.colors.textPrimary }]} numberOfLines={1}>{currentTrack?.title || 'No track selected'}</Text>
           <Text style={[styles.artist, { color: appTheme.colors.textSecondary }]} numberOfLines={1}>{currentTrack?.artist || 'Start playback to continue'}</Text>
-        </View>
+        </Pressable>
         <IconButton onPress={onPlayPause} style={styles.control}>
-          {isBuffering ? <Icon name="loader" size={20} color={appTheme.colors.textPrimary} /> : <Icon name={isPlaying ? 'pause' : 'play'} size={20} color={appTheme.colors.textPrimary} fill />}
+          {isBuffering ? <Icon name="refresh-ccw" size={20} color={appTheme.colors.textPrimary} /> : <Icon name={isPlaying ? 'pause' : 'play'} size={20} color={appTheme.colors.textPrimary} fill />}
         </IconButton>
         <IconButton onPress={onNext} style={styles.control}>
           <Icon name="skip-forward" size={20} color={appTheme.colors.textPrimary} fill />

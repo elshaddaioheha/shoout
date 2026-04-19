@@ -38,22 +38,22 @@ export default function GlobalToast() {
 
     if (!visible && message === '') return null;
 
-    // Determine background and border colors based on theme and type
-    let backgroundColor = appTheme.isDark ? '#2A2A2A' : appTheme.colors.backgroundElevated;
-    let borderColor = appTheme.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)';
+    // Use tokenized colors only for notification surfaces.
+    let backgroundColor = appTheme.colors.backgroundElevated;
+    let borderColor = appTheme.colors.borderStrong;
     let icon = <Icon name="info" size={20} color={appTheme.colors.primary} />;
     let messageColor = appTheme.colors.textPrimary;
 
     if (type === 'success') {
-        backgroundColor = appTheme.isDark ? '#1E3329' : 'rgba(46,141,64,0.12)';
-        borderColor = appTheme.isDark ? 'rgba(49, 159, 67, 0.3)' : 'rgba(46,141,64,0.25)';
+        backgroundColor = appTheme.colors.surfaceMuted;
+        borderColor = appTheme.colors.success;
         icon = <Icon name="check-circle" size={20} color={appTheme.colors.success} />;
-        messageColor = appTheme.isDark ? '#E7FFE7' : '#1A4D25';
+        messageColor = appTheme.colors.textPrimary;
     } else if (type === 'error') {
-        backgroundColor = appTheme.isDark ? '#382020' : 'rgba(211,58,42,0.12)';
-        borderColor = appTheme.isDark ? 'rgba(255, 77, 77, 0.3)' : 'rgba(211,58,42,0.25)';
+        backgroundColor = appTheme.colors.surfaceMuted;
+        borderColor = appTheme.colors.error;
         icon = <Icon name="shield-alert" size={20} color={appTheme.colors.error} />;
-        messageColor = appTheme.isDark ? '#FFE9E9' : '#6E1C14';
+        messageColor = appTheme.colors.textPrimary;
     }
 
     return (

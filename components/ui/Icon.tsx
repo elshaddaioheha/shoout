@@ -165,7 +165,7 @@ const ICON_MAP: Record<IconName, { sf: string; sfFill?: string; lucide: keyof ty
 export function Icon({ name, size = 24, color, fill = false, strokeWidth, style, iosAnimation }: IconProps) {
     const theme = useAppTheme();
     const resolvedColor = color ?? theme.colors.textPrimary;
-    const iconConfig = ICON_MAP[name];
+    const iconConfig = ICON_MAP[name] ?? ICON_MAP.music;
 
     if (Platform.OS === 'ios') {
         const symbolName = fill && iconConfig.sfFill ? iconConfig.sfFill : iconConfig.sf;
@@ -191,7 +191,7 @@ export function Icon({ name, size = 24, color, fill = false, strokeWidth, style,
         );
     }
 
-    const LucideIcon = LucideIcons[iconConfig.lucide] as React.ComponentType<any>;
+    const LucideIcon = (LucideIcons[iconConfig.lucide] ?? LucideIcons.Music) as React.ComponentType<any>;
 
     return (
         <LucideIcon

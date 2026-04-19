@@ -73,12 +73,11 @@ export function useAppSwitcher() {
 
             await new Promise<void>((r) => setTimeout(r, 700));
 
-            if (targetViewMode === 'vault' || targetViewMode === 'vault_pro') {
-                try {
-                    await usePlaybackStore.getState().clearTrack();
-                } catch (error) {
-                    notifyWarning('Failed to clear playback when entering Vault mode', error);
-                }
+            // Stop any active playback session whenever switching between app modes
+            try {
+                await usePlaybackStore.getState().clearTrack();
+            } catch (error) {
+                notifyWarning('Failed to clear playback when switching app mode', error);
             }
 
             setActiveAppMode(targetViewMode);

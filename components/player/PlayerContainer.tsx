@@ -1,25 +1,36 @@
 import { FullPlayerView } from '@/components/player/FullPlayerView';
 import { MiniPlayerBar } from '@/components/player/MiniPlayerBar';
-import { useUIStore } from '@/store/useUIStore';
+import { useLayoutMetricsStore } from '@/store/useLayoutMetricsStore';
 import { usePlaybackStore } from '@/store/usePlaybackStore';
-import React, { useCallback, useEffect } from 'react';
+import { useUIStore } from '@/store/useUIStore';
+import { useUserStore } from '@/store/useUserStore';
+import * as Haptics from 'expo-haptics';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { Platform, StyleSheet, useWindowDimensions } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { Extrapolation, interpolate, runOnJS, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import * as Haptics from 'expo-haptics';
 
 const SPRING_CONFIG = { damping: 22, stiffness: 240, mass: 0.8 };
 
 export default function PlayerContainer() {
   const { height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const bottomTabBarHeight = useLayoutMetricsStore((s) => s.bottomTabBarHeight);
+  const activeAppMode = useUserStore((s) => s.activeAppMode);
   const track = usePlaybackStore((s) => s.currentTrack);
   const mode = useUIStore((s) => s.playerMode);
   const setMode = useUIStore((s) => s.setPlayerMode);
+  const isModeTransitioning = useUIStore((s) => s.isModeTransitioning);
+  const isVaultMode = activeAppMode === 'vault' || activeAppMode === 'vault_pro';
+  const previousAppModeRef = useRef(activeAppMode);
+  const hiddenByModeSwitchTrackIdRef = useRef<string | null>(null);
 
   const miniHeight = 68;
-  const miniBottom = Platform.OS === 'ios' ? Math.max(90, 70 + insets.bottom) : 72 + insets.bottom;
+  const estimatedBottomPillHeight = Math.max(62, bottomTabBarHeight || 0);
+  const miniBottom = Platform.OS === 'ios'
+    ? estimatedBottomPillHeight + 2
+    : estimatedBottomPillHeight + Math.max(0, insets.bottom > 0 ? 0 : 4);
   const hiddenY = height + 80;
   const miniY = height - miniBottom - miniHeight;
   const fullY = 0;
@@ -27,15 +38,74 @@ export default function PlayerContainer() {
   const gestureStartY = useSharedValue(hiddenY);
 
   useEffect(() => {
-    const nextMode = track ? (mode === 'hidden' ? 'mini' : mode) : 'hidden';
+    const previousMode = previousAppModeRef.current;
+    if (previousMode === activeAppMode) {
+      return;
+    }
+
+    previousAppModeRef.current = activeAppMode;
+    hiddenByModeSwitchTrackIdRef.current = track?.id ?? '__no_track__';
+
+    if (mode !== 'hidden') {
+      setMode('hidden');
+    }
+  }, [activeAppMode, mode, setMode, track]);
+
+  useEffect(() => {
+    if (!isModeTransitioning) {
+      return;
+    }
+
+    hiddenByModeSwitchTrackIdRef.current = track?.id ?? '__no_track__';
+    if (mode !== 'hidden') {
+      setMode('hidden');
+    }
+  }, [isModeTransitioning, mode, setMode, track]);
+
+  useEffect(() => {
+    if (!track) {
+      hiddenByModeSwitchTrackIdRef.current = null;
+      if (mode !== 'hidden') {
+        setMode('hidden');
+      }
+      return;
+    }
+
+    if (isVaultMode) {
+      if (mode !== 'full') {
+        setMode('full');
+      }
+      return;
+    }
+
+    if (mode === 'hidden') {
+      if (isModeTransitioning) {
+        return;
+      }
+      if (hiddenByModeSwitchTrackIdRef.current && hiddenByModeSwitchTrackIdRef.current === track.id) {
+        return;
+      }
+      hiddenByModeSwitchTrackIdRef.current = null;
+      setMode('mini');
+    }
+  }, [isModeTransitioning, isVaultMode, mode, setMode, track]);
+
+  useEffect(() => {
+    const nextMode = track
+      ? (isVaultMode ? 'full' : (mode === 'hidden' ? 'mini' : mode))
+      : 'hidden';
     const targetY = nextMode === 'full' ? fullY : nextMode === 'mini' ? miniY : hiddenY;
     translateY.value = withSpring(targetY, SPRING_CONFIG);
-  }, [fullY, hiddenY, miniY, mode, track, translateY]);
+  }, [fullY, hiddenY, isVaultMode, miniY, mode, track, translateY]);
 
   const setMini = useCallback(() => {
+    if (isVaultMode) {
+      setMode('full');
+      return;
+    }
     setMode('mini');
     void Haptics.selectionAsync().catch(() => null);
-  }, [setMode]);
+  }, [isVaultMode, setMode]);
   const setFull = useCallback(() => {
     setMode('full');
     void Haptics.selectionAsync().catch(() => null);
@@ -46,6 +116,8 @@ export default function PlayerContainer() {
 
   const fullPan = Gesture.Pan()
     .enabled(mode === 'full')
+    .activeOffsetY([-8, 8])
+    .failOffsetX([-20, 20])
     .onBegin(() => {
       gestureStartY.value = translateY.value;
     })
@@ -55,6 +127,14 @@ export default function PlayerContainer() {
     })
     .onEnd((event) => {
       const destination = translateY.value + event.velocityY * 0.12;
+      if (isVaultMode) {
+        if (destination > miniY + 56) {
+          runOnJS(setHidden)();
+          return;
+        }
+        runOnJS(setFull)();
+        return;
+      }
       const toFull = Math.abs(destination - fullY);
       const toMini = Math.abs(destination - miniY);
       const toHidden = Math.abs(destination - hiddenY);
@@ -67,7 +147,9 @@ export default function PlayerContainer() {
       }
     });
   const miniPan = Gesture.Pan()
-    .enabled(mode !== 'hidden')
+    .enabled(mode !== 'hidden' && !isVaultMode)
+    .activeOffsetY([-8, 8])
+    .failOffsetX([-20, 20])
     .onBegin(() => {
       gestureStartY.value = translateY.value;
     })
@@ -88,26 +170,28 @@ export default function PlayerContainer() {
       runOnJS(setMini)();
     });
 
-  const containerStyle = useAnimatedStyle(() => ({
+  const fullTranslateStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: translateY.value }],
   }));
   const miniStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(translateY.value, [fullY, miniY, hiddenY], [0, 1, 0], Extrapolation.CLAMP),
-    transform: [{ translateY: interpolate(translateY.value, [fullY, miniY], [12, 0], Extrapolation.CLAMP) }],
+    opacity: isVaultMode ? 0 : interpolate(translateY.value, [fullY, miniY, hiddenY], [0, 1, 0], Extrapolation.CLAMP),
+    transform: [
+      { translateY: (translateY.value - miniY) + interpolate(translateY.value, [fullY, miniY], [12, 0], Extrapolation.CLAMP) },
+    ],
   }));
   const fullStyle = useAnimatedStyle(() => ({
     opacity: interpolate(translateY.value, [fullY, miniY], [1, 0], Extrapolation.CLAMP),
   }));
 
   return (
-    <Animated.View pointerEvents={track ? 'box-none' : 'none'} style={[styles.absoluteFill, containerStyle]}>
+    <Animated.View pointerEvents={track ? 'box-none' : 'none'} style={styles.absoluteFill}>
       <GestureDetector gesture={fullPan}>
-        <Animated.View pointerEvents={mode === 'full' ? 'auto' : 'none'} style={[styles.fullLayer, fullStyle]}>
+        <Animated.View pointerEvents={mode === 'full' ? 'auto' : 'none'} style={[styles.fullLayer, fullTranslateStyle, fullStyle]}>
           <FullPlayerView onCollapse={setMini} />
         </Animated.View>
       </GestureDetector>
       <GestureDetector gesture={miniPan}>
-        <Animated.View pointerEvents={mode === 'mini' ? 'auto' : 'none'} style={[styles.miniWrap, { top: miniY, left: 8, right: 8 }, miniStyle]}>
+        <Animated.View pointerEvents={mode === 'mini' && !isVaultMode ? 'auto' : 'none'} style={[styles.miniWrap, { top: miniY, left: 8, right: 8 }, miniStyle]}>
           <MiniPlayerBar onExpand={setFull} />
         </Animated.View>
       </GestureDetector>

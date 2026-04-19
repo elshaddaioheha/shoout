@@ -93,12 +93,6 @@ function SearchDiscoveryContent({
   const searchIconColor = adaptLegacyColor('rgba(255,255,255,0.45)', 'color', appTheme);
   const placeholderColor = appTheme.colors.textPlaceholder;
 
-  const modeToggleBackground = appTheme.colors.backgroundElevated;
-  const modeToggleBorder = appTheme.colors.borderStrong;
-  const modeToggleTextColor = appTheme.colors.textSecondary;
-  const modeToggleActiveBackground = SHOOUT_BLUE;
-  const modeToggleActiveTextColor = '#FFFFFF';
-
   const genreChipTextColor = appTheme.colors.textSecondary;
   const genreChipActiveTextColor = appTheme.colors.textPrimary;
 
@@ -166,58 +160,16 @@ function SearchDiscoveryContent({
 
       <View
         style={[
-          styles.modeToggleWrap,
+          styles.genreFilterWrap,
           {
-            backgroundColor: modeToggleBackground,
-            borderColor: modeToggleBorder,
+            backgroundColor: appTheme.colors.backgroundElevated,
+            borderColor: appTheme.colors.borderStrong,
           },
         ]}
       >
-        <TouchableOpacity
-          style={[
-            styles.modeToggleBtn,
-            { backgroundColor: 'transparent' },
-            !selectedGenre && {
-              backgroundColor: modeToggleActiveBackground,
-              borderColor: modeToggleActiveBackground,
-            },
-          ]}
-          onPress={() => setSelectedGenre(null)}
-          activeOpacity={0.85}
-        >
-          <Text
-            style={[
-              styles.modeToggleText,
-              { color: modeToggleTextColor },
-              !selectedGenre && { color: modeToggleActiveTextColor },
-            ]}
-          >
-            All
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.modeToggleBtn,
-            { backgroundColor: 'transparent' },
-            selectedGenre && {
-              backgroundColor: modeToggleActiveBackground,
-              borderColor: modeToggleActiveBackground,
-            },
-          ]}
-          onPress={() => setSelectedGenre(FEATURED_GENRES[0])}
-          activeOpacity={0.85}
-        >
-          <Text
-            style={[
-              styles.modeToggleText,
-              { color: modeToggleTextColor },
-              selectedGenre && { color: modeToggleActiveTextColor },
-            ]}
-          >
-            Genres
-          </Text>
-        </TouchableOpacity>
+        <Text style={[styles.genreFilterLabel, { color: appTheme.colors.textSecondary }]}>
+          Filter by genre
+        </Text>
       </View>
 
       <FlatList
@@ -747,8 +699,20 @@ const legacyStyles = {
     paddingVertical: 0,
   },
   genreStrip: {
-    marginTop: 10,
+    marginTop: 8,
     marginBottom: 8,
+  },
+  genreFilterWrap: {
+    marginTop: 10,
+    marginHorizontal: 20,
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  genreFilterLabel: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 12,
   },
   genreStripContent: {
     paddingHorizontal: 20,

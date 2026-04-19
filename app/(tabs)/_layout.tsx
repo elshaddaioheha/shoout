@@ -61,6 +61,7 @@ export default function TabLayout() {
   } = useAppSwitcher();
   const isExploreImmersiveMode = useExplorePlayerStore((state) => state.isImmersiveMode);
   const setPlayerMode = useUIStore((state) => state.setPlayerMode);
+  const setModeTransitioning = useUIStore((state) => state.setModeTransitioning);
   const pathname = usePathname();
 
   const shouldHidePlayer = pathname === '/modal'
@@ -73,6 +74,13 @@ export default function TabLayout() {
       setPlayerMode('hidden');
     }
   }, [setPlayerMode, shouldShowPlayer]);
+
+  useEffect(() => {
+    setModeTransitioning(transitioning);
+    return () => {
+      setModeTransitioning(false);
+    };
+  }, [setModeTransitioning, transitioning]);
 
   const contextValue: AppSwitcherContextValue = {
     openSheet,

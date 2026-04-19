@@ -3,6 +3,8 @@ import PlayerContainer from '@/components/player/PlayerContainer';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAccessibilityStore } from '@/store/useAccessibilityStore';
 import { useAuthStore } from '@/store/useAuthStore';
+import { usePlaybackStore } from '@/store/usePlaybackStore';
+import { useUIStore } from '@/store/useUIStore';
 import { useUserStore } from '@/store/useUserStore';
 import { getLastNotification, initNotifications, subscribeToNotifications } from '@/utils/notifications';
 import { notifyError, notifyWarning } from '@/utils/notify';
@@ -56,6 +58,15 @@ export default function RootLayout() {
       initNotifications();
     }
     useAccessibilityStore.getState().initScreenReaderState();
+  }, []);
+
+  useEffect(() => {
+    // Always boot with a clean player UI/audio state to avoid carry-over.
+    useUIStore.getState().hidePlayer();
+    useUIStore.getState().setModeTransitioning(false);
+    void usePlaybackStore.getState().clearTrack().catch((error) => {
+      notifyWarning('[layout] Failed to clear playback on startup', error);
+    });
   }, []);
 
   useEffect(() => {

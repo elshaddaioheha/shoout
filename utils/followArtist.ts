@@ -1,5 +1,4 @@
-import { db } from '@/firebaseConfig';
-import { arrayRemove, arrayUnion, doc, updateDoc } from 'firebase/firestore';
+import { toggleArtistFollow as toggleArtistFollowAtomic } from '@/utils/artistSocial';
 
 export type ToggleArtistFollowInput = {
   artistId: string;
@@ -17,28 +16,10 @@ export async function toggleArtistFollow({
   currentUserId,
   isCurrentlyFollowing,
 }: ToggleArtistFollowInput): Promise<ToggleArtistFollowResult> {
-  if (!artistId) {
-    throw new Error('Artist id is required.');
-  }
-
-  if (!currentUserId) {
-    throw new Error('Current user id is required.');
-  }
-
-  if (artistId === currentUserId) {
-    throw new Error('You cannot follow yourself.');
-  }
-
-  const artistRef = doc(db, 'users', artistId);
-  const userRef = doc(db, 'users', currentUserId);
-
-  if (isCurrentlyFollowing) {
-    await updateDoc(artistRef, { followers: arrayRemove(currentUserId) });
-    await updateDoc(userRef, { following: arrayRemove(artistId) });
-    return { isFollowing: false, followersDelta: -1 };
-  }
-
-  await updateDoc(artistRef, { followers: arrayUnion(currentUserId) });
-  await updateDoc(userRef, { following: arrayUnion(artistId) });
-  return { isFollowing: true, followersDelta: 1 };
+  const result = await toggleArtistFollowAtomic({
+    artistId,
+    currentUserId,
+    isActive: isCurrentlyFollowing,
+  });
+  return { isFollowing: result.isActive, followersDelta: result.delta };
 }

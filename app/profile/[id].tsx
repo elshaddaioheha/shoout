@@ -2,7 +2,7 @@ import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import { auth, db } from '@/firebaseConfig';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { useToastStore } from '@/store/useToastStore';
-import { toggleArtistFollow } from '@/utils/followArtist';
+import { toggleArtistFollow, toggleArtistSubscription } from '@/utils/artistSocial';
 import { adaptLegacyColor, adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -52,7 +52,10 @@ export default function ArtistProfileScreen() {
     const [loading, setLoading] = useState(true);
     const [isFollowing, setIsFollowing] = useState(false);
     const [followersCount, setFollowersCount] = useState(0);
+    const [subscribersCount, setSubscribersCount] = useState(0);
     const [isFollowPending, setIsFollowPending] = useState(false);
+    const [isSubscribed, setIsSubscribed] = useState(false);
+    const [isSubscribePending, setIsSubscribePending] = useState(false);
     const { showToast } = useToastStore();
 
     const handleBack = () => {
@@ -100,8 +103,13 @@ export default function ArtistProfileScreen() {
                     const followers = Array.isArray(data.followers)
                         ? data.followers
                         : [];
+                    const subscribers = Array.isArray(data.subscribers)
+                        ? data.subscribers
+                        : [];
                     setFollowersCount(followers.length);
+                    setSubscribersCount(subscribers.length);
                     setIsFollowing(!!auth.currentUser?.uid && followers.includes(auth.currentUser.uid));
+                    setIsSubscribed(!!auth.currentUser?.uid && subscribers.includes(auth.currentUser.uid));
                 }
                 artistResolved = true;
                 markLoaded();
@@ -149,17 +157,43 @@ export default function ArtistProfileScreen() {
             const result = await toggleArtistFollow({
                 artistId: artistId as string,
                 currentUserId: auth.currentUser.uid,
-                isCurrentlyFollowing: isFollowing,
+                isActive: isFollowing,
             });
 
-            setIsFollowing(result.isFollowing);
-            setFollowersCount((prev) => Math.max(0, prev + result.followersDelta));
-            showToast(result.isFollowing ? 'Artist followed.' : 'Artist unfollowed.', 'success');
+            setIsFollowing(result.isActive);
+            setFollowersCount((prev) => Math.max(0, prev + result.delta));
+            showToast(result.isActive ? 'Now following artist.' : 'No longer following artist.', 'success');
         } catch (err) {
             console.error("Follow error:", err);
             showToast('Unable to update follow state right now.', 'error');
         } finally {
             setIsFollowPending(false);
+        }
+    };
+
+    const handleSubscribe = async () => {
+        if (!auth.currentUser) {
+            showToast("Log in to subscribe to artists.", "error");
+            return;
+        }
+        if (auth.currentUser.uid === artistId) return;
+        if (isSubscribePending) return;
+        setIsSubscribePending(true);
+
+        try {
+            const result = await toggleArtistSubscription({
+                artistId: artistId as string,
+                currentUserId: auth.currentUser.uid,
+                isActive: isSubscribed,
+            });
+            setIsSubscribed(result.isActive);
+            setSubscribersCount((prev) => Math.max(0, prev + result.delta));
+            showToast(result.isActive ? 'Subscribed to artist updates.' : 'Unsubscribed from artist updates.', 'success');
+        } catch (error) {
+            console.error('Subscription error:', error);
+            showToast('Unable to update subscription right now.', 'error');
+        } finally {
+            setIsSubscribePending(false);
         }
     };
 
@@ -212,6 +246,11 @@ export default function ArtistProfileScreen() {
                         </View>
                         <View style={styles.statDivider} />
                         <View style={styles.statItem}>
+                            <Text style={styles.statValue}>{subscribersCount}</Text>
+                            <Text style={styles.statLabel}>Subscribers</Text>
+                        </View>
+                        <View style={styles.statDivider} />
+                        <View style={styles.statItem}>
                             <Text style={styles.statValue}>{tracks.length}</Text>
                             <Text style={styles.statLabel}>Tracks</Text>
                         </View>
@@ -224,6 +263,13 @@ export default function ArtistProfileScreen() {
                             disabled={isFollowPending}
                         >
                             <Text style={styles.followBtnText}>{isFollowPending ? 'Please wait...' : (isFollowing ? 'Following' : 'Follow')}</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[styles.subBtn, isSubscribed && styles.subscribedBtn, isSubscribePending && styles.followBtnDisabled]}
+                            onPress={handleSubscribe}
+                            disabled={isSubscribePending}
+                        >
+                            <Text style={styles.subBtnText}>{isSubscribePending ? 'Please wait...' : (isSubscribed ? 'Subscribed' : 'Subscribe')}</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
                             style={styles.msgBtn}
@@ -304,6 +350,26 @@ const legacyStyles = {
     followBtnDisabled: { opacity: 0.6 },
     followBtnText: { color: '#FFF', fontSize: 16, fontFamily: 'Poppins-Bold' },
     msgBtn: { width: 50, height: 50, borderRadius: 15, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+    subBtn: {
+        minWidth: 110,
+        height: 50,
+        borderRadius: 15,
+        backgroundColor: 'rgba(255,255,255,0.08)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.2)',
+        paddingHorizontal: 12,
+    },
+    subscribedBtn: {
+        backgroundColor: 'rgba(236,92,57,0.14)',
+        borderColor: 'rgba(236,92,57,0.45)',
+    },
+    subBtnText: {
+        color: '#FFF',
+        fontSize: 14,
+        fontFamily: 'Poppins-Bold',
+    },
     tracksSection: { padding: 24, marginTop: 10 },
     sectionTitle: { fontSize: 18, fontFamily: 'Poppins-Bold', color: '#FFF', marginBottom: 20 },
     trackCard: { flexDirection: 'row', alignItems: 'center', padding: 12, backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: 15, marginBottom: 12 },
