@@ -208,11 +208,11 @@ export default function MoreScreen() {
                         {isHybridMode && <MenuItem iconName="banknote" label="Creator Earnings" color={accentColor} onPress={() => canUseHybridTools ? router.push('/studio/earnings' as any) : pushSubscriptions()} />}
                         {!isVaultMode && !isStudioMode && !isHybridMode && <MenuItem iconName="history" label="History" color={accentColor} onPress={() => showToast('Coming soon', 'info')} />}
 
-                        {/* Consistent Slot 4: Notifications / Updates / Promotions */}
-                        {isVaultMode && <MenuItem iconName="bell" label="Vault Updates" color={accentColor} onPress={() => router.push('/vault/updates' as any)} />}
+                        {/* Consistent Slot 4: Notifications / Promotions */}
+                        {isVaultMode && <MenuItem iconName="bell" label="Notifications" color={accentColor} onPress={() => router.push('/notifications' as any)} />}
                         {isStudioMode && <MenuItem iconName="bell" label="Promote & Ads" color={accentColor} onPress={() => canUseStudioTools ? router.push('/(tabs)/marketplace' as any) : pushSubscriptions()} />}
                         {isHybridMode && <MenuItem iconName="bell" label="Promote & Ads" color={accentColor} onPress={() => canUseHybridTools ? router.push('/(tabs)/marketplace' as any) : pushSubscriptions()} />}
-                        {!isVaultMode && !isStudioMode && !isHybridMode && <MenuItem iconName="bell" label="Updates" color={accentColor} onPress={() => router.push('/updates' as any)} />}
+                        {!isVaultMode && !isStudioMode && !isHybridMode && <MenuItem iconName="bell" label="Notifications" color={accentColor} onPress={() => router.push('/notifications' as any)} />}
 
                         {/* Secondary Hybrid Vault Access */}
                         {showVaultWorkspaceShortcut && <MenuItem iconName="upload-cloud" label="Vault Workspace" color={accentColor} onPress={() => router.push('/(tabs)/library' as any)} />}
@@ -231,7 +231,6 @@ export default function MoreScreen() {
                         <MenuItem iconName="share" label="Share" color={accentColor} onPress={() => showToast('Coming soon', 'info')} />
                         <MenuItem iconName="circle-help" label="Support" color={accentColor} onPress={() => showToast('Support coming soon', 'info')} />
                         <MenuItem iconName="shield" label="Privacy & Security" color={accentColor} onPress={() => router.push('/settings/privacy' as any)} />
-                        <MenuItem iconName="link-2" label="Notifications" color={accentColor} onPress={() => router.push('/notifications' as any)} />
                         <MenuItem iconName="log-out" label="Log Out" color="#EF4444" onPress={handleLogout} hideChevron />
                     </View>
 

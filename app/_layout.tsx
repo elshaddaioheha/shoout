@@ -134,7 +134,7 @@ export default function RootLayout() {
     });
 
     const authTimeout = setTimeout(() => {
-      notifyWarning('[layout] Auth timeout - proceeding after 5s.', null, 'Network is slow. Some subscription details may take a moment to update.');
+      notifyWarning('[layout] Auth timeout - proceeding after 5s.', null);
       setHasAuthenticatedUser(Boolean(auth.currentUser));
       setAuthResolved(true);
       setVerifying(false);
@@ -231,7 +231,6 @@ export default function RootLayout() {
           <Stack.Screen name="vault/convert" />
           <Stack.Screen name="vault/record" />
           <Stack.Screen name="vault/links" />
-          <Stack.Screen name="vault/updates" />
           <Stack.Screen name="vault/folder/[id]" />
           <Stack.Screen name="vault/track/[id]" />
           <Stack.Screen name="chat/index" />

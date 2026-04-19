@@ -12,6 +12,7 @@ import { formatUsd } from '@/utils/pricing';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Heart, Music, Search, ShoppingCart, ThumbsDown } from 'lucide-react-native';
+import { useIsFocused } from '@react-navigation/native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   FlatList,
@@ -26,9 +27,7 @@ import {
 
 type DiscoverItem = PublishedUpload;
 type ExploreFeedItem = DiscoverItem & { feedKey: string };
-type SurfaceMode = 'search' | 'explore';
 
-const FEATURED_GENRES = ['Afrobeats', 'Afro-Pop', 'Gospel', 'Highlife', 'Hip-Hop', 'Afro Fusion'];
 const SHOOUT_BLUE = '#6AA7FF';
 
 function useExploreStyles() {
@@ -36,258 +35,8 @@ function useExploreStyles() {
   return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
 }
 
-function DiscoverTrackSkeletonCard({ styles }: { styles: ReturnType<typeof useExploreStyles> }) {
-  return (
-    <View style={styles.trackCard}>
-      <View style={[styles.trackArtwork, styles.skeletonBlock]} />
-      <View style={[styles.skeletonLine, styles.skeletonLineTitle]} />
-      <View style={[styles.skeletonLine, styles.skeletonLineMeta]} />
-      <View style={[styles.inlinePurchaseBtn, styles.skeletonInlineBtn]} />
-    </View>
-  );
-}
-
-function DiscoverySkeletonLoader({ styles }: { styles: ReturnType<typeof useExploreStyles> }) {
-  return (
-    <View style={styles.searchSections}>
-      {['Suggested Tracks', 'Trending Artists', 'Popular Beats'].map((section) => (
-        <View key={section} style={styles.sectionBlock}>
-          <View style={[styles.skeletonLine, styles.skeletonSectionTitle]} />
-          <FlatList
-            horizontal
-            data={[0, 1, 2]}
-            keyExtractor={(item) => `${section}-${item}`}
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.horizontalPad}
-            renderItem={() => <DiscoverTrackSkeletonCard styles={styles} />}
-          />
-        </View>
-      ))}
-    </View>
-  );
-}
-
-function SearchDiscoveryContent({
-  styles,
-  appTheme,
-  items,
-  loading,
-  selectedGenre,
-  setSelectedGenre,
-  searchQuery,
-  setSearchQuery,
-  onPlay,
-  onPurchase,
-}: {
-  styles: ReturnType<typeof useExploreStyles>;
-  appTheme: ReturnType<typeof useAppTheme>;
-  items: DiscoverItem[];
-  loading: boolean;
-  selectedGenre: string | null;
-  setSelectedGenre: (genre: string | null) => void;
-  searchQuery: string;
-  setSearchQuery: (value: string) => void;
-  onPlay: (item: DiscoverItem) => void;
-  onPurchase: (item: DiscoverItem) => void;
-}) {
-  const searchIconColor = adaptLegacyColor('rgba(255,255,255,0.45)', 'color', appTheme);
-  const placeholderColor = appTheme.colors.textPlaceholder;
-
-  const genreChipTextColor = appTheme.colors.textSecondary;
-  const genreChipActiveTextColor = appTheme.colors.textPrimary;
-
-  const normalizedQuery = searchQuery.trim().toLowerCase();
-  const filteredItems = useMemo(() => {
-    const genreFiltered = selectedGenre
-      ? items.filter((item) => item.genre.toLowerCase().includes(selectedGenre.toLowerCase()))
-      : items;
-
-    if (!normalizedQuery) {
-      return genreFiltered;
-    }
-
-    return genreFiltered.filter((item) =>
-      item.title.toLowerCase().includes(normalizedQuery)
-      || item.uploaderName.toLowerCase().includes(normalizedQuery)
-      || item.genre.toLowerCase().includes(normalizedQuery)
-    );
-  }, [items, normalizedQuery, selectedGenre]);
-
-  const suggestedTracks = useMemo(
-    () => [...filteredItems].sort((a, b) => b.listenCount - a.listenCount).slice(0, 12),
-    [filteredItems]
-  );
-
-  const trendingArtists = useMemo(() => {
-    const map = new Map<string, { name: string; score: number; art?: string }>();
-    for (const item of filteredItems) {
-      const key = item.uploaderName.toLowerCase();
-      const prev = map.get(key);
-      if (!prev) {
-        map.set(key, { name: item.uploaderName, score: item.listenCount, art: item.artworkUrl });
-      } else {
-        map.set(key, { ...prev, score: prev.score + item.listenCount, art: prev.art || item.artworkUrl });
-      }
-    }
-    return [...map.values()].sort((a, b) => b.score - a.score).slice(0, 10);
-  }, [filteredItems]);
-
-  const popularBeats = useMemo(
-    () => [...filteredItems].filter((item) => item.price > 0).sort((a, b) => b.listenCount - a.listenCount).slice(0, 12),
-    [filteredItems]
-  );
-
-  return (
-    <View style={styles.searchWrap}>
-      <View
-        style={[
-          styles.searchBar,
-          {
-            backgroundColor: appTheme.colors.backgroundElevated,
-            borderColor: appTheme.colors.borderStrong,
-          },
-        ]}
-      >
-        <Search size={16} color={searchIconColor} />
-        <TextInput
-          style={[styles.searchInput, { color: appTheme.colors.textPrimary }]}
-          placeholder="Search tracks, artists, genres"
-          placeholderTextColor={placeholderColor}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-      </View>
-
-      <View
-        style={[
-          styles.genreFilterWrap,
-          {
-            backgroundColor: appTheme.colors.backgroundElevated,
-            borderColor: appTheme.colors.borderStrong,
-          },
-        ]}
-      >
-        <Text style={[styles.genreFilterLabel, { color: appTheme.colors.textSecondary }]}>
-          Filter by genre
-        </Text>
-      </View>
-
-      <FlatList
-        horizontal
-        data={FEATURED_GENRES}
-        keyExtractor={(item) => item}
-        showsHorizontalScrollIndicator={false}
-        style={styles.genreStrip}
-        contentContainerStyle={styles.genreStripContent}
-        renderItem={({ item }) => {
-          const active = selectedGenre === item;
-          return (
-            <TouchableOpacity
-              style={[styles.genreChip, active && styles.genreChipActive]}
-              onPress={() => setSelectedGenre(active ? null : item)}
-              activeOpacity={0.85}
-            >
-              <Text
-                style={[
-                  styles.genreChipText,
-                  { color: genreChipTextColor },
-                  active && [styles.genreChipTextActive, { color: genreChipActiveTextColor }],
-                ]}
-              >
-                {item}
-              </Text>
-            </TouchableOpacity>
-          );
-        }}
-      />
-
-      {loading ? (
-        <DiscoverySkeletonLoader styles={styles} />
-      ) : filteredItems.length === 0 ? (
-        <View style={styles.emptyState}>
-          <Text style={styles.emptyStateText}>No published tracks match this view yet.</Text>
-        </View>
-      ) : (
-        <FlatList
-          data={[
-            { key: 'suggested', title: 'Suggested Tracks', rows: suggestedTracks },
-            { key: 'artists', title: 'Trending Artists', rows: trendingArtists as any },
-            { key: 'beats', title: 'Popular Beats', rows: popularBeats },
-          ]}
-          keyExtractor={(item) => item.key}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.searchSections}
-          renderItem={({ item }) => {
-            if (item.key === 'artists') {
-              return (
-                <View style={styles.sectionBlock}>
-                  <Text style={styles.sectionTitle}>{item.title}</Text>
-                  <FlatList
-                    horizontal
-                    data={item.rows as { name: string; art?: string }[]}
-                    keyExtractor={(row) => row.name}
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.horizontalPad}
-                    renderItem={({ item: artist }) => (
-                      <View style={styles.artistCard}>
-                        <View style={styles.artistArtwork}>
-                          {artist.art ? (
-                            <Image source={{ uri: artist.art }} style={styles.fillImage} contentFit="cover" />
-                          ) : (
-                            <Music size={18} color={appTheme.colors.textSecondary} />
-                          )}
-                        </View>
-                        <Text numberOfLines={1} style={styles.artistName}>
-                          {artist.name}
-                        </Text>
-                      </View>
-                    )}
-                  />
-                </View>
-              );
-            }
-
-            return (
-              <View style={styles.sectionBlock}>
-                <Text style={styles.sectionTitle}>{item.title}</Text>
-                <FlatList
-                  horizontal
-                  data={item.rows as DiscoverItem[]}
-                  keyExtractor={(row) => `${item.key}-${row.id}`}
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.horizontalPad}
-                  renderItem={({ item: row }) => (
-                    <View style={styles.trackCard}>
-                      <TouchableOpacity style={styles.trackArtwork} onPress={() => onPlay(row)} activeOpacity={0.85}>
-                        {row.artworkUrl ? (
-                          <Image source={{ uri: row.artworkUrl }} style={styles.fillImage} contentFit="cover" />
-                        ) : (
-                          <Music size={22} color={appTheme.colors.textSecondary} />
-                        )}
-                      </TouchableOpacity>
-                      <Text numberOfLines={1} style={styles.trackTitle}>
-                        {row.title}
-                      </Text>
-                      <Text numberOfLines={1} style={styles.trackMeta}>
-                        {row.uploaderName}
-                      </Text>
-                      <TouchableOpacity style={styles.inlinePurchaseBtn} onPress={() => onPurchase(row)} activeOpacity={0.85}>
-                        <ShoppingCart size={14} color={appTheme.colors.textPrimary} />
-                        <Text style={styles.inlinePurchaseText}>{formatUsd(row.price || 0)}</Text>
-                      </TouchableOpacity>
-                    </View>
-                  )}
-                />
-              </View>
-            );
-          }}
-        />
-      )}
-    </View>
-  );
-}
-
 export default function ExploreScreen() {
+  const isTabBarFocused = useIsFocused();
   const appTheme = useAppTheme();
   const styles = useExploreStyles();
   const { width, height } = useWindowDimensions();
@@ -315,9 +64,6 @@ export default function ExploreScreen() {
   const clearExploreTrack = useExplorePlayerStore((state) => state.clearTrack);
   const setExploreImmersiveMode = useExplorePlayerStore((state) => state.setImmersiveMode);
 
-  const [surfaceMode, setSurfaceMode] = useState<SurfaceMode>('search');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
   const [likedTracks, setLikedTracks] = useState<Record<string, boolean>>({});
   const [dislikedTracks, setDislikedTracks] = useState<Record<string, boolean>>({});
   const [feedItems, setFeedItems] = useState<ExploreFeedItem[]>([]);
@@ -356,35 +102,16 @@ export default function ExploreScreen() {
   }, [buildFeedBatch, items]);
 
   useEffect(() => {
-    const enterExploreMode = async () => {
-      if (surfaceMode === 'explore') {
-        setExploreImmersiveMode(true);
-        if (stockIsPlaying) {
-          try {
-            await pauseStockPlayback();
-          } catch (error) {
-            console.error('Failed to pause stock player for explore mode:', error);
-          }
-        }
-      } else {
-        setExploreImmersiveMode(false);
-        await clearExploreTrack();
+    if (isTabBarFocused) {
+      setExploreImmersiveMode(true);
+      if (stockIsPlaying) {
+        pauseStockPlayback().catch(() => {});
       }
-    };
-
-    enterExploreMode().catch((error) => {
-      console.error('Failed to switch explore mode:', error);
-    });
-  }, [clearExploreTrack, pauseStockPlayback, setExploreImmersiveMode, stockIsPlaying, surfaceMode]);
-
-  useEffect(() => {
-    return () => {
+    } else {
       setExploreImmersiveMode(false);
-      clearExploreTrack().catch((error) => {
-        console.error('Failed to cleanup explore player:', error);
-      });
-    };
-  }, [clearExploreTrack, setExploreImmersiveMode]);
+      clearExploreTrack().catch(() => {});
+    }
+  }, [isTabBarFocused, stockIsPlaying, pauseStockPlayback, setExploreImmersiveMode, clearExploreTrack]);
 
   const appendFeed = useCallback(() => {
     if (!items.length) return;
@@ -415,7 +142,7 @@ export default function ExploreScreen() {
   }).current;
 
   useEffect(() => {
-    if (surfaceMode !== 'explore') return;
+    if (!isTabBarFocused) return;
     if (!feedItems.length) return;
     if (exploreCurrentTrack) return;
 
@@ -430,7 +157,7 @@ export default function ExploreScreen() {
     }).catch((error) => {
       console.error('Failed to start initial explore track:', error);
     });
-  }, [exploreCurrentTrack, feedItems, playExploreTrack, surfaceMode]);
+  }, [exploreCurrentTrack, feedItems, playExploreTrack, isTabBarFocused]);
 
   const handleLike = (item: ExploreFeedItem) => {
     setLikedTracks((prev) => ({ ...prev, [item.id]: !prev[item.id] }));
@@ -475,37 +202,49 @@ export default function ExploreScreen() {
             </View>
           )}
           <LinearGradient
-            colors={['rgba(0,0,0,0.04)', 'rgba(0,0,0,0.16)', 'rgba(0,0,0,0.48)']}
+            colors={['transparent', 'rgba(0,0,0,0.4)', 'rgba(0,0,0,0.92)']}
             style={styles.exploreGradient}
           />
         </View>
 
         <View style={styles.exploreMetaBlock}>
-          <Text style={styles.exploreTitle} numberOfLines={1}>
+          <Text style={[styles.exploreTitle, { color: '#FFFFFF' }]} numberOfLines={1}>
             {item.title}
           </Text>
-          <Text style={styles.exploreArtist} numberOfLines={1}>
+          <Text style={[styles.exploreArtist, { color: 'rgba(255,255,255,0.86)' }]} numberOfLines={1}>
             {item.uploaderName} • {item.genre}
           </Text>
-          <Text style={styles.explorePrice}>{formatUsd(item.price || 0)}</Text>
+          <Text style={[styles.explorePrice, { color: '#FDE3DA' }]}>{formatUsd(item.price || 0)}</Text>
         </View>
 
         <View style={styles.exploreActions}>
           <TouchableOpacity
-            style={[styles.exploreActionBtn, likedTracks[item.id] && styles.exploreActionBtnActive]}
+            style={[
+              styles.exploreActionBtn,
+              { borderColor: 'rgba(255,255,255,0.28)', backgroundColor: 'rgba(20,15,16,0.35)' },
+              likedTracks[item.id] && styles.exploreActionBtnActive
+            ]}
             onPress={() => handleLike(item)}
             activeOpacity={0.85}
           >
             <Heart size={22} color="#FFFFFF" fill={likedTracks[item.id] ? '#EC5C39' : 'transparent'} />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.exploreActionBtn} onPress={() => handleDislike(item)} activeOpacity={0.85}>
+          <TouchableOpacity
+            style={[styles.exploreActionBtn, { borderColor: 'rgba(255,255,255,0.28)', backgroundColor: 'rgba(20,15,16,0.35)' }]}
+            onPress={() => handleDislike(item)}
+            activeOpacity={0.85}
+          >
             <ThumbsDown size={22} color="#FFFFFF" />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.explorePurchaseBtn} onPress={() => handlePurchase(item)} activeOpacity={0.85}>
+          <TouchableOpacity
+            style={[styles.explorePurchaseBtn, { borderColor: 'rgba(255,255,255,0.6)', backgroundColor: '#F8D5CB' }]}
+            onPress={() => handlePurchase(item)}
+            activeOpacity={0.85}
+          >
             <ShoppingCart size={18} color="#140F10" />
-            <Text style={styles.explorePurchaseLabel}>Purchase</Text>
+            <Text style={[styles.explorePurchaseLabel, { color: '#140F10' }]}>Purchase</Text>
           </TouchableOpacity>
         </View>
 
@@ -532,89 +271,13 @@ export default function ExploreScreen() {
           showCart={true}
           cartCount={cartCount}
           showMessages={true}
+          showSearch={true}
         />
 
-        <View
-          style={[
-            styles.modeToggleWrap,
-            {
-              backgroundColor: toggleWrapBg,
-              borderColor: toggleWrapBorder,
-            },
-          ]}
-        >
-          <TouchableOpacity
-            style={[
-              styles.modeToggleBtn,
-              surfaceMode === 'search' && {
-                backgroundColor: toggleActiveBg,
-                borderColor: toggleActiveBg,
-              },
-            ]}
-            onPress={() => setSurfaceMode('search')}
-            activeOpacity={0.85}
-          >
-            <Text
-              style={[
-                styles.modeToggleText,
-                { color: toggleTextColor },
-                surfaceMode === 'search' && { color: toggleActiveText },
-              ]}
-            >
-              Search
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.modeToggleBtn,
-              surfaceMode === 'explore' && {
-                backgroundColor: toggleActiveBg,
-                borderColor: toggleActiveBg,
-              },
-            ]}
-            onPress={() => setSurfaceMode('explore')}
-            activeOpacity={0.85}
-          >
-            <Text
-              style={[
-                styles.modeToggleText,
-                { color: toggleTextColor },
-                surfaceMode === 'explore' && { color: toggleActiveText },
-              ]}
-            >
-              Explore
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {surfaceMode === 'search' ? (
-          <SearchDiscoveryContent
-            styles={styles}
-            appTheme={appTheme}
-            items={items}
-            loading={loading}
-            selectedGenre={selectedGenre}
-            setSelectedGenre={setSelectedGenre}
-            searchQuery={searchQuery}
-            setSearchQuery={setSearchQuery}
-            onPlay={(item) => {
-              setTrack({
-                id: item.id,
-                title: item.title,
-                artist: item.uploaderName,
-                url: item.audioUrl,
-                uploaderId: item.uploaderId,
-                artworkUrl: item.artworkUrl,
-              }).catch((error) => {
-                console.error('Play from search failed:', error);
-                showToast('Could not play this track.', 'error');
-              });
-            }}
-            onPurchase={handlePurchase}
-          />
-        ) : loading ? (
-          <DiscoverySkeletonLoader styles={styles} />
+        {loading && feedItems.length === 0 ? (
+          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ color: appTheme.colors.textSecondary }}>Loading explore feed...</Text>
+          </View>
         ) : (
           <FlatList
             ref={feedRef}
@@ -623,7 +286,11 @@ export default function ExploreScreen() {
             pagingEnabled
             decelerationRate="fast"
             showsVerticalScrollIndicator={false}
-            onEndReachedThreshold={0.6}
+            onEndReachedThreshold={0.5}
+            windowSize={5}
+            initialNumToRender={2}
+            maxToRenderPerBatch={2}
+            removeClippedSubviews={false}
             onEndReached={appendFeed}
             renderItem={renderExploreItem}
             onViewableItemsChanged={onViewableItemsChanged}

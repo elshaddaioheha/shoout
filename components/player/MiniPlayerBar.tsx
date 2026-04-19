@@ -4,8 +4,9 @@ import { useAppTheme } from '@/hooks/use-app-theme';
 import { usePlaybackStore } from '@/store/usePlaybackStore';
 import { BlurView } from 'expo-blur';
 import { Image } from 'expo-image';
-import React, { memo, useCallback } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { memo, useCallback, useEffect } from 'react';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
 type Props = {
   onExpand: () => void;
@@ -31,15 +32,29 @@ function MiniPlayerBarBase({ onExpand }: Props) {
     onExpand();
   }, [onExpand]);
 
-  const progress = duration > 0 ? Math.max(0, Math.min(1, position / duration)) : 0;
+  const rawProgress = duration > 0 ? Math.max(0, Math.min(1, position / duration)) : 0;
+  const progressValue = useSharedValue(0);
+
+  useEffect(() => {
+    progressValue.value = withTiming(rawProgress, { duration: 250, easing: Easing.linear });
+  }, [rawProgress]);
+
+  const progressStyle = useAnimatedStyle(() => ({
+    width: `${progressValue.value * 100}%`,
+  }));
+
+  const bgColor = appTheme.isDark ? 'rgba(26, 21, 22, 0.97)' : 'rgba(255, 255, 255, 0.97)';
+  const borderColor = appTheme.isDark ? 'rgba(255,255,255,0.12)' : 'rgba(20,15,16,0.12)';
 
   return (
-    <View style={[styles.container, { borderColor: appTheme.colors.borderStrong }]}>
-      <BlurView intensity={36} tint={appTheme.isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
+    <View style={[styles.container, { borderColor, backgroundColor: Platform.OS === 'ios' ? 'transparent' : bgColor }]}>
+      {Platform.OS === 'ios' && (
+        <BlurView intensity={35} tint={appTheme.isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFillObject} />
+      )}
       <View style={styles.content}>
         <IconButton onPress={onExpandPress} style={styles.expandButton}>
           {currentTrack?.artworkUrl ? (
-            <Image source={{ uri: currentTrack.artworkUrl }} contentFit="cover" style={styles.artwork} />
+            <Image source={{ uri: currentTrack.artworkUrl }} contentFit="cover" style={styles.artwork} transition={300} />
           ) : (
             <Icon name="music" size={20} color={appTheme.colors.textSecondary} />
           )}
@@ -56,7 +71,7 @@ function MiniPlayerBarBase({ onExpand }: Props) {
         </IconButton>
       </View>
       <View style={[styles.progressTrack, { backgroundColor: appTheme.colors.surfaceMuted }]}>
-        <View style={[styles.progressFill, { width: `${progress * 100}%`, backgroundColor: appTheme.colors.primary }]} />
+        <Animated.View style={[styles.progressFill, { backgroundColor: appTheme.colors.primary }, progressStyle]} />
       </View>
     </View>
   );
@@ -67,9 +82,14 @@ export const MiniPlayerBar = memo(MiniPlayerBarBase);
 const styles = StyleSheet.create({
   container: {
     height: 68,
-    borderRadius: 14,
+    // Rounded top corners, flat bottom so it merges with the tab bar below
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
     overflow: 'hidden',
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 1,
+    borderBottomWidth: 0,
   },
   content: {
     flex: 1,

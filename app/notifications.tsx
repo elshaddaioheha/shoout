@@ -125,7 +125,7 @@ export default function NotificationsFeedScreen() {
 const legacyStyles = {
     container: {
         flex: 1,
-        backgroundColor: '#140F10',
+        backgroundColor: '$background',
     },
     header: {
         flexDirection: 'row',
@@ -134,20 +134,20 @@ const legacyStyles = {
         paddingHorizontal: 20,
         paddingVertical: 15,
         borderBottomWidth: 1,
-        borderBottomColor: 'rgba(255,255,255,0.05)',
+        borderBottomColor: '$borderLight',
     },
     backBtn: {
         width: 40,
         height: 40,
         borderRadius: 20,
-        backgroundColor: 'rgba(255,255,255,0.05)',
+        backgroundColor: '$surfaceMuted',
         alignItems: 'center',
         justifyContent: 'center',
     },
     headerTitle: {
         fontSize: 18,
         fontFamily: 'Poppins-Bold',
-        color: '#FFF',
+        color: '$textPrimary',
     },
     markAllBtn: {
         width: 40,
@@ -163,11 +163,11 @@ const legacyStyles = {
     notificationCard: {
         flexDirection: 'row',
         padding: 16,
-        backgroundColor: 'rgba(255,255,255,0.02)',
+        backgroundColor: '$surface',
         borderRadius: 16,
         marginBottom: 12,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.05)',
+        borderColor: '$borderLight',
     },
     unreadCard: {
         backgroundColor: 'rgba(236, 92, 57, 0.05)',
@@ -177,7 +177,7 @@ const legacyStyles = {
         width: 40,
         height: 40,
         borderRadius: 20,
-        backgroundColor: 'rgba(255,255,255,0.05)',
+        backgroundColor: '$surfaceMuted',
         alignItems: 'center',
         justifyContent: 'center',
         marginRight: 16,
@@ -188,23 +188,23 @@ const legacyStyles = {
     title: {
         fontSize: 15,
         fontFamily: 'Poppins-Medium',
-        color: 'rgba(255,255,255,0.9)',
+        color: '$textPrimary',
         marginBottom: 4,
     },
     unreadText: {
         fontFamily: 'Poppins-Bold',
-        color: '#FFF',
+        color: '$textPrimary',
     },
     body: {
         fontSize: 13,
         fontFamily: 'Poppins-Regular',
-        color: 'rgba(255,255,255,0.6)',
+        color: '$textSecondary',
         marginBottom: 8,
     },
     time: {
         fontSize: 11,
         fontFamily: 'Poppins-Regular',
-        color: 'rgba(255,255,255,0.4)',
+        color: '$textTertiary',
     },
     unreadDot: {
         width: 8,
@@ -223,13 +223,13 @@ const legacyStyles = {
     emptyTitle: {
         fontSize: 18,
         fontFamily: 'Poppins-Bold',
-        color: '#FFF',
+        color: '$textPrimary',
         marginTop: 16,
     },
     emptySub: {
         fontSize: 14,
         fontFamily: 'Poppins-Regular',
-        color: 'rgba(255,255,255,0.5)',
+        color: '$textSecondary',
         marginTop: 8,
     },
 };

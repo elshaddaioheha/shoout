@@ -16,10 +16,10 @@ type ModeSurfaceTheme = ThemeSwatch & {
 
 const MODE_THEME: Record<AppMode, ThemeSwatch> = {
   shoout: {
-    accent: '#6AA7FF',
-    accentStrong: '#2D4E7A',
-    accentTint: 'rgba(106,167,255,0.22)',
-    accentSoft: 'rgba(106,167,255,0.12)',
+    accent: '#1C71F2',
+    accentStrong: '#1253C2',
+    accentTint: 'rgba(28,113,242,0.22)',
+    accentSoft: 'rgba(28,113,242,0.12)',
   },
   studio: {
     accent: '#4CAF50',

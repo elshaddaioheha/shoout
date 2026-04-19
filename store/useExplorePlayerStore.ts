@@ -43,6 +43,8 @@ interface ExplorePlayerState {
   clearTrack: () => Promise<void>;
 }
 
+let playbackLoadToken = 0;
+
 export const useExplorePlayerStore = create<ExplorePlayerState>((set, get) => ({
   currentTrack: null,
   sound: null,
@@ -59,6 +61,9 @@ export const useExplorePlayerStore = create<ExplorePlayerState>((set, get) => ({
 
   playTrack: async (track) => {
     if (!track?.url?.trim()) return;
+
+    playbackLoadToken++;
+    const currentToken = playbackLoadToken;
 
     const previousSound = get().sound;
 
@@ -81,7 +86,11 @@ export const useExplorePlayerStore = create<ExplorePlayerState>((set, get) => ({
         sound: null,
       });
 
+      if (currentToken !== playbackLoadToken) return;
+
       await ensureAudioModeConfigured();
+
+      if (currentToken !== playbackLoadToken) return;
 
       const { sound } = await Audio.Sound.createAsync(
         { uri: track.url },
@@ -98,10 +107,20 @@ export const useExplorePlayerStore = create<ExplorePlayerState>((set, get) => ({
         }
       );
 
+      if (currentToken !== playbackLoadToken) {
+        // We swiped away while it was loading. Unload instantly.
+        try {
+          await sound.unloadAsync();
+        } catch (_) {}
+        return;
+      }
+
       set({ sound, isBuffering: false, isPlaying: true });
     } catch (error) {
       console.error('Explore player failed to load track:', error);
-      set({ isBuffering: false, isPlaying: false });
+      if (currentToken === playbackLoadToken) {
+        set({ isBuffering: false, isPlaying: false });
+      }
     }
   },
 

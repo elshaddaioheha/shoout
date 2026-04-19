@@ -103,19 +103,20 @@ export default function ResponsiveBottomTabBar(props: BottomTabBarProps) {
             }}
         >
             <View
-                style={[
+            style={[
                     styles.tabBar,
                     useUnifiedPillRoundness && styles.unifiedPillBar,
                     isVaultMode && styles.vaultTabBar,
                     isNativeLargeScreen && styles.tabBarLarge,
                     {
                         width: barWidth,
-                        backgroundColor: appTheme.isDark ? 'rgba(20, 15, 16, 0.46)' : 'rgba(255,255,255,0.72)',
-                        borderColor: appTheme.colors.borderStrong,
+                        backgroundColor: appTheme.isDark ? '#1A1516' : '#FFFFFF',
+                        borderColor: appTheme.isDark
+                            ? 'rgba(255,255,255,0.14)'
+                            : 'rgba(20,15,16,0.18)',
                     },
                 ]}
             >
-                <BlurView intensity={34} tint={appTheme.isDark ? 'dark' : 'light'} style={styles.tabBarBlur} />
                 {tabs.map((tab) => {
                     const routeIndex = tab.name ? getRouteIndex(tab.name) : -1;
                     const isFocused = tab.routePath
@@ -172,8 +173,11 @@ export default function ResponsiveBottomTabBar(props: BottomTabBarProps) {
 
 function TabButton({ iconName, label, badgeCount, isFocused, tabKey, fillOnFocus, activeAppMode, appTheme, styles, useUnifiedPillRoundness, onPress }: any) {
     const modeTheme = getModeSurfaceTheme(activeAppMode, appTheme.isDark);
-    const inactiveColor = appTheme.colors.textTertiary;
-    const activeFgColor = modeTheme.accentLabel;
+    const inactiveColor = appTheme.isDark
+        ? 'rgba(255,255,255,0.72)'
+        : 'rgba(23,18,19,0.72)';
+    const activeFgColor = '#FFFFFF';
+    const activeTabBgColor = modeTheme.accent;
     const activeAnim = React.useRef(new Animated.Value(isFocused ? 1 : 0)).current;
 
     React.useEffect(() => {
@@ -205,20 +209,11 @@ function TabButton({ iconName, label, badgeCount, isFocused, tabKey, fillOnFocus
                 style={[
                     styles.tab,
                     useUnifiedPillRoundness && styles.unifiedPillTab,
-                    isFocused ? [styles.activeTab, { backgroundColor: modeTheme.actionSurface, borderColor: modeTheme.actionBorder }] : styles.inactiveTab,
+                    isFocused ? [styles.activeTab, { backgroundColor: activeTabBgColor, borderColor: 'transparent' }] : styles.inactiveTab,
                 ]}
                 onPress={onPress}
                 activeOpacity={0.78}
             >
-                <Animated.View style={[styles.tabGlassLayer, { opacity: glassOpacity }]}> 
-                    <BlurView intensity={16} tint={appTheme.isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFillObject} />
-                    <LinearGradient
-                        colors={appTheme.isDark ? ['rgba(255,255,255,0.18)', 'rgba(255,255,255,0.02)'] : ['rgba(255,255,255,0.65)', 'rgba(255,255,255,0.18)']}
-                        start={{ x: 0.1, y: 0 }}
-                        end={{ x: 0.9, y: 1 }}
-                        style={StyleSheet.absoluteFillObject}
-                    />
-                </Animated.View>
                 <Animated.View
                     style={[
                         styles.activeGlow,
@@ -234,7 +229,7 @@ function TabButton({ iconName, label, badgeCount, isFocused, tabKey, fillOnFocus
 
                 <Icon
                     name={iconName}
-                    size={18}
+                    size={20}
                     color={isFocused ? activeFgColor : inactiveColor}
                     fill={isFocused && fillOnFocus}
                 />
@@ -271,9 +266,9 @@ const legacyStyles = {
         borderWidth: 1.2,
         shadowColor: '#000000',
         shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.18,
-        shadowRadius: 12,
-        elevation: 8,
+        shadowOpacity: 0.24,
+        shadowRadius: 16,
+        elevation: 12,
     },
     unifiedPillBar: {
         height: 64,
@@ -295,8 +290,8 @@ const legacyStyles = {
     tab: {
         flex: 1,
         minWidth: 0,
-        height: 48,
-        borderRadius: 999,
+        height: 44,
+        borderRadius: 22,
         alignItems: 'center',
         justifyContent: 'center',
         flexDirection: 'column',
@@ -309,11 +304,11 @@ const legacyStyles = {
         position: 'relative',
     },
     unifiedPillTab: {
-        height: 50,
-        paddingVertical: 6,
+        height: 46,
+        paddingVertical: 4,
         paddingHorizontal: 7,
         gap: 3,
-        borderRadius: 999,
+        borderRadius: 23,
     },
     activeTab: {
         backgroundColor: 'rgba(255,255,255,0.08)',
@@ -324,6 +319,7 @@ const legacyStyles = {
     labelActive: {
         ...typography.label,
         fontSize: 10,
+        fontWeight: '600',
         lineHeight: 12,
     },
     tabGlassLayer: {
@@ -332,7 +328,7 @@ const legacyStyles = {
     activeGlow: {
         ...StyleSheet.absoluteFillObject,
         borderWidth: 1,
-        borderRadius: 999,
+        borderRadius: 16,
         shadowOffset: { width: 0, height: 0 },
         shadowOpacity: 0.2,
         shadowRadius: 8,

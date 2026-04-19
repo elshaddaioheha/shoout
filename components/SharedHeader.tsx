@@ -30,6 +30,7 @@ interface SharedHeaderProps {
     showCart?: boolean;
     cartCount?: number;
     showMessages?: boolean;
+    showSearch?: boolean;
     customRightContent?: React.ReactNode;
 }
 
@@ -40,6 +41,7 @@ export default function SharedHeader({
     showCart,
     cartCount,
     showMessages,
+    showSearch,
     customRightContent,
 }: SharedHeaderProps) {
     const router = useRouter();
@@ -52,6 +54,7 @@ export default function SharedHeader({
     const accentColor = modeTheme.accent || appTheme.colors.primary;
     const shouldShowCart = Boolean(showCart) && !isVaultMode;
     const shouldShowMessages = Boolean(showMessages) && !isVaultMode;
+    const shouldShowSearch = Boolean(showSearch);
 
     const getRoleGradient = (): readonly [string, string, ...string[]] => {
         const startColor = withAlpha(accentColor, appTheme.isDark ? '30' : '18');
@@ -73,6 +76,16 @@ export default function SharedHeader({
                 <View style={styles.headerRight}>
                     {customRightContent ?? (
                         <>
+                            {shouldShowSearch && (
+                                <IconButton
+                                    style={[styles.iconButton, { marginRight: 8, backgroundColor: modeTheme.actionSurface, borderColor: modeTheme.actionBorder }]}
+                                    onPress={() => router.push('/search' as any)}
+                                    accessibilityRole="button"
+                                    accessibilityLabel="Open search"
+                                >
+                                    <Icon name="search" size={18} color={appTheme.colors.textPrimary} />
+                                </IconButton>
+                            )}
                             {shouldShowMessages && (
                                 <IconButton
                                     style={[styles.iconButton, { marginRight: 8, backgroundColor: modeTheme.actionSurface, borderColor: modeTheme.actionBorder }]}

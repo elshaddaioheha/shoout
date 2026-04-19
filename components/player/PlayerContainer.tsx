@@ -19,6 +19,7 @@ export default function PlayerContainer() {
   const bottomTabBarHeight = useLayoutMetricsStore((s) => s.bottomTabBarHeight);
   const activeAppMode = useUserStore((s) => s.activeAppMode);
   const track = usePlaybackStore((s) => s.currentTrack);
+  const clearTrack = usePlaybackStore((s) => s.clearTrack);
   const mode = useUIStore((s) => s.playerMode);
   const setMode = useUIStore((s) => s.setPlayerMode);
   const isModeTransitioning = useUIStore((s) => s.isModeTransitioning);
@@ -28,9 +29,8 @@ export default function PlayerContainer() {
 
   const miniHeight = 68;
   const estimatedBottomPillHeight = Math.max(62, bottomTabBarHeight || 0);
-  const miniBottom = Platform.OS === 'ios'
-    ? estimatedBottomPillHeight + 2
-    : estimatedBottomPillHeight + Math.max(0, insets.bottom > 0 ? 0 : 4);
+  // Sit mini player flush on top of the tab bar with zero gap so they connect
+  const miniBottom = estimatedBottomPillHeight;
   const hiddenY = height + 80;
   const miniY = height - miniBottom - miniHeight;
   const fullY = 0;
@@ -113,6 +113,10 @@ export default function PlayerContainer() {
   const setHidden = useCallback(() => {
     setMode('hidden');
   }, [setMode]);
+  const setHiddenAndClear = useCallback(() => {
+    setMode('hidden');
+    clearTrack().catch(() => null);
+  }, [setMode, clearTrack]);
 
   const fullPan = Gesture.Pan()
     .enabled(mode === 'full')
@@ -164,34 +168,36 @@ export default function PlayerContainer() {
         return;
       }
       if (destination > miniY + 56) {
-        runOnJS(setHidden)();
+        runOnJS(setHiddenAndClear)();
         return;
       }
       runOnJS(setMini)();
     });
 
-  const fullTranslateStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: translateY.value }],
-  }));
   const miniStyle = useAnimatedStyle(() => ({
     opacity: isVaultMode ? 0 : interpolate(translateY.value, [fullY, miniY, hiddenY], [0, 1, 0], Extrapolation.CLAMP),
     transform: [
       { translateY: (translateY.value - miniY) + interpolate(translateY.value, [fullY, miniY], [12, 0], Extrapolation.CLAMP) },
     ],
   }));
+
   const fullStyle = useAnimatedStyle(() => ({
     opacity: interpolate(translateY.value, [fullY, miniY], [1, 0], Extrapolation.CLAMP),
+    transform: [
+      { translateY: translateY.value },
+      { scale: interpolate(translateY.value, [fullY, miniY], [1, 0.92], Extrapolation.CLAMP) },
+    ],
   }));
 
   return (
     <Animated.View pointerEvents={track ? 'box-none' : 'none'} style={styles.absoluteFill}>
       <GestureDetector gesture={fullPan}>
-        <Animated.View pointerEvents={mode === 'full' ? 'auto' : 'none'} style={[styles.fullLayer, fullTranslateStyle, fullStyle]}>
+        <Animated.View pointerEvents={mode === 'full' ? 'auto' : 'none'} style={[styles.fullLayer, fullStyle]}>
           <FullPlayerView onCollapse={setMini} />
         </Animated.View>
       </GestureDetector>
       <GestureDetector gesture={miniPan}>
-        <Animated.View pointerEvents={mode === 'mini' && !isVaultMode ? 'auto' : 'none'} style={[styles.miniWrap, { top: miniY, left: 8, right: 8 }, miniStyle]}>
+        <Animated.View pointerEvents={mode === 'mini' && !isVaultMode ? 'auto' : 'none'} style={[styles.miniWrap, { top: miniY, left: 0, right: 0 }, miniStyle]}>
           <MiniPlayerBar onExpand={setFull} />
         </Animated.View>
       </GestureDetector>
