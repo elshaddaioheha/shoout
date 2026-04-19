@@ -1,4 +1,5 @@
 import GlobalToast from '@/components/GlobalToast';
+import PlayerContainer from '@/components/player/PlayerContainer';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAccessibilityStore } from '@/store/useAccessibilityStore';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -238,6 +239,7 @@ export default function RootLayout() {
           <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
           </Stack>
           <GlobalToast />
+          <PlayerContainer />
           <StatusBar style="auto" />
         </ThemeProvider>
       </Animated.View>
