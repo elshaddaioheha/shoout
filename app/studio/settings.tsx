@@ -33,6 +33,7 @@ import SettingsHeader from '@/components/settings/SettingsHeader';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { useRouter } from 'expo-router';
 import { useUserStore } from '@/store/useUserStore';
+import { useToastStore } from '@/store/useToastStore';
 import { auth, db } from '@/firebaseConfig';
 import { adaptLegacyColor, adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { notifyError } from '@/utils/notify';
@@ -54,6 +55,7 @@ export default function ArtistSettingsScreen() {
     const weakIconColor = adaptLegacyColor('rgba(255,255,255,0.2)', 'color', appTheme);
 
     const router = useRouter();
+    const { showToast } = useToastStore();
     // Seed display name from the global store so it matches the rest of the app.
     const storeName = useUserStore((s) => s.name);
     const setNameInStore = useUserStore((s) => s.setName);
@@ -182,7 +184,7 @@ export default function ArtistSettingsScreen() {
                 <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
                     {/* Banner and Profile Section */}
                     <View style={styles.imagesSection}>
-                        <TouchableOpacity style={styles.bannerContainer} onPress={() => Alert.alert('Coming Soon')}>
+                        <TouchableOpacity style={styles.bannerContainer} onPress={() => showToast('Banner upload is not enabled here yet.', 'info')}>
                             <View style={styles.bannerPlaceholder}>
                                 <ImageIcon size={32} color={weakIconColor} />
                                 <View style={styles.camIcon}>
@@ -191,7 +193,7 @@ export default function ArtistSettingsScreen() {
                             </View>
                         </TouchableOpacity>
 
-                        <TouchableOpacity style={styles.profilePicContainer} onPress={() => Alert.alert('Coming Soon')}>
+                        <TouchableOpacity style={styles.profilePicContainer} onPress={() => showToast('Profile image upload is not enabled here yet.', 'info')}>
                             <View style={styles.profilePicPlaceholder}>
                                 <Music2 size={32} color="#EC5C39" />
                                 <View style={styles.camIconSmall}>

@@ -24,13 +24,16 @@ type VaultLauncherAction = {
 
 interface VaultFloatingActionMenuProps {
   actions: VaultLauncherAction[];
+  align?: 'center' | 'right';
+  bottomOffset?: number;
+  rightOffset?: number;
 }
 
 const ACTION_ICONS = {
   upload: 'upload-cloud',
   convert: 'refresh-ccw',
-  record: 'mic',
   folder: 'folder-plus',
+  share: 'share',
 } as const satisfies Record<string, IconName>;
 
 function useVaultFloatingMenuStyles() {
@@ -108,7 +111,12 @@ function useVaultFloatingMenuStyles() {
   }, [appTheme]);
 }
 
-export default function VaultFloatingActionMenu({ actions }: VaultFloatingActionMenuProps) {
+export default function VaultFloatingActionMenu({
+  actions,
+  align = 'center',
+  bottomOffset,
+  rightOffset = 18,
+}: VaultFloatingActionMenuProps) {
   const appTheme = useAppTheme();
   const styles = useVaultFloatingMenuStyles();
   const isLightMode = !appTheme.isDark;
@@ -128,6 +136,7 @@ export default function VaultFloatingActionMenu({ actions }: VaultFloatingAction
   }))).current;
 
   const launcherWidth = Math.min(124, width - 44);
+  const launcherBottom = bottomOffset ?? (Math.max(insets.bottom, 14) + 16);
   const menuHorizontalInset = width >= 768 ? Math.max(56, (width - 620) / 2) : 20;
 
   useEffect(() => {
@@ -299,7 +308,14 @@ export default function VaultFloatingActionMenu({ actions }: VaultFloatingAction
 
   return (
     <>
-      <View style={[styles.launcherWrap, { bottom: Math.max(insets.bottom, 14) + 16 }]}>
+      <View
+        style={[
+          styles.launcherWrap,
+          align === 'right'
+            ? { right: rightOffset, left: undefined, alignItems: 'flex-end', bottom: launcherBottom }
+            : { bottom: launcherBottom },
+        ]}
+      >
         <Animated.View style={{ transform: [{ scale: buttonScale }] }}>
           <TouchableOpacity
             style={[styles.launcherButton, { width: launcherWidth }]}

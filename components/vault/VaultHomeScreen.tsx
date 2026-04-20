@@ -241,8 +241,7 @@ export default function VaultHomeScreen() {
 
   const handleFolderRename = () => {
     if (!selectedFolder) return;
-    // TODO: Open rename dialog
-    showToast('Rename folder - feature coming soon', 'info');
+    showToast('Open the folder to update details for now.', 'info');
   };
 
   const handleFolderShare = async () => {
@@ -304,8 +303,7 @@ export default function VaultHomeScreen() {
 
   const handleTrackMove = () => {
     if (!selectedTrack) return;
-    // This would open a folder picker modal
-    showToast('Move track to folder - feature coming soon', 'info');
+    showToast('Open the destination folder and add tracks from there.', 'info');
   };
 
   const handleTrackDelete = async () => {
@@ -508,27 +506,27 @@ export default function VaultHomeScreen() {
   };
 
   const quickActions = useMemo(() => ([
-    ...(!isHybridMode ? [{
+    {
       key: 'upload',
       label: 'Upload',
       onPress: handleStartUpload,
-    }] : []),
+    },
     {
       key: 'convert',
       label: 'Convert',
       onPress: () => router.push('/vault/convert' as any),
     },
     {
-      key: 'record',
-      label: 'Record',
-      onPress: () => router.push('/vault/record' as any),
-    },
-    {
       key: 'folder',
       label: 'Folder',
       onPress: handleUploadFolderFromDevice,
     },
-  ]), [handleStartUpload, handleUploadFolderFromDevice, isHybridMode, router]);
+    {
+      key: 'share',
+      label: 'Share',
+      onPress: () => router.push('/vault/links' as any),
+    },
+  ]), [handleStartUpload, handleUploadFolderFromDevice, router]);
 
   const searchResults = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -884,7 +882,12 @@ export default function VaultHomeScreen() {
 
       </ScrollView>
 
-      <VaultFloatingActionMenu actions={quickActions} />
+      <VaultFloatingActionMenu
+        actions={quickActions}
+        align={isHybridMode ? 'right' : 'center'}
+        bottomOffset={isHybridMode ? insets.bottom + 74 : undefined}
+        rightOffset={isHybridMode ? 16 : undefined}
+      />
 
       <ActionSheet
         visible={trackMenuVisible}

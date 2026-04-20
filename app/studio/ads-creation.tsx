@@ -329,7 +329,7 @@ export default function AdsCreationScreen() {
                     <Image source={{ uri: promotingTrackCoverUrl }} style={{ width: '100%', height: '100%' }} />
                 </View>
             ) : (
-                <TouchableOpacity style={styles.uploadBox} activeOpacity={0.9} onPress={() => showToast('Image upload coming soon', 'info')}>
+                <TouchableOpacity style={styles.uploadBox} activeOpacity={0.9} onPress={() => showToast('Image upload is not enabled in this flow yet. Use your promoted track cover for now.', 'info')}>
                   <ImageIcon size={28} color={appTheme.colors.textTertiary} />
                   <Text style={styles.uploadText}>Upload img Jpegs and Pngs only</Text>
                 </TouchableOpacity>

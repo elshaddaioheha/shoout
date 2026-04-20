@@ -1,6 +1,5 @@
 import ShooutsFavouritesScreen from '@/components/library/ShooutFavouritesScreen';
-import HybridLibraryScreen from '@/components/library/HybridLibraryScreen';
-import StudioCreatorScreen from '@/components/library/StudioCreatorScreen';
+import VaultHomeScreen from '@/components/vault/VaultHomeScreen';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useUserStore } from '@/store/useUserStore';
 import React from 'react';
@@ -14,9 +13,15 @@ export default function LibraryScreen() {
   const authState = useAuthStore((s) => s);
 
   const activeRole = authState.actualRole || user.actualRole || user.role;
-  const isHybridUser = activeRole?.startsWith('hybrid');
-  const isStudioUser = user.activeAppMode === 'studio' || activeRole?.startsWith('studio');
-  const isCreatorSurface = isStudioUser || isHybridUser;
+  const isVaultSurface = user.activeAppMode === 'hybrid'
+    || user.activeAppMode === 'vault'
+    || user.activeAppMode === 'vault_pro'
+    || activeRole?.startsWith('hybrid')
+    || activeRole?.startsWith('vault');
+
+  if (isVaultSurface) {
+    return <VaultHomeScreen />;
+  }
 
   return <ShooutsFavouritesScreen />;
 }

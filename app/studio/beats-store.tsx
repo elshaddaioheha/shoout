@@ -115,6 +115,10 @@ export default function BeatsStoreManagement() {
 
     const totalSales = beats.reduce((acc, curr) => acc + (curr.salesCount || 0), 0);
     const monthlyRevenue = beats.reduce((acc, curr) => acc + (curr.revenue || 0), 0);
+    const openEditFlow = () => {
+        useToastStore.getState().showToast('Use Studio Upload to update track details.', 'info');
+        router.push('/studio/upload' as any);
+    };
 
     return (
         <SafeScreenWrapper>
@@ -251,7 +255,7 @@ function BeatCard({ beat, onDelete, styles, appTheme }: any) {
                     title={beat.title}
                     options={[
                         { label: 'Listen Preview', icon: <Play size={18} color={appTheme.colors.textPrimary} />, onPress: () => setTrack({ id: beat.id, title: beat.title, artist: 'My Track', url: beat.audioUrl, uploaderId: beat.uploaderId }) },
-                        { label: 'Edit Details', icon: <Edit3 size={18} color={appTheme.colors.textPrimary} />, onPress: () => useToastStore.getState().showToast('Beat editing coming soon.', 'info') },
+                        { label: 'Edit Details', icon: <Edit3 size={18} color={appTheme.colors.textPrimary} />, onPress: openEditFlow },
                         { label: 'Delete', icon: <Trash2 size={18} color="#FF4D4D" />, onPress: onDelete, destructive: true },
                     ]}
                 />
@@ -295,7 +299,7 @@ function BeatCard({ beat, onDelete, styles, appTheme }: any) {
                     <Play size={18} color={appTheme.colors.textPrimary} />
                     <Text style={styles.cardActionText}>Listen</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.cardActionButton} onPress={() => useToastStore.getState().showToast('Beat details editing coming soon. You can update title, price, genre, and BPM.', 'info')}>
+                <TouchableOpacity style={styles.cardActionButton} onPress={openEditFlow}>
                     <Edit3 size={18} color={appTheme.colors.textPrimary} />
                     <Text style={styles.cardActionText}>Edit</Text>
                 </TouchableOpacity>

@@ -20,7 +20,7 @@ import { useRouter } from 'expo-router';
 import { onAuthStateChanged } from 'firebase/auth';
 import { ChevronLeft, ChevronRight } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
-import { Alert, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Platform, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { auth } from '../../firebaseConfig';
 
 function useMoreStyles() {
@@ -90,6 +90,16 @@ export default function MoreScreen() {
     const goHybridHome = () => {
         setActiveAppMode('hybrid');
         router.push('/' as any);
+    };
+    const handleShareApp = async () => {
+        try {
+            await Share.share({
+                message: 'Check out Shoouts: discover tracks, upload to Vault, and manage your creator workflow.',
+                title: 'Share Shoouts',
+            });
+        } catch {
+            showToast('Could not open share options right now.', 'error');
+        }
     };
 
     const performLogout = async () => {
@@ -228,8 +238,8 @@ export default function MoreScreen() {
                         {isStudioMode && <MenuItem iconName="circle-help" label="Studio Settings" color={accentColor} onPress={() => canUseStudioTools ? router.push('/studio/settings' as any) : pushSubscriptions()} />}
                         {isHybridMode && <MenuItem iconName="sparkles" label="Hybrid Analytics" color={accentColor} onPress={() => canUseHybridTools ? router.push('/studio/analytics' as any) : pushSubscriptions()} />}
                         {isHybridMode && <MenuItem iconName="circle-help" label="Studio Settings" color={accentColor} onPress={() => canUseHybridTools ? router.push('/studio/settings' as any) : pushSubscriptions()} />}
-                        <MenuItem iconName="share" label="Share" color={accentColor} onPress={() => showToast('Coming soon', 'info')} />
-                        <MenuItem iconName="circle-help" label="Support" color={accentColor} onPress={() => showToast('Support coming soon', 'info')} />
+                        <MenuItem iconName="share" label="Share" color={accentColor} onPress={handleShareApp} />
+                        <MenuItem iconName="circle-help" label="Support" color={accentColor} onPress={() => router.push('/settings/help-center' as any)} />
                         <MenuItem iconName="shield" label="Privacy & Security" color={accentColor} onPress={() => router.push('/settings/privacy' as any)} />
                         <MenuItem iconName="log-out" label="Log Out" color="#EF4444" onPress={handleLogout} hideChevron />
                     </View>

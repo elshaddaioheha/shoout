@@ -249,7 +249,7 @@ export default function PlaylistScreen() {
       <View style={styles.container}>
         <View style={styles.topBar}>
           <View style={styles.topBarSpacer} />
-          <TouchableOpacity style={styles.iconButton} onPress={() => Alert.alert('Coming Soon')}>
+          <TouchableOpacity style={styles.iconButton} onPress={() => showToast('Playlist options are available per-track below.', 'info')}>
             <MoreVertical size={22} color={appTheme.colors.textPrimary} />
           </TouchableOpacity>
         </View>

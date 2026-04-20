@@ -3,6 +3,7 @@ import { useAppTheme } from '@/hooks/use-app-theme';
 import { usePlayerActions } from '@/hooks/usePlayerActions';
 import type { Track } from '@/store/usePlaybackStore';
 import { useToastStore } from '@/store/useToastStore';
+import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect } from 'react';
 import {
   Dimensions,
@@ -51,6 +52,7 @@ export function PlayerMenuSheet({ visible, track, onClose }: Props) {
   const appTheme = useAppTheme();
   const insets = useSafeAreaInsets();
   const { showToast } = useToastStore();
+  const router = useRouter();
   const { onAddToCart, onAddToPlaylist, onOpenArtist } = usePlayerActions();
 
   const translateY = useSharedValue(SHEET_HEIGHT);
@@ -94,7 +96,7 @@ export function PlayerMenuSheet({ visible, track, onClose }: Props) {
       if (!track) return;
       switch (id) {
         case 'download':
-          showToast('Download coming soon.', 'info');
+          router.push('/settings/downloads' as any);
           break;
         case 'playlist':
           void onAddToPlaylist(track);
@@ -103,7 +105,11 @@ export function PlayerMenuSheet({ visible, track, onClose }: Props) {
           onAddToCart(track);
           break;
         case 'details':
-          showToast('Song details coming soon.', 'info');
+          if (track?.id && track?.uploaderId) {
+            router.push({ pathname: '/listing/[id]', params: { id: track.id, uploaderId: track.uploaderId } } as any);
+          } else {
+            showToast('Track details are unavailable for this source.', 'info');
+          }
           break;
         case 'artist':
           onOpenArtist(track);
@@ -114,7 +120,7 @@ export function PlayerMenuSheet({ visible, track, onClose }: Props) {
       }
       handleClose();
     },
-    [track, handleClose, showToast, onAddToPlaylist, onAddToCart, onOpenArtist],
+    [track, handleClose, showToast, onAddToPlaylist, onAddToCart, onOpenArtist, router],
   );
 
   const sheetStyle = useAnimatedStyle(() => ({

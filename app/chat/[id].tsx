@@ -261,10 +261,10 @@ export default function ChatConversationScreen() {
                     </View>
 
                     <View style={styles.headerIcons}>
-                        <TouchableOpacity style={styles.iconBtn} onPress={() => Alert.alert('Coming Soon')}>
+                        <TouchableOpacity style={styles.iconBtn} onPress={() => Alert.alert('Unavailable', 'Audio calling is not available in this build.')}>
                             <Phone size={20} color={appTheme.colors.textPrimary} />
                         </TouchableOpacity>
-                        <TouchableOpacity style={styles.iconBtn} onPress={() => Alert.alert('Coming Soon')}>
+                        <TouchableOpacity style={styles.iconBtn} onPress={() => Alert.alert('Unavailable', 'Video calling is not available in this build.')}>
                             <Video size={20} color={appTheme.colors.textPrimary} />
                         </TouchableOpacity>
                     </View>

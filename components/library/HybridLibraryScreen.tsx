@@ -371,7 +371,7 @@ export default function HybridLibraryScreen() {
             )}
 
             <View style={styles.actionsRow}>
-              <TouchableOpacity style={styles.filterButton} activeOpacity={0.8} onPress={() => showToast('Coming soon', 'info')}>
+              <TouchableOpacity style={styles.filterButton} activeOpacity={0.8} onPress={() => showToast('Filtering is not enabled yet for this view.', 'info')}>
                 <Icon name="filter" size={18} color={appTheme.colors.textPrimary} />
                 <Text style={styles.filterText}>filter</Text>
               </TouchableOpacity>
@@ -406,7 +406,7 @@ export default function HybridLibraryScreen() {
               <>
                 <View style={styles.sectionHeader}>
                   <Text style={styles.sectionTitle}>Recent Upload</Text>
-                  <TouchableOpacity activeOpacity={0.8} onPress={() => showToast('Coming soon', 'info')}>
+                  <TouchableOpacity activeOpacity={0.8} onPress={() => router.push('/vault/updates' as any)}>
                     <Text style={styles.seeAll}>See All</Text>
                   </TouchableOpacity>
                 </View>
@@ -443,7 +443,7 @@ export default function HybridLibraryScreen() {
           icon="link-2"
           color={appTheme.colors.textPrimary}
           size={20}
-          onPress={() => showToast('Coming soon', 'info')}
+          onPress={() => router.push('/vault/links' as any)}
         />
       </>
 
