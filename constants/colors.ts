@@ -1,4 +1,5 @@
 export type AppColorTokens = {
+    shooutPrimary: string;
     primary: string;
     primaryDark: string;
     primaryLight: string;
@@ -24,6 +25,7 @@ export type AppColorTokens = {
 
 export const colorPalettes: { light: AppColorTokens; dark: AppColorTokens } = {
     dark: {
+        shooutPrimary: '#6AA7FF',
         primary: '#EC5C39',
         primaryDark: '#D32626',
         primaryLight: '#C96F6F',
@@ -47,6 +49,7 @@ export const colorPalettes: { light: AppColorTokens; dark: AppColorTokens } = {
         overlay: 'rgba(0,0,0,0.4)',
     },
     light: {
+        shooutPrimary: '#6AA7FF',
         primary: '#D84A28',
         primaryDark: '#B7331B',
         primaryLight: '#E8836B',

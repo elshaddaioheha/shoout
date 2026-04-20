@@ -9,8 +9,8 @@ import { useUserStore } from '@/store/useUserStore';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { getModeTheme } from '@/utils/appModeTheme';
 import { updateProfile } from 'firebase/auth';
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { LinearGradient } from 'expo-linear-gradient';
+import { colors } from '@/constants/colors';
 import { useRouter } from 'expo-router';
 import { collection, doc, getDocs, onSnapshot, setDoc } from 'firebase/firestore';
 import { Icon } from '@/components/ui/Icon';
@@ -66,7 +66,7 @@ export default function ProfileScreen() {
         if (activeAppMode === 'vault' || activeAppMode === 'vault_pro') return ['rgba(236, 92, 57, 0.15)', 'rgba(0,0,0,0)'];
         if (activeAppMode === 'studio') return ['rgba(76, 175, 80, 0.15)', 'rgba(0,0,0,0)'];
         if (activeAppMode === 'hybrid') return ['rgba(255, 215, 0, 0.15)', 'rgba(0,0,0,0)'];
-        if (activeAppMode === 'shoout') return ['rgba(106, 167, 255, 0.15)', 'rgba(0,0,0,0)'];
+        if (activeAppMode === 'shoout') return [`${colors.shooutPrimary}26`, 'rgba(0,0,0,0)'];
         return [appTheme.isDark ? 'rgba(255,255,255,0.02)' : 'rgba(23,18,19,0.04)', 'rgba(0,0,0,0)'];
     };
 
@@ -198,51 +198,6 @@ export default function ProfileScreen() {
         }
     };
 
-    const performLogout = async () => {
-        // 1. Stop Firestore notification listener first — prevents it from
-        //    continuing to emit events for the signed-out user.
-        useNotificationStore.getState().stopListening();
-
-        // 2. Revoke Google Sign-In session so the next login always
-        //    shows the account picker instead of silently reusing the
-        //    previous session (critical on shared devices).
-        try {
-            const hadPreviousSignIn = GoogleSignin.hasPreviousSignIn();
-            if (hadPreviousSignIn) {
-                await GoogleSignin.revokeAccess();
-                await GoogleSignin.signOut();
-            }
-        } catch (e) {
-            // Non-fatal: Google session revocation failure should not block logout
-            console.warn('Google sign-out error:', e);
-        }
-
-        // 3. Sign out of Firebase
-        try {
-            await auth.signOut();
-        } catch (e) {
-            console.warn('Firebase signOut error:', e);
-        } finally {
-            // 4. Clear all stores — prevents data leaking to the next user
-            //    who signs in on the same device.
-            reset();                                        // useUserStore
-            useAuthStore.getState().reset();               // auth / subscription
-            useCartStore.getState().clearCart();           // cart items (persisted)
-            await usePlaybackStore.getState().clearTrack(); // stop audio + unload
-            router.replace('/(auth)/login');
-        }
-    };
-
-    const handleLogout = () => {
-        Alert.alert(
-            'Log Out',
-            'Are you sure you want to log out?',
-            [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'Log Out', style: 'destructive', onPress: performLogout },
-            ]
-        );
-    };
 
     const handleBack = () => {
         if (router.canGoBack()) {
@@ -282,9 +237,6 @@ export default function ProfileScreen() {
                         <View style={[styles.avatar, { backgroundColor: accentSoft, borderColor: accentColor }]}>
                             <Icon name="user" size={40} color={appTheme.colors.textPrimary} />
                         </View>
-                        <TouchableOpacity style={[styles.editBadge, { backgroundColor: accentColor }]} onPress={handleEditProfile}>
-                            <Icon name="settings" size={14} color={appTheme.colors.textPrimary} />
-                        </TouchableOpacity>
                     </View>
 
                     <Text style={styles.userName}>{name}</Text>
@@ -323,61 +275,33 @@ export default function ProfileScreen() {
                             <Text style={styles.statLabel}>Playlists</Text>
                         </View>
                     </View>
+
+                    <View style={styles.actionButtonsRow}>
+                        <TouchableOpacity style={[styles.primaryActionButton, { backgroundColor: accentColor }]} onPress={handleEditProfile} activeOpacity={0.85}>
+                            <Icon name="edit-2" size={16} color="#FFF" />
+                            <Text style={styles.actionButtonText}>Edit Profile</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.secondaryActionButton} onPress={handleShare} activeOpacity={0.85}>
+                            <Icon name="share" size={16} color="#FFF" />
+                            <Text style={styles.actionButtonText}>Share</Text>
+                        </TouchableOpacity>
+                    </View>
                 </Animated.View>
 
-                {/* Account Section */}
-                <Text style={styles.sectionTitle}>Account</Text>
-                <View style={styles.menuContainer}>
-                    <MenuItem
-                        iconName="crown"
-                        label="Subscription"
-                        value={role.replace('_', ' ').toUpperCase()}
-                        color={accentColor}
-                        onPress={() => router.push('/settings/subscriptions' as any)}
-                    />
-                    <MenuItem
-                        iconName="credit-card"
-                        label="Payment Methods"
-                        color={accentColor}
-                        onPress={() => router.push('/settings/payment-methods' as any)}
-                    />
-                    <MenuItem
-                        iconName="music"
-                        label="Artist Dashboard"
-                        color={accentColor}
-                        onPress={() => {
-                            if (isStudioPaid) {
-                                router.push('/studio/analytics' as any);
-                            } else {
-                                Alert.alert(
-                                    "Upgrade Required",
-                                    "Studio Pro unlocks the Artist Dashboard. Upgrade to access analytics and payouts.",
-                                    [
-                                        { text: "Cancel", style: "cancel" },
-                                        { text: "Upgrade", onPress: () => router.push('/settings/subscriptions' as any) }
-                                    ]
-                                );
-                            }
-                        }}
-                    />
+                {/* Your Content Section */}
+                <View style={styles.contentSection}>
+                    <Text style={styles.sectionTitle}>Your Content</Text>
+                    <View style={styles.emptyContentCard}>
+                        <View style={[styles.emptyContentIconWrap, { backgroundColor: `${accentColor}1A` }]}>
+                            <Icon name="music" size={32} color={accentColor} />
+                        </View>
+                        <Text style={styles.emptyContentTitle}>No public tracks</Text>
+                        <Text style={styles.emptyContentSub}>Your published tracks and public playlists will appear here.</Text>
+                        <TouchableOpacity style={[styles.ghostUploadButton, { borderColor: `${accentColor}40` }]} onPress={() => router.push('/vault/upload' as any)}>
+                            <Text style={[styles.ghostUploadText, { color: accentColor }]}>Upload new track</Text>
+                        </TouchableOpacity>
+                    </View>
                 </View>
-
-                {/* Preferences Section */}
-                <Text style={styles.sectionTitle}>Preferences</Text>
-                <View style={styles.menuContainer}>
-                    <MenuItem iconName="sparkles" label="Appearance" color={accentColor} onPress={() => router.push('/settings/appearance' as any)} />
-                    <MenuItem iconName="bell" label="Notifications" color={accentColor} onPress={() => router.push('/settings/notifications' as any)} />
-                    <MenuItem iconName="download" label="Downloads" color={accentColor} onPress={() => router.push('/settings/downloads' as any)} />
-                    <MenuItem iconName="shield" label="Privacy & Security" color={accentColor} onPress={() => router.push('/settings/privacy' as any)} />
-                </View>
-
-                {/* Support Section */}
-                <Text style={styles.sectionTitle}>Support</Text>
-                <View style={styles.menuContainer}>
-                    <MenuItem iconName="sparkles" label="Help Center" color={accentColor} onPress={() => router.push('/settings/help-center' as any)} />
-                    <MenuItem iconName="log-out" label="Log Out" color="#EF4444" onPress={handleLogout} hideChevron />
-                </View>
-
                 <View style={{ height: 100 }} />
             </ScrollView>
 
@@ -424,23 +348,6 @@ export default function ProfileScreen() {
     );
 }
 
-function MenuItem({ iconName, label, value, color, onPress, hideChevron }: any) {
-    const appTheme = useAppTheme();
-    const styles = useProfileStyles();
-
-    return (
-        <TouchableOpacity style={styles.menuItem} onPress={onPress}>
-            <View style={[styles.menuIconContainer, { backgroundColor: `${color}15` }]}>
-                <Icon name={iconName} size={20} color={color} />
-            </View>
-            <View style={styles.menuTextContainer}>
-                <Text style={styles.menuLabel}>{label}</Text>
-                {value && <Text style={styles.menuValue}>{value}</Text>}
-            </View>
-            {!hideChevron && <Icon name="chevron-right" size={18} color={appTheme.colors.textTertiary} />}
-        </TouchableOpacity>
-    );
-}
 
 const legacyStyles = {
     container: {
@@ -570,40 +477,88 @@ const legacyStyles = {
         color: '#FFF',
         marginBottom: 16,
     },
-    menuContainer: {
-        backgroundColor: 'rgba(255,255,255,0.03)',
-        borderRadius: 24,
-        overflow: 'hidden',
-        marginBottom: 32,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.05)',
-    },
-    menuItem: {
+    actionButtonsRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        padding: 16,
+        justifyContent: 'center',
+        gap: 12,
+        marginTop: 32,
+        width: '100%',
     },
-    menuIconContainer: {
-        width: 40,
-        height: 40,
-        borderRadius: 12,
+    primaryActionButton: {
+        flex: 1,
+        height: 48,
+        borderRadius: 24,
+        flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
+        gap: 8,
     },
-    menuTextContainer: {
+    secondaryActionButton: {
         flex: 1,
-        marginLeft: 16,
+        height: 48,
+        borderRadius: 24,
+        backgroundColor: 'rgba(255,255,255,0.06)',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.1)',
     },
-    menuLabel: {
-        fontSize: 15,
-        fontFamily: 'Poppins-Medium',
+    actionButtonText: {
         color: '#FFF',
+        fontFamily: 'Poppins-SemiBold',
+        fontSize: 14,
     },
-    menuValue: {
-        fontSize: 12,
+    contentSection: {
+        marginTop: 0,
+        marginBottom: 32,
+    },
+    emptyContentCard: {
+        backgroundColor: 'rgba(255,255,255,0.03)',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.05)',
+        borderRadius: 24,
+        paddingHorizontal: 24,
+        paddingVertical: 40,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginTop: 8,
+    },
+    emptyContentIconWrap: {
+        width: 64,
+        height: 64,
+        borderRadius: 32,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 16,
+    },
+    emptyContentTitle: {
+        color: '#FFF',
+        fontFamily: 'Poppins-Bold',
+        fontSize: 18,
+        marginBottom: 8,
+    },
+    emptyContentSub: {
+        color: 'rgba(255,255,255,0.5)',
         fontFamily: 'Poppins-Regular',
-        color: 'rgba(255,255,255,0.4)',
-        marginTop: 1,
+        fontSize: 13,
+        textAlign: 'center',
+        paddingHorizontal: 16,
+        marginBottom: 20,
+        lineHeight: 20,
+    },
+    ghostUploadButton: {
+        paddingHorizontal: 20,
+        paddingVertical: 10,
+        borderRadius: 999,
+        borderWidth: 1,
+        backgroundColor: 'rgba(255,255,255,0.02)',
+    },
+    ghostUploadText: {
+        fontFamily: 'Poppins-SemiBold',
+        fontSize: 13,
     },
     modalOverlay: {
         flex: 1,

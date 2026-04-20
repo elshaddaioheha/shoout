@@ -5,6 +5,7 @@ import SharedHeader from '@/components/SharedHeader';
 import StudioDashboardScreen from '@/components/studio/StudioDashboardScreen';
 import VaultHomeScreen from '@/components/vault/VaultHomeScreen';
 import { theme } from '@/constants/theme';
+import { colors } from '@/constants/colors';
 import { HOME_SECTIONS, type HomeSectionKey } from '@/constants/homeFeed';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { usePublishedUploads, type PublishedUpload } from '@/hooks/usePublishedUploads';
@@ -58,7 +59,7 @@ const spacing = {
   xxl: 32,
 } as const;
 
-const SHOOUT_ACCENT = '#6AA7FF';
+const SHOOUT_ACCENT = colors.shooutPrimary;
 const SHOOUT_ACCENT_SOFT = '#D8E8FF';
 
 function useHomeStyles() {

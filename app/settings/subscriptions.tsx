@@ -9,6 +9,7 @@ import { adaptLegacyColor, adaptLegacyStyles } from '@/utils/legacyThemeAdapter'
 import { hydrateSubscriptionTier } from '@/utils/subscriptionVerification';
 import { formatUsd, usdToNgn } from '@/utils/pricing';
 import { getSubscriptionPlan, SUBSCRIPTION_PLANS, type SubscriptionPlanId } from '@/utils/subscriptions';
+import { colors } from '@/constants/colors';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
@@ -24,7 +25,7 @@ const SUBSCRIPTION_VERIFY_URL =
 type PlanCategory = 'Shoouts' | 'Vault' | 'Studio' | 'Hybrid';
 
 const CATEGORY_TABS: { id: PlanCategory; label: string; color: string }[] = [
-    { id: 'Shoouts', label: 'Shoouts', color: '#6AA7FF' },
+    { id: 'Shoouts', label: 'Shoouts', color: colors.shooutPrimary },
     { id: 'Vault', label: 'Vault', color: '#EC5C39' },
     { id: 'Studio', label: 'Studio', color: '#4CAF50' },
     { id: 'Hybrid', label: 'Hybrid', color: '#D4AF37' },

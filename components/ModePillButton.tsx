@@ -6,6 +6,7 @@ import { FontFamily, typography } from '@/constants/typography';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { ViewMode } from '@/store/useUserStore';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
+import { colors } from '@/constants/colors';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useRef } from 'react';
@@ -27,9 +28,9 @@ const MODE_LABELS: Record<ViewMode, string> = {
 
 const MODE_COLORS: Record<ViewMode, { border: string; text: string; arrowBg: string }> = {
     shoout: {
-        border: 'rgba(106, 167, 255, 0.35)',
+        border: `${colors.shooutPrimary}59`,
         text: '#E6F0FF',
-        arrowBg: 'rgba(106, 167, 255, 0.2)',
+        arrowBg: `${colors.shooutPrimary}33`,
     },
     vault: {
         border: 'rgba(236, 92, 57, 0.35)',

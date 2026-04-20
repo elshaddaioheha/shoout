@@ -7,6 +7,7 @@ import { useLayoutMetricsStore } from '@/store/useLayoutMetricsStore';
 import { useToastStore } from '@/store/useToastStore';
 import { adaptLegacyColor, adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { formatUsd } from '@/utils/pricing';
+import { colors } from '@/constants/colors';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import {
@@ -140,7 +141,7 @@ export default function CartScreen() {
                 style={styles.removeBtn}
                 onPress={() => removeItem(item.id)}
             >
-                <Trash2 size={20} color="#6AA7FF" />
+                <Trash2 size={20} color={colors.shooutPrimary} />
             </TouchableOpacity>
         </TouchableOpacity>
     );
@@ -198,7 +199,7 @@ export default function CartScreen() {
 
                         {purchasedCount > 0 ? (
                             <TouchableOpacity style={styles.viewListBtn} onPress={() => router.push('/(tabs)/library')}>
-                                <Library size={16} color="#6AA7FF" />
+                                <Library size={16} color={colors.shooutPrimary} />
                                 <Text style={styles.viewListText}>View List</Text>
                             </TouchableOpacity>
                         ) : null}
@@ -294,7 +295,7 @@ const legacyStyles = {
         color: '#FFF',
     },
     clearText: {
-        color: '#6AA7FF',
+        color: colors.shooutPrimary,
         fontSize: 14,
         fontFamily: 'Poppins-Medium',
     },
@@ -302,12 +303,12 @@ const legacyStyles = {
         minHeight: 34,
         paddingHorizontal: 14,
         borderRadius: 999,
-        backgroundColor: '#6AA7FF',
+        backgroundColor: colors.shooutPrimary,
         alignItems: 'center',
         justifyContent: 'center',
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.14)',
-        shadowColor: '#6AA7FF',
+        shadowColor: colors.shooutPrimary,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.32,
         shadowRadius: 10,
@@ -319,8 +320,8 @@ const legacyStyles = {
         shadowOpacity: 0.2,
     },
     checkoutHeaderBtnDisabled: {
-        backgroundColor: 'rgba(106,167,255,0.32)',
-        borderColor: 'rgba(106,167,255,0.26)',
+        backgroundColor: `${colors.shooutPrimary}52`,
+        borderColor: `${colors.shooutPrimary}42`,
         shadowOpacity: 0,
         elevation: 0,
     },
@@ -380,7 +381,7 @@ const legacyStyles = {
     itemPrice: {
         fontSize: 14,
         fontFamily: 'Poppins-SemiBold',
-        color: '#6AA7FF',
+        color: colors.shooutPrimary,
         marginTop: 4,
     },
     removeBtn: {
@@ -416,7 +417,7 @@ const legacyStyles = {
     },
     browseBtn: {
         marginTop: 14,
-        backgroundColor: '#6AA7FF',
+        backgroundColor: colors.shooutPrimary,
         alignSelf: 'center',
         paddingHorizontal: 22,
         paddingVertical: 10,
@@ -435,7 +436,7 @@ const legacyStyles = {
         gap: 6,
     },
     viewListText: {
-        color: '#6AA7FF',
+        color: colors.shooutPrimary,
         fontSize: 14,
         fontFamily: 'Poppins-Regular',
     },
@@ -452,7 +453,7 @@ const legacyStyles = {
         fontFamily: 'Poppins-SemiBold',
     },
     bestSellerLink: {
-        color: '#6AA7FF',
+        color: colors.shooutPrimary,
         fontSize: 14,
         fontFamily: 'Poppins-Regular',
     },
@@ -553,7 +554,7 @@ const legacyStyles = {
     totalValue: {
         fontSize: 24,
         fontFamily: 'Poppins-Bold',
-        color: '#6AA7FF',
+        color: colors.shooutPrimary,
     },
     checkoutBtn: {
         height: 60,

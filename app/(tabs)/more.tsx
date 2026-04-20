@@ -12,6 +12,7 @@ import { useUserStore } from '@/store/useUserStore';
 import { useVaultWorkspaceData } from '@/hooks/useVaultWorkspaceData';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { getModeTheme } from '@/utils/appModeTheme';
+import { colors } from '@/constants/colors';
 import { canUseHybridServices, canUseStudioServices, getEffectivePlan } from '@/utils/subscriptions';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -206,7 +207,6 @@ export default function MoreScreen() {
                         {isVaultMode && <MenuItem iconName="link-2" label="Shared Links" color={accentColor} onPress={() => router.push('/vault/links' as any)} />}
                         {isStudioMode && <MenuItem iconName="banknote" label="Royalties & Earnings" color={accentColor} onPress={() => canUseStudioTools ? router.push('/studio/earnings' as any) : pushSubscriptions()} />}
                         {isHybridMode && <MenuItem iconName="banknote" label="Creator Earnings" color={accentColor} onPress={() => canUseHybridTools ? router.push('/studio/earnings' as any) : pushSubscriptions()} />}
-                        {!isVaultMode && !isStudioMode && !isHybridMode && <MenuItem iconName="history" label="History" color={accentColor} onPress={() => showToast('Coming soon', 'info')} />}
 
                         {/* Consistent Slot 4: Notifications / Promotions */}
                         {isVaultMode && <MenuItem iconName="bell" label="Notifications" color={accentColor} onPress={() => router.push('/notifications' as any)} />}
@@ -342,7 +342,7 @@ const legacyStyles = {
         width: 33,
         height: 35,
         borderRadius: 17,
-        backgroundColor: '#6AA7FF',
+        backgroundColor: colors.shooutPrimary,
         alignItems: 'center',
         justifyContent: 'center',
     },
@@ -391,7 +391,7 @@ const legacyStyles = {
     guestTitle: { color: '#FFF', fontSize: 20, fontFamily: 'Poppins-Bold' },
     guestSubtitle: { color: 'rgba(255,255,255,0.65)', fontSize: 13, fontFamily: 'Poppins-Regular' },
     guestActions: { flexDirection: 'row', gap: 12, marginTop: 8 },
-    primaryButton: { flex: 1, backgroundColor: '#6AA7FF', paddingVertical: 12, borderRadius: 12, alignItems: 'center' },
+    primaryButton: { flex: 1, backgroundColor: colors.shooutPrimary, paddingVertical: 12, borderRadius: 12, alignItems: 'center' },
     primaryButtonText: { color: '#FFF', fontFamily: 'Poppins-SemiBold', fontSize: 14 },
     secondaryButton: { flex: 1, backgroundColor: 'rgba(255,255,255,0.08)', paddingVertical: 12, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
     secondaryButtonText: { color: '#FFF', fontFamily: 'Poppins-Medium', fontSize: 14 },

@@ -12,6 +12,7 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { getModeSurfaceTheme } from '@/utils/appModeTheme';
 import { adaptLegacyColor, adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { getEffectivePlan } from '@/utils/subscriptions';
+import { colors } from '@/constants/colors';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { collectionGroup, getDocs, limit, orderBy, query, startAfter, where } from 'firebase/firestore';
@@ -406,7 +407,7 @@ const legacyStyles = {
     searchRow: { flexDirection: 'row', gap: 12, paddingHorizontal: 24, marginBottom: 24 },
     searchBar: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 16, paddingHorizontal: 16, height: 50 },
     searchInput: { flex: 1, marginLeft: 12, color: '#FFF', fontFamily: 'Poppins-Regular' },
-    filterButton: { width: 50, height: 50, borderRadius: 16, backgroundColor: 'rgba(106, 167, 255, 0.1)', alignItems: 'center', justifyContent: 'center' },
+    filterButton: { width: 50, height: 50, borderRadius: 16, backgroundColor: `${colors.shooutPrimary}1A`, alignItems: 'center', justifyContent: 'center' },
     studioBanner: { marginHorizontal: 24, padding: 20, borderRadius: 24, marginBottom: 32, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
     studioTitle: { fontSize: 16, fontFamily: 'Poppins-Bold', color: '#FFF' },
     studioSubtitle: { fontSize: 12, fontFamily: 'Poppins-Regular', color: 'rgba(255,255,255,0.62)', marginBottom: 16 },
@@ -417,12 +418,12 @@ const legacyStyles = {
     section: { marginBottom: 32 },
     sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, marginBottom: 16 },
     sectionTitle: { fontSize: 18, fontFamily: 'Poppins-Bold', color: '#FFF' },
-    seeAll: { fontSize: 14, fontFamily: 'Poppins-Medium', color: '#6AA7FF' },
+    seeAll: { fontSize: 14, fontFamily: 'Poppins-Medium', color: colors.shooutPrimary },
     horizontalScroll: { paddingLeft: 24 },
     marketCard: { width: 160, marginRight: 16 },
     cardImage: { width: 160, height: 160, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.03)', alignItems: 'center', justifyContent: 'center', marginBottom: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', overflow: 'hidden' },
     cardImageAsset: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%' },
-    priceBadge: { position: 'absolute', bottom: 12, right: 12, backgroundColor: '#6AA7FF', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
+    priceBadge: { position: 'absolute', bottom: 12, right: 12, backgroundColor: colors.shooutPrimary, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
     priceText: { color: '#FFF', fontSize: 12, fontFamily: 'Poppins-Bold' },
     itemTitle: { color: '#FFF', fontSize: 15, fontFamily: 'Poppins-SemiBold' },
     itemArtist: { color: 'rgba(255,255,255,0.62)', fontSize: 12, fontFamily: 'Poppins-Regular' },
@@ -436,7 +437,7 @@ const legacyStyles = {
         width: 32,
         height: 32,
         borderRadius: 16,
-        backgroundColor: 'rgba(106, 167, 255, 0.2)',
+        backgroundColor: `${colors.shooutPrimary}33`,
         alignItems: 'center',
         justifyContent: 'center',
         elevation: 4,
@@ -465,7 +466,7 @@ const legacyStyles = {
         borderRadius: 20,
         overflow: 'hidden',
         borderWidth: 1,
-        borderColor: 'rgba(106, 167, 255, 0.3)',
+        borderColor: `${colors.shooutPrimary}4D`,
     },
     merchGradient: {
         flexDirection: 'row',

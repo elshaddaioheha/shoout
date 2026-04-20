@@ -6,7 +6,52 @@ import { BlurView } from 'expo-blur';
 import { Image } from 'expo-image';
 import React, { memo, useCallback, useEffect } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
-import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
+
+// ─── Animated press helper ──────────────────────────────────────────────────
+type PressConfig = { scaleDown?: number; stiffness?: number; damping?: number };
+
+function useScalePress({ scaleDown = 0.85, stiffness = 280, damping = 14 }: PressConfig = {}) {
+  const scale = useSharedValue(1);
+  const style = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+
+  const onPressIn = useCallback(() => {
+    scale.value = withSpring(scaleDown, { stiffness, damping });
+  }, [scale, scaleDown, stiffness, damping]);
+
+  const onPressOut = useCallback(() => {
+    scale.value = withSpring(1, { stiffness: stiffness * 0.8, damping: damping * 1.2 });
+  }, [scale, stiffness, damping]);
+
+  return { style, onPressIn, onPressOut };
+}
+
+function AnimatedBtn({
+  onPress,
+  pressConfig,
+  style,
+  children,
+  hitSlop = 10,
+}: {
+  onPress: () => void;
+  pressConfig?: PressConfig;
+  style?: object;
+  children: React.ReactNode;
+  hitSlop?: number;
+}) {
+  const { style: scaleStyle, onPressIn, onPressOut } = useScalePress(pressConfig ?? {});
+  return (
+    <Pressable onPress={onPress} onPressIn={onPressIn} onPressOut={onPressOut} hitSlop={hitSlop}>
+      <Animated.View style={[style, scaleStyle]}>{children}</Animated.View>
+    </Pressable>
+  );
+}
 
 type Props = {
   onExpand: () => void;
@@ -63,12 +108,29 @@ function MiniPlayerBarBase({ onExpand }: Props) {
           <Text style={[styles.title, { color: appTheme.colors.textPrimary }]} numberOfLines={1}>{currentTrack?.title || 'No track selected'}</Text>
           <Text style={[styles.artist, { color: appTheme.colors.textSecondary }]} numberOfLines={1}>{currentTrack?.artist || 'Start playback to continue'}</Text>
         </Pressable>
-        <IconButton onPress={onPlayPause} style={styles.control}>
-          {isBuffering ? <Icon name="refresh-ccw" size={20} color={appTheme.colors.textPrimary} /> : <Icon name={isPlaying ? 'pause' : 'play'} size={20} color={appTheme.colors.textPrimary} fill />}
-        </IconButton>
-        <IconButton onPress={onNext} style={styles.control}>
+        <AnimatedBtn
+          onPress={onPlayPause}
+          style={styles.control}
+          pressConfig={{ scaleDown: 0.88 }}
+        >
+          {isBuffering ? (
+            <Icon name="refresh-ccw" size={20} color={appTheme.colors.textPrimary} />
+          ) : (
+            <Icon
+              name={isPlaying ? 'pause' : 'play'}
+              size={20}
+              color={appTheme.colors.textPrimary}
+              fill
+            />
+          )}
+        </AnimatedBtn>
+        <AnimatedBtn
+          onPress={onNext}
+          style={styles.control}
+          pressConfig={{ scaleDown: 0.82 }}
+        >
           <Icon name="skip-forward" size={20} color={appTheme.colors.textPrimary} fill />
-        </IconButton>
+        </AnimatedBtn>
       </View>
       <View style={[styles.progressTrack, { backgroundColor: appTheme.colors.surfaceMuted }]}>
         <Animated.View style={[styles.progressFill, { backgroundColor: appTheme.colors.primary }, progressStyle]} />

@@ -4,6 +4,7 @@ import { auth, db } from '@/firebaseConfig';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { formatUsd } from '@/utils/pricing';
 import { useCartStore, type CartItem } from '@/store/useCartStore';
+import { colors } from '@/constants/colors';
 import { useLayoutMetricsStore } from '@/store/useLayoutMetricsStore';
 import { useToastStore } from '@/store/useToastStore';
 import { adaptLegacyColor, adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
@@ -53,8 +54,8 @@ export default function CheckoutReviewScreen() {
     const styles = useCheckoutReviewStyles();
     const isLightMode = !appTheme.isDark;
     const checkoutGradientColors = isLightMode
-        ? (['#6AA7FF', '#4A85E8'] as const)
-        : (['#6AA7FF', '#3D5CB8'] as const);
+        ? ([colors.shooutPrimary, '#4A85E8'] as const)
+        : ([colors.shooutPrimary, '#3D5CB8'] as const);
     const checkoutIconTextColor = '#FFFFFF';
     const checkoutFontSize = width < 360 ? 16 : width > 430 ? 19 : 18;
     const itemFallbackIconColor = adaptLegacyColor('rgba(255,255,255,0.2)', 'color', appTheme);
@@ -173,7 +174,7 @@ export default function CheckoutReviewScreen() {
                     styles.cartItem,
                     {
                         backgroundColor: isLightMode ? '#FFFFFF' : 'rgba(255,255,255,0.05)',
-                        borderBottomColor: isLightMode ? 'rgba(106, 167, 255, 0.1)' : 'rgba(255,255,255,0.05)',
+                        borderBottomColor: isLightMode ? `${colors.shooutPrimary}1A` : 'rgba(255,255,255,0.05)',
                     },
                 ]}
             >
@@ -206,7 +207,7 @@ export default function CheckoutReviewScreen() {
                     style={styles.cartDeleteBtn}
                     activeOpacity={0.6}
                 >
-                    <Trash2 size={20} color="#6AA7FF" />
+                    <Trash2 size={20} color={colors.shooutPrimary} />
                 </TouchableOpacity>
             </View>
         );
@@ -232,7 +233,7 @@ export default function CheckoutReviewScreen() {
                         </Text>
                         <TouchableOpacity
                             onPress={() => router.push('/(tabs)/library')}
-                            style={[styles.emptyStateButton, { backgroundColor: '#6AA7FF' }]}
+                            style={[styles.emptyStateButton, { backgroundColor: colors.shooutPrimary }]}
                         >
                             <Text style={styles.emptyStateButtonText}>Continue Shopping</Text>
                         </TouchableOpacity>
@@ -269,12 +270,12 @@ export default function CheckoutReviewScreen() {
                         },
                     ]}
                     ListHeaderComponent={
-                        <View style={[styles.summarySection, isLightMode && { backgroundColor: 'rgba(106, 167, 255, 0.05)' }]}>
+                        <View style={[styles.summarySection, isLightMode && { backgroundColor: `${colors.shooutPrimary}0D` }]}>
                             <View style={styles.summaryRow}>
                                 <Text style={[styles.summaryLabel, isLightMode && { color: '#5A7FA8' }]}>Items</Text>
                                 <Text style={[styles.summaryValue, isLightMode && { color: '#1E3A5F' }]}>{items.length}</Text>
                             </View>
-                            <View style={[styles.divider, { backgroundColor: isLightMode ? 'rgba(106, 167, 255, 0.2)' : 'rgba(255,255,255,0.1)' }]} />
+                            <View style={[styles.divider, { backgroundColor: isLightMode ? `${colors.shooutPrimary}33` : 'rgba(255,255,255,0.1)' }]} />
                             <View style={styles.summaryRow}>
                                 <Text style={[styles.summaryLabel, isLightMode && { color: '#5A7FA8' }]}>Total</Text>
                                 <Text style={[styles.totalValue, isLightMode && { color: '#4A85E8' }]}>{formatUsd(total)}</Text>
@@ -287,11 +288,11 @@ export default function CheckoutReviewScreen() {
                 <View
                     style={[
                         styles.footer,
-                        {
-                            backgroundColor: isLightMode ? '#F0F6FF' : '#1E1A1B',
-                            borderTopColor: isLightMode ? 'rgba(106, 167, 255, 0.15)' : 'rgba(255,255,255,0.05)',
-                            bottom: bottomTabBarHeight + (Platform.OS === 'ios' ? insets.bottom + 8 : 6),
-                        },
+                    {
+                        backgroundColor: isLightMode ? '#F0F6FF' : '#1E1A1B',
+                        borderTopColor: isLightMode ? `${colors.shooutPrimary}26` : 'rgba(255,255,255,0.05)',
+                        bottom: bottomTabBarHeight + (Platform.OS === 'ios' ? insets.bottom + 8 : 6),
+                    },
                     ]}
                 >
                     <TouchableOpacity
@@ -423,7 +424,7 @@ const legacyStyles = {
     totalValue: {
         fontSize: 16,
         fontWeight: '700' as const,
-        color: '#6AA7FF',
+        color: colors.shooutPrimary,
     },
     divider: {
         height: 1,
@@ -470,7 +471,7 @@ const legacyStyles = {
     cartItemPrice: {
         fontSize: 13,
         fontWeight: '600' as const,
-        color: '#6AA7FF',
+        color: colors.shooutPrimary,
     },
     cartDeleteBtn: {
         padding: 8,

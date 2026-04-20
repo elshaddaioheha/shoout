@@ -26,7 +26,7 @@ export const TrackInfo = memo(TrackInfoBase);
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 14,
+    marginBottom: 0,
   },
   title: {
     fontSize: 24,

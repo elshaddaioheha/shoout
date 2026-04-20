@@ -1,18 +1,64 @@
 import { ArtworkSection } from '@/components/player/ArtworkSection';
 import { Controls } from '@/components/player/Controls';
+import { PlayerMenuSheet } from '@/components/player/PlayerMenuSheet';
 import { SeekBar } from '@/components/player/SeekBar';
 import { TrackInfo } from '@/components/player/TrackInfo';
 import { Icon } from '@/components/ui/Icon';
 import { IconButton } from '@/components/ui/IconButton';
 import { useAppTheme } from '@/hooks/use-app-theme';
-import { usePlayerActions } from '@/hooks/usePlayerActions';
 import { usePlaybackStore } from '@/store/usePlaybackStore';
 import { useUIStore } from '@/store/useUIStore';
-import { LinearGradient } from 'expo-linear-gradient';
-import React, { memo, useCallback, useEffect } from 'react';
+import React, { memo, useCallback, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import Animated, { Easing, interpolate, useAnimatedStyle, useFrameCallback, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, {
+  Easing,
+  interpolate,
+  useAnimatedStyle,
+  useFrameCallback,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+// ─── Animated press helper ──────────────────────────────────────────────────
+type PressConfig = { scaleDown?: number; stiffness?: number; damping?: number };
+
+function useScalePress({ scaleDown = 0.85, stiffness = 280, damping = 14 }: PressConfig = {}) {
+  const scale = useSharedValue(1);
+  const style = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+
+  const onPressIn = useCallback(() => {
+    scale.value = withSpring(scaleDown, { stiffness, damping });
+  }, [scale, scaleDown, stiffness, damping]);
+
+  const onPressOut = useCallback(() => {
+    scale.value = withSpring(1, { stiffness: stiffness * 0.8, damping: damping * 1.2 });
+  }, [scale, stiffness, damping]);
+
+  return { style, onPressIn, onPressOut };
+}
+
+function AnimatedBtn({
+  onPress,
+  pressConfig,
+  style,
+  children,
+  hitSlop = 10,
+}: {
+  onPress: () => void;
+  pressConfig?: PressConfig;
+  style?: object;
+  children: React.ReactNode;
+  hitSlop?: number;
+}) {
+  const { style: scaleStyle, onPressIn, onPressOut } = useScalePress(pressConfig ?? {});
+  return (
+    <Pressable onPress={onPress} onPressIn={onPressIn} onPressOut={onPressOut} hitSlop={hitSlop}>
+      <Animated.View style={[style, scaleStyle]}>{children}</Animated.View>
+    </Pressable>
+  );
+}
 
 type Props = {
   onCollapse: () => void;
@@ -34,11 +80,13 @@ function FullPlayerViewBase({ onCollapse }: Props) {
   const setShuffleMode = usePlaybackStore((s) => s.setShuffleMode);
   const cycleRepeatMode = usePlaybackStore((s) => s.cycleRepeatMode);
   const seekTo = usePlaybackStore((s) => s.seekTo);
+
   const progress = useSharedValue(0);
   const isPlayingShared = useSharedValue(false);
   const durationShared = useSharedValue(1);
   const revealProgress = useSharedValue(0);
-  const { onAddToCart, onShare } = usePlayerActions();
+
+  const [menuVisible, setMenuVisible] = useState(false);
 
   useEffect(() => {
     isPlayingShared.value = isPlaying;
@@ -62,39 +110,32 @@ function FullPlayerViewBase({ onCollapse }: Props) {
     });
   }, [mode, revealProgress]);
 
-  const handleSeek = useCallback((nextPosition: number) => {
-    void seekTo(nextPosition);
-  }, [seekTo]);
+  const handleSeek = useCallback(
+    (nextPosition: number) => {
+      void seekTo(nextPosition);
+    },
+    [seekTo],
+  );
 
-  const handleShare = useCallback(() => {
-    if (!currentTrack) return;
-    void onShare(currentTrack);
-  }, [currentTrack, onShare]);
-  const handlePurchase = useCallback(() => {
-    if (!currentTrack) return;
-    onAddToCart(currentTrack);
-  }, [currentTrack, onAddToCart]);
   const handleShuffle = useCallback(() => {
     void setShuffleMode(!shuffleActive);
   }, [setShuffleMode, shuffleActive]);
+
   const handleRepeat = useCallback(() => {
     cycleRepeatMode();
   }, [cycleRepeatMode]);
 
   const activeQueue = shuffleActive ? shuffledQueue : queue;
-  const queuePosition = activeQueue.length > 0 && currentTrackIndex >= 0 ? `${currentTrackIndex + 1}/${activeQueue.length}` : '1/1';
-  const repeatIconName = repeatMode === 'one' ? 'repeat-one' : 'repeat';
-  const repeatLabel = repeatMode === 'off' ? 'Repeat off' : repeatMode === 'all' ? 'Repeat all' : 'Repeat one';
+  const queuePosition =
+    activeQueue.length > 0 && currentTrackIndex >= 0
+      ? `${currentTrackIndex + 1} / ${activeQueue.length}`
+      : '1 / 1';
 
-  const trackSeed = currentTrack?.id || currentTrack?.title || 'default-track';
-  const seedTotal = trackSeed.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
-  const hue = seedTotal % 360;
-  const ambientA = `hsla(${hue}, 72%, 58%, 0.28)`;
-  const ambientB = `hsla(${(hue + 42) % 360}, 78%, 54%, 0.24)`;
-  const ambientC = `hsla(${(hue + 120) % 360}, 62%, 42%, 0.18)`;
+  const playerBg = appTheme.isDark ? '#000000' : '#FFFFFF';
 
   const animatedContentStyle = useAnimatedStyle(() => ({
     opacity: revealProgress.value,
+    flex: 1,
     transform: [
       { translateY: interpolate(revealProgress.value, [0, 1], [46, 0]) },
       { scale: interpolate(revealProgress.value, [0, 1], [0.98, 1]) },
@@ -102,66 +143,82 @@ function FullPlayerViewBase({ onCollapse }: Props) {
   }));
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 16, backgroundColor: appTheme.colors.background }]}>
-      <LinearGradient
-        pointerEvents="none"
-        colors={[ambientA, ambientB, ambientC, 'transparent']}
-        start={{ x: 0.15, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.ambience}
-      />
+    <View
+      style={[
+        styles.container,
+        {
+          paddingTop: insets.top + 8,
+          paddingBottom: insets.bottom + 20,
+          backgroundColor: playerBg,
+        },
+      ]}
+    >
       <Animated.View style={animatedContentStyle}>
+        {/* ── Header ── */}
         <View style={styles.header}>
-          <IconButton onPress={onCollapse} style={styles.headerButton}>
+          <AnimatedBtn
+            onPress={onCollapse}
+            style={styles.headerButton}
+            pressConfig={{ scaleDown: 0.82 }}
+          >
             <Icon name="chevron-down" size={24} color={appTheme.colors.textPrimary} />
-          </IconButton>
-          <View style={styles.headerActions}>
-            <Pressable onPress={handlePurchase} style={[styles.actionChip, { borderColor: appTheme.colors.borderStrong }]}>
-              <Icon name="cart" size={16} color={appTheme.colors.textPrimary} />
-              <Text style={[styles.actionChipText, { color: appTheme.colors.textPrimary }]}>Purchase</Text>
-            </Pressable>
-            <IconButton onPress={handleShare} style={styles.headerButton}>
-              <Icon name="share" size={20} color={appTheme.colors.textPrimary} />
-            </IconButton>
-          </View>
-        </View>
+          </AnimatedBtn>
 
-        <ArtworkSection track={currentTrack} />
-        <TrackInfo track={currentTrack} />
-
-        <View style={styles.metaRow}>
-          <Text style={[styles.metaLabel, { color: appTheme.colors.textSecondary }]}>
-            Track {queuePosition}
+          <Text style={[styles.headerTitle, { color: appTheme.colors.textSecondary }]}>
+            Now Playing
           </Text>
-          <View style={styles.modeButtons}>
-            <Pressable
-              onPress={handleShuffle}
-              style={[
-                styles.pillButton,
-                { borderColor: shuffleActive ? ambientA : appTheme.colors.borderStrong },
-                shuffleActive ? styles.pillButtonActive : null,
-              ]}
-            >
-              <Icon name="shuffle" size={16} color={appTheme.colors.textPrimary} />
-              <Text style={[styles.pillLabel, { color: appTheme.colors.textPrimary }]}>Shuffle</Text>
-            </Pressable>
-            <Pressable
-              onPress={handleRepeat}
-              style={[
-                styles.pillButton,
-                { borderColor: repeatMode !== 'off' ? ambientB : appTheme.colors.borderStrong },
-                repeatMode !== 'off' ? styles.pillButtonActive : null,
-              ]}
-            >
-              <Icon name={repeatIconName} size={16} color={appTheme.colors.textPrimary} />
-              <Text style={[styles.pillLabel, { color: appTheme.colors.textPrimary }]}>{repeatLabel}</Text>
-            </Pressable>
-          </View>
+
+          <AnimatedBtn
+            onPress={() => setMenuVisible(true)}
+            style={styles.headerButton}
+            pressConfig={{ scaleDown: 0.82 }}
+          >
+            <Icon name="more-vertical" size={22} color={appTheme.colors.textPrimary} />
+          </AnimatedBtn>
         </View>
 
-        <SeekBar progress={progress} position={position} duration={duration} onSeek={handleSeek} />
-        <Controls />
+        {/* ── Artwork ── */}
+        <View style={styles.artworkWrapper}>
+          <ArtworkSection track={currentTrack} />
+        </View>
+
+        {/* ── Track Info + Queue position ── */}
+        <View style={styles.infoRow}>
+          <View style={styles.infoText}>
+            <TrackInfo track={currentTrack} />
+          </View>
+          <Text style={[styles.queueLabel, { color: appTheme.colors.textSecondary }]}>
+            {queuePosition}
+          </Text>
+        </View>
+
+        {/* ── Seek Bar ── */}
+        <View style={styles.seekWrapper}>
+          <SeekBar
+            progress={progress}
+            position={position}
+            duration={duration}
+            onSeek={handleSeek}
+          />
+        </View>
+
+        {/* ── Controls (Shuffle | Prev | Play | Next | Repeat) ── */}
+        <View style={styles.controlsWrapper}>
+          <Controls
+            shuffleActive={shuffleActive}
+            repeatMode={repeatMode}
+            onShuffle={handleShuffle}
+            onRepeat={handleRepeat}
+          />
+        </View>
       </Animated.View>
+
+      {/* ── Three-dot menu sheet ── */}
+      <PlayerMenuSheet
+        visible={menuVisible}
+        track={currentTrack}
+        onClose={() => setMenuVisible(false)}
+      />
     </View>
   );
 }
@@ -171,34 +228,19 @@ export const FullPlayerView = memo(FullPlayerViewBase);
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: 18,
-  },
-  ambience: {
-    ...StyleSheet.absoluteFillObject,
+    paddingHorizontal: 20,
   },
   header: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 16,
-    alignItems: 'center',
+    marginBottom: 8,
   },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  actionChip: {
-    height: 38,
-    borderRadius: 19,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  actionChipText: {
-    fontSize: 12,
+  headerTitle: {
+    fontSize: 13,
     fontFamily: 'Poppins-SemiBold',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
   },
   headerButton: {
     width: 40,
@@ -207,32 +249,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  metaRow: {
-    marginBottom: 12,
+  artworkWrapper: {
+    flex: 1,
+    justifyContent: 'center',
+    minHeight: 0,
+    marginVertical: 8,
   },
-  metaLabel: {
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+    marginTop: 4,
+  },
+  infoText: {
+    flex: 1,
+    marginRight: 12,
+  },
+  queueLabel: {
     fontSize: 12,
     fontFamily: 'Poppins-Medium',
-    marginBottom: 8,
+    paddingBottom: 6,
   },
-  modeButtons: {
-    flexDirection: 'row',
-    gap: 8,
+  seekWrapper: {
+    marginVertical: 8,
   },
-  pillButton: {
-    minHeight: 34,
-    borderRadius: 17,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  pillButtonActive: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
-  },
-  pillLabel: {
-    fontSize: 11,
-    fontFamily: 'Poppins-Medium',
+  controlsWrapper: {
+    marginTop: 12,
+    marginBottom: 4,
   },
 });

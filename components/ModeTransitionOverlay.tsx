@@ -4,6 +4,7 @@
 import { ViewMode } from '@/store/useUserStore';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { typography } from '@/constants/typography';
+import { colors } from '@/constants/colors';
 import { Icon, IconName } from '@/components/ui/Icon';
 import React from 'react';
 import { Animated, Dimensions, Platform, StyleSheet, Text, View } from 'react-native';
@@ -19,7 +20,7 @@ interface ModeTransitionOverlayProps {
 }
 
 const MODE_CONFIG: Record<ViewMode, { label: string; badge: string; iconName: IconName; color: string; subtitle: string; accent: string }> = {
-    shoout: { label: 'Shoouts', badge: 'Marketplace Mode', iconName: 'disc3', color: '#6AA7FF', accent: '#D8E8FF', subtitle: 'Marketplace mode for discovery, buying, and digging through fresh sounds.' },
+    shoout: { label: 'Shoouts', badge: 'Marketplace Mode', iconName: 'disc3', color: colors.shooutPrimary, accent: '#D8E8FF', subtitle: 'Marketplace mode for discovery, buying, and digging through fresh sounds.' },
     vault: { label: 'Vault', badge: 'Private Workspace', iconName: 'music', color: '#EC5C39', accent: '#F8D8D0', subtitle: 'Your private music universe for uploads, folders, and secure sharing.' },
     vault_pro: { label: 'Vault Pro', badge: 'Expanded Private Workspace', iconName: 'folder-lock', color: '#EC5C39', accent: '#F6D8CF', subtitle: 'The same private Vault workflow with higher limits and deeper control.' },
     studio: { label: 'Studio', badge: 'Seller Workspace', iconName: 'mic2', color: '#4CAF50', accent: '#DCEFD9', subtitle: 'Create, upload, and sell your music with a focused creator dashboard.' },

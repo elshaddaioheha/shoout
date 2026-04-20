@@ -42,6 +42,7 @@ export const theme = getTheme('dark');
 // Legacy Exports (kept to prevent immediate breakages, will be phased out)
 // ──────────────────────────────────────────────
 export const Brand = {
+  shooutPrimary: colors.shooutPrimary,
   primary: colors.primary,
   primaryDark: colors.primaryDark,
   primaryLight: colors.primaryLight,

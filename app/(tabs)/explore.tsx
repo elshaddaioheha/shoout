@@ -25,10 +25,12 @@ import {
   ViewToken,
 } from 'react-native';
 
+import { colors } from '@/constants/colors';
+
 type DiscoverItem = PublishedUpload;
 type ExploreFeedItem = DiscoverItem & { feedKey: string };
 
-const SHOOUT_BLUE = '#6AA7FF';
+const SHOOUT_BLUE = colors.shooutPrimary;
 
 function useExploreStyles() {
   const appTheme = useAppTheme();
@@ -397,8 +399,8 @@ const legacyStyles = {
     justifyContent: 'center',
   },
   genreChipActive: {
-    backgroundColor: 'rgba(106,167,255,0.16)',
-    borderColor: 'rgba(106,167,255,0.42)',
+    backgroundColor: `${colors.shooutPrimary}29`,
+    borderColor: `${colors.shooutPrimary}6B`,
   },
   genreChipText: {
     color: 'rgba(255,255,255,0.75)',
@@ -651,6 +653,6 @@ const legacyStyles = {
   },
   feedProgressFill: {
     height: '100%',
-    backgroundColor: '#6AA7FF',
+    backgroundColor: colors.shooutPrimary,
   },
 };

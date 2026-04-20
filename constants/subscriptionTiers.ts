@@ -35,7 +35,7 @@ export const SUBSCRIPTION_TIERS: SubscriptionTierConfig[] = [
     icon: Headphones,
     gradient: ['#10223A', '#182F4D'],
     selectedGradientOverride: ['#E7F0FF', '#CFE2FF'],
-    accentColor: '#6AA7FF',
+    accentColor: theme.colors.shooutPrimary,
     features: ['Marketplace browsing', 'Cart and checkout', 'Buyer messaging'],
     featureIcons: [Headphones, Download, Zap],
   },

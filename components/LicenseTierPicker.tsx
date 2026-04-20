@@ -1,6 +1,7 @@
 import { typography } from '@/constants/typography';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
+import { colors } from '@/constants/colors';
 import type { LicenseTierId, LicenseTierOption } from '@/utils/licenseTiers';
 import { formatUsd } from '@/utils/pricing';
 import React from 'react';
@@ -116,13 +117,13 @@ const legacyStyles = {
         borderRadius: 999,
         paddingHorizontal: 8,
         paddingVertical: 3,
-        backgroundColor: 'rgba(106,167,255,0.15)',
+        backgroundColor: `${colors.shooutPrimary}26`,
         borderWidth: 1,
-        borderColor: 'rgba(106,167,255,0.35)',
+        borderColor: `${colors.shooutPrimary}59`,
     },
     badgeText: {
         ...typography.small,
-        color: 'rgba(139,188,255,0.95)',
+        color: '#D8E8FF',
     },
     rowPrice: {
         ...typography.title,

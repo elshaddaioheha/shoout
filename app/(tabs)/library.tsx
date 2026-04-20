@@ -18,13 +18,5 @@ export default function LibraryScreen() {
   const isStudioUser = user.activeAppMode === 'studio' || activeRole?.startsWith('studio');
   const isCreatorSurface = isStudioUser || isHybridUser;
 
-  if (isHybridUser) {
-    return <HybridLibraryScreen />;
-  }
-
-  if (isCreatorSurface) {
-    return <StudioCreatorScreen />;
-  }
-
   return <ShooutsFavouritesScreen />;
 }

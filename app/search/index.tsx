@@ -11,6 +11,7 @@ import { usePlaybackStore } from '@/store/usePlaybackStore';
 import { useToastStore } from '@/store/useToastStore';
 import { formatUsd } from '@/utils/pricing';
 import { adaptLegacyColor } from '@/utils/legacyThemeAdapter';
+import { colors } from '@/constants/colors';
 
 const FEATURED_GENRES = ['Afrobeats', 'Afro-Pop', 'Gospel', 'Highlife', 'Hip-Hop', 'Afro Fusion'];
 
@@ -120,7 +121,7 @@ export default function SearchScreen() {
                         const active = selectedGenre === item;
                         return (
                             <TouchableOpacity
-                                style={[styles.genreChip, active && styles.genreChipActive, { backgroundColor: appTheme.colors.backgroundElevated, borderColor: active ? '#6AA7FF' : appTheme.colors.borderStrong }]}
+                                style={[styles.genreChip, active && styles.genreChipActive, { backgroundColor: appTheme.colors.backgroundElevated, borderColor: active ? colors.shooutPrimary : appTheme.colors.borderStrong }]}
                                 onPress={() => setSelectedGenre(active ? null : item)}
                                 activeOpacity={0.85}
                             >
@@ -222,7 +223,7 @@ const styles = StyleSheet.create({
     genreStrip: { flexGrow: 0, marginTop: 8, marginBottom: 8, paddingVertical: 8 },
     genreStripContent: { paddingHorizontal: 20, gap: 8, paddingRight: 24 },
     genreChip: { paddingHorizontal: 16, height: 32, borderRadius: 999, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-    genreChipActive: { backgroundColor: 'rgba(106,167,255,0.16)' },
+    genreChipActive: { backgroundColor: `${colors.shooutPrimary}29` },
     genreChipText: { fontFamily: 'Poppins-Medium', fontSize: 13 },
     emptyState: { marginHorizontal: 20, marginTop: 20, padding: 16, borderRadius: 12, borderWidth: 1, alignItems: 'center' },
     emptyStateText: { fontFamily: 'Poppins-Regular', fontSize: 13 },

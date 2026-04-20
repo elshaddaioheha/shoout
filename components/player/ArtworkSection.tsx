@@ -33,7 +33,6 @@ const styles = StyleSheet.create({
     aspectRatio: 1,
     borderRadius: 20,
     overflow: 'hidden',
-    marginBottom: 16,
   },
   image: {
     width: '100%',
@@ -44,6 +43,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: StyleSheet.hairlineWidth,
-    backgroundColor: 'rgba(236,92,57,0.12)',
+    backgroundColor: 'rgba(128,128,128,0.12)',
   },
 });

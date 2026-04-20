@@ -73,7 +73,9 @@ type IconName =
     | 'circle-help'
     | 'history'
     | 'crown'
-    | 'settings';
+    | 'settings'
+    | 'folder'
+    | 'more-vertical';
 
 type IconProps = {
     name: IconName;
@@ -160,6 +162,8 @@ const ICON_MAP: Record<IconName, { sf: string; sfFill?: string; lucide: keyof ty
     history: { sf: 'clock', lucide: 'History' },
     crown: { sf: 'crown.fill', lucide: 'Crown' },
     settings: { sf: 'gearshape.fill', lucide: 'Settings' },
+    folder: { sf: 'folder.fill', lucide: 'Folder' },
+    'more-vertical': { sf: 'ellipsis.vertical', lucide: 'MoreVertical' },
 };
 
 export function Icon({ name, size = 24, color, fill = false, strokeWidth, style, iosAnimation }: IconProps) {

@@ -1,3 +1,5 @@
+import { colors } from '@/constants/colors';
+
 export type SubscriptionPlanId = 'shoout' | 'vault' | 'vault_pro' | 'studio' | 'hybrid';
 export type AppMode = SubscriptionPlanId;
 
@@ -72,9 +74,9 @@ export const SUBSCRIPTION_PLANS: SubscriptionConfig[] = [
     monthlyPriceUsd: 0,
     annualPerMonthUsd: 0,
     annualTotalUsd: 0,
-    color: '#6AA7FF',
-    gradient: ['rgba(106, 167, 255, 0.15)', 'rgba(106, 167, 255, 0.05)', 'rgba(0,0,0,0)'],
-    borderColor: '#6AA7FF',
+    color: colors.shooutPrimary,
+    gradient: [`${colors.shooutPrimary}26`, `${colors.shooutPrimary}0D`, 'rgba(0,0,0,0)'],
+    borderColor: colors.shooutPrimary,
     features: ['Marketplace browsing', 'Buy beats', 'Cart and checkout', 'Buyer messaging'],
     upgradeTarget: 'vault',
     flags: makeFlags({

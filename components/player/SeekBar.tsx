@@ -2,10 +2,16 @@ import { useAppTheme } from '@/hooks/use-app-theme';
 import React, { memo, useCallback } from 'react';
 import { LayoutChangeEvent, StyleSheet, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { runOnJS, useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
+import Animated, {
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  SharedValue,
+} from 'react-native-reanimated';
 
 type Props = {
-  progress: Animated.SharedValue<number>;
+  progress: SharedValue<number>;
   position: number;
   duration: number;
   onSeek: (position: number) => void;
@@ -22,6 +28,7 @@ function formatTime(millis: number) {
 function SeekBarBase({ progress, position, duration, onSeek }: Props) {
   const appTheme = useAppTheme();
   const width = useSharedValue(1);
+  const knobScale = useSharedValue(1);
 
   const onLayout = useCallback((event: LayoutChangeEvent) => {
     width.value = Math.max(1, event.nativeEvent.layout.width);
@@ -33,6 +40,7 @@ function SeekBarBase({ progress, position, duration, onSeek }: Props) {
 
   const pan = Gesture.Pan()
     .onBegin((event) => {
+      knobScale.value = withSpring(1.4, { stiffness: 300, damping: 15 });
       const next = Math.max(0, Math.min(1, event.x / width.value));
       progress.value = next;
     })
@@ -41,6 +49,7 @@ function SeekBarBase({ progress, position, duration, onSeek }: Props) {
       progress.value = next;
     })
     .onEnd(() => {
+      knobScale.value = withSpring(1, { stiffness: 300, damping: 15 });
       runOnJS(commitSeek)(progress.value);
     });
 
@@ -49,6 +58,7 @@ function SeekBarBase({ progress, position, duration, onSeek }: Props) {
   }));
   const knobStyle = useAnimatedStyle(() => ({
     left: Math.max(0, Math.min(1, progress.value)) * width.value,
+    transform: [{ scale: knobScale.value }],
   }));
 
   const elapsed = position;

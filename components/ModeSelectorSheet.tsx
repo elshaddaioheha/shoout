@@ -2,6 +2,7 @@
  * ModeSelectorSheet - bottom sheet listing all available product experiences.
  */
 import { Icon } from '@/components/ui/Icon';
+import { colors } from '@/constants/colors';
 import { FontFamily, typography } from '@/constants/typography';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -41,7 +42,7 @@ const VIEW_MODES: ViewModeEntry[] = [
         label: 'Shoouts',
         description: 'Discover, cart and buy beats in the marketplace',
         icon: 'refresh',
-        color: '#6AA7FF',
+        color: colors.shooutPrimary,
     },
     {
         id: 'vault',
