@@ -213,11 +213,25 @@ const TrendingCard = React.memo(function TrendingCard({ song, bgColor, onPlay }:
         <Image source={{ uri: song.artworkUrl }} style={styles.trendingArtwork} contentFit="cover" />
       ) : null}
       <View style={[styles.songInfoOverlay, { backgroundColor: overlayBg, borderColor: overlayBorder, borderWidth: 1 }]}>
-        <View style={{ flex: 1 }}>
-          <Text style={[styles.songTitle, { color: titleColor }]}>{song.title}</Text>
+        <View style={styles.trendingTextBlock}>
+          <Text
+            style={[styles.songTitle, { color: titleColor }]}
+            numberOfLines={2}
+            adjustsFontSizeToFit
+            minimumFontScale={0.82}
+          >
+            {song.title}
+          </Text>
           <View style={styles.artistRow}>
               <Users size={14} color={metaColor} />
-            <Text style={[styles.artistName, { color: metaColor }]}>{song.artist || song.uploaderName}</Text>
+            <Text
+              style={[styles.artistName, { color: metaColor }]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.85}
+            >
+              {song.artist || song.uploaderName}
+            </Text>
           </View>
         </View>
         <TouchableOpacity
@@ -747,10 +761,17 @@ const legacyStyles = {
     lineHeight: 20,
     fontFamily: 'Poppins-Bold',
   },
+  trendingTextBlock: {
+    width: 156,
+    height: 44,
+    justifyContent: 'space-between',
+    marginRight: spacing.xs,
+  },
   artistRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    minHeight: 16,
   },
   artistName: {
     color: 'rgba(255,255,255,0.86)',

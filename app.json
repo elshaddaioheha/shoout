@@ -5,6 +5,15 @@
     "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/Shoout-icon.png",
+    "splash": {
+      "image": "./assets/images/ShooutS-2-splash-light (1).jpg.jpeg",
+      "resizeMode": "cover",
+      "backgroundColor": "#FFFFFF",
+      "dark": {
+        "image": "./assets/images/ShooutS-1-splash-black.jpg.jpeg",
+        "backgroundColor": "#140F10"
+      }
+    },
     "scheme": "shoouts",
     "userInterfaceStyle": "automatic",
     "ios": {
@@ -16,7 +25,7 @@
         "backgroundColor": "#140F10",
         "foregroundImage": "./assets/Shoout-icon.png"
       },
-      "versionCode": 35
+      "versionCode": 40
     },
     "web": {
       "output": "static",
@@ -30,16 +39,17 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "292d90b7-83ca-4c1b-a9cc-304fd713db4b"
-      }
+        "projectId": "125ec272-9f81-4d14-8d59-b1ed69cb0a03"
+      },
+      "sentryEnabled": false
     },
     "runtimeVersion": {
       "policy": "appVersion"
     },
     "updates": {
-      "url": "https://u.expo.dev/292d90b7-83ca-4c1b-a9cc-304fd713db4b",
       "checkAutomatically": "ON_LOAD",
       "fallbackToCacheTimeout": 0
-    }
+    },
+    "owner": "oheha-dev"
   }
 }

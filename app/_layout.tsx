@@ -75,7 +75,7 @@ export default function RootLayout() {
     }
 
     const unsubscribe = subscribeToNotifications((notification) => {
-      const data = notification.request.content.data as any;
+      const data = (notification as any)?.request?.content?.data as any;
       if (data?.route) {
         router.push(data.route);
       }
@@ -83,7 +83,7 @@ export default function RootLayout() {
 
     getLastNotification().then((response) => {
       if (response) {
-        const data = response.notification.request.content.data as any;
+        const data = (response as any)?.notification?.request?.content?.data as any;
         if (data?.route) {
           router.push(data.route);
         }
