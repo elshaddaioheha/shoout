@@ -1,6 +1,7 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { useNotificationStore } from '@/store/useNotificationStore';
+import { ROUTES } from '@/utils/routes';
 import { useRouter } from 'expo-router';
 import { Bell, CheckCheck, ChevronLeft, MessageSquare, Music, ShieldAlert, Zap } from 'lucide-react-native';
 import React, { useEffect, useMemo } from 'react';
@@ -32,15 +33,15 @@ export default function NotificationsFeedScreen() {
         switch (item.type) {
             case 'message':
                 if (item.meta?.otherUserId) {
-                    router.push(`/chat/${item.meta.otherUserId}` as any);
+                    router.push(ROUTES.chat.thread(String(item.meta.otherUserId)) as any);
                 }
                 break;
             case 'artist_update':
             case 'marketplace':
-                router.push('/(tabs)/marketplace' as any);
+                router.push(ROUTES.tabs.marketplace as any);
                 break;
             case 'subscription':
-                router.push('/settings/subscriptions' as any);
+                router.push(ROUTES.settings.subscriptions as any);
                 break;
             default:
                 break;
@@ -189,7 +190,7 @@ export default function NotificationsFeedScreen() {
         <SafeScreenWrapper>
             <View style={styles.container}>
                 <View style={styles.header}>
-                    <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/more')} style={styles.backBtn}>
+                    <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace(ROUTES.tabs.more as any)} style={styles.backBtn}>
                         <ChevronLeft size={24} color={appTheme.colors.textPrimary} />
                     </TouchableOpacity>
                     <Text style={styles.headerTitle}>Notifications</Text>

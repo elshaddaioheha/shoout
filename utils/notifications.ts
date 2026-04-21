@@ -22,9 +22,13 @@ export async function initNotifications() {
 
   // Request permissions (iOS) or verify permissions (Android runtime permission)
   if (Platform.OS === 'ios') {
-    const { status } = await Notifications.requestPermissionsAsync();
-    if (status !== 'granted') {
-      console.log('iOS notification permission denied');
+    try {
+      const { status } = await Notifications.requestPermissionsAsync();
+      if (status !== 'granted') {
+        console.log('iOS notification permission denied');
+      }
+    } catch (error) {
+      console.log('iOS notification permission error:', error);
     }
   } else if (Platform.OS === 'android') {
     try {

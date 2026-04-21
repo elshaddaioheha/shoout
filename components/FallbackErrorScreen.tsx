@@ -1,17 +1,17 @@
 import { router } from 'expo-router';
 import React from 'react';
 import { FallbackProps } from 'react-error-boundary';
-import { Platform, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useUserStore } from '@/store/useUserStore';
+import { resolveModeHomePath } from '@/utils/routes';
 
 export default function FallbackErrorScreen({ error, resetErrorBoundary }: FallbackProps) {
   const handleReset = () => {
     resetErrorBoundary();
-    if (Platform.OS !== 'web') {
-      try {
-        router.replace('/');
-      } catch (e) {
-        // ignore
-      }
+    try {
+      router.replace(resolveModeHomePath(useUserStore.getState().activeAppMode) as any);
+    } catch (e) {
+      // Ignore navigation recovery errors inside the fallback itself.
     }
   };
 

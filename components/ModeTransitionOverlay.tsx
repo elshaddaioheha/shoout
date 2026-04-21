@@ -7,16 +7,19 @@ import { typography } from '@/constants/typography';
 import { colors } from '@/constants/colors';
 import { Icon, IconName } from '@/components/ui/Icon';
 import React from 'react';
-import { Animated, Dimensions, Platform, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, Platform, StyleSheet, Text, View } from 'react-native';
+import Animated, { interpolate, useAnimatedStyle, type SharedValue } from 'react-native-reanimated';
 
 const { width, height } = Dimensions.get('window');
 
 interface ModeTransitionOverlayProps {
     transitioning: boolean;
+    previousMode: ViewMode;
     newMode: ViewMode;
-    overlayAnim: Animated.Value;
-    welcomeSlideAnim: Animated.Value;
-    welcomeOpacityAnim: Animated.Value;
+    waitingForRender: boolean;
+    overlayProgress: SharedValue<number>;
+    overlayTranslateX: SharedValue<number>;
+    welcomeProgress: SharedValue<number>;
 }
 
 const MODE_CONFIG: Record<ViewMode, { label: string; badge: string; iconName: IconName; color: string; subtitle: string; accent: string }> = {
@@ -44,33 +47,52 @@ function useModeTransitionStyles() {
 
 export default function ModeTransitionOverlay({
     transitioning,
+    previousMode,
     newMode,
-    overlayAnim,
-    welcomeSlideAnim,
-    welcomeOpacityAnim,
+    waitingForRender,
+    overlayProgress,
+    overlayTranslateX,
+    welcomeProgress,
 }: ModeTransitionOverlayProps) {
     const appTheme = useAppTheme();
     const styles = useModeTransitionStyles();
+    const previousConfig = MODE_CONFIG[previousMode];
+    const config = MODE_CONFIG[newMode];
+    const overlayStyle = useAnimatedStyle(() => ({
+        opacity: overlayProgress.value,
+        transform: [
+            { translateX: overlayTranslateX.value },
+            { scale: interpolate(welcomeProgress.value, [0, 1], [0.985, 1]) },
+        ],
+    }));
+
+    const accentGraphicStyle = useAnimatedStyle(() => ({
+        opacity: welcomeProgress.value,
+        transform: [{ translateX: interpolate(welcomeProgress.value, [0, 1], [-40, 0]) }],
+    }));
+
+    const motionGhostStyle = useAnimatedStyle(() => ({
+        opacity: interpolate(welcomeProgress.value, [0, 1], [0, 0.14]),
+        transform: [{ translateX: interpolate(welcomeProgress.value, [0, 1], [-16, 0]) }],
+    }));
+
+    const contentStyle = useAnimatedStyle(() => ({
+        opacity: welcomeProgress.value,
+        transform: [
+            { translateX: interpolate(welcomeProgress.value, [0, 1], [-40, 0]) },
+            { translateY: interpolate(welcomeProgress.value, [0, 1], [18, 0]) },
+        ],
+    }));
+
+    const cardStyle = useAnimatedStyle(() => ({
+        opacity: welcomeProgress.value,
+        transform: [
+            { translateY: interpolate(welcomeProgress.value, [0, 1], [28, 0]) },
+            { scale: interpolate(welcomeProgress.value, [0, 1], [0.96, 1]) },
+        ],
+    }));
 
     if (!transitioning) return null;
-
-    const config = MODE_CONFIG[newMode];
-    const contentTranslateX = welcomeSlideAnim.interpolate({
-        inputRange: [0, 40],
-        outputRange: [0, -40],
-    });
-    const screenTranslateX = welcomeSlideAnim.interpolate({
-        inputRange: [0, 40],
-        outputRange: [0, -18],
-    });
-    const screenScale = welcomeOpacityAnim.interpolate({
-        inputRange: [0, 1],
-        outputRange: [0.985, 1],
-    });
-    const blurGhostTranslate = welcomeSlideAnim.interpolate({
-        inputRange: [0, 40],
-        outputRange: [0, -16],
-    });
 
     return (
         <Animated.View
@@ -78,49 +100,25 @@ export default function ModeTransitionOverlay({
                 StyleSheet.absoluteFill,
                 styles.overlay,
                 Platform.OS === 'web' ? ({ pointerEvents: 'none' } as any) : null,
-                {
-                    opacity: overlayAnim,
-                    backgroundColor: appTheme.colors.background,
-                    transform: [{ translateX: screenTranslateX }, { scale: screenScale }],
-                },
+                { backgroundColor: appTheme.colors.background },
+                overlayStyle,
             ]}
         >
             {DOODLE_POSITIONS.map((doodle, index) => (
-                <Animated.View
+                <ModeDoodle
                     key={`${newMode}-doodle-${index}`}
-                    style={[
-                        styles.doodleWrap,
-                        {
-                            top: doodle.top as any,
-                            left: doodle.left as any,
-                            opacity: welcomeOpacityAnim.interpolate({
-                                inputRange: [0, 1],
-                                outputRange: [0, doodle.opacity],
-                            }),
-                            transform: [
-                                { translateX: contentTranslateX },
-                                { rotate: doodle.rotate },
-                                {
-                                    scale: welcomeOpacityAnim.interpolate({
-                                        inputRange: [0, 1],
-                                        outputRange: [0.82, 1],
-                                    }),
-                                },
-                            ],
-                        },
-                    ]}
-                >
-                    <Icon name={config.iconName} size={doodle.size} color={config.color} strokeWidth={1.8} />
-                </Animated.View>
+                    doodle={doodle}
+                    welcomeProgress={welcomeProgress}
+                    iconName={config.iconName}
+                    color={config.color}
+                    styles={styles}
+                />
             ))}
 
             <Animated.View
                 style={[
                     styles.accentGraphic,
-                    {
-                        transform: [{ translateX: contentTranslateX }],
-                        opacity: welcomeOpacityAnim,
-                    },
+                    accentGraphicStyle,
                 ]}
             >
                 <View style={[styles.accentHalo, { backgroundColor: config.accent }]} />
@@ -134,39 +132,122 @@ export default function ModeTransitionOverlay({
             <Animated.View
                 style={[
                     styles.motionGhostBlock,
-                    {
-                        opacity: welcomeOpacityAnim.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: [0, 0.14],
-                        }),
-                        transform: [{ translateX: blurGhostTranslate }],
-                    },
+                    motionGhostStyle,
                 ]}
             >
                 <Text style={[styles.motionGhostLabel, { color: config.color }]}>Welcome to</Text>
                 <Text style={[styles.motionGhostMode, { color: config.color }]}>{config.label}</Text>
             </Animated.View>
 
-            <Animated.View
-                style={[
-                    styles.content,
-                    {
-                        opacity: welcomeOpacityAnim,
-                        transform: [{ translateX: contentTranslateX }],
-                    },
-                ]}
-            >
-                <View style={[styles.badge, { borderColor: `${config.color}2A`, backgroundColor: `${config.color}10` }]}>
-                    <View style={[styles.badgeDot, { backgroundColor: config.color }]} />
-                    <Text style={[styles.badgeText, { color: config.color }]}>{config.badge}</Text>
-                </View>
+            <Animated.View style={[styles.content, contentStyle]}>
+                <Animated.View
+                    style={[
+                        styles.transitionCard,
+                        {
+                            backgroundColor: appTheme.isDark ? 'rgba(18, 14, 15, 0.82)' : 'rgba(255, 255, 255, 0.88)',
+                            borderColor: appTheme.isDark ? 'rgba(255,255,255,0.12)' : 'rgba(20,15,16,0.08)',
+                        },
+                        cardStyle,
+                    ]}
+                >
+                    <View style={styles.transitionHeader}>
+                        <View style={[styles.badge, { borderColor: `${config.color}2A`, backgroundColor: `${config.color}10` }]}>
+                            <View style={[styles.badgeDot, { backgroundColor: config.color }]} />
+                            <Text style={[styles.badgeText, { color: config.color }]}>{config.badge}</Text>
+                        </View>
+                        <Text style={[styles.transitionStatus, { color: config.color }]}>
+                            {waitingForRender ? `Preparing ${config.label}` : 'Switching Experience'}
+                        </Text>
+                    </View>
 
-                <View style={styles.textBlock}>
-                    <Text style={[styles.welcomeLabel, { color: appTheme.colors.textSecondary }]}>Welcome to</Text>
-                    <Text style={[styles.welcomeMode, { color: appTheme.colors.textPrimary }]}>{config.label}</Text>
-                    <Text style={[styles.welcomeSubtitle, { color: appTheme.colors.textSecondary }]}>{config.subtitle}</Text>
-                </View>
+                    <View style={styles.modeRail}>
+                        <View
+                            style={[
+                                styles.modeChip,
+                                {
+                                    borderColor: `${previousConfig.color}30`,
+                                    backgroundColor: `${previousConfig.color}12`,
+                                },
+                            ]}
+                        >
+                            <Icon name={previousConfig.iconName} size={16} color={previousConfig.color} />
+                            <Text style={[styles.modeChipLabel, { color: appTheme.colors.textPrimary }]}>
+                                {previousConfig.label}
+                            </Text>
+                        </View>
+                        <View style={styles.modeConnector}>
+                            <View style={[styles.modeConnectorLine, { backgroundColor: `${config.color}35` }]} />
+                            <View style={[styles.modeConnectorDot, { backgroundColor: config.color }]} />
+                        </View>
+                        <View
+                            style={[
+                                styles.modeChip,
+                                styles.modeChipActive,
+                                {
+                                    borderColor: `${config.color}40`,
+                                    backgroundColor: `${config.color}18`,
+                                },
+                            ]}
+                        >
+                            <Icon name={config.iconName} size={16} color={config.color} />
+                            <Text style={[styles.modeChipLabel, { color: appTheme.colors.textPrimary }]}>
+                                {config.label}
+                            </Text>
+                        </View>
+                    </View>
+
+                    <View style={styles.textBlock}>
+                        <Text style={[styles.welcomeLabel, { color: appTheme.colors.textSecondary }]}>Now entering</Text>
+                        <Text style={[styles.welcomeMode, { color: appTheme.colors.textPrimary }]}>{config.label}</Text>
+                        <Text style={[styles.welcomeSubtitle, { color: appTheme.colors.textSecondary }]}>
+                            {config.subtitle}
+                        </Text>
+                        <Text style={[styles.renderHint, { color: appTheme.colors.textSecondary }]}>
+                            {waitingForRender
+                                ? `Rendering the ${config.label} workspace before the transition clears.`
+                                : `The ${config.label} experience is ready.`}
+                        </Text>
+                    </View>
+                </Animated.View>
             </Animated.View>
+        </Animated.View>
+    );
+}
+
+function ModeDoodle({
+    doodle,
+    welcomeProgress,
+    iconName,
+    color,
+    styles,
+}: {
+    doodle: { top: string; left: string; size: number; rotate: string; opacity: number };
+    welcomeProgress: SharedValue<number>;
+    iconName: IconName;
+    color: string;
+    styles: ReturnType<typeof useModeTransitionStyles>;
+}) {
+    const doodleStyle = useAnimatedStyle(() => ({
+        opacity: interpolate(welcomeProgress.value, [0, 1], [0, doodle.opacity]),
+        transform: [
+            { translateX: interpolate(welcomeProgress.value, [0, 1], [-40, 0]) },
+            { rotate: doodle.rotate },
+            { scale: interpolate(welcomeProgress.value, [0, 1], [0.82, 1]) },
+        ],
+    }));
+
+    return (
+        <Animated.View
+            style={[
+                styles.doodleWrap,
+                {
+                    top: doodle.top as any,
+                    left: doodle.left as any,
+                },
+                doodleStyle,
+            ]}
+        >
+            <Icon name={iconName} size={doodle.size} color={color} strokeWidth={1.8} />
         </Animated.View>
     );
 }
@@ -243,7 +324,65 @@ const legacyStyles = {
         left: 28,
         right: 28,
         bottom: 52,
-        maxWidth: width * 0.72,
+        maxWidth: Math.min(width - 56, 520),
+    },
+    transitionCard: {
+        borderRadius: 28,
+        borderWidth: 1,
+        paddingHorizontal: 22,
+        paddingVertical: 22,
+    },
+    transitionHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 12,
+        marginBottom: 18,
+    },
+    transitionStatus: {
+        ...typography.label,
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+    },
+    modeRail: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        marginBottom: 18,
+    },
+    modeChip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        borderRadius: 999,
+        borderWidth: 1,
+    },
+    modeChipActive: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+    },
+    modeChipLabel: {
+        ...typography.label,
+    },
+    modeConnector: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        minWidth: 36,
+    },
+    modeConnectorLine: {
+        flex: 1,
+        height: 1,
+    },
+    modeConnectorDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 999,
+        marginLeft: -1,
     },
     badge: {
         alignSelf: 'flex-start',
@@ -266,7 +405,7 @@ const legacyStyles = {
         letterSpacing: 0.15,
     },
     textBlock: {
-        maxWidth: width * 0.66,
+        maxWidth: '100%',
     },
     welcomeLabel: {
         ...typography.body,
@@ -283,5 +422,10 @@ const legacyStyles = {
         ...typography.body,
         lineHeight: 23,
         marginTop: 10,
+    },
+    renderHint: {
+        ...typography.caption,
+        marginTop: 12,
+        lineHeight: 18,
     },
 };

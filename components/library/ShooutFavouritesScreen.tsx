@@ -215,7 +215,7 @@ export default function ShooutsFavouritesScreen() {
                 icon="chevron-left"
                 color={appTheme.colors.textPrimary}
                 size={24}
-                onPress={() => router.push('/(tabs)/more' as any)}
+                onPress={() => router.push('/more' as any)}
               />
               <Text style={styles.pageTitle}>Library</Text>
               <View style={{ width: 40 }} />
@@ -353,7 +353,7 @@ export default function ShooutsFavouritesScreen() {
                     <TouchableOpacity
                       style={styles.findSongsBtn}
                       activeOpacity={0.85}
-                      onPress={() => router.push('/(tabs)/search' as any)}
+                      onPress={() => router.push('/search' as any)}
                     >
                       <Text style={styles.findSongsBtnText}>Find Songs</Text>
                     </TouchableOpacity>

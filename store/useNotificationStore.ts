@@ -8,8 +8,7 @@ import {
     orderBy,
     query,
     updateDoc,
-    where,
-    writeBatch,
+    writeBatch
 } from 'firebase/firestore';
 import { create } from 'zustand';
 
@@ -67,7 +66,6 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
 
         const q = query(
             collection(db, `users/${uid}/notifications`),
-            where('userId', '==', uid),
             orderBy('createdAt', 'desc'),
             limit(50)
         );

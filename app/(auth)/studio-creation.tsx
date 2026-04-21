@@ -4,7 +4,7 @@ import { useAppTheme } from '@/hooks/use-app-theme';
 import { useReducedMotion } from '@/hooks/use-reduced-motion';
 import { useUserStore } from '@/store/useUserStore';
 import { useToastStore } from '@/store/useToastStore';
-import { authMotionEasing, getAuthMotionDurations } from '@/utils/authMotion';
+import { getAuthMotionDurations } from '@/utils/authMotion';
 import { markStudioSetupComplete } from '@/utils/authFlow';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { hydrateSubscriptionTier } from '@/utils/subscriptionVerification';
@@ -12,9 +12,8 @@ import * as DocumentPicker from 'expo-document-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { doc, setDoc } from 'firebase/firestore';
 import { Check, ImagePlus, Music2, User } from 'lucide-react-native';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Animated,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -25,17 +24,18 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
 type SelectedRole = 'studio' | 'hybrid';
 type CreatorType = 'artist' | 'producer' | 'record_label';
 
 const GENRES = ['Hip hop', 'Afro beats', 'Reggae', 'Gospel', 'R&B', 'Pop', 'Rock', 'Latin', 'Others'];
 
-const CREATOR_TYPES: Array<{
+const CREATOR_TYPES: {
   id: CreatorType;
   title: string;
   subtitle: string;
-}> = [
+}[] = [
   { id: 'artist', title: 'Artist', subtitle: 'Perform and record music' },
   { id: 'producer', title: 'Producer', subtitle: 'Create and sell beats' },
   { id: 'record_label', title: 'Record Label', subtitle: 'Manage multiple artists' },
@@ -79,39 +79,48 @@ export default function StudioCreationScreen() {
   const [primaryGenre, setPrimaryGenre] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const progressAnim = useRef(new Animated.Value(0.25)).current;
-  const contentOpacity = useRef(new Animated.Value(1)).current;
-  const contentTranslateY = useRef(new Animated.Value(0)).current;
-  const stepContextOpacity = useRef(new Animated.Value(0)).current;
-  const stepContextTranslateY = useRef(new Animated.Value(14)).current;
+  const progressValue = useSharedValue(0.25);
+  const contentOpacity = useSharedValue(1);
+  const contentTranslateY = useSharedValue(0);
+  const stepContextOpacity = useSharedValue(0);
+  const stepContextTranslateY = useSharedValue(14);
+
+  const cardAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: contentOpacity.value,
+    transform: [{ translateY: contentTranslateY.value }],
+  }));
+
+  const stepContextAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: stepContextOpacity.value,
+    transform: [{ translateY: stepContextTranslateY.value }],
+  }));
+
+  const progressFillStyle = useAnimatedStyle(() => {
+    const clampedProgress = Math.max(0, Math.min(1, progressValue.value));
+    const offset = trackWidth > 0 ? -((1 - clampedProgress) * trackWidth) / 2 : 0;
+
+    return {
+      transform: [{ translateX: offset }, { scaleX: clampedProgress }],
+    };
+  });
 
   useEffect(() => {
-    Animated.parallel([
-      Animated.timing(contentOpacity, {
-        toValue: 1,
-        duration: durations.contentEnter,
-        easing: authMotionEasing.standard,
-        useNativeDriver: true,
-      }),
-      Animated.timing(contentTranslateY, {
-        toValue: 0,
-        duration: durations.contentEnter,
-        easing: authMotionEasing.emphasized,
-        useNativeDriver: true,
-      }),
-      Animated.timing(stepContextOpacity, {
-        toValue: 1,
-        duration: durations.contentEnter,
-        easing: authMotionEasing.standard,
-        useNativeDriver: true,
-      }),
-      Animated.timing(stepContextTranslateY, {
-        toValue: 0,
-        duration: durations.contentEnter,
-        easing: authMotionEasing.emphasized,
-        useNativeDriver: true,
-      }),
-    ]).start();
+    contentOpacity.value = withTiming(1, {
+      duration: durations.contentEnter,
+      easing: Easing.out(Easing.cubic),
+    });
+    contentTranslateY.value = withTiming(0, {
+      duration: durations.contentEnter,
+      easing: Easing.out(Easing.cubic),
+    });
+    stepContextOpacity.value = withTiming(1, {
+      duration: durations.contentEnter,
+      easing: Easing.out(Easing.cubic),
+    });
+    stepContextTranslateY.value = withTiming(0, {
+      duration: durations.contentEnter,
+      easing: Easing.out(Easing.cubic),
+    });
   }, [contentOpacity, contentTranslateY, durations.contentEnter, stepContextOpacity, stepContextTranslateY]);
 
   const stepTitle = useMemo(() => {
@@ -128,75 +137,53 @@ export default function StudioCreationScreen() {
     return `Welcome to ${studioName || 'your studio'}. Everything is ready for your next step.`;
   }, [step, studioName]);
 
-  const progressWidth = trackWidth
-    ? progressAnim.interpolate({
-        inputRange: [0.25, 0.5, 0.75, 1],
-        outputRange: [trackWidth * 0.25, trackWidth * 0.5, trackWidth * 0.75, trackWidth],
-      })
-    : 0;
-
   const animateToStep = (nextStep: number) => {
-    Animated.parallel([
-      Animated.timing(contentOpacity, {
-        toValue: 0,
-        duration: Math.max(110, durations.slideChange - 80),
-        easing: authMotionEasing.standard,
-        useNativeDriver: true,
-      }),
-      Animated.timing(contentTranslateY, {
-        toValue: reduceMotion ? 0 : 18,
-        duration: durations.slideChange,
-        easing: authMotionEasing.standard,
-        useNativeDriver: true,
-      }),
-      Animated.timing(stepContextOpacity, {
-        toValue: 0,
-        duration: Math.max(110, durations.slideChange - 80),
-        easing: authMotionEasing.standard,
-        useNativeDriver: true,
-      }),
-      Animated.timing(stepContextTranslateY, {
-        toValue: reduceMotion ? 0 : 14,
-        duration: durations.slideChange,
-        easing: authMotionEasing.standard,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      setStep(nextStep);
-      contentTranslateY.setValue(reduceMotion ? 0 : 18);
-      stepContextTranslateY.setValue(reduceMotion ? 0 : 14);
-      Animated.parallel([
-        Animated.timing(progressAnim, {
-          toValue: nextStep / 4,
+    contentOpacity.value = withTiming(0, {
+      duration: Math.max(110, durations.slideChange - 80),
+      easing: Easing.out(Easing.cubic),
+    });
+    contentTranslateY.value = withTiming(reduceMotion ? 0 : 18, {
+      duration: durations.slideChange,
+      easing: Easing.out(Easing.cubic),
+    }, (finished) => {
+      if (finished) {
+        stepContextOpacity.value = 0;
+        stepContextTranslateY.value = reduceMotion ? 0 : 14;
+        contentTranslateY.value = reduceMotion ? 0 : 18;
+        contentOpacity.value = 0;
+        progressValue.value = withTiming(nextStep / 4, {
           duration: durations.progress,
-          easing: authMotionEasing.standard,
-          useNativeDriver: false,
-        }),
-        Animated.timing(contentOpacity, {
-          toValue: 1,
+          easing: Easing.out(Easing.cubic),
+        });
+      }
+    });
+    stepContextOpacity.value = withTiming(0, {
+      duration: Math.max(110, durations.slideChange - 80),
+      easing: Easing.out(Easing.cubic),
+    });
+    stepContextTranslateY.value = withTiming(reduceMotion ? 0 : 14, {
+      duration: durations.slideChange,
+      easing: Easing.out(Easing.cubic),
+    }, (finished) => {
+      if (finished) {
+        runOnJS(setStep)(nextStep);
+        contentOpacity.value = withTiming(1, {
           duration: durations.slideChange,
-          easing: authMotionEasing.standard,
-          useNativeDriver: true,
-        }),
-        Animated.timing(contentTranslateY, {
-          toValue: 0,
+          easing: Easing.out(Easing.cubic),
+        });
+        contentTranslateY.value = withTiming(0, {
           duration: durations.slideChange,
-          easing: authMotionEasing.emphasized,
-          useNativeDriver: true,
-        }),
-        Animated.timing(stepContextOpacity, {
-          toValue: 1,
+          easing: Easing.out(Easing.cubic),
+        });
+        stepContextOpacity.value = withTiming(1, {
           duration: durations.slideChange,
-          easing: authMotionEasing.standard,
-          useNativeDriver: true,
-        }),
-        Animated.timing(stepContextTranslateY, {
-          toValue: 0,
+          easing: Easing.out(Easing.cubic),
+        });
+        stepContextTranslateY.value = withTiming(0, {
           duration: durations.slideChange,
-          easing: authMotionEasing.emphasized,
-          useNativeDriver: true,
-        }),
-      ]).start();
+          easing: Easing.out(Easing.cubic),
+        });
+      }
     });
   };
 
@@ -305,26 +292,20 @@ export default function StudioCreationScreen() {
                 <Text style={styles.stepText}>Step {step}/4</Text>
               </View>
               <View style={styles.progressTrack} onLayout={(event) => setTrackWidth(event.nativeEvent.layout.width)}>
-                <Animated.View style={[styles.progressFill, { width: progressWidth }]} />
+                <Animated.View style={[styles.progressFill, progressFillStyle]} />
               </View>
             </View>
 
             <Animated.View
               style={[
                 styles.card,
-                {
-                  opacity: contentOpacity,
-                  transform: [{ translateY: contentTranslateY }],
-                },
+                cardAnimatedStyle,
               ]}
             >
               <Animated.View
                 style={[
                   styles.stepContext,
-                  {
-                    opacity: stepContextOpacity,
-                    transform: [{ translateY: stepContextTranslateY }],
-                  },
+                  stepContextAnimatedStyle,
                 ]}
               >
                 <View style={styles.introBlock}>

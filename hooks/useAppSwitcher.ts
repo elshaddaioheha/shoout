@@ -2,11 +2,19 @@ import { ViewMode, useUserStore } from '@/store/useUserStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { usePlaybackStore } from '@/store/usePlaybackStore';
 import { useToastStore } from '@/store/useToastStore';
+import { captureError } from '@/utils/monitoring';
 import { notifyError, notifyWarning } from '@/utils/notify';
+import { ROUTES } from '@/utils/routes';
 import { canAccessAppMode, canUseStudioServices, formatPlanLabel, getDefaultAppModeForPlan, getEffectivePlan } from '@/utils/subscriptions';
 import { useRouter } from 'expo-router';
-import { useCallback, useRef, useState } from 'react';
-import { Animated } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Easing, runOnJS, useSharedValue, withDelay, withSpring, withTiming } from 'react-native-reanimated';
+
+const TRANSITION_INTRO_DELAY_MS = 700;
+const TRANSITION_POST_RENDER_HOLD_MS = 3000;
+const TRANSITION_RENDER_TIMEOUT_MS = 2500;
+const TRANSITION_ENTER_OFFSET_X = 120;
+const TRANSITION_EXIT_OFFSET_X = -120;
 
 export function useAppSwitcher() {
     const { actualRole: serverVerifiedRole, isVerifyingRole } = useAuthStore();
@@ -15,12 +23,20 @@ export function useAppSwitcher() {
 
     const [sheetVisible, setSheetVisible] = useState(false);
     const [transitioning, setTransitioning] = useState(false);
+    const [waitingForRender, setWaitingForRender] = useState(false);
+    const [transitionToken, setTransitionToken] = useState(0);
+    const [transitionSourceMode, setTransitionSourceMode] = useState<ViewMode>(activeAppMode);
     const [transitionTargetMode, setTransitionTargetMode] = useState<ViewMode>(activeAppMode);
 
-    const overlayAnim = useRef(new Animated.Value(0)).current;
-    const welcomeSlideAnim = useRef(new Animated.Value(40)).current;
-    const welcomeOpacityAnim = useRef(new Animated.Value(0)).current;
-    const contentFadeAnim = useRef(new Animated.Value(1)).current;
+    const overlayProgress = useSharedValue(0);
+    const welcomeProgress = useSharedValue(0);
+    const contentProgress = useSharedValue(1);
+    const overlayTranslateX = useSharedValue(TRANSITION_ENTER_OFFSET_X);
+    const transitionSequence = useSharedValue(0);
+    const pendingTargetModeRef = useRef<ViewMode | null>(null);
+    const pendingTransitionTokenRef = useRef(0);
+    const waitingForRenderRef = useRef(false);
+    const renderTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const openSheet = useCallback(() => {
         if (transitioning) return;
@@ -36,6 +52,147 @@ export function useAppSwitcher() {
         return canAccessAppMode(currentPlan, targetViewMode);
     }, [currentPlan]);
 
+    const resetTransitionValues = useCallback(() => {
+        overlayProgress.value = 0;
+        welcomeProgress.value = 0;
+        contentProgress.value = 1;
+        overlayTranslateX.value = TRANSITION_ENTER_OFFSET_X;
+        transitionSequence.value = 0;
+    }, [contentProgress, overlayProgress, overlayTranslateX, transitionSequence, welcomeProgress]);
+
+    const clearRenderTimeout = useCallback(() => {
+        if (renderTimeoutRef.current) {
+            clearTimeout(renderTimeoutRef.current);
+            renderTimeoutRef.current = null;
+        }
+    }, []);
+
+    const finishTransition = useCallback(() => {
+        clearRenderTimeout();
+        pendingTargetModeRef.current = null;
+        pendingTransitionTokenRef.current = 0;
+        waitingForRenderRef.current = false;
+        setWaitingForRender(false);
+        setTransitioning(false);
+    }, [clearRenderTimeout]);
+
+    const handleTransitionError = useCallback((error: unknown) => {
+        captureError(error, {
+            scope: 'mode-switch',
+            transitionSourceMode,
+            transitionTargetMode,
+            pendingTargetMode: pendingTargetModeRef.current,
+            pendingTransitionToken: pendingTransitionTokenRef.current,
+        });
+        notifyError('Failed to switch app mode', error);
+        useToastStore.getState().showToast('Could not switch experience right now. Please try again.', 'error');
+        clearRenderTimeout();
+        resetTransitionValues();
+        pendingTargetModeRef.current = null;
+        pendingTransitionTokenRef.current = 0;
+        waitingForRenderRef.current = false;
+        setWaitingForRender(false);
+        setTransitioning(false);
+    }, [clearRenderTimeout, resetTransitionValues, transitionSourceMode, transitionTargetMode]);
+
+    const startExitAnimation = useCallback(() => {
+        overlayTranslateX.value = withTiming(TRANSITION_EXIT_OFFSET_X, {
+            duration: 320,
+            easing: Easing.inOut(Easing.cubic),
+        });
+        overlayProgress.value = withTiming(0, {
+            duration: 320,
+            easing: Easing.out(Easing.cubic),
+        });
+        welcomeProgress.value = withTiming(0, {
+            duration: 260,
+            easing: Easing.out(Easing.cubic),
+        });
+        contentProgress.value = withTiming(1, {
+            duration: 260,
+            easing: Easing.out(Easing.cubic),
+        }, (finished) => {
+            if (finished) {
+                runOnJS(finishTransition)();
+            }
+        });
+    }, [contentProgress, finishTransition, overlayProgress, overlayTranslateX, welcomeProgress]);
+
+    const scheduleRenderFallback = useCallback((targetViewMode: ViewMode, nextToken: number) => {
+        clearRenderTimeout();
+        renderTimeoutRef.current = setTimeout(() => {
+            if (!waitingForRenderRef.current) {
+                return;
+            }
+            if (pendingTargetModeRef.current !== targetViewMode || pendingTransitionTokenRef.current !== nextToken) {
+                return;
+            }
+
+            captureError(new Error('Mode transition render-ready callback timed out.'), {
+                scope: 'mode-switch-render-timeout',
+                transitionSourceMode,
+                transitionTargetMode: targetViewMode,
+                transitionToken: nextToken,
+            });
+            notifyWarning('[mode-switch] Render-ready callback timed out. Completing transition with fallback.');
+            waitingForRenderRef.current = false;
+            setWaitingForRender(false);
+            startExitAnimation();
+        }, TRANSITION_RENDER_TIMEOUT_MS + TRANSITION_POST_RENDER_HOLD_MS);
+    }, [clearRenderTimeout, startExitAnimation, transitionSourceMode]);
+
+    const commitModeSwitch = useCallback(async (targetViewMode: ViewMode, nextToken: number) => {
+        if (pendingTargetModeRef.current !== targetViewMode || pendingTransitionTokenRef.current !== nextToken) {
+            return;
+        }
+
+        try {
+            try {
+                await usePlaybackStore.getState().clearTrack();
+            } catch (error) {
+                notifyWarning('Failed to clear playback when switching app mode', error);
+            }
+
+            setActiveAppMode(targetViewMode);
+
+            if (targetViewMode !== activeAppMode) {
+                router.push(ROUTES.tabs.home as any);
+            }
+
+            waitingForRenderRef.current = true;
+            setWaitingForRender(true);
+            setTransitionTargetMode(targetViewMode);
+            scheduleRenderFallback(targetViewMode, nextToken);
+        } catch (error) {
+            handleTransitionError(error);
+        }
+    }, [activeAppMode, handleTransitionError, router, scheduleRenderFallback, setActiveAppMode]);
+
+    const notifyTransitionContentReady = useCallback((payload: { mode: ViewMode; token: number; pathname?: string }) => {
+        const { mode, token } = payload;
+        if (!waitingForRenderRef.current) {
+            return;
+        }
+        if (!transitioning) {
+            return;
+        }
+        if (token !== pendingTransitionTokenRef.current) {
+            return;
+        }
+        if (mode !== pendingTargetModeRef.current) {
+            return;
+        }
+
+        clearRenderTimeout();
+        waitingForRenderRef.current = false;
+        setWaitingForRender(false);
+        transitionSequence.value = withDelay(TRANSITION_POST_RENDER_HOLD_MS, withTiming(1, { duration: 1 }, (finished) => {
+            if (finished) {
+                runOnJS(startExitAnimation)();
+            }
+        }));
+    }, [clearRenderTimeout, startExitAnimation, transitionSequence, transitioning]);
+
     const switchMode = useCallback(async (targetViewMode: ViewMode) => {
         if (transitioning) {
             return;
@@ -46,76 +203,63 @@ export function useAppSwitcher() {
         }
         if (!isModeAccessible(targetViewMode)) {
             setSheetVisible(false);
-            router.push('/settings/subscriptions' as any);
+            router.push(ROUTES.settings.subscriptions as any);
             return;
         }
 
         setSheetVisible(false);
+        const nextToken = pendingTransitionTokenRef.current + 1;
+        pendingTransitionTokenRef.current = nextToken;
+        setTransitionToken(nextToken);
+        setTransitionSourceMode(activeAppMode);
         setTransitionTargetMode(targetViewMode);
         setTransitioning(true);
+        setWaitingForRender(false);
+        pendingTargetModeRef.current = targetViewMode;
+        waitingForRenderRef.current = false;
 
-        welcomeSlideAnim.setValue(40);
-        welcomeOpacityAnim.setValue(0);
-        contentFadeAnim.setValue(1);
+        resetTransitionValues();
 
         try {
-            await new Promise<void>((resolve) => {
-                Animated.parallel([
-                    Animated.timing(overlayAnim, { toValue: 1, duration: 240, useNativeDriver: true }),
-                    Animated.timing(contentFadeAnim, { toValue: 0, duration: 220, useNativeDriver: true }),
-                ]).start(() => resolve());
+            overlayTranslateX.value = withTiming(0, {
+                duration: 360,
+                easing: Easing.out(Easing.cubic),
             });
-
-            Animated.parallel([
-                Animated.spring(welcomeSlideAnim, { toValue: 0, useNativeDriver: true, speed: 16, bounciness: 4 }),
-                Animated.timing(welcomeOpacityAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
-            ]).start();
-
-            await new Promise<void>((r) => setTimeout(r, 700));
-
-            // Stop any active playback session whenever switching between app modes
-            try {
-                await usePlaybackStore.getState().clearTrack();
-            } catch (error) {
-                notifyWarning('Failed to clear playback when switching app mode', error);
-            }
-
-            setActiveAppMode(targetViewMode);
-
-            // Ensure we navigate to the home tab to trigger proper page rendering
-            // This is critical for transitioning between modes
-            if (targetViewMode !== activeAppMode) {
-                router.push('/(tabs)' as any);
-            }
-
-            await new Promise<void>((resolve) => {
-                Animated.parallel([
-                    Animated.timing(overlayAnim, { toValue: 0, duration: 240, useNativeDriver: true }),
-                    Animated.timing(welcomeOpacityAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
-                    Animated.timing(contentFadeAnim, { toValue: 1, duration: 260, useNativeDriver: true }),
-                ]).start(() => resolve());
+            overlayProgress.value = withTiming(1, {
+                duration: 320,
+                easing: Easing.out(Easing.cubic),
             });
-
-            setTransitionTargetMode(targetViewMode);
+            contentProgress.value = withTiming(0, {
+                duration: 220,
+                easing: Easing.out(Easing.cubic),
+            });
+            welcomeProgress.value = withDelay(120, withSpring(1, {
+                damping: 18,
+                stiffness: 180,
+                mass: 0.9,
+            }));
+            transitionSequence.value = withDelay(TRANSITION_INTRO_DELAY_MS, withTiming(1, { duration: 1 }, (finished) => {
+                if (finished) {
+                    runOnJS(commitModeSwitch)(targetViewMode, nextToken);
+                }
+            }));
         } catch (error) {
-            notifyError('Failed to switch app mode', error);
-            useToastStore.getState().showToast('Could not switch experience right now. Please try again.', 'error');
-            overlayAnim.stopAnimation();
-            welcomeOpacityAnim.stopAnimation();
-            welcomeSlideAnim.stopAnimation();
-            contentFadeAnim.stopAnimation();
-            overlayAnim.setValue(0);
-            welcomeOpacityAnim.setValue(0);
-            welcomeSlideAnim.setValue(40);
-            contentFadeAnim.setValue(1);
-        } finally {
-            setTransitioning(false);
+            handleTransitionError(error);
         }
-    }, [activeAppMode, isModeAccessible, setActiveAppMode, overlayAnim, contentFadeAnim, router, transitioning, welcomeOpacityAnim, welcomeSlideAnim]);
+    }, [activeAppMode, commitModeSwitch, contentProgress, handleTransitionError, isModeAccessible, overlayProgress, overlayTranslateX, resetTransitionValues, router, transitionSequence, transitioning, welcomeProgress]);
+
+    useEffect(() => {
+        return () => {
+            clearRenderTimeout();
+        };
+    }, [clearRenderTimeout]);
 
     return {
         sheetVisible,
         transitioning,
+        waitingForRender,
+        transitionToken,
+        transitionSourceMode,
         transitionTargetMode,
         viewMode: activeAppMode,
         currentPlan,
@@ -128,9 +272,10 @@ export function useAppSwitcher() {
         openSheet,
         closeSheet,
         switchMode,
-        overlayAnim,
-        welcomeSlideAnim,
-        welcomeOpacityAnim,
-        contentFadeAnim,
+        notifyTransitionContentReady,
+        overlayProgress,
+        overlayTranslateX,
+        welcomeProgress,
+        contentProgress,
     };
 }

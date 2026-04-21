@@ -223,7 +223,7 @@ export default function ListingLicenseModal() {
             await new Promise((resolve) => setTimeout(resolve, 900));
             setShowSuccessPopup(false);
             showToast('Purchase confirmed. Track is now in your library.', 'success');
-            router.replace('/(tabs)/library');
+            router.replace('/library');
         } catch (error) {
             console.error('Payment verification error:', error);
             showToast('Payment succeeded but verification is pending. Check Library shortly.', 'error');

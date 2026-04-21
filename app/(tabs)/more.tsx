@@ -12,6 +12,7 @@ import { useUserStore } from '@/store/useUserStore';
 import { useVaultWorkspaceData } from '@/hooks/useVaultWorkspaceData';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { getModeTheme } from '@/utils/appModeTheme';
+import { ROUTES, resolveModeHomePath } from '@/utils/routes';
 import { colors } from '@/constants/colors';
 import { canUseHybridServices, canUseStudioServices, getEffectivePlan } from '@/utils/subscriptions';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
@@ -86,10 +87,10 @@ export default function MoreScreen() {
     const modeTheme = getModeTheme(activeAppMode);
     const accentColor = modeTheme.accent;
 
-    const pushSubscriptions = () => router.push('/settings/subscriptions' as any);
+    const pushSubscriptions = () => router.push(ROUTES.settings.subscriptions as any);
     const goHybridHome = () => {
         setActiveAppMode('hybrid');
-        router.push('/' as any);
+        router.push(resolveModeHomePath('hybrid') as any);
     };
     const handleShareApp = async () => {
         try {
@@ -128,7 +129,7 @@ export default function MoreScreen() {
             } catch (e) {
                 console.warn('clearTrack error:', e);
             }
-            router.replace('/(auth)/login');
+            router.replace(ROUTES.auth.login as any);
         }
     };
 
@@ -158,10 +159,10 @@ export default function MoreScreen() {
                             <Text style={styles.guestTitle}>Welcome to Shoouts</Text>
                             <Text style={styles.guestSubtitle}>Sign up or log in to manage your library, cart, and profile.</Text>
                             <View style={styles.guestActions}>
-                                <TouchableOpacity style={styles.primaryButton} onPress={() => router.push('/(auth)/signup' as any)}>
+                                <TouchableOpacity style={styles.primaryButton} onPress={() => router.push(ROUTES.auth.signup as any)}>
                                     <Text style={styles.primaryButtonText}>Create account</Text>
                                 </TouchableOpacity>
-                                <TouchableOpacity style={styles.secondaryButton} onPress={() => router.push('/(auth)/login' as any)}>
+                                <TouchableOpacity style={styles.secondaryButton} onPress={() => router.push(ROUTES.auth.login as any)}>
                                     <Text style={styles.secondaryButtonText}>Log in</Text>
                                 </TouchableOpacity>
                             </View>
@@ -178,7 +179,7 @@ export default function MoreScreen() {
             <View style={styles.container}>
                 {isVaultMode ? (
                     <View style={[styles.vaultHeader, { backgroundColor: appTheme.colors.background }]}>
-                        <TouchableOpacity onPress={() => router.push('/' as any)} style={styles.vaultBackButton}>
+                        <TouchableOpacity onPress={() => router.push(resolveModeHomePath(activeAppMode) as any)} style={styles.vaultBackButton}>
                             <ChevronLeft size={24} color={appTheme.colors.textPrimary} />
                         </TouchableOpacity>
                         <Text style={styles.vaultHeaderTitle}>Settings</Text>
@@ -202,50 +203,50 @@ export default function MoreScreen() {
 
                     <View style={styles.menuContainer}>
                         {/* Consistent Slot 1: My Content Home */}
-                        {isVaultMode && <MenuItem iconName="library" label="Vault Home" color={accentColor} onPress={() => router.push('/' as any)} />}
-                        {isStudioMode && <MenuItem iconName="library" label="Studio Home" color={accentColor} onPress={() => router.push('/' as any)} />}
+                        {isVaultMode && <MenuItem iconName="library" label="Vault Home" color={accentColor} onPress={() => router.push(resolveModeHomePath(activeAppMode) as any)} />}
+                        {isStudioMode && <MenuItem iconName="library" label="Studio Home" color={accentColor} onPress={() => router.push(resolveModeHomePath(activeAppMode) as any)} />}
                         {isHybridMode && <MenuItem iconName="library" label="Hybrid Home" color={accentColor} onPress={goHybridHome} />}
-                        {!isVaultMode && !isStudioMode && !isHybridMode && <MenuItem iconName="library" label="Library" color={accentColor} onPress={() => router.push('/(tabs)/library' as any)} />}
+                        {!isVaultMode && !isStudioMode && !isHybridMode && <MenuItem iconName="library" label="Library" color={accentColor} onPress={() => router.push(ROUTES.tabs.library as any)} />}
 
                         {/* Consistent Slot 2: Create / Upload / Shop */}
-                        {isVaultMode && <MenuItem iconName="upload-cloud" label="Upload Track" color={accentColor} onPress={() => router.push('/vault/upload' as any)} />}
-                        {isStudioMode && <MenuItem iconName="upload-cloud" label="Publish" color={accentColor} onPress={() => canUseStudioTools ? router.push('/(tabs)/search' as any) : pushSubscriptions()} />}
-                        {isHybridMode && <MenuItem iconName="upload-cloud" label="Publish" color={accentColor} onPress={() => canUseHybridTools ? router.push('/(tabs)/search' as any) : pushSubscriptions()} />}
-                        {!isVaultMode && !isStudioMode && !isHybridMode && <MenuItem iconName="cart" label="My Cart" color={accentColor} onPress={() => router.push('/cart' as any)} />}
+                        {isVaultMode && <MenuItem iconName="upload-cloud" label="Upload Track" color={accentColor} onPress={() => router.push(ROUTES.vault.upload as any)} />}
+                        {isStudioMode && <MenuItem iconName="upload-cloud" label="Publish" color={accentColor} onPress={() => canUseStudioTools ? router.push(ROUTES.tabs.search as any) : pushSubscriptions()} />}
+                        {isHybridMode && <MenuItem iconName="upload-cloud" label="Publish" color={accentColor} onPress={() => canUseHybridTools ? router.push(ROUTES.tabs.search as any) : pushSubscriptions()} />}
+                        {!isVaultMode && !isStudioMode && !isHybridMode && <MenuItem iconName="cart" label="My Cart" color={accentColor} onPress={() => router.push(ROUTES.tabs.cart as any)} />}
 
                         {/* Consistent Slot 3: Manage / Access Content */}
-                        {isVaultMode && <MenuItem iconName="link-2" label="Shared Links" color={accentColor} onPress={() => router.push('/vault/links' as any)} />}
-                        {isStudioMode && <MenuItem iconName="banknote" label="Royalties & Earnings" color={accentColor} onPress={() => canUseStudioTools ? router.push('/studio/earnings' as any) : pushSubscriptions()} />}
-                        {isHybridMode && <MenuItem iconName="banknote" label="Creator Earnings" color={accentColor} onPress={() => canUseHybridTools ? router.push('/studio/earnings' as any) : pushSubscriptions()} />}
+                        {isVaultMode && <MenuItem iconName="link-2" label="Shared Links" color={accentColor} onPress={() => router.push(ROUTES.vault.links as any)} />}
+                        {isStudioMode && <MenuItem iconName="banknote" label="Royalties & Earnings" color={accentColor} onPress={() => canUseStudioTools ? router.push(ROUTES.studio.earnings as any) : pushSubscriptions()} />}
+                        {isHybridMode && <MenuItem iconName="banknote" label="Creator Earnings" color={accentColor} onPress={() => canUseHybridTools ? router.push(ROUTES.studio.earnings as any) : pushSubscriptions()} />}
 
                         {/* Consistent Slot 4: Notifications / Promotions */}
-                        {isVaultMode && <MenuItem iconName="bell" label="Notifications" color={accentColor} onPress={() => router.push('/notifications' as any)} />}
-                        {isStudioMode && <MenuItem iconName="bell" label="Promote & Ads" color={accentColor} onPress={() => canUseStudioTools ? router.push('/(tabs)/marketplace' as any) : pushSubscriptions()} />}
-                        {isHybridMode && <MenuItem iconName="bell" label="Promote & Ads" color={accentColor} onPress={() => canUseHybridTools ? router.push('/(tabs)/marketplace' as any) : pushSubscriptions()} />}
-                        {!isVaultMode && !isStudioMode && !isHybridMode && <MenuItem iconName="bell" label="Notifications" color={accentColor} onPress={() => router.push('/notifications' as any)} />}
+                        {isVaultMode && <MenuItem iconName="bell" label="Notifications" color={accentColor} onPress={() => router.push(ROUTES.notifications as any)} />}
+                        {isStudioMode && <MenuItem iconName="bell" label="Promote & Ads" color={accentColor} onPress={() => canUseStudioTools ? router.push(ROUTES.tabs.marketplace as any) : pushSubscriptions()} />}
+                        {isHybridMode && <MenuItem iconName="bell" label="Promote & Ads" color={accentColor} onPress={() => canUseHybridTools ? router.push(ROUTES.tabs.marketplace as any) : pushSubscriptions()} />}
+                        {!isVaultMode && !isStudioMode && !isHybridMode && <MenuItem iconName="bell" label="Notifications" color={accentColor} onPress={() => router.push(ROUTES.notifications as any)} />}
 
                         {/* Secondary Hybrid Vault Access */}
-                        {showVaultWorkspaceShortcut && <MenuItem iconName="upload-cloud" label="Vault Workspace" color={accentColor} onPress={() => router.push('/(tabs)/library' as any)} />}
-                        {isHybridMode && <MenuItem iconName="link-2" label="Vault Links" color={accentColor} onPress={() => canUseHybridTools ? router.push('/vault/links' as any) : pushSubscriptions()} />}
+                        {showVaultWorkspaceShortcut && <MenuItem iconName="upload-cloud" label="Vault Workspace" color={accentColor} onPress={() => router.push(ROUTES.tabs.library as any)} />}
+                        {isHybridMode && <MenuItem iconName="link-2" label="Vault Links" color={accentColor} onPress={() => canUseHybridTools ? router.push(ROUTES.vault.links as any) : pushSubscriptions()} />}
                     </View>
 
                     <View style={styles.menuContainer}>
-                        <MenuItem iconName="user" label="Account" color={accentColor} onPress={() => router.push('/(tabs)/profile' as any)} />
-                        <MenuItem iconName="sparkles" label="Appearance" color={accentColor} onPress={() => router.push('/settings/appearance' as any)} />
-                        {!isVaultMode && <MenuItem iconName="credit-card" label="Payment Methods" color={accentColor} onPress={() => router.push('/settings/payment-methods' as any)} />}
-                        <MenuItem iconName="banknote" label="Subscription" value={role.replace('_', ' ').toUpperCase()} color={accentColor} onPress={() => router.push('/settings/subscriptions' as any)} />
-                        {isStudioMode && <MenuItem iconName="sparkles" label="Studio Analytics" color={accentColor} onPress={() => canUseStudioTools ? router.push('/studio/analytics' as any) : pushSubscriptions()} />}
-                        {isStudioMode && <MenuItem iconName="circle-help" label="Studio Settings" color={accentColor} onPress={() => canUseStudioTools ? router.push('/studio/settings' as any) : pushSubscriptions()} />}
-                        {isHybridMode && <MenuItem iconName="sparkles" label="Hybrid Analytics" color={accentColor} onPress={() => canUseHybridTools ? router.push('/studio/analytics' as any) : pushSubscriptions()} />}
-                        {isHybridMode && <MenuItem iconName="circle-help" label="Studio Settings" color={accentColor} onPress={() => canUseHybridTools ? router.push('/studio/settings' as any) : pushSubscriptions()} />}
+                        <MenuItem iconName="user" label="Account" color={accentColor} onPress={() => router.push(ROUTES.tabs.profile as any)} />
+                        <MenuItem iconName="sparkles" label="Appearance" color={accentColor} onPress={() => router.push(ROUTES.settings.appearance as any)} />
+                        {!isVaultMode && <MenuItem iconName="credit-card" label="Payment Methods" color={accentColor} onPress={() => router.push(ROUTES.settings.paymentMethods as any)} />}
+                        <MenuItem iconName="banknote" label="Subscription" value={role.replace('_', ' ').toUpperCase()} color={accentColor} onPress={() => router.push(ROUTES.settings.subscriptions as any)} />
+                        {isStudioMode && <MenuItem iconName="sparkles" label="Studio Analytics" color={accentColor} onPress={() => canUseStudioTools ? router.push(ROUTES.studio.analytics as any) : pushSubscriptions()} />}
+                        {isStudioMode && <MenuItem iconName="circle-help" label="Studio Settings" color={accentColor} onPress={() => canUseStudioTools ? router.push(ROUTES.studio.settings as any) : pushSubscriptions()} />}
+                        {isHybridMode && <MenuItem iconName="sparkles" label="Hybrid Analytics" color={accentColor} onPress={() => canUseHybridTools ? router.push(ROUTES.studio.analytics as any) : pushSubscriptions()} />}
+                        {isHybridMode && <MenuItem iconName="circle-help" label="Studio Settings" color={accentColor} onPress={() => canUseHybridTools ? router.push(ROUTES.studio.settings as any) : pushSubscriptions()} />}
                         <MenuItem iconName="share" label="Share" color={accentColor} onPress={handleShareApp} />
-                        <MenuItem iconName="circle-help" label="Support" color={accentColor} onPress={() => router.push('/settings/help-center' as any)} />
-                        <MenuItem iconName="shield" label="Privacy & Security" color={accentColor} onPress={() => router.push('/settings/privacy' as any)} />
+                        <MenuItem iconName="circle-help" label="Support" color={accentColor} onPress={() => router.push(ROUTES.settings.helpCenter as any)} />
+                        <MenuItem iconName="shield" label="Privacy & Security" color={accentColor} onPress={() => router.push(ROUTES.settings.privacy as any)} />
                         <MenuItem iconName="log-out" label="Log Out" color="#EF4444" onPress={handleLogout} hideChevron />
                     </View>
 
                     {isStudioMode || isHybridMode ? (
-                        <TouchableOpacity style={styles.upgradeCard} onPress={() => router.push('/settings/subscriptions' as any)}>
+                        <TouchableOpacity style={styles.upgradeCard} onPress={() => router.push(ROUTES.settings.subscriptions as any)}>
                             <LinearGradient
                                 colors={[modeTheme.accent, modeTheme.accentStrong]}
                                 style={styles.upgradeGradient}
@@ -259,7 +260,7 @@ export default function MoreScreen() {
                             </LinearGradient>
                         </TouchableOpacity>
                     ) : (
-                        <TouchableOpacity style={styles.upgradeCard} onPress={() => router.push('/settings/subscriptions' as any)}>
+                        <TouchableOpacity style={styles.upgradeCard} onPress={() => router.push(ROUTES.settings.subscriptions as any)}>
                             <LinearGradient
                                 colors={[modeTheme.accent, modeTheme.accentStrong]}
                                 style={styles.upgradeGradient}

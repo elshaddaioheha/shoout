@@ -1,11 +1,11 @@
-import { useAuthStore } from '@/store/useAuthStore';
-import { authMotionEasing, getAuthMotionDurations } from '@/utils/authMotion';
-import { resolveAuthenticatedDestination, resolveUnauthenticatedDestination } from '@/utils/authFlow';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { useReducedMotion } from '@/hooks/use-reduced-motion';
+import { useAuthStore } from '@/store/useAuthStore';
+import { resolveAuthenticatedDestination, resolveUnauthenticatedDestination } from '@/utils/authFlow';
+import { authMotionEasing, getAuthMotionDurations } from '@/utils/authMotion';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef } from 'react';
-import { Animated, Easing, Image, StatusBar, StyleSheet, View } from 'react-native';
+import { Animated, StatusBar, StyleSheet, View } from 'react-native';
 
 const lightSplash = require('@/assets/images/ShooutS-2-splash-light (1).jpg.jpeg');
 const darkSplash = require('@/assets/images/ShooutS-1-splash-black.jpg.jpeg');
@@ -31,25 +31,39 @@ export default function AuthEntryScreen() {
     const resolveAndNavigate = async () => {
       hasNavigatedRef.current = true;
 
-      const destination = hasAuthenticatedUser
-        ? await resolveAuthenticatedDestination()
-        : await resolveUnauthenticatedDestination();
+      let destination: any;
+      try {
+        destination = hasAuthenticatedUser
+          ? await resolveAuthenticatedDestination()
+          : await resolveUnauthenticatedDestination();
+      } catch (err) {
+        console.error('[Startup] Failed to resolve auth destination:', err);
+        destination = { pathname: '/(tabs)/index' };
+      }
 
       await wait(durations.splashHold);
 
-      await new Promise<void>((resolve) => {
-        Animated.timing(opacity, {
-          toValue: reduceMotion ? 0 : 0,
-          duration: durations.splashExit,
-          easing: authMotionEasing.standard,
-          useNativeDriver: true,
-        }).start(() => resolve());
-      });
+      try {
+        await Promise.race([
+          new Promise<void>((resolve) => {
+            Animated.timing(opacity, {
+              toValue: 0,
+              duration: durations.splashExit,
+              easing: authMotionEasing.standard,
+              useNativeDriver: true,
+            }).start(() => resolve());
+          }),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Animation timeout')), durations.splashExit + 500))
+        ]);
+      } catch (animErr) {
+        console.warn('[Startup] Animation skipped or timed out:', animErr);
+      }
 
       router.replace(destination as any);
     };
 
-    resolveAndNavigate().catch(() => {
+    resolveAndNavigate().catch((globalErr) => {
+      console.error('[Startup] Critical error resolving splash navigation:', globalErr);
       hasNavigatedRef.current = false;
       router.replace('/(auth)/login');
     });

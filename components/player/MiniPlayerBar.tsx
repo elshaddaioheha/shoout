@@ -8,6 +8,7 @@ import React, { memo, useCallback, useEffect } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   Easing,
+  interpolate,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
@@ -68,8 +69,12 @@ function MiniPlayerBarBase({ onExpand }: Props) {
   const playNextTrack = usePlaybackStore((s) => s.playNextTrack);
   const rawProgress = duration > 0 ? Math.max(0, Math.min(1, position / duration)) : 0;
   const progressValue = useSharedValue(rawProgress);
+  const progressTrackWidth = useSharedValue(0);
   const progressStyle = useAnimatedStyle(() => ({
-    width: `${progressValue.value * 100}%`,
+    transform: [
+      { translateX: interpolate(progressValue.value, [0, 1], [-progressTrackWidth.value / 2, 0]) },
+      { scaleX: progressValue.value },
+    ],
   }));
 
   const onPlayPause = useCallback(() => {
@@ -132,7 +137,12 @@ function MiniPlayerBarBase({ onExpand }: Props) {
           <Icon name="skip-forward" size={20} color={appTheme.colors.textPrimary} fill />
         </AnimatedBtn>
       </View>
-      <View style={[styles.progressTrack, { backgroundColor: appTheme.colors.surfaceMuted }]}>
+      <View
+        style={[styles.progressTrack, { backgroundColor: appTheme.colors.surfaceMuted }]}
+        onLayout={(event) => {
+          progressTrackWidth.value = event.nativeEvent.layout.width;
+        }}
+      >
         <Animated.View style={[styles.progressFill, { backgroundColor: appTheme.colors.primary }, progressStyle]} />
       </View>
     </View>
@@ -183,5 +193,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   progressTrack: { height: 2 },
-  progressFill: { height: '100%' },
+  progressFill: { ...StyleSheet.absoluteFillObject },
 });

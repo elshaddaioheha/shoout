@@ -10,6 +10,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import { Platform, SafeAreaView, StatusBar, StyleSheet, View } from 'react-native';
+import { ROUTES } from '@/utils/routes';
 
 function withAlpha(hex: string, alphaHex: string) {
     if (/^#[0-9a-fA-F]{6}$/.test(hex)) {
@@ -79,7 +80,7 @@ export default function SharedHeader({
                             {shouldShowSearch && (
                                 <IconButton
                                     style={[styles.iconButton, { marginRight: 8, backgroundColor: modeTheme.actionSurface, borderColor: modeTheme.actionBorder }]}
-                                    onPress={() => router.push('/search' as any)}
+                                    onPress={() => router.push(ROUTES.tabs.search as any)}
                                     accessibilityRole="button"
                                     accessibilityLabel="Open search"
                                 >
@@ -89,7 +90,7 @@ export default function SharedHeader({
                             {shouldShowMessages && (
                                 <IconButton
                                     style={[styles.iconButton, { marginRight: 8, backgroundColor: modeTheme.actionSurface, borderColor: modeTheme.actionBorder }]}
-                                    onPress={() => router.push('/chat' as any)}
+                                    onPress={() => router.push(ROUTES.chat.index as any)}
                                     icon="message-square"
                                     size={18}
                                     color={appTheme.colors.textPrimary}
@@ -100,7 +101,7 @@ export default function SharedHeader({
                             {shouldShowCart && (
                                 <IconButton
                                     style={[styles.iconButton, { marginRight: 8, backgroundColor: modeTheme.actionSurface, borderColor: modeTheme.actionBorder }]}
-                                    onPress={() => router.push('/cart' as any)}
+                                    onPress={() => router.push(ROUTES.tabs.cart as any)}
                                     accessibilityRole="button"
                                     accessibilityLabel="Open cart"
                                 >
@@ -112,7 +113,7 @@ export default function SharedHeader({
                             )}
                             <IconButton
                                 style={[styles.iconButton, { backgroundColor: modeTheme.actionSurface, borderColor: modeTheme.actionBorder }]}
-                                onPress={() => router.push('/notifications' as any)}
+                                onPress={() => router.push(ROUTES.notifications as any)}
                                 accessibilityRole="button"
                                 accessibilityLabel="Open notifications"
                             >

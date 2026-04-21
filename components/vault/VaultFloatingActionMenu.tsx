@@ -33,7 +33,7 @@ const ACTION_ICONS = {
   upload: 'upload-cloud',
   convert: 'refresh-ccw',
   folder: 'folder-plus',
-  share: 'share',
+  record: 'mic',
 } as const satisfies Record<string, IconName>;
 
 function useVaultFloatingMenuStyles() {

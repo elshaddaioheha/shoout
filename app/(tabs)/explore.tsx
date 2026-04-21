@@ -62,7 +62,6 @@ export default function ExploreScreen() {
   const exploreCurrentTrack = useExplorePlayerStore((state) => state.currentTrack);
   const explorePosition = useExplorePlayerStore((state) => state.position);
   const exploreDuration = useExplorePlayerStore((state) => state.duration);
-  const playExploreTrack = useExplorePlayerStore((state) => state.playTrack);
   const clearExploreTrack = useExplorePlayerStore((state) => state.clearTrack);
   const setExploreImmersiveMode = useExplorePlayerStore((state) => state.setImmersiveMode);
 
@@ -73,6 +72,8 @@ export default function ExploreScreen() {
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 84 }).current;
   const feedRef = useRef<FlatList<ExploreFeedItem>>(null);
   const activeFeedIndexRef = useRef(0);
+  const isTabBarFocusedRef = useRef(isTabBarFocused);
+  const lastRequestedTrackIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (loadError) {
@@ -104,13 +105,19 @@ export default function ExploreScreen() {
   }, [buildFeedBatch, items]);
 
   useEffect(() => {
+    isTabBarFocusedRef.current = isTabBarFocused;
+  }, [isTabBarFocused]);
+
+  useEffect(() => {
     if (isTabBarFocused) {
       setExploreImmersiveMode(true);
+      lastRequestedTrackIdRef.current = null;
       if (stockIsPlaying) {
         pauseStockPlayback().catch(() => {});
       }
     } else {
       setExploreImmersiveMode(false);
+      lastRequestedTrackIdRef.current = null;
       clearExploreTrack().catch(() => {});
     }
   }, [isTabBarFocused, stockIsPlaying, pauseStockPlayback, setExploreImmersiveMode, clearExploreTrack]);
@@ -121,13 +128,21 @@ export default function ExploreScreen() {
   }, [buildFeedBatch, items]);
 
   const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
-    const first = viewableItems.find((entry) => entry.isViewable)?.item as ExploreFeedItem | undefined;
-    if (!first) return;
+    if (!isTabBarFocusedRef.current) return;
 
-    activeFeedIndexRef.current = viewableItems[0]?.index ?? 0;
+    const sortedVisibleItems = viewableItems
+      .filter((entry) => entry.isViewable && typeof entry.index === 'number')
+      .sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
+    const firstVisibleEntry = sortedVisibleItems[0];
+    const first = firstVisibleEntry?.item as ExploreFeedItem | undefined;
+    if (!first || typeof firstVisibleEntry?.index !== 'number') return;
+
+    activeFeedIndexRef.current = firstVisibleEntry.index;
 
     const playback = useExplorePlayerStore.getState();
     if (playback.currentTrack?.id === first.id) return;
+    if (lastRequestedTrackIdRef.current === first.id) return;
+    lastRequestedTrackIdRef.current = first.id;
 
     playback
       .playTrack({
@@ -140,26 +155,9 @@ export default function ExploreScreen() {
       })
       .catch((error) => {
         console.error('Auto-play on feed focus failed:', error);
+        lastRequestedTrackIdRef.current = null;
       });
   }).current;
-
-  useEffect(() => {
-    if (!isTabBarFocused) return;
-    if (!feedItems.length) return;
-    if (exploreCurrentTrack) return;
-
-    const first = feedItems[0];
-    playExploreTrack({
-      id: first.id,
-      title: first.title,
-      artist: first.uploaderName,
-      artworkUrl: first.artworkUrl,
-      url: first.audioUrl,
-      uploaderId: first.uploaderId,
-    }).catch((error) => {
-      console.error('Failed to start initial explore track:', error);
-    });
-  }, [exploreCurrentTrack, feedItems, playExploreTrack, isTabBarFocused]);
 
   const handleLike = (item: ExploreFeedItem) => {
     setLikedTracks((prev) => ({ ...prev, [item.id]: !prev[item.id] }));

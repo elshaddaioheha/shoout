@@ -17,8 +17,6 @@ import { useAppTheme } from '@/hooks/use-app-theme';
 import { typography } from '@/constants/typography';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import {
-    Animated,
-    Dimensions,
     Modal,
     StyleSheet,
     Text,
@@ -26,8 +24,7 @@ import {
     TouchableWithoutFeedback,
     View,
 } from 'react-native';
-
-const { height } = Dimensions.get('window');
+import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
 export interface ActionSheetOption {
     label: string;
@@ -52,33 +49,43 @@ export default function ActionSheet({ visible, onClose, title, options }: Props)
     const appTheme = useAppTheme();
     const styles = useActionSheetStyles();
 
-    const slideAnim = useRef(new Animated.Value(300)).current;
-    const fadeAnim = useRef(new Animated.Value(0)).current;
+    const mountedRef = useRef(visible);
+    const [, forceRender] = React.useState(0);
+    const progress = useSharedValue(visible ? 1 : 0);
+    const overlayStyle = useAnimatedStyle(() => ({ opacity: progress.value }));
+    const sheetStyle = useAnimatedStyle(() => ({
+        transform: [{ translateY: 300 * (1 - progress.value) }],
+    }));
 
     useEffect(() => {
         if (visible) {
-            Animated.parallel([
-                Animated.timing(slideAnim, { toValue: 0, duration: 280, useNativeDriver: true }),
-                Animated.timing(fadeAnim, { toValue: 1, duration: 280, useNativeDriver: true }),
-            ]).start();
+            mountedRef.current = true;
+            forceRender((value) => value + 1);
+            progress.value = withTiming(1, { duration: 280, easing: Easing.out(Easing.cubic) });
         } else {
-            Animated.parallel([
-                Animated.timing(slideAnim, { toValue: 300, duration: 220, useNativeDriver: true }),
-                Animated.timing(fadeAnim, { toValue: 0, duration: 220, useNativeDriver: true }),
-            ]).start();
+            progress.value = withTiming(0, { duration: 220, easing: Easing.in(Easing.cubic) }, (finished) => {
+                if (finished) {
+                    runOnJS(() => {
+                        mountedRef.current = false;
+                        forceRender((value) => value + 1);
+                    })();
+                }
+            });
         }
-    }, [visible]);
+    }, [progress, visible]);
+
+    if (!mountedRef.current) return null;
 
     return (
-        <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
+        <Modal visible={mountedRef.current} transparent animationType="none" onRequestClose={onClose}>
             <TouchableWithoutFeedback onPress={onClose}>
-                <Animated.View style={[styles.overlay, { opacity: fadeAnim }]}>
+                <Animated.View style={[styles.overlay, overlayStyle]}>
                     <BlurView intensity={30} tint={appTheme.isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
                     <View style={styles.overlayDim} />
                 </Animated.View>
             </TouchableWithoutFeedback>
 
-            <Animated.View style={[styles.sheet, { transform: [{ translateY: slideAnim }] }]}>
+            <Animated.View style={[styles.sheet, sheetStyle]}>
                 <BlurView intensity={28} tint={appTheme.isDark ? 'dark' : 'light'} style={styles.sheetBlur}>
                     <View style={styles.sheetChrome} />
                     <View style={styles.handle} />
@@ -89,7 +96,10 @@ export default function ActionSheet({ visible, onClose, title, options }: Props)
                         <TouchableOpacity
                             key={idx}
                             style={[styles.option, idx < options.length - 1 && styles.optionBorder]}
-                            onPress={() => { onClose(); setTimeout(opt.onPress, 150); }}
+                            onPress={() => {
+                                onClose();
+                                opt.onPress();
+                            }}
                             activeOpacity={0.7}
                         >
                             {opt.icon && <View style={styles.optionIcon}>{opt.icon}</View>}

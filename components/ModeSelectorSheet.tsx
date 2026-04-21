@@ -8,14 +8,13 @@ import { useAppTheme } from '@/hooks/use-app-theme';
 import { useAuthStore } from '@/store/useAuthStore';
 import { ViewMode } from '@/store/useUserStore';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
+import { ROUTES } from '@/utils/routes';
 import { formatPlanLabel, getSubscriptionPlan, type AppMode } from '@/utils/subscriptions';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-    Animated,
-    Easing,
     Modal,
     Platform,
     Pressable,
@@ -26,6 +25,7 @@ import {
     useWindowDimensions,
     View,
 } from 'react-native';
+import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface ViewModeEntry {
@@ -112,50 +112,46 @@ export default function ModeSelectorSheet({
     const visibleModes = hasAuthenticatedUser
         ? VIEW_MODES.filter((mode) => mode.id !== currentMode)
         : VIEW_MODES;
-    const slideAnim = useRef(new Animated.Value(hiddenOffset)).current;
-    const fadeAnim = useRef(new Animated.Value(0)).current;
+    const [shouldRender, setShouldRender] = useState(visible);
+    const progress = useSharedValue(visible ? 1 : 0);
+
+    const overlayStyle = useAnimatedStyle(() => ({
+        opacity: progress.value,
+    }));
+
+    const sheetStyle = useAnimatedStyle(() => ({
+        transform: [{ translateY: hiddenOffset * (1 - progress.value) }],
+    }));
 
     useEffect(() => {
         if (visible) {
-            slideAnim.setValue(hiddenOffset);
-            Animated.parallel([
-                Animated.timing(slideAnim, {
-                    toValue: 0,
-                    duration: 260,
-                    easing: Easing.out(Easing.cubic),
-                    useNativeDriver: true,
-                }),
-                Animated.timing(fadeAnim, {
-                    toValue: 1,
-                    duration: 240,
-                    useNativeDriver: true,
-                }),
-            ]).start();
+            setShouldRender(true);
+            progress.value = withTiming(1, {
+                duration: 260,
+                easing: Easing.out(Easing.cubic),
+            });
         } else {
-            Animated.parallel([
-                Animated.timing(slideAnim, {
-                    toValue: hiddenOffset,
-                    duration: 220,
-                    easing: Easing.in(Easing.cubic),
-                    useNativeDriver: true,
-                }),
-                Animated.timing(fadeAnim, {
-                    toValue: 0,
-                    duration: 200,
-                    useNativeDriver: true,
-                }),
-            ]).start();
+            progress.value = withTiming(0, {
+                duration: 220,
+                easing: Easing.in(Easing.cubic),
+            }, (finished) => {
+                if (finished) {
+                    runOnJS(setShouldRender)(false);
+                }
+            });
         }
-    }, [visible, hiddenOffset, slideAnim, fadeAnim]);
+    }, [hiddenOffset, progress, visible]);
+
+    if (!shouldRender) return null;
 
     return (
         <Modal
             transparent
-            visible={visible}
+            visible={shouldRender}
             animationType="none"
             onRequestClose={onClose}
         >
-            <Animated.View style={[StyleSheet.absoluteFill, { opacity: fadeAnim }]}>
+            <Animated.View style={[StyleSheet.absoluteFill, overlayStyle]}>
                 <Pressable style={StyleSheet.absoluteFill} onPress={onClose}>
                     <BlurView intensity={30} tint={appTheme.isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
                     <View style={[styles.backdropDim, { backgroundColor: appTheme.colors.overlay }]} />
@@ -168,10 +164,10 @@ export default function ModeSelectorSheet({
                     compactLayout && styles.sheetCompact,
                     {
                         paddingBottom: insets.bottom + (compactLayout ? 14 : 24),
-                        transform: [{ translateY: slideAnim }],
                         backgroundColor: sheetBackgroundColor,
                         borderColor: sheetBorderColor,
                     },
+                    sheetStyle,
                 ]}
             >
                 <View style={[styles.sheetSurface, compactLayout && styles.sheetSurfaceCompact]}>
@@ -203,7 +199,7 @@ export default function ModeSelectorSheet({
                                     onPress={() => {
                                         if (!accessible) {
                                             onClose();
-                                            router.push('/settings/subscriptions' as any);
+                                            router.push(ROUTES.settings.subscriptions as any);
                                             return;
                                         }
                                         onSelect(mode.id);

@@ -10,6 +10,7 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { getModeSurfaceTheme, getModeTheme } from '@/utils/appModeTheme';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { formatUsd } from '@/utils/pricing';
+import { ROUTES } from '@/utils/routes';
 import { canUseHybridServices, formatPlanLabel, getVaultCapabilities } from '@/utils/subscriptions';
 import { useRouter } from 'expo-router';
 import React from 'react';
@@ -289,7 +290,7 @@ export default function HybridDashboardScreen() {
 
   const requireHybridSubscription = () => {
     if (canUseServices) return false;
-    router.push('/settings/subscriptions' as any);
+    router.push(ROUTES.settings.subscriptions as any);
     return true;
   };
 
@@ -374,7 +375,7 @@ export default function HybridDashboardScreen() {
                 style={[styles.primaryCta, compactLayout && styles.primaryCtaCompact]}
                 onPress={() => {
                   if (requireHybridSubscription()) return;
-                  router.push('/vault/upload' as any);
+                  router.push(ROUTES.vault.upload as any);
                 }}
                 activeOpacity={0.9}
               >
@@ -385,7 +386,7 @@ export default function HybridDashboardScreen() {
                 style={[styles.secondaryCta, compactLayout && styles.secondaryCtaCompact]}
                 onPress={() => {
                   if (requireHybridSubscription()) return;
-                  router.push('/(tabs)/search' as any);
+                  router.push(ROUTES.tabs.search as any);
                 }}
                 activeOpacity={0.9}
               >
@@ -415,7 +416,7 @@ export default function HybridDashboardScreen() {
               <Text style={styles.placeholder}>Private first. Publish when ready.</Text>
             </View>
             <TouchableOpacity
-              onPress={() => router.push('/(tabs)/library' as any)}
+              onPress={() => router.push(ROUTES.tabs.library as any)}
               activeOpacity={0.8}
             >
               <Text style={styles.panelLink}>Open Vault</Text>
@@ -439,7 +440,7 @@ export default function HybridDashboardScreen() {
               style={styles.inlineAction}
               onPress={() => {
                 if (requireHybridSubscription()) return;
-                router.push('/vault/upload' as any);
+                router.push(ROUTES.vault.upload as any);
               }}
               activeOpacity={0.85}
             >
@@ -450,7 +451,7 @@ export default function HybridDashboardScreen() {
               style={styles.inlineAction}
               onPress={() => {
                 if (requireHybridSubscription()) return;
-                router.push('/vault/links' as any);
+                router.push(ROUTES.vault.links as any);
               }}
               activeOpacity={0.85}
             >
@@ -461,7 +462,7 @@ export default function HybridDashboardScreen() {
               style={styles.inlineAction}
               onPress={() => {
                 if (requireHybridSubscription()) return;
-                router.push('/(tabs)/search' as any);
+                router.push(ROUTES.tabs.search as any);
               }}
               activeOpacity={0.85}
             >
@@ -478,7 +479,7 @@ export default function HybridDashboardScreen() {
             <TouchableOpacity
               onPress={() => {
                 if (requireHybridSubscription()) return;
-                router.push('/studio/analytics' as any);
+                router.push(ROUTES.studio.analytics as any);
               }}
               activeOpacity={0.8}
             >
@@ -508,7 +509,7 @@ export default function HybridDashboardScreen() {
             <TouchableOpacity
               onPress={() => {
                 if (requireHybridSubscription()) return;
-                router.push('/studio/settings' as any);
+                router.push(ROUTES.studio.settings as any);
               }}
               activeOpacity={0.8}
             >

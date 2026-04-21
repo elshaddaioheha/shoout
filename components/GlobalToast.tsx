@@ -4,9 +4,8 @@ import { typography } from '@/constants/typography';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { Icon } from '@/components/ui/Icon';
 import React, { useEffect } from 'react';
-import { Animated, Dimensions, Platform, StyleSheet, Text, View } from 'react-native';
-
-const { width } = Dimensions.get('window');
+import { Platform, StyleSheet, Text, View } from 'react-native';
+import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
 function useGlobalToastStyles() {
     const appTheme = useAppTheme();
@@ -18,22 +17,16 @@ export default function GlobalToast() {
     const styles = useGlobalToastStyles();
 
     const { visible, message, type } = useToastStore();
-    const translateY = React.useRef(new Animated.Value(-150)).current;
+    const translateY = useSharedValue(-150);
+    const toastStyle = useAnimatedStyle(() => ({
+        transform: [{ translateY: translateY.value }],
+    }));
 
     useEffect(() => {
-        if (visible) {
-            Animated.timing(translateY, {
-                toValue: 60, // Top margin
-                duration: 300,
-                useNativeDriver: true,
-            }).start();
-        } else {
-            Animated.timing(translateY, {
-                toValue: -150, // Hide off-screen
-                duration: 300,
-                useNativeDriver: true,
-            }).start();
-        }
+        translateY.value = withTiming(visible ? 60 : -150, {
+            duration: 300,
+            easing: Easing.out(Easing.cubic),
+        });
     }, [visible, translateY]);
 
     if (!visible && message === '') return null;
@@ -61,7 +54,8 @@ export default function GlobalToast() {
             style={[
                 styles.toastContainer,
                 Platform.OS === 'web' ? ({ pointerEvents: 'none' } as any) : null,
-                { backgroundColor, borderColor, transform: [{ translateY }] },
+                { backgroundColor, borderColor },
+                toastStyle,
             ]}
         >
             <View style={styles.content}>

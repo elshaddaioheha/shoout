@@ -8,8 +8,8 @@ import { useAppTheme } from '@/hooks/use-app-theme';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { PremiumBackButton } from '@/components/ui/PremiumBackButton';
 import React from 'react';
-import { Animated, KeyboardAvoidingView, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import Reanimated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import { KeyboardAvoidingView, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import Reanimated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import { auth, db } from '../../firebaseConfig';
@@ -45,8 +45,7 @@ export default function SignupScreen() {
     const [confirmPassword, setConfirmPassword] = React.useState('');
     const [loading, setLoading] = React.useState(false);
     const { showToast } = useToastStore();
-    const slideAnim = React.useRef(new Animated.Value(-40)).current;
-    const opacityAnim = React.useRef(new Animated.Value(0)).current;
+    const entryProgress = useSharedValue(0);
     const emailInputRef = React.useRef<TextInput>(null);
     const passwordInputRef = React.useRef<TextInput>(null);
     const confirmPasswordInputRef = React.useRef<TextInput>(null);
@@ -55,6 +54,10 @@ export default function SignupScreen() {
     const emailFocused = useSharedValue(0);
     const passwordFocused = useSharedValue(0);
     const confirmPasswordFocused = useSharedValue(0);
+    const entryAnimatedStyle = useAnimatedStyle(() => ({
+        opacity: entryProgress.value,
+        transform: [{ translateX: (1 - entryProgress.value) * -40 }],
+    }));
 
     const fullNameInputAnimatedStyle = useAnimatedStyle(() => ({
         borderColor: fullNameFocused.value ? '#007AFF' : (isLightMode ? lightBorder : '#464646'),
@@ -73,19 +76,11 @@ export default function SignupScreen() {
     }));
 
     React.useEffect(() => {
-        Animated.parallel([
-            Animated.timing(slideAnim, {
-                toValue: 0,
-                duration: 500,
-                useNativeDriver: true,
-            }),
-            Animated.timing(opacityAnim, {
-                toValue: 1,
-                duration: 450,
-                useNativeDriver: true,
-            }),
-        ]).start();
-    }, [opacityAnim, slideAnim]);
+        entryProgress.value = withTiming(1, {
+            duration: 500,
+            easing: Easing.out(Easing.cubic),
+        });
+    }, [entryProgress]);
 
     const writeSubscriptionDoc = async (uid: string, tier: SignupSubscriptionTier) => {
         await setDoc(
@@ -249,7 +244,7 @@ export default function SignupScreen() {
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 style={{ flex: 1 }}
             >
-                <Animated.View style={{ flex: 1, opacity: opacityAnim, transform: [{ translateX: slideAnim }] }}>
+                <Reanimated.View style={[{ flex: 1 }, entryAnimatedStyle]}>
                     <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
                     <View style={styles.guestRow}>
                         <PremiumBackButton
@@ -373,7 +368,7 @@ export default function SignupScreen() {
                         </TouchableOpacity>
                     </View>
                     </ScrollView>
-                </Animated.View>
+                </Reanimated.View>
             </KeyboardAvoidingView>
         </SafeAreaView>
     );
@@ -549,4 +544,3 @@ function GoogleIcon() {
         </Svg>
     );
 }
-

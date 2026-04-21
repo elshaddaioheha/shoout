@@ -6,6 +6,7 @@ import { useAppTheme } from '@/hooks/use-app-theme';
 import { typography } from '@/constants/typography';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { PremiumBackButton } from '@/components/ui/PremiumBackButton';
+import { ROUTES } from '@/utils/routes';
 
 interface SettingsHeaderProps {
     title: string;
@@ -36,7 +37,7 @@ export default function SettingsHeader({ title, onBack, rightElement, style }: S
             return;
         }
 
-        router.replace('/(tabs)');
+        router.replace(ROUTES.tabs.home as any);
     }, [onBack, router]);
 
     return (

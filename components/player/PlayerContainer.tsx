@@ -72,8 +72,8 @@ export default function PlayerContainer() {
     }
 
     if (isVaultMode) {
-      if (mode !== 'full') {
-        setMode('full');
+      if (mode !== 'hidden') {
+        setMode('hidden');
       }
       return;
     }
@@ -92,7 +92,7 @@ export default function PlayerContainer() {
 
   useEffect(() => {
     const nextMode = track
-      ? (isVaultMode ? 'full' : (mode === 'hidden' ? 'mini' : mode))
+      ? (isVaultMode ? 'hidden' : (mode === 'hidden' ? 'mini' : mode))
       : 'hidden';
     const targetY = nextMode === 'full' ? fullY : nextMode === 'mini' ? miniY : hiddenY;
     translateY.value = withSpring(targetY, SPRING_CONFIG);
@@ -100,7 +100,7 @@ export default function PlayerContainer() {
 
   const setMini = useCallback(() => {
     if (isVaultMode) {
-      setMode('full');
+      setMode('hidden');
       return;
     }
     setMode('mini');
@@ -188,6 +188,10 @@ export default function PlayerContainer() {
       { scale: interpolate(translateY.value, [fullY, miniY], [1, 0.92], Extrapolation.CLAMP) },
     ],
   }));
+
+  if (isVaultMode) {
+    return null;
+  }
 
   return (
     <Animated.View pointerEvents={track ? 'box-none' : 'none'} style={styles.absoluteFill}>

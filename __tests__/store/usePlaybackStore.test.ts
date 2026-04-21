@@ -107,13 +107,10 @@ describe('usePlaybackStore playlist navigation', () => {
     });
 
     const state = usePlaybackStore.getState();
-    // Depending on fallback availability, the store either advances to fallback
-    // content or safely replays the current track.
-    expect(state.currentTrack).not.toBeNull();
-    expect(state.currentTrack?.id).toBeTruthy();
     expect(state.currentTrack?.id).toBe(before?.id);
     expect(state.isPlaying).toBe(false);
     expect(state.position).toBe(0);
+    expect(state.queue).toHaveLength(3);
   });
 
   it('loops to the first track on next when repeat is on', async () => {
@@ -183,10 +180,23 @@ describe('usePlaybackStore playlist navigation', () => {
     });
 
     const state = usePlaybackStore.getState();
-    // Standalone tracks maintain a safe playable state even when no playlist exists.
     expect(state.currentTrack?.id).toBe('solo-1');
     expect(state.isPlaying).toBe(false);
     expect(state.position).toBe(0);
     expect(state.queue.length).toBe(1);
+  });
+
+  it('clears queue state when clearTrack is called', async () => {
+    await act(async () => {
+      await usePlaybackStore.getState().initializePlaylist(TRACKS, 1, false);
+      await usePlaybackStore.getState().clearTrack();
+    });
+
+    const state = usePlaybackStore.getState();
+    expect(state.currentTrack).toBeNull();
+    expect(state.queue).toEqual([]);
+    expect(state.currentTrackIndex).toBe(-1);
+    expect(state.shuffleActive).toBe(false);
+    expect(state.shuffledQueue).toEqual([]);
   });
 });

@@ -9,6 +9,7 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { getModeSurfaceTheme, getModeTheme } from '@/utils/appModeTheme';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { formatUsd } from '@/utils/pricing';
+import { ROUTES } from '@/utils/routes';
 import { canUseStudioServices, getEffectivePlan } from '@/utils/subscriptions';
 import { useRouter } from 'expo-router';
 import React from 'react';
@@ -40,7 +41,7 @@ export default function StudioPublishScreen() {
 
   const requireStudioSubscription = () => {
     if (canUseServices) return false;
-    router.push('/settings/subscriptions' as any);
+    router.push(ROUTES.settings.subscriptions as any);
     return true;
   };
 
@@ -60,7 +61,7 @@ export default function StudioPublishScreen() {
           <Text style={styles.heroTitle}>Upload tracks, manage releases, and keep royalties visible.</Text>
           <TouchableOpacity style={[styles.heroButton, { backgroundColor: accentColor }]} onPress={() => {
             if (requireStudioSubscription()) return;
-            router.push('/studio/upload' as any);
+            router.push(ROUTES.studio.upload as any);
           }} activeOpacity={0.9}>
             <Icon name="upload-cloud" size={18} color={onAccent} />
             <Text style={[styles.heroButtonText, { color: onAccent }]}>Upload New Track</Text>
@@ -87,7 +88,7 @@ export default function StudioPublishScreen() {
             <Text style={styles.panelTitle}>Track Manager</Text>
             <TouchableOpacity onPress={() => {
               if (requireStudioSubscription()) return;
-              router.push('/studio/upload' as any);
+              router.push(ROUTES.studio.upload as any);
             }} activeOpacity={0.8}>
               <Text style={[styles.panelLink, { color: accentColor }]}>Open upload flow</Text>
             </TouchableOpacity>
@@ -114,7 +115,7 @@ export default function StudioPublishScreen() {
                 accessibilityHint="Open the track editor"
                 onPress={() => {
                   if (requireStudioSubscription()) return;
-                  router.push('/studio/upload' as any);
+                  router.push(ROUTES.studio.upload as any);
                 }}
               />
             </View>
@@ -126,7 +127,7 @@ export default function StudioPublishScreen() {
             <Text style={styles.panelTitle}>Royalties</Text>
             <TouchableOpacity onPress={() => {
               if (requireStudioSubscription()) return;
-              router.push('/studio/earnings' as any);
+              router.push(ROUTES.studio.earnings as any);
             }} activeOpacity={0.8}>
               <Text style={[styles.panelLink, { color: accentColor }]}>Open earnings</Text>
             </TouchableOpacity>

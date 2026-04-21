@@ -7,7 +7,9 @@ import { IconButton } from '@/components/ui/IconButton';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { Animated, Dimensions, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Dimensions, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
+import { ROUTES, resolveModeHomePath } from '@/utils/routes';
 
 const { width } = Dimensions.get('window');
 
@@ -27,52 +29,45 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
     const router = useRouter();
     const { role, viewMode, setViewMode, reset } = useUserStore();
-    const translateX = React.useRef(new Animated.Value(width)).current;
-    const opacityAnim = React.useRef(new Animated.Value(0)).current;
     const [render, setRender] = React.useState(isOpen);
+    const progress = useSharedValue(isOpen ? 1 : 0);
+
+    const overlayStyle = useAnimatedStyle(() => ({
+        opacity: progress.value,
+    }));
+    const sidebarStyle = useAnimatedStyle(() => ({
+        transform: [{ translateX: width * (1 - progress.value) }],
+    }));
 
     React.useEffect(() => {
         if (isOpen) {
             setRender(true);
-            Animated.parallel([
-                Animated.spring(translateX, {
-                    toValue: 0,
-                    useNativeDriver: true,
-                    bounciness: 0,
-                    speed: 24,
-                }),
-                Animated.timing(opacityAnim, {
-                    toValue: 1,
-                    duration: 200,
-                    useNativeDriver: true,
-                })
-            ]).start();
+            progress.value = withSpring(1, {
+                damping: 18,
+                stiffness: 220,
+            });
         } else {
-            Animated.parallel([
-                Animated.spring(translateX, {
-                    toValue: width,
-                    useNativeDriver: true,
-                    bounciness: 0,
-                    speed: 24,
-                }),
-                Animated.timing(opacityAnim, {
-                    toValue: 0,
-                    duration: 180,
-                    useNativeDriver: true,
-                })
-            ]).start(() => setRender(false));
+            progress.value = withTiming(0, {
+                duration: 180,
+                easing: Easing.in(Easing.cubic),
+            }, (finished) => {
+                if (finished) {
+                    runOnJS(setRender)(false);
+                }
+            });
         }
-    }, [isOpen]);
+    }, [isOpen, progress]);
 
     const handleModeSwitch = (mode: 'vault' | 'studio') => {
         setViewMode(mode);
         onClose();
+        router.replace(resolveModeHomePath(mode) as any);
     };
 
     const handleLogout = () => {
         reset();
         onClose();
-        router.replace('/(auth)/login');
+        router.replace(ROUTES.auth.login as any);
     };
 
     const isHybrid = role.startsWith('hybrid');
@@ -81,14 +76,14 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
     return (
         <View style={[StyleSheet.absoluteFill, { zIndex: 9999, elevation: 9999 }]}>
-            <Animated.View style={[StyleSheet.absoluteFill, { opacity: opacityAnim }]}>
+            <Animated.View style={[StyleSheet.absoluteFill, overlayStyle]}>
                 <Pressable style={styles.overlay} onPress={onClose}>
                     <BlurView intensity={28} style={StyleSheet.absoluteFill} tint={appTheme.isDark ? 'dark' : 'light'} />
                     <View style={styles.overlayDim} />
                 </Pressable>
             </Animated.View>
 
-            <Animated.View style={[styles.sidebar, { transform: [{ translateX }] }]}>
+            <Animated.View style={[styles.sidebar, sidebarStyle]}>
                 <View style={styles.header}>
                     <Text style={styles.headerTitle}>Account Mode</Text>
                     <IconButton
@@ -136,7 +131,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
                     <TouchableOpacity
                         style={styles.profileLink}
-                        onPress={() => { router.push('/(tabs)/profile' as any); onClose(); }}
+                        onPress={() => { router.push(ROUTES.tabs.profile as any); onClose(); }}
                         accessibilityRole="button"
                         accessibilityLabel="Open profile"
                     >
@@ -149,7 +144,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
                     <TouchableOpacity
                         style={styles.profileLink}
-                        onPress={() => { router.push('/settings/subscriptions' as any); onClose(); }}
+                        onPress={() => { router.push(ROUTES.settings.subscriptions as any); onClose(); }}
                         accessibilityRole="button"
                         accessibilityLabel="Open premium plans"
                     >

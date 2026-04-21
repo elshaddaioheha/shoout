@@ -8,6 +8,7 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { getModeTheme } from '@/utils/appModeTheme';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { formatUsd } from '@/utils/pricing';
+import { ROUTES } from '@/utils/routes';
 import { canUseStudioServices, getEffectivePlan } from '@/utils/subscriptions';
 import { useRouter } from 'expo-router';
 import React from 'react';
@@ -176,7 +177,7 @@ export default function StudioDashboardScreen() {
 
   const requireStudioSubscription = () => {
     if (canUseServices) return false;
-    router.push('/settings/subscriptions' as any);
+    router.push(ROUTES.settings.subscriptions as any);
     return true;
   };
 
@@ -248,14 +249,14 @@ export default function StudioDashboardScreen() {
             <View style={styles.heroActions}>
               <TouchableOpacity style={styles.primaryCta} onPress={() => {
                 if (requireStudioSubscription()) return;
-                router.push('/(tabs)/search' as any);
+                router.push(ROUTES.tabs.search as any);
               }} activeOpacity={0.9}>
                 <Icon name="upload-cloud" size={18} color={appTheme.colors.textPrimary} />
                 <Text style={styles.primaryCtaText}>Publish</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.secondaryCta} onPress={() => {
                 if (requireStudioSubscription()) return;
-                router.push('/(tabs)/marketplace' as any);
+                router.push(ROUTES.tabs.marketplace as any);
               }} activeOpacity={0.9}>
                 <Icon name="megaphone" size={18} color={studioTheme.accent} />
                 <Text style={styles.secondaryCtaText}>Promote</Text>
@@ -281,7 +282,7 @@ export default function StudioDashboardScreen() {
             <Text style={styles.panelTitle}>Track Analytics</Text>
             <TouchableOpacity onPress={() => {
               if (requireStudioSubscription()) return;
-              router.push('/studio/analytics' as any);
+              router.push(ROUTES.studio.analytics as any);
             }} activeOpacity={0.8}>
               <Text style={styles.panelLink}>Open analytics</Text>
             </TouchableOpacity>
@@ -308,7 +309,7 @@ export default function StudioDashboardScreen() {
             <Text style={styles.panelTitle}>Publishing & Royalties</Text>
             <TouchableOpacity onPress={() => {
               if (requireStudioSubscription()) return;
-              router.push('/(tabs)/search' as any);
+              router.push(ROUTES.tabs.search as any);
             }} activeOpacity={0.8}>
               <Text style={styles.panelLink}>Manage</Text>
             </TouchableOpacity>
@@ -331,7 +332,7 @@ export default function StudioDashboardScreen() {
             <Text style={styles.panelTitle}>Promotion Snapshot</Text>
             <TouchableOpacity onPress={() => {
               if (requireStudioSubscription()) return;
-              router.push('/(tabs)/marketplace' as any);
+              router.push(ROUTES.tabs.marketplace as any);
             }} activeOpacity={0.8}>
               <Text style={styles.panelLink}>Open promote</Text>
             </TouchableOpacity>

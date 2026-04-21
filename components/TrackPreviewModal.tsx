@@ -19,7 +19,6 @@ import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { buildLicenseCartItemId, buildLicenseTierOptions } from '@/utils/licenseTiers';
 import React, { useMemo } from 'react';
 import {
-    Animated,
     Image,
     Modal,
     ScrollView,
@@ -28,6 +27,7 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
+import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
 interface TrackPreviewModalProps {
   visible: boolean;
@@ -67,26 +67,31 @@ export default function TrackPreviewModal({
   const { currentTrack: playingTrack, initializePlaylist, togglePlayPause, isPlaying } = usePlaybackStore();
 
   const [selectedLicenseId, setSelectedLicenseId] = React.useState<'basic' | 'premium' | 'exclusive'>('premium');
-  const fadeAnim = React.useRef(new Animated.Value(0)).current;
-  const slideAnim = React.useRef(new Animated.Value(300)).current;
+  const [shouldRender, setShouldRender] = React.useState(visible);
+  const progress = useSharedValue(visible ? 1 : 0);
+  const backdropStyle = useAnimatedStyle(() => ({
+    opacity: progress.value,
+  }));
+  const containerStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: 300 * (1 - progress.value) }],
+  }));
 
   React.useEffect(() => {
     if (visible) {
-      Animated.parallel([
-        Animated.timing(fadeAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
-        Animated.timing(slideAnim, { toValue: 0, duration: 250, useNativeDriver: true }),
-      ]).start();
+      setShouldRender(true);
+      progress.value = withTiming(1, { duration: 250, easing: Easing.out(Easing.cubic) });
     } else {
-      Animated.parallel([
-        Animated.timing(fadeAnim, { toValue: 0, duration: 150, useNativeDriver: true }),
-        Animated.timing(slideAnim, { toValue: 300, duration: 200, useNativeDriver: true }),
-      ]).start();
+      progress.value = withTiming(0, { duration: 200, easing: Easing.in(Easing.cubic) }, (finished) => {
+        if (finished) {
+          runOnJS(setShouldRender)(false);
+        }
+      });
     }
-  }, [visible]);
-
-  if (!track) return null;
+  }, [progress, visible]);
 
   const licenseOptions = useMemo(() => {
+    if (!track) return [];
+
     const generated = buildLicenseTierOptions();
     if (generated.length > 0) return generated;
 
@@ -95,7 +100,10 @@ export default function TrackPreviewModal({
       { id: 'premium', title: 'Premium', price: track.price * 2.5, summary: 'Built for monetized releases', badge: 'Popular' },
       { id: 'exclusive', title: 'Exclusive', price: track.price * 7, summary: 'Highest value tier' }
     ] as any[];
-  }, [track.price]);
+  }, [track]);
+
+  if (!track || !shouldRender) return null;
+
   const selectedLicense = licenseOptions.find((opt) => opt.id === selectedLicenseId) || licenseOptions[1];
   const trackArtwork = track.artworkUrl || track.coverUrl;
   const trackUrl = track.audioUrl || track.url || '';
@@ -145,26 +153,24 @@ export default function TrackPreviewModal({
           false
         );
       }
-    } catch (error) {
+    } catch {
       showToast('Could not play preview', 'error');
     }
   };
 
   return (
     <Modal
-      visible={visible}
+      visible={shouldRender}
       transparent
       animationType="none"
       onRequestClose={onClose}
     >
-      <Animated.View style={[styles.backdrop, { opacity: fadeAnim }]} />
+      <Animated.View style={[styles.backdrop, backdropStyle]} />
 
       <Animated.View
         style={[
           styles.container,
-          {
-            transform: [{ translateY: slideAnim }],
-          },
+          containerStyle,
         ]}
       >
         <ScrollView
@@ -250,7 +256,7 @@ export default function TrackPreviewModal({
 
           {/* License Details */}
           <View style={styles.detailsSection}>
-            <Text style={styles.sectionTitle}>What's Included</Text>
+            <Text style={styles.sectionTitle}>What&apos;s Included</Text>
             {selectedLicense.features && selectedLicense.features.length > 0 ? (
               selectedLicense.features.map((feature, idx) => (
                 <Text key={idx} style={styles.featureItem}>

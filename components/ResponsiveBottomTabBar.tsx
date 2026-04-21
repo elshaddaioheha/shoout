@@ -49,8 +49,7 @@ export default function ResponsiveBottomTabBar(props: BottomTabBarProps) {
     const useUnifiedPillRoundness = activeAppMode === 'hybrid' || activeAppMode === 'shoout' || activeAppMode === 'studio';
     const setBottomTabBarHeight = useLayoutMetricsStore((s) => s.setBottomTabBarHeight);
     const cartCount = useCartStore((s) => s.items.length);
-    const [tabLayouts, setTabLayouts] = React.useState<Array<TabLayout | null>>([]);
-    const activeIndex = useSharedValue(state.index);
+    const tabLayouts = useSharedValue<Record<number, TabLayout>>({});
     const modeTheme = getModeSurfaceTheme(activeAppMode, appTheme.isDark);
     const bottomPadding = isNativeLargeScreen
         ? Math.max(14, insets.bottom)
@@ -59,10 +58,6 @@ export default function ResponsiveBottomTabBar(props: BottomTabBarProps) {
     const maxWidth = 500;
     const horizontalPadding = width > 768 ? 60 : 20;
     const isTablet = width > 768;
-
-    React.useEffect(() => {
-        activeIndex.value = withTiming(state.index, { duration: 260 });
-    }, [activeIndex, state.index]);
 
     const tabs: TabConfig[] = activeAppMode === 'studio'
         ? [
@@ -94,24 +89,55 @@ export default function ResponsiveBottomTabBar(props: BottomTabBarProps) {
             { key: 'more', name: 'more', icon: 'more-horizontal', label: 'More' },
         ];
 
+    const getRouteIndex = (tabName: string) => {
+        if (!state || !state.routes) return -1;
+        return state.routes.findIndex(r =>
+            r.name === tabName ||
+            r.name === `(tabs)/${tabName}` ||
+            r.name.endsWith(`/${tabName}`)
+        );
+    };
+
+    let activeVisualIndex = 0;
+    tabs.forEach((tab, index) => {
+        const routeIndex = tab.name ? getRouteIndex(tab.name) : -1;
+        const isFocused = tab.routePath
+            ? pathname === tab.routePath
+            : (routeIndex !== -1 && state && state.index === routeIndex);
+        if (isFocused) {
+            activeVisualIndex = index;
+        }
+    });
+
+    const activeIndex = useSharedValue(activeVisualIndex);
+
     React.useEffect(() => {
-        setTabLayouts(Array.from({ length: tabs.length }, () => null));
-    }, [tabs.length]);
+        if (activeVisualIndex !== -1) {
+            activeIndex.value = withTiming(activeVisualIndex, { duration: 260 });
+        }
+    }, [activeVisualIndex, activeIndex]);
+
+    React.useEffect(() => {
+        tabLayouts.value = {};
+    }, [tabLayouts, tabs.length]);
 
     const barWidth = Math.min(maxWidth, Math.max(0, width - horizontalPadding));
 
     const indicatorStyle = useAnimatedStyle(() => {
-        if (!tabLayouts.length) {
+        const layouts = tabLayouts.value;
+        const layoutCount = Object.keys(layouts).length;
+
+        if (!layoutCount) {
             return { opacity: 0 };
         }
 
-        const maxIndex = tabLayouts.length - 1;
+        const maxIndex = tabs.length - 1;
         const rawIndex = Math.max(0, Math.min(maxIndex, activeIndex.value));
         const lowerIndex = Math.floor(rawIndex);
         const upperIndex = Math.min(maxIndex, Math.ceil(rawIndex));
         const progress = rawIndex - lowerIndex;
-        const start = tabLayouts[lowerIndex];
-        const end = tabLayouts[upperIndex] || start;
+        const start = layouts[lowerIndex];
+        const end = layouts[upperIndex] || start;
 
         if (!start || !end) {
             return { opacity: 0 };
@@ -130,15 +156,6 @@ export default function ResponsiveBottomTabBar(props: BottomTabBarProps) {
             transform: [{ translateX }],
         };
     });
-
-    const getRouteIndex = (tabName: string) => {
-        if (!state || !state.routes) return -1;
-        return state.routes.findIndex(r =>
-            r.name === tabName ||
-            r.name === `(tabs)/${tabName}` ||
-            r.name.endsWith(`/${tabName}`)
-        );
-    };
 
     if (isVaultMode) {
         return null;
@@ -188,14 +205,10 @@ export default function ResponsiveBottomTabBar(props: BottomTabBarProps) {
 
                     const handleTabLayout = (event: any) => {
                         const { x, y, width: measuredWidth, height: measuredHeight } = event.nativeEvent.layout;
-                        setTabLayouts((prev) => {
-                            const next = prev.length === tabs.length
-                                ? [...prev]
-                                : Array.from({ length: tabs.length }, () => null);
-
-                            next[index] = { x, y, width: measuredWidth, height: measuredHeight };
-                            return next;
-                        });
+                        tabLayouts.value = {
+                            ...tabLayouts.value,
+                            [index]: { x, y, width: measuredWidth, height: measuredHeight },
+                        };
                     };
 
                     const onPress = () => {

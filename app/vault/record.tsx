@@ -6,6 +6,7 @@ import { useToastStore } from '@/store/useToastStore';
 import { useUserStore } from '@/store/useUserStore';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { notifyError } from '@/utils/notify';
+import { ROUTES } from '@/utils/routes';
 import { Audio } from 'expo-av';
 import { useRouter } from 'expo-router';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
@@ -49,7 +50,7 @@ export default function VaultRecordScreen() {
   const startRecording = async () => {
     if (!canUploadToVault) {
       showToast('Upgrade your plan to upload recordings into Vault.', 'info');
-      router.push('/settings/subscriptions' as any);
+      router.push(ROUTES.settings.subscriptions as any);
       return;
     }
 

@@ -1,10 +1,11 @@
-import { FREE_MUSIC, POPULAR_BEATS, TRENDING_SONGS } from '@/constants/homeFeed';
 import { audioEngine } from '@/services/audioEngine';
+import { captureError } from '@/utils/monitoring';
 import * as FileSystem from 'expo-file-system';
 import { doc, increment, updateDoc } from 'firebase/firestore';
 import { create } from 'zustand';
 import { db } from '../firebaseConfig';
 import { useDownloadQueueStore } from './useDownloadQueueStore';
+import { useUserStore } from './useUserStore';
 
 async function resolveTrackUri(track: Track): Promise<string> {
   const cached = useDownloadQueueStore
@@ -36,21 +37,6 @@ export interface Track {
   uploaderId?: string;
 }
 
-const fallbackSourceTracks = [
-  ...(TRENDING_SONGS ?? []),
-  ...(FREE_MUSIC ?? []),
-  ...(POPULAR_BEATS ?? []),
-] as Array<any>;
-
-const fallbackTrackPool: Track[] = fallbackSourceTracks.map((track) => ({
-  id: track.id,
-  title: track.title,
-  artist: track.artist,
-  artworkUrl: track.artworkUrl,
-  url: track.audioUrl,
-  uploaderId: track.uploaderId,
-}));
-
 const TRACK_SWITCH_TRANSITION_MS = 180;
 
 let pendingTrackSwitchTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -67,11 +53,29 @@ function clearPendingTrackSwitch() {
   }
 }
 
-function getRandomFallbackTrack(excludeTrackId?: string): Track | null {
-  const candidates = fallbackTrackPool.filter((track) => track.id !== excludeTrackId);
-  const pool = candidates.length > 0 ? candidates : fallbackTrackPool;
-  if (!pool.length) return null;
-  return pool[Math.floor(Math.random() * pool.length)];
+function invalidatePendingTrackSwitch() {
+  clearPendingTrackSwitch();
+  pendingTrackSwitchToken += 1;
+  return pendingTrackSwitchToken;
+}
+
+function isTrackSwitchStale(token: number) {
+  return token !== pendingTrackSwitchToken;
+}
+
+function buildPlaybackErrorContext(extra?: Record<string, unknown>) {
+  const playbackState = usePlaybackStore.getState();
+  const userState = useUserStore.getState();
+
+  return {
+    scope: 'playback-store',
+    activeAppMode: userState.activeAppMode,
+    currentTrackId: playbackState.currentTrack?.id ?? null,
+    currentTrackIndex: playbackState.currentTrackIndex,
+    queueLength: playbackState.queue.length,
+    repeatMode: playbackState.repeatMode,
+    ...extra,
+  };
 }
 
 export type RepeatMode = 'off' | 'all' | 'one';
@@ -127,9 +131,7 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => ({
     const previousState = get();
     const sourceUri = track.url?.trim();
     const transitionDelayMs = Math.max(0, options?.transitionDelayMs ?? 0);
-    const switchToken = ++pendingTrackSwitchToken;
-
-    clearPendingTrackSwitch();
+    const switchToken = invalidatePendingTrackSwitch();
 
     if (!sourceUri) {
       console.warn('setTrack called with an empty audio URL:', track.id);
@@ -176,6 +178,9 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => ({
       }
 
       const resolvedUri = await resolveTrackUri(track);
+      if (isTrackSwitchStale(switchToken)) {
+        return;
+      }
 
       // Log analytics
       if (track.id && track.uploaderId && !track.id.startsWith('lib-')) {
@@ -185,6 +190,10 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => ({
         } catch (e) {
           console.log('Failed to tally analytics listen:', e);
         }
+      }
+
+      if (isTrackSwitchStale(switchToken)) {
+        return;
       }
 
       if (transitionDelayMs > 0) {
@@ -207,11 +216,21 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => ({
         artwork: track.artworkUrl,
       });
 
+      if (isTrackSwitchStale(switchToken)) {
+        return;
+      }
+
       await audioEngine.setVolume(get().volume);
 
     } catch (error) {
       console.error('Error loading track:', error);
       clearPendingTrackSwitch();
+      captureError(error, buildPlaybackErrorContext({
+        action: 'set-track',
+        requestedTrackId: track.id,
+        preserveQueue: Boolean(options?.preserveQueue),
+        transitionDelayMs,
+      }));
       set({
         currentTrack: previousState.currentTrack,
         isPlaying: previousState.isPlaying,
@@ -236,6 +255,7 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => ({
       }
     } catch (error) {
       console.error('togglePlayPause error:', error);
+      captureError(error, buildPlaybackErrorContext({ action: 'toggle-play-pause' }));
     }
   },
 
@@ -247,6 +267,7 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => ({
       set({ position: Math.max(0, position) });
     } catch (error) {
       console.error('seekTo error:', error);
+      captureError(error, buildPlaybackErrorContext({ action: 'seek', requestedPosition: position }));
     }
   },
 
@@ -282,12 +303,22 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => ({
   },
 
   clearTrack: async () => {
-    clearPendingTrackSwitch();
+    invalidatePendingTrackSwitch();
     try {
       await audioEngine.stop();
       await audioEngine.unload();
     } catch (_) { }
-    set({ currentTrack: null, isPlaying: false, position: 0, duration: 0 });
+    set({
+      currentTrack: null,
+      isPlaying: false,
+      isBuffering: false,
+      position: 0,
+      duration: 0,
+      queue: [],
+      currentTrackIndex: -1,
+      shuffleActive: false,
+      shuffledQueue: [],
+    });
   },
 
   initializePlaylist: async (tracks: Track[], startIndex = 0, shuffle = false) => {
@@ -330,19 +361,14 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => ({
   },
 
   playNextTrack: async () => {
-    const { queue, currentTrackIndex, shuffleActive, shuffledQueue, repeatMode, currentTrack } = get();
+    const { queue, currentTrackIndex, shuffleActive, shuffledQueue, repeatMode } = get();
     const trackList = shuffleActive ? shuffledQueue : queue;
 
     if (trackList.length === 0) {
-      const fallbackTrack = getRandomFallbackTrack(currentTrack?.id);
-      if (fallbackTrack) {
-        await get().setTrack(fallbackTrack, { preserveQueue: true, transitionDelayMs: TRACK_SWITCH_TRANSITION_MS });
-        return;
-      }
-
-      if (currentTrack) {
-        await get().setTrack(currentTrack, { preserveQueue: true });
-      }
+      try {
+        await audioEngine.stop();
+      } catch (_) { }
+      set({ isPlaying: false, position: 0, duration: 0 });
       return;
     }
 
@@ -357,12 +383,6 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => ({
       if (repeatMode === 'all') {
         nextIndex = 0;
       } else {
-        const fallbackTrack = getRandomFallbackTrack(currentTrack?.id);
-        if (fallbackTrack) {
-          await get().setTrack(fallbackTrack, { preserveQueue: true, transitionDelayMs: TRACK_SWITCH_TRANSITION_MS });
-          return;
-        }
-
         try {
           await audioEngine.stop();
         } catch (_) { }

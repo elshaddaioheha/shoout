@@ -305,7 +305,7 @@ function PlaylistSection({ tracks, loading }: { tracks: PublishedUpload[]; loadi
     <View style={styles.section}>
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Latest Releases</Text>
-        <TouchableOpacity onPress={() => router.push('/(tabs)/search')}><Text style={styles.seeAllText}>See All</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => router.push('/search')}><Text style={styles.seeAllText}>See All</Text></TouchableOpacity>
       </View>
       <FlatList
         horizontal
@@ -341,7 +341,7 @@ function FreeMusicSection({ songs, loading }: { songs: PublishedUpload[]; loadin
     <View style={styles.section}>
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Free Music</Text>
-        <TouchableOpacity onPress={() => router.push('/(tabs)/marketplace')}><Text style={styles.seeAllText}>See All</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => router.push('/marketplace')}><Text style={styles.seeAllText}>See All</Text></TouchableOpacity>
       </View>
       <FlatList
         horizontal
@@ -451,7 +451,7 @@ function ArtistsSection({ tracks, loading }: { tracks: PublishedUpload[]; loadin
     <View style={styles.section}>
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Favorite Artists</Text>
-        <TouchableOpacity onPress={() => router.push('/(tabs)/search')}><Text style={styles.seeAllText}>See All</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => router.push('/search')}><Text style={styles.seeAllText}>See All</Text></TouchableOpacity>
       </View>
       <FlatList
         horizontal
@@ -567,7 +567,7 @@ function PopularBeatsSection({ beats, loading }: { beats: PublishedUpload[]; loa
     <View style={styles.section}>
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Popular Beats</Text>
-        <TouchableOpacity onPress={() => router.push({ pathname: '/(tabs)/marketplace', params: { source: 'popular-beats' } } as any)}>
+        <TouchableOpacity onPress={() => router.push({ pathname: '/marketplace', params: { source: 'popular-beats' } } as any)}>
           <Text style={styles.seeAllText}>See All</Text>
         </TouchableOpacity>
       </View>

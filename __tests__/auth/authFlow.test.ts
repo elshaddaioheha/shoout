@@ -76,4 +76,22 @@ describe('authFlow resolver', () => {
       pathname: '/cart',
     });
   });
+
+  it('normalizes legacy grouped redirect destinations', async () => {
+    (auth as any).currentUser = { uid: 'user-4' };
+    (getDoc as jest.Mock).mockResolvedValue({
+      exists: () => true,
+      data: () => ({
+        authFlow: {
+          needsRoleSelection: false,
+          selectedExperience: 'shoout',
+          studioSetupCompletedAt: '2026-04-08T00:00:00.000Z',
+        },
+      }),
+    });
+
+    await expect(resolveAuthenticatedDestination('/(tabs)/search')).resolves.toEqual({
+      pathname: '/search',
+    });
+  });
 });

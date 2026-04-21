@@ -35,6 +35,7 @@
             "autoIncrement": true,
             "environment": "production",
             "android": {
+                "buildType": "apk",
                 "image": "latest"
             }
         }

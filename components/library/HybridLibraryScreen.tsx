@@ -11,6 +11,7 @@ import { useUserStore } from '@/store/useUserStore';
 import { getModeSurfaceTheme } from '@/utils/appModeTheme';
 import { adaptLegacyColor, adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { notifyError } from '@/utils/notify';
+import { ROUTES } from '@/utils/routes';
 import { useRouter } from 'expo-router';
 import { addDoc, collection, deleteDoc, doc, onSnapshot, orderBy, query, serverTimestamp } from 'firebase/firestore';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -242,10 +243,10 @@ export default function HybridLibraryScreen() {
   const openUpload = () => {
     if (!auth.currentUser) {
       showToast('Please sign in to upload your music.', 'error');
-      router.push({ pathname: '/(auth)/login', params: { redirectTo: '/studio/upload' } });
+      router.push({ pathname: ROUTES.auth.login, params: { redirectTo: ROUTES.studio.upload } });
       return;
     }
-    router.push('/studio/upload');
+    router.push(ROUTES.studio.upload as any);
   };
 
   const openFavourite = (track: FavouriteTrack) => {
@@ -313,7 +314,7 @@ export default function HybridLibraryScreen() {
                 <TouchableOpacity
                   style={styles.findSongsBtn}
                   activeOpacity={0.85}
-                  onPress={() => router.push('/(tabs)/search' as any)}
+                  onPress={() => router.push(ROUTES.tabs.search as any)}
                 >
                   <Text style={styles.findSongsBtnText}>Browse Songs</Text>
                 </TouchableOpacity>
@@ -406,7 +407,7 @@ export default function HybridLibraryScreen() {
               <>
                 <View style={styles.sectionHeader}>
                   <Text style={styles.sectionTitle}>Recent Upload</Text>
-                  <TouchableOpacity activeOpacity={0.8} onPress={() => router.push('/vault/updates' as any)}>
+                  <TouchableOpacity activeOpacity={0.8} onPress={() => router.push(ROUTES.vault.updates as any)}>
                     <Text style={styles.seeAll}>See All</Text>
                   </TouchableOpacity>
                 </View>
@@ -443,7 +444,7 @@ export default function HybridLibraryScreen() {
           icon="link-2"
           color={appTheme.colors.textPrimary}
           size={20}
-          onPress={() => router.push('/vault/links' as any)}
+          onPress={() => router.push(ROUTES.vault.links as any)}
         />
       </>
 
@@ -613,7 +614,7 @@ function FolderCard({ folder }: { folder: VaultFolder }) {
     <TouchableOpacity
       style={styles.cardItem}
       activeOpacity={0.8}
-      onPress={() => router.push({ pathname: '/vault/folder/[id]', params: { id: folder.id, name: folder.name } } as any)}
+      onPress={() => router.push(ROUTES.vault.folder(folder.id, folder.name) as any)}
     >
       <View style={styles.folderVisual}>
         <View style={styles.folderBack} />

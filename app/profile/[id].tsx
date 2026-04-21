@@ -3,7 +3,7 @@ import { auth, db } from '@/firebaseConfig';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { useToastStore } from '@/store/useToastStore';
 import { toggleArtistFollow, toggleArtistSubscription } from '@/utils/artistSocial';
-import { adaptLegacyColor, adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
+import { adaptLegacyColor } from '@/utils/legacyThemeAdapter';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
@@ -131,7 +131,7 @@ export default function ArtistProfileScreen() {
             router.back();
             return;
         }
-        router.replace('/(tabs)/more');
+        router.replace('/more');
     };
 
     const resolveScheduledMs = (track: any): number | null => {

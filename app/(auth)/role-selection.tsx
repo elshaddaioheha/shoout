@@ -1,25 +1,22 @@
-import type { UserRole } from '@/store/useUserStore';
-import { useToastStore } from '@/store/useToastStore';
-import { hydrateSubscriptionTier } from '@/utils/subscriptionVerification';
-import { useAppTheme } from '@/hooks/use-app-theme';
-import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
-import { Icon } from '@/components/ui/Icon';
 import { PremiumBackButton } from '@/components/ui/PremiumBackButton';
 import { SUBSCRIPTION_TIERS } from '@/constants/subscriptionTiers';
+import { auth } from '@/firebaseConfig';
+import { useAppTheme } from '@/hooks/use-app-theme';
+import { useToastStore } from '@/store/useToastStore';
+import type { UserRole } from '@/store/useUserStore';
 import { markSelectedExperience } from '@/utils/authFlow';
+import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
+import { hydrateSubscriptionTier } from '@/utils/subscriptionVerification';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { auth } from '@/firebaseConfig';
 import {
-    ChevronRight,
     CheckCircle,
+    ChevronRight,
 } from 'lucide-react-native';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-    Animated,
     ActivityIndicator,
-    Easing,
     ScrollView,
     StatusBar,
     StyleSheet,
@@ -27,6 +24,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import Animated, { Easing, interpolate, useAnimatedStyle, useSharedValue, withDelay, withSequence, withTiming } from 'react-native-reanimated';
 import SafeScreenWrapper from '../../components/SafeScreenWrapper';
 import { theme } from '../../constants/theme';
 import { normalize } from '../../utils/responsive';
@@ -49,56 +47,46 @@ export default function RoleSelectionScreen() {
     const [selectedRole, setSelectedRole] = useState<UserRole | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    // Staggered entry animations
-    const headerAnim = useRef(new Animated.Value(0)).current;
-    const cardAnimsRef = useRef(SUBSCRIPTION_TIERS.map(() => new Animated.Value(0)));
-    const buttonAnim = useRef(new Animated.Value(0)).current;
+    const headerProgress = useSharedValue(0);
+    const buttonProgress = useSharedValue(0);
 
     useEffect(() => {
-        const cardAnims = cardAnimsRef.current;
-
-        // Header fades in first
-        Animated.timing(headerAnim, {
-            toValue: 1,
+        headerProgress.value = withTiming(1, {
             duration: 600,
             easing: Easing.out(Easing.cubic),
-            useNativeDriver: true,
-        }).start();
-
-        // Cards stagger in
-        const cardAnimations = cardAnims.map((anim, i) =>
-            Animated.timing(anim, {
-                toValue: 1,
-                duration: 500,
-                delay: 200 + i * 120,
-                easing: Easing.out(Easing.back(1.2)),
-                useNativeDriver: true,
-            })
-        );
-        Animated.stagger(120, cardAnimations).start();
-
-        // Button fades in last
-        Animated.timing(buttonAnim, {
-            toValue: 1,
+        });
+        buttonProgress.value = withDelay(800, withTiming(1, {
             duration: 400,
-            delay: 800,
             easing: Easing.out(Easing.cubic),
-            useNativeDriver: true,
-        }).start();
-    }, []);
+        }));
+    }, [buttonProgress, headerProgress]);
 
-    const pulseAnim = useRef(new Animated.Value(1)).current;
+    const pulseProgress = useSharedValue(1);
     const selectedTier = SUBSCRIPTION_TIERS.find((tier) => tier.id === selectedRole) || null;
     const SelectedTierIcon = selectedTier?.icon;
 
     useEffect(() => {
         if (selectedRole) {
-            Animated.sequence([
-                Animated.timing(pulseAnim, { toValue: 1.05, duration: 150, useNativeDriver: true }),
-                Animated.timing(pulseAnim, { toValue: 1, duration: 150, useNativeDriver: true }),
-            ]).start();
+            pulseProgress.value = withSequence(
+                withTiming(1.05, { duration: 150, easing: Easing.out(Easing.cubic) }),
+                withTiming(1, { duration: 150, easing: Easing.out(Easing.cubic) }),
+            );
         }
-    }, [selectedRole]);
+    }, [pulseProgress, selectedRole]);
+
+    const headerAnimatedStyle = useAnimatedStyle(() => ({
+        opacity: headerProgress.value,
+        transform: [{ translateY: interpolate(headerProgress.value, [0, 1], [-30, 0]) }],
+    }));
+
+    const backgroundCircleStyle = useAnimatedStyle(() => ({
+        opacity: headerProgress.value,
+    }));
+
+    const buttonAnimatedStyle = useAnimatedStyle(() => ({
+        opacity: buttonProgress.value,
+        transform: [{ translateY: interpolate(buttonProgress.value, [0, 1], [20, 0]) }],
+    }));
 
     const handleRolePress = (roleId: UserRole) => {
         if (isSubmitting) return;
@@ -168,8 +156,8 @@ export default function RoleSelectionScreen() {
             <StatusBar barStyle={appTheme.isDark ? 'light-content' : 'dark-content'} />
 
             {/* Background decorative circles */}
-            <Animated.View style={[styles.bgCircle1, { opacity: headerAnim }]} />
-            <Animated.View style={[styles.bgCircle2, { opacity: headerAnim }]} />
+            <Animated.View style={[styles.bgCircle1, backgroundCircleStyle]} />
+            <Animated.View style={[styles.bgCircle2, backgroundCircleStyle]} />
 
             <ScrollView
                 contentContainerStyle={styles.scrollContent}
@@ -182,10 +170,7 @@ export default function RoleSelectionScreen() {
                     containerStyle={styles.inlineBackButton}
                 />
                 {/* Header */}
-                <Animated.View style={[styles.header, {
-                    opacity: headerAnim,
-                    transform: [{ translateY: headerAnim.interpolate({ inputRange: [0, 1], outputRange: [-30, 0] }) }]
-                }]}>
+                <Animated.View style={[styles.header, headerAnimatedStyle]}>
                     <Text style={styles.title} allowFontScaling={false}>How will you use{'\n'}Shoouts?</Text>
                     <Text style={styles.subtitle} allowFontScaling={false}>Choose your experience. You can always change this later.</Text>
                 </Animated.View>
@@ -252,8 +237,6 @@ export default function RoleSelectionScreen() {
                 <View style={styles.cardsContainer}>
                     {SUBSCRIPTION_TIERS.map((role, index) => {
                         const isSelected = selectedRole === role.id;
-                        const Icon = role.icon;
-                        const cardAnim = cardAnimsRef.current[index];
                         const selectedGradient: readonly [string, string] = role.selectedGradientOverride && !appTheme.isDark
                             ? role.selectedGradientOverride
                             : role.gradient;
@@ -264,78 +247,26 @@ export default function RoleSelectionScreen() {
                         return (
                             <Animated.View
                                 key={role.id}
-                                style={[{
-                                    opacity: cardAnim,
-                                    transform: [
-                                        { translateY: cardAnim.interpolate({ inputRange: [0, 1], outputRange: [40, 0] }) },
-                                        { scale: isSelected ? pulseAnim : 1 }
-                                    ]
-                                }]}
+                                style={styles.animatedCardWrap}
                             >
-                                <TouchableOpacity
-                                    accessibilityRole="radio"
-                                    accessibilityState={{ selected: isSelected, disabled: isSubmitting }}
-                                    accessibilityLabel={`${role.title} subscription option`}
-                                    activeOpacity={0.85}
-                                    disabled={isSubmitting}
+                                <AnimatedRoleCard
+                                    role={role}
+                                    index={index}
+                                    isSelected={isSelected}
+                                    isSubmitting={isSubmitting}
+                                    pulseProgress={pulseProgress}
+                                    cardGradient={cardGradient}
+                                    appTheme={appTheme}
                                     onPress={() => handleRolePress(role.id)}
-                                >
-                                    <LinearGradient
-                                        colors={cardGradient}
-                                        start={{ x: 0, y: 0 }}
-                                        end={{ x: 1, y: 1 }}
-                                        style={[
-                                            styles.roleCard,
-                                            isSelected && styles.roleCardSelected,
-                                        ]}
-                                    >
-                                        <View style={styles.roleCardContent}>
-                                            <View style={[styles.roleIconContainer, isSelected && { backgroundColor: appTheme.isDark ? 'rgba(255,255,255,0.2)' : 'rgba(23,18,19,0.12)' }]}>
-                                                <Icon size={theme.iconSize.lg} color={isSelected ? appTheme.colors.textPrimary : appTheme.colors.primary} />
-                                            </View>
-                                            <View style={styles.roleTextContent}>
-                                                <Text style={styles.roleTitle} allowFontScaling={false}>{role.title}</Text>
-                                                <Text style={[styles.roleSubtitle, isSelected && { color: appTheme.colors.textSecondary }]} allowFontScaling={false}>
-                                                    {role.subtitle}
-                                                </Text>
-                                            </View>
-                                            <View style={styles.checkIndicatorContainer}>
-                                                {isSelected && (
-                                                    <CheckCircle
-                                                        size={normalize(24)}
-                                                        color={role.accentColor}
-                                                        fill={appTheme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.9)'}
-                                                    />
-                                                )}
-                                            </View>
-                                        </View>
-
-                                        {/* Expanded features */}
-                                        {isSelected && (
-                                            <View style={styles.featuresContainer}>
-                                                {role.features.map((feature, fi) => {
-                                                    const FeatureIcon = role.featureIcons[fi];
-                                                    return (
-                                                        <View key={fi} style={styles.featureRow}>
-                                                            <FeatureIcon size={theme.iconSize.sm} color={appTheme.colors.textSecondary} />
-                                                            <Text style={styles.featureText} allowFontScaling={false}>{feature}</Text>
-                                                        </View>
-                                                    );
-                                                })}
-                                            </View>
-                                        )}
-                                    </LinearGradient>
-                                </TouchableOpacity>
+                                    styles={styles}
+                                />
                             </Animated.View>
                         );
                     })}
                 </View>
 
                 {/* Continue Button */}
-                <Animated.View style={[styles.buttonContainer, {
-                    opacity: buttonAnim,
-                    transform: [{ translateY: buttonAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }]
-                }]}>
+                <Animated.View style={[styles.buttonContainer, buttonAnimatedStyle]}>
                     <TouchableOpacity
                         accessibilityLabel={selectedRole ? `Continue with ${selectedRole} plan` : 'Select a plan to continue'}
                         onPress={handleContinue}
@@ -365,6 +296,108 @@ export default function RoleSelectionScreen() {
                 </Animated.View>
             </ScrollView>
         </SafeScreenWrapper>
+    );
+}
+
+function AnimatedRoleCard({
+    role,
+    index,
+    isSelected,
+    isSubmitting,
+    pulseProgress,
+    cardGradient,
+    appTheme,
+    onPress,
+    styles,
+}: {
+    role: typeof SUBSCRIPTION_TIERS[number];
+    index: number;
+    isSelected: boolean;
+    isSubmitting: boolean;
+    pulseProgress: ReturnType<typeof useSharedValue<number>>;
+    cardGradient: readonly [string, string];
+    appTheme: ReturnType<typeof useAppTheme>;
+    onPress: () => void;
+    styles: ReturnType<typeof useRoleSelectionStyles>;
+}) {
+    const cardProgress = useSharedValue(0);
+
+    useEffect(() => {
+        cardProgress.value = withDelay(
+            200 + index * 120,
+            withTiming(1, {
+                duration: 500,
+                easing: Easing.out(Easing.cubic),
+            }),
+        );
+    }, [cardProgress, index]);
+
+    const cardAnimatedStyle = useAnimatedStyle(() => ({
+        opacity: cardProgress.value,
+        transform: [
+            { translateY: interpolate(cardProgress.value, [0, 1], [40, 0]) },
+            { scale: isSelected ? pulseProgress.value : 1 },
+        ],
+    }));
+
+    const IconComponent = role.icon;
+
+    return (
+        <Animated.View style={cardAnimatedStyle}>
+            <TouchableOpacity
+                accessibilityRole="radio"
+                accessibilityState={{ selected: isSelected, disabled: isSubmitting }}
+                accessibilityLabel={`${role.title} subscription option`}
+                activeOpacity={0.85}
+                disabled={isSubmitting}
+                onPress={onPress}
+            >
+                <LinearGradient
+                    colors={cardGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={[
+                        styles.roleCard,
+                        isSelected && styles.roleCardSelected,
+                    ]}
+                >
+                    <View style={styles.roleCardContent}>
+                        <View style={[styles.roleIconContainer, isSelected && { backgroundColor: appTheme.isDark ? 'rgba(255,255,255,0.2)' : 'rgba(23,18,19,0.12)' }]}>
+                            <IconComponent size={theme.iconSize.lg} color={isSelected ? appTheme.colors.textPrimary : appTheme.colors.primary} />
+                        </View>
+                        <View style={styles.roleTextContent}>
+                            <Text style={styles.roleTitle} allowFontScaling={false}>{role.title}</Text>
+                            <Text style={[styles.roleSubtitle, isSelected && { color: appTheme.colors.textSecondary }]} allowFontScaling={false}>
+                                {role.subtitle}
+                            </Text>
+                        </View>
+                        <View style={styles.checkIndicatorContainer}>
+                            {isSelected && (
+                                <CheckCircle
+                                    size={normalize(24)}
+                                    color={role.accentColor}
+                                    fill={appTheme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.9)'}
+                                />
+                            )}
+                        </View>
+                    </View>
+
+                    {isSelected && (
+                        <View style={styles.featuresContainer}>
+                            {role.features.map((feature, fi) => {
+                                const FeatureIcon = role.featureIcons[fi];
+                                return (
+                                    <View key={fi} style={styles.featureRow}>
+                                        <FeatureIcon size={theme.iconSize.sm} color={appTheme.colors.textSecondary} />
+                                        <Text style={styles.featureText} allowFontScaling={false}>{feature}</Text>
+                                    </View>
+                                );
+                            })}
+                        </View>
+                    )}
+                </LinearGradient>
+            </TouchableOpacity>
+        </Animated.View>
     );
 }
 
@@ -419,6 +452,9 @@ const legacyStyles = {
     },
     cardsContainer: {
         gap: theme.spacing.md,
+    },
+    animatedCardWrap: {
+        width: '100%',
     },
     selectedWelcomeWrap: {
         marginBottom: theme.spacing.lg,

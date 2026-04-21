@@ -9,8 +9,9 @@ import { ViewMode } from '@/store/useUserStore';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useEffect, useRef } from 'react';
-import { Animated, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import React, { useEffect } from 'react';
+import { StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import Animated, { interpolate, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 
 interface ModePillButtonProps {
     viewMode: ViewMode;
@@ -76,7 +77,7 @@ export default function ModePillButton({ viewMode, isOpen, onPress }: ModePillBu
     const appTheme = useAppTheme();
     const styles = useModePillStyles();
 
-    const chevronAnim = useRef(new Animated.Value(0)).current;
+    const chevronProgress = useSharedValue(isOpen ? 1 : 0);
     const { width } = useWindowDimensions();
     const modeStyle = MODE_COLORS[viewMode];
     const modeLabel = MODE_LABELS[viewMode];
@@ -96,18 +97,15 @@ export default function ModePillButton({ viewMode, isOpen, onPress }: ModePillBu
     const pillBorderColor = isHybridMode ? (isHybridDark ? HYBRID_DARK.primary : HYBRID_LIGHT.primary) : modeStyle.border;
 
     useEffect(() => {
-        Animated.spring(chevronAnim, {
-            toValue: isOpen ? 1 : 0,
-            useNativeDriver: true,
-            speed: 20,
-            bounciness: 5,
-        }).start();
-    }, [isOpen, chevronAnim]);
+        chevronProgress.value = withSpring(isOpen ? 1 : 0, {
+            damping: 14,
+            stiffness: 180,
+        });
+    }, [chevronProgress, isOpen]);
 
-    const chevronRotate = chevronAnim.interpolate({
-        inputRange: [0, 1],
-        outputRange: ['0deg', '-180deg'],
-    });
+    const chevronStyle = useAnimatedStyle(() => ({
+        transform: [{ rotate: `${interpolate(chevronProgress.value, [0, 1], [0, -180])}deg` }],
+    }));
 
     return (
         <TouchableOpacity
@@ -145,7 +143,8 @@ export default function ModePillButton({ viewMode, isOpen, onPress }: ModePillBu
                 style={[
                     styles.chevronCircle,
                     isCompact && styles.chevronCircleCompact,
-                    { backgroundColor: chevronBgColor, transform: [{ rotate: chevronRotate }] },
+                    { backgroundColor: chevronBgColor },
+                    chevronStyle,
                 ]}
             >
                 <Icon name="chevron-down" size={isCompact ? 11 : 12} color={labelColor} strokeWidth={2.5} />

@@ -8,6 +8,7 @@ import { useStudioWorkspaceData } from '@/hooks/useStudioWorkspaceData';
 import { useAuthStore } from '@/store/useAuthStore';
 import { getModeSurfaceTheme, getModeTheme } from '@/utils/appModeTheme';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
+import { ROUTES } from '@/utils/routes';
 import { canUseStudioServices, getEffectivePlan } from '@/utils/subscriptions';
 import { useRouter } from 'expo-router';
 import React from 'react';
@@ -79,7 +80,7 @@ export default function StudioPromoteScreen() {
 
   const requireStudioSubscription = () => {
     if (canUseServices) return false;
-    router.push('/settings/subscriptions' as any);
+    router.push(ROUTES.settings.subscriptions as any);
     return true;
   };
 
@@ -99,7 +100,7 @@ export default function StudioPromoteScreen() {
           <Text style={styles.heroTitle}>Plan campaigns and push your strongest releases in front of more listeners.</Text>
           <TouchableOpacity style={[styles.primaryCta, { backgroundColor: accentColor }]} onPress={() => {
             if (requireStudioSubscription()) return;
-            router.push('/studio/ads-intro' as any);
+            router.push(ROUTES.studio.adsIntro as any);
           }} activeOpacity={0.9}>
             <Icon name="rocket" size={18} color={modeSurfaceTheme.onAccent} />
             <Text style={styles.primaryCtaText}>Open Ad Manager</Text>
@@ -111,7 +112,7 @@ export default function StudioPromoteScreen() {
             <Text style={styles.panelTitle}>Campaign Readiness</Text>
             <TouchableOpacity onPress={() => {
               if (requireStudioSubscription()) return;
-              router.push('/studio/ads-intro' as any);
+              router.push(ROUTES.studio.adsIntro as any);
             }} activeOpacity={0.8}>
               <Text style={[styles.panelLink, { color: accentColor }]}>Create campaign</Text>
             </TouchableOpacity>
@@ -135,7 +136,7 @@ export default function StudioPromoteScreen() {
             <Text style={styles.panelTitle}>Best Tracks To Promote</Text>
             <TouchableOpacity onPress={() => {
               if (requireStudioSubscription()) return;
-              router.push('/studio/analytics' as any);
+              router.push(ROUTES.studio.analytics as any);
             }} activeOpacity={0.8}>
               <Text style={[styles.panelLink, { color: accentColor }]}>See performance</Text>
             </TouchableOpacity>
@@ -152,7 +153,7 @@ export default function StudioPromoteScreen() {
               </View>
               <TouchableOpacity style={[styles.promoteChip, { backgroundColor: accentTint }]} onPress={() => {
                 if (requireStudioSubscription()) return;
-                router.push('/studio/ads-intro' as any);
+                router.push(ROUTES.studio.adsIntro as any);
               }} activeOpacity={0.85}>
                 <Text style={[styles.promoteChipText, { color: accentColor }]}>Promote</Text>
               </TouchableOpacity>

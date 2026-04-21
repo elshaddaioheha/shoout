@@ -14,11 +14,9 @@ import { colors } from '@/constants/colors';
 import { useRouter } from 'expo-router';
 import { collection, doc, getDocs, onSnapshot, setDoc } from 'firebase/firestore';
 import { Icon } from '@/components/ui/Icon';
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect } from 'react';
 import {
     Alert,
-    Animated,
-    Dimensions,
     Modal,
     ScrollView,
     Share,
@@ -28,8 +26,7 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
-
-const { width } = Dimensions.get('window');
+import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
 function useProfileStyles() {
     const appTheme = useAppTheme();
@@ -59,8 +56,14 @@ export default function ProfileScreen() {
     const accentTint = modeTheme.accentTint;
     const accentSoft = modeTheme.accentSoft;
 
-    const fadeAnim = useRef(new Animated.Value(0)).current;
-    const scaleAnim = useRef(new Animated.Value(0.96)).current;
+    const revealProgress = useSharedValue(0);
+    const profileCardAnimatedStyle = useAnimatedStyle(() => ({
+        opacity: revealProgress.value,
+        transform: [
+            { scale: 0.96 + (0.04 * revealProgress.value) },
+            { translateY: (1 - revealProgress.value) * 14 },
+        ],
+    }));
 
     const getRoleGradient = () => {
         if (activeAppMode === 'vault' || activeAppMode === 'vault_pro') return ['rgba(236, 92, 57, 0.15)', 'rgba(0,0,0,0)'];
@@ -71,19 +74,11 @@ export default function ProfileScreen() {
     };
 
     useEffect(() => {
-        Animated.parallel([
-            Animated.timing(fadeAnim, {
-                toValue: 1,
-                duration: 220,
-                useNativeDriver: true,
-            }),
-            Animated.timing(scaleAnim, {
-                toValue: 1,
-                duration: 240,
-                useNativeDriver: true,
-            }),
-        ]).start();
-    }, []);
+        revealProgress.value = withTiming(1, {
+            duration: 240,
+            easing: Easing.out(Easing.cubic),
+        });
+    }, [revealProgress]);
 
     useEffect(() => {
         const loadProfileStats = async () => {
@@ -204,7 +199,7 @@ export default function ProfileScreen() {
             router.back();
             return;
         }
-        router.replace('/(tabs)/more');
+        router.replace('/more');
     };
 
     return (
@@ -226,7 +221,7 @@ export default function ProfileScreen() {
                 </View>
 
                 {/* Profile Card */}
-                <Animated.View style={[styles.profileCard, { opacity: fadeAnim, transform: [{ scale: scaleAnim }], overflow: 'hidden' }]}>
+                <Animated.View style={[styles.profileCard, profileCardAnimatedStyle, { overflow: 'hidden' }]}>
                     <LinearGradient
                         colors={getRoleGradient() as unknown as readonly [string, string, ...string[]]}
                         style={StyleSheet.absoluteFillObject}

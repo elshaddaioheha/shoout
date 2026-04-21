@@ -12,6 +12,7 @@ import { useUserStore } from '@/store/useUserStore';
 import { adaptLegacyColor, adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { formatPlanLabel } from '@/utils/subscriptions';
 import { notifyError } from '@/utils/notify';
+import { ROUTES } from '@/utils/routes';
 import * as DocumentPicker from 'expo-document-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -320,20 +321,20 @@ export default function VaultHomeScreen() {
   const handleStartUpload = () => {
     if (!canUploadToVault) {
       showToast('Upgrade your plan to upload into Vault.', 'info');
-      router.push('/settings/subscriptions' as any);
+      router.push(ROUTES.settings.subscriptions as any);
       return;
     }
     if (uploadLimitReached) {
       showToast('Vault upload limit reached. Upgrade for more uploads.', 'info');
-      router.push('/settings/subscriptions' as any);
+      router.push(ROUTES.settings.subscriptions as any);
       return;
     }
     if (storageLimitReached) {
       showToast('Vault storage is full. Upgrade for more space.', 'info');
-      router.push('/settings/subscriptions' as any);
+      router.push(ROUTES.settings.subscriptions as any);
       return;
     }
-    router.push('/vault/upload' as any);
+    router.push(ROUTES.vault.upload as any);
   };
 
   const handleUploadFolderFromDevice = async () => {
@@ -344,13 +345,13 @@ export default function VaultHomeScreen() {
 
     if (!canUploadToVault) {
       showToast('Upgrade your plan to upload into Vault.', 'info');
-      router.push('/settings/subscriptions' as any);
+      router.push(ROUTES.settings.subscriptions as any);
       return;
     }
 
     if (uploadLimitReached || storageLimitReached) {
       showToast('You reached your Vault limit. Upgrade for more room.', 'info');
-      router.push('/settings/subscriptions' as any);
+      router.push(ROUTES.settings.subscriptions as any);
       return;
     }
 
@@ -514,7 +515,7 @@ export default function VaultHomeScreen() {
     {
       key: 'convert',
       label: 'Convert',
-      onPress: () => router.push('/vault/convert' as any),
+      onPress: () => router.push(ROUTES.vault.convert as any),
     },
     {
       key: 'folder',
@@ -522,9 +523,9 @@ export default function VaultHomeScreen() {
       onPress: handleUploadFolderFromDevice,
     },
     {
-      key: 'share',
-      label: 'Share',
-      onPress: () => router.push('/vault/links' as any),
+      key: 'record',
+      label: 'Record',
+      onPress: () => router.push(ROUTES.vault.record as any),
     },
   ]), [handleStartUpload, handleUploadFolderFromDevice, router]);
 
@@ -572,7 +573,7 @@ export default function VaultHomeScreen() {
         subtitle: link.type === 'folder' ? 'Folder link' : 'Track link',
         onPress: () => {
           closeSearchSheet(() => {
-            router.push('/vault/links' as any);
+            router.push(ROUTES.vault.links as any);
           });
         },
       }));
@@ -624,7 +625,7 @@ export default function VaultHomeScreen() {
           <View style={styles.vaultHeaderActions}>
             <IconButton
               style={styles.vaultHeaderButton}
-              onPress={() => router.push('/vault/updates' as any)}
+              onPress={() => router.push(ROUTES.vault.updates as any)}
               activeOpacity={0.8}
               icon="bell"
               size={17}
@@ -644,7 +645,7 @@ export default function VaultHomeScreen() {
             />
             <IconButton
               style={[styles.vaultHeaderButton, styles.profileButton]}
-              onPress={() => router.push('/(tabs)/more' as any)}
+              onPress={() => router.push(ROUTES.tabs.more as any)}
               activeOpacity={0.8}
               icon="user"
               size={17}
@@ -694,7 +695,7 @@ export default function VaultHomeScreen() {
                 <TouchableOpacity
                   activeOpacity={0.9}
                   style={[styles.heroSecondaryAction, { backgroundColor: actionSecondaryBackground, borderColor: accentTint }]}
-                  onPress={() => router.push('/vault/updates' as any)}
+                  onPress={() => router.push(ROUTES.vault.updates as any)}
                 >
                   <Icon name="refresh" size={16} color={accentTextColor} />
                   <Text style={[styles.heroSecondaryActionText, { color: accentTextColor }]}>Updates</Text>
@@ -735,7 +736,7 @@ export default function VaultHomeScreen() {
             <Text style={styles.emptySubtitle}>
               Upload tracks, organize them into folders, create private links, and keep track of recent updates from one place.
             </Text>
-            <TouchableOpacity style={[styles.emptyButton, { backgroundColor: accentColor }]} onPress={() => router.push('/vault/upload' as any)} activeOpacity={0.9}>
+            <TouchableOpacity style={[styles.emptyButton, { backgroundColor: accentColor }]} onPress={() => router.push(ROUTES.vault.upload as any)} activeOpacity={0.9}>
               <Text style={[styles.emptyButtonText, { color: actionButtonTextColor }]}>Upload First Track</Text>
             </TouchableOpacity>
           </View>
@@ -744,7 +745,7 @@ export default function VaultHomeScreen() {
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Vault Items</Text>
           <View style={styles.sectionHeaderActions}>
-            <TouchableOpacity onPress={() => router.push('/vault/updates' as any)} activeOpacity={0.8}>
+            <TouchableOpacity onPress={() => router.push(ROUTES.vault.updates as any)} activeOpacity={0.8}>
               <Text style={[styles.sectionAction, { color: accentTextColor }]}>Open updates</Text>
             </TouchableOpacity>
             <View style={styles.layoutToggle}>
@@ -788,7 +789,7 @@ export default function VaultHomeScreen() {
               <TouchableOpacity
                 key={folder.id}
                 style={[styles.listRow, longPressFolderId === folder.id && styles.listRowActive]}
-                onPress={() => !longPressFolderId && router.push({ pathname: '/vault/folder/[id]', params: { id: folder.id, name: folder.name } } as any)}
+                  onPress={() => !longPressFolderId && router.push(ROUTES.vault.folder(folder.id, folder.name) as any)}
                 onPressIn={() => handleFolderPressIn(folder.id, folder)}
                 onPressOut={handleFolderPressOut}
                 activeOpacity={0.8}
@@ -831,7 +832,7 @@ export default function VaultHomeScreen() {
             <View style={styles.sectionBlockHeader}>
               <Text style={styles.sectionBlockTitle}>Uploads</Text>
               {uploads.length > 0 ? (
-                <TouchableOpacity onPress={() => router.push('/vault/updates' as any)} activeOpacity={0.8}>
+                <TouchableOpacity onPress={() => router.push(ROUTES.vault.updates as any)} activeOpacity={0.8}>
                   <Text style={[styles.sectionBlockAction, { color: accentTextColor }]}>View all</Text>
                 </TouchableOpacity>
               ) : null}
@@ -842,7 +843,7 @@ export default function VaultHomeScreen() {
               <TouchableOpacity
                 key={upload.id}
                 style={[styles.listRow, longPressTrackId === upload.id && styles.listRowActive]}
-                onPress={() => !longPressTrackId && router.push({ pathname: '/vault/track/[id]', params: { id: upload.id } } as any)}
+                onPress={() => !longPressTrackId && router.push(ROUTES.vault.player(upload.id) as any)}
                 onPressIn={() => handleTrackPressIn(upload.id, upload)}
                 onPressOut={handleTrackPressOut}
                 activeOpacity={0.8}
@@ -863,7 +864,7 @@ export default function VaultHomeScreen() {
                   <TouchableOpacity
                     key={upload.id}
                     style={[styles.gridCard, { backgroundColor: accentSoft }, longPressTrackId === upload.id && styles.gridCardActive]}
-                    onPress={() => !longPressTrackId && router.push({ pathname: '/vault/track/[id]', params: { id: upload.id } } as any)}
+                    onPress={() => !longPressTrackId && router.push(ROUTES.vault.player(upload.id) as any)}
                     onPressIn={() => handleTrackPressIn(upload.id, upload)}
                     onPressOut={handleTrackPressOut}
                     activeOpacity={0.86}

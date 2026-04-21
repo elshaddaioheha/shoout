@@ -312,7 +312,7 @@ function MarketplaceSection({ title, items, accentColor, accentStrong }: any) {
         <View style={styles.section}>
             <View style={styles.sectionHeader}>
                 <Text style={styles.sectionTitle}>{title}</Text>
-                <TouchableOpacity onPress={() => router.push('/(tabs)/marketplace')}><Text style={[styles.seeAll, { color: accentColor }]}>See All</Text></TouchableOpacity>
+                <TouchableOpacity onPress={() => router.push('/marketplace')}><Text style={[styles.seeAll, { color: accentColor }]}>See All</Text></TouchableOpacity>
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
                 {items.map((item: any, idx: number) => (

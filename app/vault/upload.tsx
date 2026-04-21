@@ -7,6 +7,7 @@ import { useToastStore } from '@/store/useToastStore';
 import { useUserStore } from '@/store/useUserStore';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { notifyError, notifyWarning } from '@/utils/notify';
+import { ROUTES } from '@/utils/routes';
 import * as DocumentPicker from 'expo-document-picker';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
@@ -129,12 +130,12 @@ export default function VaultUploadScreen() {
     }
     if (uploadLimitReached) {
       showToast('Vault upload limit reached. Upgrade for more uploads.', 'info');
-      router.push('/settings/subscriptions' as any);
+      router.push(ROUTES.settings.subscriptions as any);
       return;
     }
     if (storageLimitReached) {
       showToast('Vault storage is full. Upgrade for more space.', 'info');
-      router.push('/settings/subscriptions' as any);
+      router.push(ROUTES.settings.subscriptions as any);
       return;
     }
     if (!title.trim()) {

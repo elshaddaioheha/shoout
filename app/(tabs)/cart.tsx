@@ -192,13 +192,13 @@ export default function CartScreen() {
 
                         <TouchableOpacity
                             style={styles.browseBtn}
-                            onPress={() => router.push('/(tabs)/marketplace')}
+                            onPress={() => router.push('/marketplace')}
                         >
                             <Text style={styles.browseText}>Browse Marketplace</Text>
                         </TouchableOpacity>
 
                         {purchasedCount > 0 ? (
-                            <TouchableOpacity style={styles.viewListBtn} onPress={() => router.push('/(tabs)/library')}>
+                            <TouchableOpacity style={styles.viewListBtn} onPress={() => router.push('/library')}>
                                 <Library size={16} color={colors.shooutPrimary} />
                                 <Text style={styles.viewListText}>View List</Text>
                             </TouchableOpacity>
@@ -206,7 +206,7 @@ export default function CartScreen() {
 
                         <View style={styles.bestSellerHeader}>
                             <Text style={styles.bestSellerTitle}>Best Sellers</Text>
-                            <TouchableOpacity onPress={() => router.push('/(tabs)/marketplace')}>
+                            <TouchableOpacity onPress={() => router.push('/marketplace')}>
                                 <Text style={styles.bestSellerLink}>See All</Text>
                             </TouchableOpacity>
                         </View>

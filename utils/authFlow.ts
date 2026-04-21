@@ -1,6 +1,7 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { auth, db } from '@/firebaseConfig';
 import type { UserRole } from '@/store/useUserStore';
+import { ROUTES, sanitizeRedirectPath } from '@/utils/routes';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 export const HAS_SEEN_ONBOARDING_KEY = 'shoouts-has-seen-onboarding-v1';
@@ -98,8 +99,8 @@ export function getSelectedExperience(userData?: UserProfileDoc | null): UserRol
 export async function resolveUnauthenticatedDestination(): Promise<AuthDestination> {
   const hasSeenOnboarding = await getHasSeenOnboarding();
   return hasSeenOnboarding
-    ? { pathname: '/(auth)/login' }
-    : { pathname: '/(auth)/onboarding' };
+    ? { pathname: ROUTES.auth.login }
+    : { pathname: ROUTES.auth.onboarding };
 }
 
 export async function resolveAuthenticatedDestination(redirectTo?: string): Promise<AuthDestination> {
@@ -108,8 +109,18 @@ export async function resolveAuthenticatedDestination(redirectTo?: string): Prom
     return resolveUnauthenticatedDestination();
   }
 
-  const snapshot = await getDoc(doc(db, 'users', uid));
-  const userData = snapshot.exists() ? (snapshot.data() as UserProfileDoc) : null;
+  let snapshot;
+  try {
+    snapshot = await Promise.race([
+      getDoc(doc(db, 'users', uid)),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 2500))
+    ]);
+  } catch (error) {
+    console.warn('[authFlow] Network timeout or error resolving role', error);
+    snapshot = null;
+  }
+
+  const userData = snapshot && snapshot.exists() ? (snapshot.data() as UserProfileDoc) : null;
   const authFlow = userData?.authFlow;
   const selectedExperience = getSelectedExperience(userData);
   const needsStudioSetup =
@@ -118,19 +129,20 @@ export async function resolveAuthenticatedDestination(redirectTo?: string): Prom
     !userData?.studioSetupCompletedAt;
 
   if (authFlow?.needsRoleSelection) {
-    return { pathname: '/(auth)/role-selection' };
+    return { pathname: ROUTES.auth.roleSelection };
   }
 
   if (needsStudioSetup && selectedExperience) {
     return {
-      pathname: '/(auth)/studio-creation',
+      pathname: ROUTES.auth.studioCreation,
       params: { role: selectedExperience },
     };
   }
 
-  if (typeof redirectTo === 'string' && redirectTo.trim().length > 0) {
-    return { pathname: redirectTo.trim() };
+  const sanitizedRedirect = sanitizeRedirectPath(redirectTo);
+  if (sanitizedRedirect) {
+    return { pathname: sanitizedRedirect };
   }
 
-  return { pathname: '/(tabs)' };
+  return { pathname: ROUTES.tabs.home };
 }

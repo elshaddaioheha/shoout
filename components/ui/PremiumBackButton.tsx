@@ -6,6 +6,7 @@ import { ChevronLeft } from 'lucide-react-native';
 import { StyleSheet, TouchableOpacity, View, ViewStyle } from 'react-native';
 
 import { useAppTheme } from '@/hooks/use-app-theme';
+import { ROUTES } from '@/utils/routes';
 
 export interface PremiumBackButtonProps {
   variant?: 'solid' | 'glass' | 'transparent';
@@ -34,7 +35,7 @@ export function PremiumBackButton({
       return;
     }
 
-    router.replace('/(tabs)');
+    router.replace(ROUTES.tabs.home as any);
   }, [onPressOverride, router]);
 
   const icon = (

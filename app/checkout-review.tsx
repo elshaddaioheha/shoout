@@ -1,25 +1,17 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import { PremiumBackButton } from '@/components/ui/PremiumBackButton';
-import { auth, db } from '@/firebaseConfig';
-import { useAppTheme } from '@/hooks/use-app-theme';
-import { formatUsd } from '@/utils/pricing';
-import { useCartStore, type CartItem } from '@/store/useCartStore';
 import { colors } from '@/constants/colors';
+import { auth } from '@/firebaseConfig';
+import { useAppTheme } from '@/hooks/use-app-theme';
+import { useCartStore, type CartItem } from '@/store/useCartStore';
 import { useLayoutMetricsStore } from '@/store/useLayoutMetricsStore';
 import { useToastStore } from '@/store/useToastStore';
-import { adaptLegacyColor, adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
+import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
+import { formatUsd } from '@/utils/pricing';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import {
-    collection,
-    doc,
-    limit,
-    onSnapshot,
-    orderBy,
-    query,
-    where,
-} from 'firebase/firestore';
+
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { PayWithFlutterwave } from 'flutterwave-react-native';
 
@@ -28,7 +20,7 @@ import {
     CreditCard,
     Trash2
 } from 'lucide-react-native';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -58,7 +50,6 @@ export default function CheckoutReviewScreen() {
         : ([colors.shooutPrimary, '#3D5CB8'] as const);
     const checkoutIconTextColor = '#FFFFFF';
     const checkoutFontSize = width < 360 ? 16 : width > 430 ? 19 : 18;
-    const itemFallbackIconColor = adaptLegacyColor('rgba(255,255,255,0.2)', 'color', appTheme);
     const insets = useSafeAreaInsets();
 
     const router = useRouter();
@@ -112,7 +103,7 @@ export default function CheckoutReviewScreen() {
             Alert.alert(
                 'Purchase Confirmed',
                 `${items.length} track${items.length > 1 ? 's are' : ' is'} now in your library.`,
-                [{ text: 'View Library', onPress: () => router.push('/(tabs)/library') }]
+                [{ text: 'View Library', onPress: () => router.push('/library') }]
             );
         } catch (error) {
             console.error('Payment verification error:', error);
@@ -232,7 +223,7 @@ export default function CheckoutReviewScreen() {
                             Your cart is empty
                         </Text>
                         <TouchableOpacity
-                            onPress={() => router.push('/(tabs)/library')}
+                            onPress={() => router.push('/library')}
                             style={[styles.emptyStateButton, { backgroundColor: colors.shooutPrimary }]}
                         >
                             <Text style={styles.emptyStateButtonText}>Continue Shopping</Text>
