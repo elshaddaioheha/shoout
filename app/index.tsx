@@ -7,7 +7,8 @@ import { useRouter } from 'expo-router';
 import React, { useEffect, useRef } from 'react';
 import { Animated, Easing, Image, StatusBar, StyleSheet, View } from 'react-native';
 
-const logoSource = require('@/assets/images/logo-rings.png');
+const lightSplash = require('@/assets/images/ShooutS-2-splash-light (1).jpg.jpeg');
+const darkSplash = require('@/assets/images/ShooutS-1-splash-black.jpg.jpeg');
 
 function wait(duration: number) {
   return new Promise((resolve) => setTimeout(resolve, duration));
@@ -20,10 +21,7 @@ export default function AuthEntryScreen() {
   const { hasAuthenticatedUser, isAuthResolved } = useAuthStore();
   const durations = getAuthMotionDurations(reduceMotion);
   const hasNavigatedRef = useRef(false);
-  const logoTranslateY = useRef(new Animated.Value(0)).current;
-  const logoScale = useRef(new Animated.Value(1)).current;
-  const logoOpacity = useRef(new Animated.Value(1)).current;
-  const backdropOpacity = useRef(new Animated.Value(1)).current;
+  const opacity = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     if (!isAuthResolved || hasNavigatedRef.current) {
@@ -40,32 +38,12 @@ export default function AuthEntryScreen() {
       await wait(durations.splashHold);
 
       await new Promise<void>((resolve) => {
-        Animated.parallel([
-          Animated.timing(logoTranslateY, {
-            toValue: reduceMotion ? -10 : -52,
-            duration: durations.splashExit,
-            easing: authMotionEasing.emphasized,
-            useNativeDriver: true,
-          }),
-          Animated.timing(logoScale, {
-            toValue: reduceMotion ? 0.98 : 0.92,
-            duration: durations.splashExit,
-            easing: Easing.out(Easing.cubic),
-            useNativeDriver: true,
-          }),
-          Animated.timing(logoOpacity, {
-            toValue: reduceMotion ? 0 : 0.08,
-            duration: durations.splashExit,
-            easing: authMotionEasing.standard,
-            useNativeDriver: true,
-          }),
-          Animated.timing(backdropOpacity, {
-            toValue: reduceMotion ? 0 : 0.98,
-            duration: durations.splashExit,
-            easing: authMotionEasing.standard,
-            useNativeDriver: true,
-          }),
-        ]).start(() => resolve());
+        Animated.timing(opacity, {
+          toValue: reduceMotion ? 0 : 0,
+          duration: durations.splashExit,
+          easing: authMotionEasing.standard,
+          useNativeDriver: true,
+        }).start(() => resolve());
       });
 
       router.replace(destination as any);
@@ -76,14 +54,11 @@ export default function AuthEntryScreen() {
       router.replace('/(auth)/login');
     });
   }, [
-    backdropOpacity,
     durations.splashExit,
     durations.splashHold,
     hasAuthenticatedUser,
     isAuthResolved,
-    logoOpacity,
-    logoScale,
-    logoTranslateY,
+    opacity,
     reduceMotion,
     router,
   ]);
@@ -91,17 +66,11 @@ export default function AuthEntryScreen() {
   return (
     <View style={[styles.container, { backgroundColor: appTheme.colors.background }]}>
       <StatusBar barStyle={appTheme.isDark ? 'light-content' : 'dark-content'} />
-      <Animated.View
-        style={[
-          styles.logoWrap,
-          {
-            opacity: Animated.multiply(logoOpacity, backdropOpacity),
-            transform: [{ translateY: logoTranslateY }, { scale: logoScale }],
-          },
-        ]}
-      >
-        <Image source={logoSource} style={styles.logo} resizeMode="contain" />
-      </Animated.View>
+      <Animated.Image
+        source={appTheme.isDark ? darkSplash : lightSplash}
+        style={[StyleSheet.absoluteFill, { opacity }]}
+        resizeMode="cover"
+      />
     </View>
   );
 }
@@ -109,15 +78,5 @@ export default function AuthEntryScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logoWrap: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logo: {
-    width: 104,
-    height: 104,
   },
 });
