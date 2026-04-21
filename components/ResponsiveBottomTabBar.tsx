@@ -8,11 +8,10 @@ import { useUserStore } from '@/store/useUserStore';
 import { getModeSurfaceTheme } from '@/utils/appModeTheme';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { BlurView } from 'expo-blur';
-import { LinearGradient } from 'expo-linear-gradient';
 import { usePathname, useRouter } from 'expo-router';
 import React from 'react';
-import { Animated, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Animated, { interpolate, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface TabConfig {
@@ -23,6 +22,13 @@ interface TabConfig {
     label: string;
     fillOnFocus?: boolean;
 }
+
+type TabLayout = {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+};
 
 function useResponsiveBottomTabBarStyles() {
     const appTheme = useAppTheme();
@@ -43,14 +49,20 @@ export default function ResponsiveBottomTabBar(props: BottomTabBarProps) {
     const useUnifiedPillRoundness = activeAppMode === 'hybrid' || activeAppMode === 'shoout' || activeAppMode === 'studio';
     const setBottomTabBarHeight = useLayoutMetricsStore((s) => s.setBottomTabBarHeight);
     const cartCount = useCartStore((s) => s.items.length);
+    const [tabLayouts, setTabLayouts] = React.useState<Array<TabLayout | null>>([]);
+    const activeIndex = useSharedValue(state.index);
+    const modeTheme = getModeSurfaceTheme(activeAppMode, appTheme.isDark);
     const bottomPadding = isNativeLargeScreen
         ? Math.max(14, insets.bottom)
         : (insets.bottom > 0 ? insets.bottom : 10);
     const isVaultMode = activeAppMode === 'vault' || activeAppMode === 'vault_pro';
+    const maxWidth = 500;
+    const horizontalPadding = width > 768 ? 60 : 20;
+    const isTablet = width > 768;
 
-    if (isVaultMode) {
-        return null;
-    }
+    React.useEffect(() => {
+        activeIndex.value = withTiming(state.index, { duration: 260 });
+    }, [activeIndex, state.index]);
 
     const tabs: TabConfig[] = activeAppMode === 'studio'
         ? [
@@ -82,9 +94,42 @@ export default function ResponsiveBottomTabBar(props: BottomTabBarProps) {
             { key: 'more', name: 'more', icon: 'more-horizontal', label: 'More' },
         ];
 
-    const barWidth = isNativeLargeScreen
-        ? Math.min(420, width - 44)
-        : Math.min(335, width - 28);
+    React.useEffect(() => {
+        setTabLayouts(Array.from({ length: tabs.length }, () => null));
+    }, [tabs.length]);
+
+    const barWidth = Math.min(maxWidth, Math.max(0, width - horizontalPadding));
+
+    const indicatorStyle = useAnimatedStyle(() => {
+        if (!tabLayouts.length) {
+            return { opacity: 0 };
+        }
+
+        const maxIndex = tabLayouts.length - 1;
+        const rawIndex = Math.max(0, Math.min(maxIndex, activeIndex.value));
+        const lowerIndex = Math.floor(rawIndex);
+        const upperIndex = Math.min(maxIndex, Math.ceil(rawIndex));
+        const progress = rawIndex - lowerIndex;
+        const start = tabLayouts[lowerIndex];
+        const end = tabLayouts[upperIndex] || start;
+
+        if (!start || !end) {
+            return { opacity: 0 };
+        }
+
+        const translateX = start.x + (end.x - start.x) * progress;
+        const top = start.y + (end.y - start.y) * progress;
+        const widthValue = start.width + (end.width - start.width) * progress;
+        const heightValue = start.height + (end.height - start.height) * progress;
+
+        return {
+            opacity: 1,
+            width: widthValue,
+            height: heightValue,
+            top,
+            transform: [{ translateX }],
+        };
+    });
 
     const getRouteIndex = (tabName: string) => {
         if (!state || !state.routes) return -1;
@@ -94,6 +139,10 @@ export default function ResponsiveBottomTabBar(props: BottomTabBarProps) {
             r.name.endsWith(`/${tabName}`)
         );
     };
+
+    if (isVaultMode) {
+        return null;
+    }
 
     return (
         <View
@@ -110,6 +159,8 @@ export default function ResponsiveBottomTabBar(props: BottomTabBarProps) {
                     isNativeLargeScreen && styles.tabBarLarge,
                     {
                         width: barWidth,
+                        height: isTablet ? 70 : 60,
+                        paddingHorizontal: isTablet ? 16 : 8,
                         backgroundColor: appTheme.isDark ? '#1A1516' : '#FFFFFF',
                         borderColor: appTheme.isDark
                             ? 'rgba(255,255,255,0.14)'
@@ -117,11 +168,35 @@ export default function ResponsiveBottomTabBar(props: BottomTabBarProps) {
                     },
                 ]}
             >
-                {tabs.map((tab) => {
+                <Animated.View
+                    pointerEvents="none"
+                    style={[
+                        {
+                            position: 'absolute',
+                            left: 0,
+                            borderRadius: 40,
+                            backgroundColor: modeTheme.accent,
+                        },
+                        indicatorStyle,
+                    ]}
+                />
+                {tabs.map((tab, index) => {
                     const routeIndex = tab.name ? getRouteIndex(tab.name) : -1;
                     const isFocused = tab.routePath
                         ? pathname === tab.routePath
                         : (routeIndex !== -1 && state && state.index === routeIndex);
+
+                    const handleTabLayout = (event: any) => {
+                        const { x, y, width: measuredWidth, height: measuredHeight } = event.nativeEvent.layout;
+                        setTabLayouts((prev) => {
+                            const next = prev.length === tabs.length
+                                ? [...prev]
+                                : Array.from({ length: tabs.length }, () => null);
+
+                            next[index] = { x, y, width: measuredWidth, height: measuredHeight };
+                            return next;
+                        });
+                    };
 
                     const onPress = () => {
                         if (tab.routePath) {
@@ -153,6 +228,7 @@ export default function ResponsiveBottomTabBar(props: BottomTabBarProps) {
                             key={tab.key}
                             iconName={tab.icon}
                             label={tab.label}
+                            index={index}
                             badgeCount={tab.key === 'cart' ? cartCount : 0}
                             isFocused={isFocused}
                             tabKey={tab.key}
@@ -162,6 +238,7 @@ export default function ResponsiveBottomTabBar(props: BottomTabBarProps) {
                             appTheme={appTheme}
                             styles={styles}
                             useUnifiedPillRoundness={useUnifiedPillRoundness}
+                            onLayout={handleTabLayout}
                             onPress={onPress}
                         />
                     );
@@ -171,61 +248,84 @@ export default function ResponsiveBottomTabBar(props: BottomTabBarProps) {
     );
 }
 
-function TabButton({ iconName, label, badgeCount, isFocused, tabKey, fillOnFocus, activeAppMode, appTheme, styles, useUnifiedPillRoundness, onPress }: any) {
+function TabButton({ iconName, label, badgeCount, index, isFocused, tabKey, fillOnFocus, activeAppMode, appTheme, styles, useUnifiedPillRoundness, onLayout, onPress }: any) {
     const modeTheme = getModeSurfaceTheme(activeAppMode, appTheme.isDark);
     const inactiveColor = appTheme.isDark
         ? 'rgba(255,255,255,0.72)'
         : 'rgba(23,18,19,0.72)';
     const activeFgColor = '#FFFFFF';
     const activeTabBgColor = modeTheme.accent;
-    const activeAnim = React.useRef(new Animated.Value(isFocused ? 1 : 0)).current;
+    const scale = useSharedValue(isFocused ? 1 : 0);
+    const pressScale = useSharedValue(1);
 
     React.useEffect(() => {
-        Animated.timing(activeAnim, {
-            toValue: isFocused ? 1 : 0,
-            duration: 160,
-            useNativeDriver: true,
-        }).start();
-    }, [activeAnim, isFocused]);
+        scale.value = withTiming(isFocused ? 1 : 0, { duration: 200 });
+    }, [isFocused, scale]);
 
-    const scale = activeAnim.interpolate({
-        inputRange: [0, 1],
-        outputRange: [0.98, 1],
-    });
+    const onPressIn = React.useCallback(() => {
+        pressScale.value = withTiming(0.92, { duration: 100 });
+    }, [pressScale]);
 
-    const glowOpacity = activeAnim.interpolate({
-        inputRange: [0, 1],
-        outputRange: [0, 1],
-    });
+    const onPressOut = React.useCallback(() => {
+        pressScale.value = withTiming(1, { duration: 100 });
+    }, [pressScale]);
 
-    const glassOpacity = activeAnim.interpolate({
-        inputRange: [0, 1],
-        outputRange: [0, 0.9],
-    });
+    const animatedStyle = useAnimatedStyle(() => ({
+        transform: [
+            {
+                scale: interpolate(scale.value, [0, 1], [0.95, 1]) * pressScale.value,
+            },
+        ],
+        opacity: interpolate(scale.value, [0, 1], [0.7, 1]),
+    }));
+
+    const glowAnimatedStyle = useAnimatedStyle(() => ({
+        opacity: interpolate(scale.value, [0, 1], [0, 1]),
+    }));
+
+    const sheenAnimatedStyle = useAnimatedStyle(() => ({
+        opacity: interpolate(scale.value, [0, 1], [0.8, 0]),
+    }));
 
     return (
-        <Animated.View style={{ flex: 1, transform: [{ scale }] }}>
+        <Animated.View
+            onLayout={onLayout}
+            style={[
+                styles.tab,
+                useUnifiedPillRoundness && styles.unifiedPillTab,
+                isFocused ? [styles.activeTab, { backgroundColor: activeTabBgColor, borderColor: 'transparent' }] : styles.inactiveTab,
+                animatedStyle,
+            ]}
+        >
             <TouchableOpacity
                 style={[
-                    styles.tab,
-                    useUnifiedPillRoundness && styles.unifiedPillTab,
-                    isFocused ? [styles.activeTab, { backgroundColor: activeTabBgColor, borderColor: 'transparent' }] : styles.inactiveTab,
+                    StyleSheet.absoluteFillObject,
+                    {
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexDirection: 'column',
+                        gap: 2,
+                        paddingHorizontal: 6,
+                        paddingVertical: 5,
+                    },
                 ]}
                 onPress={onPress}
+                onPressIn={onPressIn}
+                onPressOut={onPressOut}
                 activeOpacity={0.78}
             >
                 <Animated.View
                     style={[
                         styles.activeGlow,
                         Platform.OS === 'web' ? ({ pointerEvents: 'none' } as any) : null,
+                        glowAnimatedStyle,
                         {
-                            opacity: glowOpacity,
                             borderColor: modeTheme.actionBorder,
                             shadowColor: modeTheme.accent,
                         },
                     ]}
                 />
-                <View style={[styles.topSheen, { backgroundColor: isFocused ? modeTheme.actionBorder : 'transparent' }]} />
+                <Animated.View style={[styles.topSheen, sheenAnimatedStyle, { backgroundColor: isFocused ? modeTheme.actionBorder : 'transparent' }]} />
 
                 <Icon
                     name={iconName}

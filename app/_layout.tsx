@@ -18,7 +18,7 @@ import { Stack, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { onAuthStateChanged } from 'firebase/auth';
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
 import { Animated, Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -43,6 +43,7 @@ export default function RootLayout() {
   const { setVerifying, setAuthResolved, setHasAuthenticatedUser, reset: resetAuthState } = useAuthStore();
   const splashHidden = useRef(false);
   const contentOpacity = useRef(new Animated.Value(0)).current;
+  const [playerBootstrapped, setPlayerBootstrapped] = useState(false);
 
   const [fontsLoaded, fontError] = useFonts({
     'Poppins-Light': Poppins_300Light,
@@ -63,12 +64,29 @@ export default function RootLayout() {
   }, []);
 
   useEffect(() => {
-    // Always boot with a clean player UI/audio state to avoid carry-over.
-    useUIStore.getState().hidePlayer();
-    useUIStore.getState().setModeTransitioning(false);
-    void usePlaybackStore.getState().clearTrack().catch((error) => {
-      notifyWarning('[layout] Failed to clear playback on startup', error);
-    });
+    let cancelled = false;
+
+    const bootstrapPlayerState = async () => {
+      // Always boot with a clean player UI/audio state to avoid carry-over.
+      useUIStore.getState().hidePlayer();
+      useUIStore.getState().setModeTransitioning(false);
+
+      try {
+        await usePlaybackStore.getState().clearTrack();
+      } catch (error) {
+        notifyWarning('[layout] Failed to clear playback on startup', error);
+      } finally {
+        if (!cancelled) {
+          setPlayerBootstrapped(true);
+        }
+      }
+    };
+
+    void bootstrapPlayerState();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -251,7 +269,7 @@ export default function RootLayout() {
           <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
           </Stack>
           <GlobalToast />
-          <PlayerContainer />
+          {playerBootstrapped && <PlayerContainer />}
           <StatusBar style="auto" />
         </ThemeProvider>
       </Animated.View>

@@ -12,22 +12,29 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { usePlaylists } from '@/hooks/usePlaylists';
 import { usePublishedUploads, type PublishedUpload } from '@/hooks/usePublishedUploads';
 import { useCartStore } from '@/store/useCartStore';
-import { useFollowingArtistsStore } from '@/store/useFollowingArtistsStore';
+import { useDownloadQueueStore } from '@/store/useDownloadQueueStore';
 import { usePlaybackStore } from '@/store/usePlaybackStore';
 import { useToastStore } from '@/store/useToastStore';
 import { useUserStore } from '@/store/useUserStore';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
+import { buildLicenseCartItemId } from '@/utils/licenseTiers';
 import { formatUsd } from '@/utils/pricing';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import {
+    Banknote,
+    Download,
+    Flag,
     Heart,
+    Info,
+    ListMusic,
     MoreVertical,
     Play,
     ShoppingCart,
+    User,
     Users
 } from 'lucide-react-native';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
     Dimensions,
     FlatList,
@@ -61,6 +68,9 @@ const spacing = {
 
 const SHOOUT_ACCENT = colors.shooutPrimary;
 const SHOOUT_ACCENT_SOFT = '#D8E8FF';
+const DEFAULT_BEAT_LICENSE_TIER_ID = 'basic' as const;
+const DEFAULT_BEAT_LICENSE_TIER_TITLE = 'Basic';
+const DEFAULT_BEAT_LICENSE_SUMMARY = 'Best for demos and socials';
 
 function useHomeStyles() {
   const appTheme = useAppTheme();
@@ -72,6 +82,27 @@ function useLocalFavourite(_trackId: string) {
   const [isFav, setIsFav] = useState(false);
   const toggle = () => setIsFav((prev) => !prev);
   return { isFav, toggle };
+}
+
+function buildPopularBeatCartItem(beat: PublishedUpload) {
+  return {
+    id: buildLicenseCartItemId(beat.id, DEFAULT_BEAT_LICENSE_TIER_ID),
+    listingId: beat.id,
+    title: beat.title,
+    artist: beat.artist || beat.uploaderName || 'Creator',
+    price: Number(beat.price || 0),
+    audioUrl: beat.audioUrl || '',
+    coverUrl: beat.artworkUrl || beat.coverUrl || '',
+    uploaderId: beat.uploaderId || '',
+    category: beat.category || beat.genre || 'Track',
+    licenseTierId: DEFAULT_BEAT_LICENSE_TIER_ID,
+    licenseTierTitle: DEFAULT_BEAT_LICENSE_TIER_TITLE,
+    licenseSummary: DEFAULT_BEAT_LICENSE_SUMMARY,
+  };
+}
+
+function buildPopularBeatListingRoute(beat: PublishedUpload) {
+  return { pathname: '/listing/[id]', params: { id: beat.id, uploaderId: beat.uploaderId } } as any;
 }
 
 export default function HomeScreen() {
@@ -444,90 +475,90 @@ function PopularBeatsSection({ beats, loading }: { beats: PublishedUpload[]; loa
   const router = useRouter();
   const setTrack = usePlaybackStore(state => state.setTrack);
   const { addItem, items } = useCartStore();
+  const { enqueueTrack } = useDownloadQueueStore();
   const { showToast } = useToastStore();
   const { addToPlaylist } = usePlaylists();
-  const followingArtistIds = useFollowingArtistsStore((state) => state.followingArtistIds);
-  const pendingByArtistId = useFollowingArtistsStore((state) => state.pendingByArtistId);
-  const startFollowingListener = useFollowingArtistsStore((state) => state.startListening);
-  const stopFollowingListener = useFollowingArtistsStore((state) => state.stopListening);
-  const toggleFollow = useFollowingArtistsStore((state) => state.toggleFollow);
-  const [hiddenBeatIds, setHiddenBeatIds] = useState<string[]>([]);
-  const [selectedBeat, setSelectedBeat] = useState<any | null>(null);
+  const [selectedBeat, setSelectedBeat] = useState<PublishedUpload | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
 
-  useEffect(() => {
-    startFollowingListener();
-    return stopFollowingListener;
-  }, [startFollowingListener, stopFollowingListener]);
+  const visibleBeats = beats;
 
-  const visibleBeats = useMemo(
-    () => beats.filter((beat) => !hiddenBeatIds.includes(beat.id)),
-    [beats, hiddenBeatIds]
-  );
-
-  const openBeatMenu = useCallback((beat: any) => {
+  const openBeatMenu = useCallback((beat: PublishedUpload) => {
     setSelectedBeat(beat);
     setMenuOpen(true);
   }, []);
 
-  const hideFromSuggestions = useCallback((beatId: string) => {
-    setHiddenBeatIds((prev) => (prev.includes(beatId) ? prev : [...prev, beatId]));
-    showToast('Removed from Home suggestions.', 'info');
-  }, [showToast]);
+  const openSelectedBeatListing = useCallback(() => {
+    if (!selectedBeat) return;
+    router.push(buildPopularBeatListingRoute(selectedBeat));
+  }, [router, selectedBeat]);
+
+  const handlePurchaseSelectedBeat = useCallback(() => {
+    openSelectedBeatListing();
+  }, [openSelectedBeatListing]);
+
+  const handleViewDetailsSelectedBeat = useCallback(() => {
+    openSelectedBeatListing();
+  }, [openSelectedBeatListing]);
 
   const addSelectedBeatToCart = useCallback(() => {
     if (!selectedBeat) return;
-    const inCart = items.some((item: any) => item.id === selectedBeat.id);
+    const cartItem = buildPopularBeatCartItem(selectedBeat);
+    const inCart = items.some((item: any) => item.id === cartItem.id);
     if (inCart) {
       showToast('Track already in cart.', 'info');
       return;
     }
-    addItem({
-      id: selectedBeat.id,
-      title: selectedBeat.title,
-      artist: selectedBeat.artist || selectedBeat.uploaderName,
-      price: selectedBeat.price || 0,
-      uploaderId: selectedBeat.uploaderId || '',
-      coverUrl: selectedBeat.artworkUrl,
-    });
+    addItem(cartItem);
     showToast(`${selectedBeat.title} added to cart.`, 'success');
   }, [addItem, items, selectedBeat, showToast]);
 
   const addSelectedBeatToPlaylist = useCallback(async () => {
+    if (!selectedBeat) return;
     await addToPlaylist(selectedBeat);
   }, [addToPlaylist, selectedBeat]);
 
-  const handleFollowSelectedArtist = useCallback(async () => {
+  const handleViewSelectedArtist = useCallback(() => {
+    if (!selectedBeat) return;
+    if (!selectedBeat.uploaderId) {
+      showToast('Artist profile is unavailable for this beat.', 'info');
+      return;
+    }
+    router.push({ pathname: '/profile/[id]', params: { id: selectedBeat.uploaderId } } as any);
+  }, [router, selectedBeat, showToast]);
+
+  const handleDownloadSelectedBeat = useCallback(async () => {
     if (!selectedBeat) return;
 
-    const artistId = selectedBeat.uploaderId;
-    if (!artistId) {
-      showToast('Artist id is missing for this beat.', 'error');
+    const audioUrl = selectedBeat.audioUrl?.trim();
+    if (!audioUrl) {
+      showToast('Download is unavailable for this track.', 'info');
       return;
     }
 
-    if (pendingByArtistId[artistId]) return;
-
     try {
-      const result = await toggleFollow(artistId);
-
-      showToast(
-        result.isFollowing
-          ? `You are now following ${selectedBeat.artist || selectedBeat.uploaderName}.`
-          : `You unfollowed ${selectedBeat.artist || selectedBeat.uploaderName}.`,
-        'success'
-      );
+      await enqueueTrack({
+        trackId: selectedBeat.id,
+        title: selectedBeat.title,
+        artist: selectedBeat.artist || selectedBeat.uploaderName,
+        audioUrl,
+      });
+      showToast('Download queued.', 'success');
     } catch (error) {
-      console.error('Follow artist from home failed:', error);
-      showToast('Unable to update follow state right now.', 'error');
+      console.error('Failed to queue download:', error);
+      showToast('Downloads are unavailable on this device.', 'error');
     }
-  }, [pendingByArtistId, selectedBeat, showToast, toggleFollow]);
+  }, [enqueueTrack, selectedBeat, showToast]);
 
-  const renderItem = useCallback(({ item, index }: { item: any; index: number }) => (
+  const handleReportSelectedBeat = useCallback(() => {
+    showToast('Thanks for your report.', 'info');
+  }, [showToast]);
+
+  const renderItem = useCallback(({ item, index }: { item: PublishedUpload; index: number }) => (
     <BeatRow
       beat={item}
       isLast={index === visibleBeats.length - 1}
-      onPlay={() => setTrack({ id: item.id, title: item.title, artist: item.artist || item.uploaderName, url: item.audioUrl || item.url, uploaderId: item.uploaderId, artworkUrl: item.artworkUrl })}
+      onPlay={() => setTrack({ id: item.id, title: item.title, artist: item.artist || item.uploaderName, url: item.audioUrl, uploaderId: item.uploaderId, artworkUrl: item.artworkUrl })}
       onMorePress={() => openBeatMenu(item)}
     />
   ), [openBeatMenu, setTrack, visibleBeats.length]);
@@ -558,42 +589,40 @@ function PopularBeatsSection({ beats, loading }: { beats: PublishedUpload[]; loa
         title={selectedBeat?.title || 'Track options'}
         options={[
           {
-            label: 'Buy',
-            onPress: () => {
-              if (!selectedBeat) return;
-              router.push({ pathname: '/listing/[id]', params: { id: selectedBeat.id, uploaderId: selectedBeat.uploaderId } } as any);
-            },
+            label: 'Purchase',
+            icon: <Banknote size={18} color={SHOOUT_ACCENT} />,
+            onPress: handlePurchaseSelectedBeat,
           },
           {
-            label: 'Add to my library',
-            onPress: () => {
-              if (!selectedBeat) return;
-              showToast(`${selectedBeat.title} saved to your library.`, 'success');
-            },
-          },
-          {
-            label: 'Add to playlist',
-            onPress: () => {
-              addSelectedBeatToPlaylist();
-            },
-          },
-          {
-            label: (selectedBeat?.uploaderId && pendingByArtistId[selectedBeat.uploaderId])
-              ? 'Updating follow...'
-              : (selectedBeat?.uploaderId && followingArtistIds[selectedBeat.uploaderId] ? 'Unfollow artist' : 'Follow artist'),
-            onPress: handleFollowSelectedArtist,
-          },
-          {
-            label: 'Add to cart',
+            label: 'Add to Cart',
+            icon: <ShoppingCart size={18} color={SHOOUT_ACCENT} />,
             onPress: addSelectedBeatToCart,
           },
           {
-            label: 'Do not suggest',
+            label: 'Add to Playlist',
+            icon: <ListMusic size={18} color={SHOOUT_ACCENT} />,
+            onPress: addSelectedBeatToPlaylist,
+          },
+          {
+            label: 'View Details',
+            icon: <Info size={18} color={SHOOUT_ACCENT} />,
+            onPress: handleViewDetailsSelectedBeat,
+          },
+          {
+            label: 'View Artist',
+            icon: <User size={18} color={SHOOUT_ACCENT} />,
+            onPress: handleViewSelectedArtist,
+          },
+          {
+            label: 'Download',
+            icon: <Download size={18} color={SHOOUT_ACCENT} />,
+            onPress: handleDownloadSelectedBeat,
+          },
+          {
+            label: 'Report',
+            icon: <Flag size={18} color={SHOOUT_ACCENT} />,
             destructive: true,
-            onPress: () => {
-              if (!selectedBeat?.id) return;
-              hideFromSuggestions(selectedBeat.id);
-            },
+            onPress: handleReportSelectedBeat,
           },
         ]}
       />
@@ -607,7 +636,7 @@ const BeatRow = React.memo(function BeatRow({
   onPlay,
   onMorePress,
 }: {
-  beat: any;
+  beat: PublishedUpload;
   isLast: boolean;
   onPlay: () => void;
   onMorePress: () => void;
@@ -617,7 +646,8 @@ const BeatRow = React.memo(function BeatRow({
   const { isFav, toggle } = useLocalFavourite(beat.id);
   const { addItem, items } = useCartStore();
   const { showToast } = useToastStore();
-  const inCart = items.some((i: any) => i.id === beat.id);
+  const cartItem = buildPopularBeatCartItem(beat);
+  const inCart = items.some((i: any) => i.id === cartItem.id);
   const priceDisplay = beat.price && typeof beat.price === 'number' ? formatUsd(beat.price) : (beat.price || '');
 
   const handleAddToCart = useCallback(() => {
@@ -625,9 +655,9 @@ const BeatRow = React.memo(function BeatRow({
       showToast('Track already in cart.', 'info');
       return;
     }
-    addItem({ id: beat.id, title: beat.title, artist: beat.artist || beat.uploaderName, price: beat.price || 0, uploaderId: beat.uploaderId || '', coverUrl: beat.artworkUrl });
+    addItem(cartItem);
     showToast(`${beat.title} added to cart.`, 'success');
-  }, [addItem, beat, inCart, showToast]);
+  }, [addItem, beat.title, cartItem, inCart, showToast]);
 
   const handleToggleFavorite = useCallback(() => {
     toggle();

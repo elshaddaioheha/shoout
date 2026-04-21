@@ -66,6 +66,11 @@ function MiniPlayerBarBase({ onExpand }: Props) {
   const duration = usePlaybackStore((s) => s.duration);
   const togglePlayPause = usePlaybackStore((s) => s.togglePlayPause);
   const playNextTrack = usePlaybackStore((s) => s.playNextTrack);
+  const rawProgress = duration > 0 ? Math.max(0, Math.min(1, position / duration)) : 0;
+  const progressValue = useSharedValue(rawProgress);
+  const progressStyle = useAnimatedStyle(() => ({
+    width: `${progressValue.value * 100}%`,
+  }));
 
   const onPlayPause = useCallback(() => {
     void togglePlayPause();
@@ -77,16 +82,11 @@ function MiniPlayerBarBase({ onExpand }: Props) {
     onExpand();
   }, [onExpand]);
 
-  const rawProgress = duration > 0 ? Math.max(0, Math.min(1, position / duration)) : 0;
-  const progressValue = useSharedValue(0);
-
   useEffect(() => {
     progressValue.value = withTiming(rawProgress, { duration: 250, easing: Easing.linear });
-  }, [rawProgress]);
+  }, [rawProgress, progressValue]);
 
-  const progressStyle = useAnimatedStyle(() => ({
-    width: `${progressValue.value * 100}%`,
-  }));
+  if (!currentTrack) return null;
 
   const bgColor = appTheme.isDark ? 'rgba(26, 21, 22, 0.97)' : 'rgba(255, 255, 255, 0.97)';
   const borderColor = appTheme.isDark ? 'rgba(255,255,255,0.12)' : 'rgba(20,15,16,0.12)';

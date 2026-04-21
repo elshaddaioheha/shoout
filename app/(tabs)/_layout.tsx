@@ -117,7 +117,8 @@ export default function TabLayout() {
         ]}
       >
         <Tabs
-          tabBar={(props: BottomTabBarProps) => <ResponsiveBottomTabBar {...props} />}
+          key={viewMode}
+          tabBar={(props: BottomTabBarProps) => <ResponsiveBottomTabBar key={viewMode} {...props} />}
           screenOptions={{
             headerShown: false,
           }}
