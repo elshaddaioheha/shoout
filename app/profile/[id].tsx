@@ -36,7 +36,75 @@ const { width } = Dimensions.get('window');
 
 function useArtistProfileStyles() {
     const appTheme = useAppTheme();
-    return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+    return React.useMemo(() => StyleSheet.create({
+        container: { flex: 1, backgroundColor: appTheme.colors.background },
+        centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+        header: { height: 200, position: 'relative' },
+        backdrop: { ...StyleSheet.absoluteFillObject, opacity: appTheme.isDark ? 0.3 : 0.15 },
+        backBtn: { position: 'absolute', top: 20, left: 20, width: 40, height: 40, borderRadius: 20, backgroundColor: appTheme.colors.surfaceMuted, alignItems: 'center', justifyContent: 'center' },
+        shareBtn: { position: 'absolute', top: 20, right: 20, width: 40, height: 40, borderRadius: 20, backgroundColor: appTheme.colors.surfaceMuted, alignItems: 'center', justifyContent: 'center' },
+        profileSection: { alignItems: 'center', marginTop: -60, paddingHorizontal: 20 },
+        avatarContainer: { width: 120, height: 120, borderRadius: 60, backgroundColor: appTheme.colors.background, padding: 5 },
+        avatar: { flex: 1, borderRadius: 55, backgroundColor: appTheme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: appTheme.colors.primary },
+        artistName: { fontSize: 24, fontFamily: 'Poppins-Bold', color: appTheme.colors.textPrimary, marginTop: 15 },
+        artistRole: { fontSize: 12, fontFamily: 'Poppins-Bold', color: appTheme.colors.primary, marginTop: 2, letterSpacing: 1 },
+        statsRow: { flexDirection: 'row', alignItems: 'center', marginTop: 25, width: '100%', backgroundColor: appTheme.colors.surface, borderRadius: 20, padding: 15 },
+        statItem: { flex: 1, alignItems: 'center' },
+        statValue: { fontSize: 18, fontFamily: 'Poppins-Bold', color: appTheme.colors.textPrimary },
+        statLabel: { fontSize: 11, fontFamily: 'Poppins-Regular', color: appTheme.colors.textSecondary },
+        statDivider: { width: 1, height: 20, backgroundColor: appTheme.colors.border },
+        actionRow: { flexDirection: 'row', marginTop: 25, gap: 15, width: '100%' },
+        followBtn: { flex: 1, height: 50, borderRadius: 15, backgroundColor: appTheme.colors.primary, alignItems: 'center', justifyContent: 'center' },
+        followingBtn: { backgroundColor: 'transparent', borderWidth: 1, borderColor: appTheme.colors.border },
+        followBtnDisabled: { opacity: 0.6 },
+        followBtnText: { color: '#FFF', fontSize: 16, fontFamily: 'Poppins-Bold' },
+        followingBtnText: { color: appTheme.colors.textPrimary, fontSize: 16, fontFamily: 'Poppins-Bold' },
+        msgBtn: { width: 50, height: 50, borderRadius: 15, backgroundColor: appTheme.colors.surface, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: appTheme.colors.border },
+        subBtn: {
+            minWidth: 110,
+            height: 50,
+            borderRadius: 15,
+            backgroundColor: appTheme.colors.surface,
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderWidth: 1,
+            borderColor: appTheme.colors.border,
+            paddingHorizontal: 12,
+        },
+        subscribedBtn: {
+            backgroundColor: appTheme.isDark ? 'rgba(236,92,57,0.14)' : 'rgba(236,92,57,0.06)',
+            borderColor: appTheme.colors.primary,
+        },
+        subBtnText: {
+            color: appTheme.colors.textPrimary,
+            fontSize: 14,
+            fontFamily: 'Poppins-Bold',
+        },
+        tracksSection: { padding: 24, marginTop: 10 },
+        sectionTitle: { fontSize: 18, fontFamily: 'Poppins-Bold', color: appTheme.colors.textPrimary, marginBottom: 20 },
+        trackCard: { flexDirection: 'row', alignItems: 'center', padding: 12, backgroundColor: appTheme.colors.surface, borderRadius: 15, marginBottom: 12 },
+        trackArtwork: { width: 45, height: 45, borderRadius: 10, backgroundColor: appTheme.colors.surfaceMuted, alignItems: 'center', justifyContent: 'center' },
+        trackInfo: { flex: 1, marginLeft: 12 },
+        trackTitle: { fontSize: 15, fontFamily: 'Poppins-Bold', color: appTheme.colors.textPrimary },
+        trackMeta: { fontSize: 12, fontFamily: 'Poppins-Regular', color: appTheme.colors.textSecondary, marginTop: 2 },
+        trackRightCol: { alignItems: 'flex-end', gap: 6 },
+        trackPrice: { fontSize: 15, fontFamily: 'Poppins-Bold', color: appTheme.colors.primary },
+        upcomingPill: {
+            backgroundColor: appTheme.isDark ? 'rgba(236,92,57,0.15)' : 'rgba(236,92,57,0.08)',
+            borderRadius: 999,
+            borderWidth: 1,
+            borderColor: appTheme.colors.primary,
+            paddingHorizontal: 8,
+            paddingVertical: 3,
+        },
+        upcomingPillText: {
+            color: appTheme.colors.primary,
+            fontSize: 10,
+            fontFamily: 'Poppins-Bold',
+            letterSpacing: 0.3,
+        },
+        emptyText: { color: appTheme.colors.textTertiary, textAlign: 'center', marginTop: 20 }
+    }), [appTheme]);
 }
 
 export default function ArtistProfileScreen() {
@@ -213,7 +281,7 @@ export default function ArtistProfileScreen() {
                 {/* Header Backdrop */}
                 <View style={styles.header}>
                     <LinearGradient
-                        colors={['#EC5C39', appTheme.colors.background]}
+                        colors={[appTheme.colors.primary, appTheme.colors.background]}
                         style={styles.backdrop}
                     />
                     <TouchableOpacity onPress={handleBack} style={styles.backBtn}>
@@ -262,7 +330,7 @@ export default function ArtistProfileScreen() {
                             onPress={handleFollow}
                             disabled={isFollowPending}
                         >
-                            <Text style={styles.followBtnText}>{isFollowPending ? 'Please wait...' : (isFollowing ? 'Following' : 'Follow')}</Text>
+                            <Text style={isFollowing ? styles.followingBtnText : styles.followBtnText}>{isFollowPending ? 'Please wait...' : (isFollowing ? 'Following' : 'Follow')}</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
                             style={[styles.subBtn, isSubscribed && styles.subscribedBtn, isSubscribePending && styles.followBtnDisabled]}
@@ -327,71 +395,3 @@ export default function ArtistProfileScreen() {
     );
 }
 
-const legacyStyles = {
-    container: { flex: 1, backgroundColor: '#140F10' },
-    centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    header: { height: 200, position: 'relative' },
-    backdrop: { ...StyleSheet.absoluteFillObject, opacity: 0.3 },
-    backBtn: { position: 'absolute', top: 20, left: 20, width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center' },
-    shareBtn: { position: 'absolute', top: 20, right: 20, width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center' },
-    profileSection: { alignItems: 'center', marginTop: -60, paddingHorizontal: 20 },
-    avatarContainer: { width: 120, height: 120, borderRadius: 60, backgroundColor: '#140F10', padding: 5 },
-    avatar: { flex: 1, borderRadius: 55, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#EC5C39' },
-    artistName: { fontSize: 24, fontFamily: 'Poppins-Bold', color: '#FFF', marginTop: 15 },
-    artistRole: { fontSize: 12, fontFamily: 'Poppins-Bold', color: '#EC5C39', marginTop: 2, letterSpacing: 1 },
-    statsRow: { flexDirection: 'row', alignItems: 'center', marginTop: 25, width: '100%', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 20, padding: 15 },
-    statItem: { flex: 1, alignItems: 'center' },
-    statValue: { fontSize: 18, fontFamily: 'Poppins-Bold', color: '#FFF' },
-    statLabel: { fontSize: 11, fontFamily: 'Poppins-Regular', color: 'rgba(255,255,255,0.4)' },
-    statDivider: { width: 1, height: 20, backgroundColor: 'rgba(255,255,255,0.1)' },
-    actionRow: { flexDirection: 'row', marginTop: 25, gap: 15, width: '100%' },
-    followBtn: { flex: 1, height: 50, borderRadius: 15, backgroundColor: '#EC5C39', alignItems: 'center', justifyContent: 'center' },
-    followingBtn: { backgroundColor: 'transparent', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
-    followBtnDisabled: { opacity: 0.6 },
-    followBtnText: { color: '#FFF', fontSize: 16, fontFamily: 'Poppins-Bold' },
-    msgBtn: { width: 50, height: 50, borderRadius: 15, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
-    subBtn: {
-        minWidth: 110,
-        height: 50,
-        borderRadius: 15,
-        backgroundColor: 'rgba(255,255,255,0.08)',
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.2)',
-        paddingHorizontal: 12,
-    },
-    subscribedBtn: {
-        backgroundColor: 'rgba(236,92,57,0.14)',
-        borderColor: 'rgba(236,92,57,0.45)',
-    },
-    subBtnText: {
-        color: '#FFF',
-        fontSize: 14,
-        fontFamily: 'Poppins-Bold',
-    },
-    tracksSection: { padding: 24, marginTop: 10 },
-    sectionTitle: { fontSize: 18, fontFamily: 'Poppins-Bold', color: '#FFF', marginBottom: 20 },
-    trackCard: { flexDirection: 'row', alignItems: 'center', padding: 12, backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: 15, marginBottom: 12 },
-    trackArtwork: { width: 45, height: 45, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
-    trackInfo: { flex: 1, marginLeft: 12 },
-    trackTitle: { fontSize: 15, fontFamily: 'Poppins-Bold', color: '#FFF' },
-    trackMeta: { fontSize: 12, fontFamily: 'Poppins-Regular', color: 'rgba(255,255,255,0.4)', marginTop: 2 },
-    trackRightCol: { alignItems: 'flex-end', gap: 6 },
-    trackPrice: { fontSize: 15, fontFamily: 'Poppins-Bold', color: '#EC5C39' },
-    upcomingPill: {
-        backgroundColor: 'rgba(236,92,57,0.15)',
-        borderRadius: 999,
-        borderWidth: 1,
-        borderColor: 'rgba(236,92,57,0.6)',
-        paddingHorizontal: 8,
-        paddingVertical: 3,
-    },
-    upcomingPillText: {
-        color: '#FCD2C5',
-        fontSize: 10,
-        fontFamily: 'Poppins-Bold',
-        letterSpacing: 0.3,
-    },
-    emptyText: { color: 'rgba(255,255,255,0.3)', textAlign: 'center', marginTop: 20 }
-};

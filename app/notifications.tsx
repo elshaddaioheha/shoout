@@ -1,32 +1,15 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { useNotificationStore } from '@/store/useNotificationStore';
-import { adaptLegacyColor, adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { useRouter } from 'expo-router';
 import { Bell, CheckCheck, ChevronLeft, MessageSquare, Music, ShieldAlert, Zap } from 'lucide-react-native';
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-
-function useNotificationsStyles() {
-    const appTheme = useAppTheme();
-    return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
-}
 
 export default function NotificationsFeedScreen() {
     const appTheme = useAppTheme();
-    const styles = useNotificationsStyles();
-    const emptyIconColor = adaptLegacyColor('rgba(255,255,255,0.1)', 'color', appTheme);
-
     const router = useRouter();
     const { notifications, unreadCount, markAsRead, markAllAsRead, startListening } = useNotificationStore();
-
-    const handleBack = () => {
-        if (router.canGoBack()) {
-            router.back();
-            return;
-        }
-        router.replace('/(tabs)/more');
-    };
 
     useEffect(() => {
         startListening();
@@ -34,12 +17,12 @@ export default function NotificationsFeedScreen() {
 
     const getIconForType = (type: string) => {
         switch (type) {
-            case 'message': return <MessageSquare size={20} color="#3B82F6" />;
-            case 'artist_update': return <Music size={20} color="#C084FC" />;
-            case 'marketplace': return <Zap size={20} color="#10B981" />;
-            case 'subscription': return <ShieldAlert size={20} color="#FFD700" />;
+            case 'message': return <MessageSquare size={20} color={appTheme.colors.primary} />;
+            case 'artist_update': return <Music size={20} color={appTheme.colors.primary} />;
+            case 'marketplace': return <Zap size={20} color={appTheme.colors.primary} />;
+            case 'subscription': return <ShieldAlert size={20} color={appTheme.colors.primary} />;
             case 'system':
-            default: return <Bell size={20} color="#EC5C39" />;
+            default: return <Bell size={20} color={appTheme.colors.primary} />;
         }
     };
 
@@ -63,6 +46,123 @@ export default function NotificationsFeedScreen() {
                 break;
         }
     };
+
+    const styles = useMemo(() => {
+        const unreadCardBg = appTheme.isDark ? 'rgba(236, 92, 57, 0.15)' : 'rgba(236, 92, 57, 0.05)';
+        const unreadCardBorder = appTheme.isDark ? 'rgba(236, 92, 57, 0.3)' : 'rgba(236, 92, 57, 0.2)';
+
+        return StyleSheet.create({
+            container: {
+                flex: 1,
+                backgroundColor: appTheme.colors.background,
+            },
+            header: {
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                paddingHorizontal: 20,
+                paddingVertical: 15,
+                borderBottomWidth: 1,
+                borderBottomColor: appTheme.colors.border,
+            },
+            backBtn: {
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                backgroundColor: appTheme.colors.surfaceMuted,
+                alignItems: 'center',
+                justifyContent: 'center',
+            },
+            headerTitle: {
+                fontSize: 18,
+                fontFamily: 'Poppins-Bold',
+                color: appTheme.colors.textPrimary,
+            },
+            markAllBtn: {
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                alignItems: 'center',
+                justifyContent: 'center',
+            },
+            listContent: {
+                padding: 20,
+                paddingBottom: 40,
+            },
+            notificationCard: {
+                flexDirection: 'row',
+                padding: 16,
+                backgroundColor: appTheme.colors.surface,
+                borderRadius: 16,
+                marginBottom: 12,
+                borderWidth: 1,
+                borderColor: appTheme.colors.border,
+            },
+            unreadCard: {
+                backgroundColor: unreadCardBg,
+                borderColor: unreadCardBorder,
+            },
+            iconContainer: {
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                backgroundColor: appTheme.colors.surfaceMuted,
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginRight: 16,
+            },
+            contentContainer: {
+                flex: 1,
+            },
+            title: {
+                fontSize: 15,
+                fontFamily: 'Poppins-Medium',
+                color: appTheme.colors.textPrimary,
+                marginBottom: 4,
+            },
+            unreadText: {
+                fontFamily: 'Poppins-Bold',
+                color: appTheme.colors.textPrimary,
+            },
+            body: {
+                fontSize: 13,
+                fontFamily: 'Poppins-Regular',
+                color: appTheme.colors.textSecondary,
+                marginBottom: 8,
+            },
+            time: {
+                fontSize: 11,
+                fontFamily: 'Poppins-Regular',
+                color: appTheme.colors.textTertiary,
+            },
+            unreadDot: {
+                width: 8,
+                height: 8,
+                borderRadius: 4,
+                backgroundColor: appTheme.colors.primary,
+                marginLeft: 12,
+                marginTop: 6,
+            },
+            emptyContainer: {
+                flex: 1,
+                alignItems: 'center',
+                justifyContent: 'center',
+                paddingBottom: 100,
+            },
+            emptyTitle: {
+                fontSize: 18,
+                fontFamily: 'Poppins-Bold',
+                color: appTheme.colors.textPrimary,
+                marginTop: 16,
+            },
+            emptySub: {
+                fontSize: 14,
+                fontFamily: 'Poppins-Regular',
+                color: appTheme.colors.textSecondary,
+                marginTop: 8,
+            },
+        });
+    }, [appTheme]);
 
     const renderItem = ({ item }: { item: any }) => (
         <TouchableOpacity
@@ -88,9 +188,8 @@ export default function NotificationsFeedScreen() {
     return (
         <SafeScreenWrapper>
             <View style={styles.container}>
-                {/* Header */}
                 <View style={styles.header}>
-                    <TouchableOpacity onPress={handleBack} style={styles.backBtn}>
+                    <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/more')} style={styles.backBtn}>
                         <ChevronLeft size={24} color={appTheme.colors.textPrimary} />
                     </TouchableOpacity>
                     <Text style={styles.headerTitle}>Notifications</Text>
@@ -105,7 +204,7 @@ export default function NotificationsFeedScreen() {
 
                 {notifications.length === 0 ? (
                     <View style={styles.emptyContainer}>
-                        <Bell size={48} color={emptyIconColor} />
+                        <Bell size={48} color={appTheme.colors.surfaceMuted} />
                         <Text style={styles.emptyTitle}>You're all caught up!</Text>
                         <Text style={styles.emptySub}>No new notifications right now.</Text>
                     </View>
@@ -121,115 +220,3 @@ export default function NotificationsFeedScreen() {
         </SafeScreenWrapper>
     );
 }
-
-const legacyStyles = {
-    container: {
-        flex: 1,
-        backgroundColor: '$background',
-    },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 20,
-        paddingVertical: 15,
-        borderBottomWidth: 1,
-        borderBottomColor: '$borderLight',
-    },
-    backBtn: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: '$surfaceMuted',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    headerTitle: {
-        fontSize: 18,
-        fontFamily: 'Poppins-Bold',
-        color: '$textPrimary',
-    },
-    markAllBtn: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    listContent: {
-        padding: 20,
-        paddingBottom: 40,
-    },
-    notificationCard: {
-        flexDirection: 'row',
-        padding: 16,
-        backgroundColor: '$surface',
-        borderRadius: 16,
-        marginBottom: 12,
-        borderWidth: 1,
-        borderColor: '$borderLight',
-    },
-    unreadCard: {
-        backgroundColor: 'rgba(236, 92, 57, 0.05)',
-        borderColor: 'rgba(236, 92, 57, 0.2)',
-    },
-    iconContainer: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: '$surfaceMuted',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginRight: 16,
-    },
-    contentContainer: {
-        flex: 1,
-    },
-    title: {
-        fontSize: 15,
-        fontFamily: 'Poppins-Medium',
-        color: '$textPrimary',
-        marginBottom: 4,
-    },
-    unreadText: {
-        fontFamily: 'Poppins-Bold',
-        color: '$textPrimary',
-    },
-    body: {
-        fontSize: 13,
-        fontFamily: 'Poppins-Regular',
-        color: '$textSecondary',
-        marginBottom: 8,
-    },
-    time: {
-        fontSize: 11,
-        fontFamily: 'Poppins-Regular',
-        color: '$textTertiary',
-    },
-    unreadDot: {
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-        backgroundColor: '#EC5C39',
-        marginLeft: 12,
-        marginTop: 6,
-    },
-    emptyContainer: {
-        flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingBottom: 100,
-    },
-    emptyTitle: {
-        fontSize: 18,
-        fontFamily: 'Poppins-Bold',
-        color: '$textPrimary',
-        marginTop: 16,
-    },
-    emptySub: {
-        fontSize: 14,
-        fontFamily: 'Poppins-Regular',
-        color: '$textSecondary',
-        marginTop: 8,
-    },
-};
