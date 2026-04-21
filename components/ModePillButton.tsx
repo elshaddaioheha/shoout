@@ -2,11 +2,11 @@
  * ModePillButton - top-left app switcher pill with embedded rings logo.
  */
 import { Icon } from '@/components/ui/Icon';
+import { colors } from '@/constants/colors';
 import { FontFamily, typography } from '@/constants/typography';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { ViewMode } from '@/store/useUserStore';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
-import { colors } from '@/constants/colors';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useRef } from 'react';
@@ -135,7 +135,12 @@ export default function ModePillButton({ viewMode, isOpen, onPress }: ModePillBu
                     contentFit="contain"
                 />
             </View>
-            <Text style={[styles.label, isCompact && styles.labelCompact, { color: labelColor }]}>{modeLabel}</Text>
+            <Text
+                style={[styles.label, isCompact && styles.labelCompact, { color: labelColor }]}
+                numberOfLines={1}
+            >
+                {modeLabel}
+            </Text>
             <Animated.View
                 style={[
                     styles.chevronCircle,
@@ -157,15 +162,15 @@ const legacyStyles = {
         overflow: 'hidden',
         borderWidth: 1,
         borderRadius: 999,
-        paddingLeft: 5,
-        paddingRight: 9,
+        paddingLeft: 7,
+        paddingRight: 11,
         paddingVertical: 5,
         minHeight: 42,
         color: '#FFFFFF',
     },
     pillCompact: {
-        paddingLeft: 4,
-        paddingRight: 8,
+        paddingLeft: 6,
+        paddingRight: 10,
         paddingVertical: 4,
         minHeight: 36,
     },
@@ -195,13 +200,14 @@ const legacyStyles = {
     label: {
         ...typography.buttonSm,
         fontFamily: FontFamily.semiBold,
-        marginRight: 8,
+        marginRight: 10,
         color: '#FFFFFF',
+        flexShrink: 0,
     },
     labelCompact: {
         fontSize: 12,
         lineHeight: 16,
-        marginRight: 6,
+        marginRight: 7,
     },
     chevronCircle: {
         width: 26,

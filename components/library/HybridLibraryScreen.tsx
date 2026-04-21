@@ -728,9 +728,11 @@ const legacyStyles = {
   },
   actionsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
     alignItems: 'center',
     marginTop: 6,
+    gap: 10,
+    flexWrap: 'wrap',
   },
   filterButton: {
     width: 57,

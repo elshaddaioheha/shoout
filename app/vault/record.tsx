@@ -1,15 +1,15 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import SettingsHeader from '@/components/settings/SettingsHeader';
+import { Icon } from '@/components/ui/Icon';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { useToastStore } from '@/store/useToastStore';
-import { notifyError } from '@/utils/notify';
 import { useUserStore } from '@/store/useUserStore';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
+import { notifyError } from '@/utils/notify';
 import { Audio } from 'expo-av';
 import { useRouter } from 'expo-router';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
-import { Icon } from '@/components/ui/Icon';
 import React, { useMemo, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { auth, db, storage } from '../../firebaseConfig';
@@ -68,7 +68,6 @@ export default function VaultRecordScreen() {
       const next = new Audio.Recording();
       await next.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
       next.setOnRecordingStatusUpdate((status) => {
-        if (!status.isLoaded) return;
         setDurationMs(status.durationMillis || 0);
       });
       await next.startAsync();
@@ -173,12 +172,12 @@ export default function VaultRecordScreen() {
 
           {recording ? (
             <TouchableOpacity style={[styles.actionButton, styles.stopButton]} onPress={stopRecording} activeOpacity={0.9}>
-              <Square size={18} color="#FFFFFF" />
+              <Icon name="x" size={18} color="#FFFFFF" />
               <Text style={styles.actionButtonText}>Stop Recording</Text>
             </TouchableOpacity>
           ) : (
             <TouchableOpacity style={styles.actionButton} onPress={startRecording} activeOpacity={0.9}>
-              <Mic size={18} color="#FFFFFF" />
+              <Icon name="mic" size={18} color="#FFFFFF" />
               <Text style={styles.actionButtonText}>Start Recording</Text>
             </TouchableOpacity>
           )}

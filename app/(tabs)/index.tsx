@@ -1,41 +1,41 @@
 import { useAppSwitcherContext } from '@/app/(tabs)/_layout';
 import ActionSheet from '@/components/ActionSheet';
-import HybridDashboardScreen from '@/components/studio/HybridDashboardScreen';
 import SharedHeader from '@/components/SharedHeader';
+import HybridDashboardScreen from '@/components/studio/HybridDashboardScreen';
 import StudioDashboardScreen from '@/components/studio/StudioDashboardScreen';
 import VaultHomeScreen from '@/components/vault/VaultHomeScreen';
-import { theme } from '@/constants/theme';
 import { colors } from '@/constants/colors';
 import { HOME_SECTIONS, type HomeSectionKey } from '@/constants/homeFeed';
+import { theme } from '@/constants/theme';
 import { useAppTheme } from '@/hooks/use-app-theme';
-import { usePublishedUploads, type PublishedUpload } from '@/hooks/usePublishedUploads';
-import { formatUsd } from '@/utils/pricing';
-import { usePlaylists } from '@/hooks/usePlaylists';
-import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { usePlaylists } from '@/hooks/usePlaylists';
+import { usePublishedUploads, type PublishedUpload } from '@/hooks/usePublishedUploads';
 import { useCartStore } from '@/store/useCartStore';
 import { useFollowingArtistsStore } from '@/store/useFollowingArtistsStore';
 import { usePlaybackStore } from '@/store/usePlaybackStore';
 import { useToastStore } from '@/store/useToastStore';
 import { useUserStore } from '@/store/useUserStore';
+import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
+import { formatUsd } from '@/utils/pricing';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import {
-  Heart,
-  MoreVertical,
-  Play,
-  ShoppingCart,
-  Users
+    Heart,
+    MoreVertical,
+    Play,
+    ShoppingCart,
+    Users
 } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Dimensions,
-  FlatList,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
+    Dimensions,
+    FlatList,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
 
 const { width } = Dimensions.get('window');
@@ -199,7 +199,6 @@ function TrendingSection({
 const TrendingCard = React.memo(function TrendingCard({ song, bgColor, onPlay }: { song: any; bgColor: string; onPlay: () => void }) {
   const appTheme = useAppTheme();
   const styles = useHomeStyles();
-  const { isFav, toggle } = useLocalFavourite(song.id);
   const isLightMode = !appTheme.isDark;
   const overlayBg = isLightMode ? 'rgba(255, 248, 243, 0.82)' : 'rgba(20, 15, 16, 0.81)';
   const overlayBorder = isLightMode ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.12)';
@@ -234,12 +233,6 @@ const TrendingCard = React.memo(function TrendingCard({ song, bgColor, onPlay }:
             </Text>
           </View>
         </View>
-        <TouchableOpacity
-          style={{ paddingHorizontal: 8 }}
-          onPress={() => toggle()}
-        >
-            <Heart size={18} color={isFav ? SHOOUT_ACCENT : metaColor} fill={isFav ? SHOOUT_ACCENT : 'transparent'} />
-        </TouchableOpacity>
         <TouchableOpacity style={[styles.playButton, { backgroundColor: playButtonBg }]} onPress={onPlay}>
             <Play size={20} color={playGlyphColor} fill={playGlyphColor} />
         </TouchableOpacity>
@@ -747,13 +740,17 @@ const legacyStyles = {
     ...StyleSheet.absoluteFillObject,
   },
   songInfoOverlay: {
-    margin: spacing.sm,
-    marginBottom: spacing.lg,
+    margin: spacing.xs,
+    marginBottom: spacing.md,
     backgroundColor: 'rgba(20, 15, 16, 0.81)',
     borderRadius: spacing.md,
-    padding: spacing.sm,
+    width: Math.round(TRENDING_CARD_WIDTH * 0.98),
+    minHeight: Math.round(44 * 1.5),
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
     flexDirection: 'row',
     alignItems: 'center',
+    gap: spacing.sm,
   },
   songTitle: {
     color: theme.colors.textPrimary,
@@ -762,10 +759,9 @@ const legacyStyles = {
     fontFamily: 'Poppins-Bold',
   },
   trendingTextBlock: {
-    width: 156,
-    height: 44,
+    flex: 1,
+    minWidth: 0,
     justifyContent: 'space-between',
-    marginRight: spacing.xs,
   },
   artistRow: {
     flexDirection: 'row',
@@ -780,12 +776,14 @@ const legacyStyles = {
     fontFamily: 'Poppins-Regular',
   },
   playButton: {
-    width: 40,
-    height: 40,
+    width: 38,
+    height: 38,
     backgroundColor: SHOOUT_ACCENT,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
+    marginLeft: 'auto',
+    flexShrink: 0,
   },
   playlistItem: {
     width: PLAYLIST_CARD_WIDTH,

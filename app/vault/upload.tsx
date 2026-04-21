@@ -258,7 +258,7 @@ export default function VaultUploadScreen() {
                 <Image source={{ uri: artworkFile.uri }} style={styles.artworkPreview} contentFit="cover" />
               ) : (
                 <View style={styles.artworkPlaceholder}>
-                  <Icon name="image" size={28} color="#EC5C39" />
+                  <Icon name="upload-cloud" size={28} color="#EC5C39" />
                   <Text style={styles.artworkText}>Add optional cover art</Text>
                 </View>
               )}

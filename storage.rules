@@ -120,11 +120,6 @@ service firebase.storage {
         && maxSize(5);
     }
 
-    match /merch/{itemId}/{filename} {
-      allow read: if true;
-      allow write: if false;
-    }
-
     match /system/{allPaths=**} {
       allow read: if isAuthenticated();
       allow write: if false;

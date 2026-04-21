@@ -112,7 +112,7 @@ describe('Player E2E Tests', () => {
       position: 0,
       duration: 0,
       volume: 1,
-      sound: null,
+      
       repeatMode: 'off' as const,
       queue: [],
       currentTrackIndex: 0,

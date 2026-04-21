@@ -157,9 +157,12 @@ function getHybridThemeOverrides(appTheme: ReturnType<typeof useAppTheme>) {
     planPill: { backgroundColor: hybridSurface.actionSurface },
     planPillText: { color: hybridSurface.accentLabel },
     heroActions: { gap: 10 },
+    heroActionsCompact: { flexDirection: 'column', gap: 10 },
     primaryCta: { backgroundColor: hybridSurface.accent },
+    primaryCtaCompact: { flex: 0, width: '100%', paddingHorizontal: 16 },
     primaryCtaText: { color: hybridSurface.onAccent },
     secondaryCta: { backgroundColor: hybridSurface.actionSurface, borderColor: hybridSurface.actionBorder },
+    secondaryCtaCompact: { flex: 0, width: '100%', paddingHorizontal: 16 },
     secondaryCtaText: { color: hybridSurface.accentLabel },
     kpiGrid: { gap: 10 },
     kpiCard: { backgroundColor: appTheme.colors.backgroundElevated, borderColor: appTheme.colors.border },
@@ -366,9 +369,9 @@ export default function HybridDashboardScreen() {
               </View>
             </View>
 
-            <View style={styles.heroActions}>
+            <View style={[styles.heroActions, compactLayout && styles.heroActionsCompact]}>
               <TouchableOpacity
-                style={styles.primaryCta}
+                style={[styles.primaryCta, compactLayout && styles.primaryCtaCompact]}
                 onPress={() => {
                   if (requireHybridSubscription()) return;
                   router.push('/vault/upload' as any);
@@ -379,7 +382,7 @@ export default function HybridDashboardScreen() {
                 <Text style={styles.primaryCtaText}>Upload to Vault</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={styles.secondaryCta}
+                style={[styles.secondaryCta, compactLayout && styles.secondaryCtaCompact]}
                 onPress={() => {
                   if (requireHybridSubscription()) return;
                   router.push('/(tabs)/search' as any);

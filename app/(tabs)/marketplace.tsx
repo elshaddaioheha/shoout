@@ -1,18 +1,18 @@
 import { useAppSwitcherContext } from '@/app/(tabs)/_layout';
 import FilterSheet from '@/components/FilterSheet';
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
-import StudioPromoteScreen from '@/components/studio/StudioPromoteScreen';
 import SharedHeader from '@/components/SharedHeader';
+import StudioPromoteScreen from '@/components/studio/StudioPromoteScreen';
+import { colors } from '@/constants/colors';
 import { useAppTheme } from '@/hooks/use-app-theme';
+import { useAuthStore } from '@/store/useAuthStore';
 import { useCartStore } from '@/store/useCartStore';
 import { usePlaybackStore } from '@/store/usePlaybackStore';
 import { useToastStore } from '@/store/useToastStore';
 import { useUserStore } from '@/store/useUserStore';
-import { useAuthStore } from '@/store/useAuthStore';
 import { getModeSurfaceTheme } from '@/utils/appModeTheme';
 import { adaptLegacyColor, adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { getEffectivePlan } from '@/utils/subscriptions';
-import { colors } from '@/constants/colors';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { collectionGroup, getDocs, limit, orderBy, query, startAfter, where } from 'firebase/firestore';
@@ -21,7 +21,6 @@ import {
     Filter,
     Music,
     Search,
-    ShoppingBag,
     Upload
 } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
@@ -179,27 +178,6 @@ export default function MarketplaceScreen() {
                 />
 
                 <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-                    {/* Merch Store Entry */}
-                    <TouchableOpacity
-                        style={[styles.merchBanner, { borderColor: accentTint }]}
-                        onPress={() => router.push('/merch' as any)}
-                    >
-                        <LinearGradient
-                            colors={[accentColor, accentStrong]}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 0 }}
-                            style={styles.merchGradient}
-                        >
-                            <View style={styles.merchTextContent}>
-                                <Text style={styles.merchTitle}>Visit Merch Store</Text>
-                                <Text style={styles.merchSub}>Buy custom apparel & vinyl</Text>
-                            </View>
-                            <View style={styles.merchIconCircle}>
-                                <ShoppingBag size={24} color={appTheme.colors.textPrimary} />
-                            </View>
-                        </LinearGradient>
-                    </TouchableOpacity>
-
                     {/* Search & Filter */}
                     <View style={styles.searchRow}>
                         <View style={styles.searchBar}>

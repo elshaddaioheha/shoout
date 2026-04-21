@@ -6,20 +6,20 @@ import { useToastStore } from '@/store/useToastStore';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect } from 'react';
 import {
-  Dimensions,
-  Modal,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
+    Dimensions,
+    Modal,
+    Pressable,
+    StyleSheet,
+    Text,
+    View,
 } from 'react-native';
 import Animated, {
-  Easing,
-  runOnJS,
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-  withTiming,
+    Easing,
+    runOnJS,
+    useAnimatedStyle,
+    useSharedValue,
+    withSpring,
+    withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -187,50 +187,16 @@ export function PlayerMenuSheet({ visible, track, onClose }: Props) {
 
           {/* Menu items */}
           {MENU_ITEMS.map((item, index) => {
-            const scale = useSharedValue(1);
-            const animStyle = useAnimatedStyle(() => ({
-              transform: [{ scale: scale.value }],
-            }));
-
             return (
-              <Pressable
+              <PlayerMenuItemRow
                 key={item.id}
-                onPressIn={() => (scale.value = withSpring(0.97, { stiffness: 300, damping: 20 }))}
-                onPressOut={() => (scale.value = withSpring(1))}
+                item={item}
+                index={index}
+                divider={divider}
+                appTheme={appTheme}
                 onPress={() => handleItem(item.id)}
-                style={({ pressed }) => [
-                  styles.menuItem,
-                  pressed && {
-                    backgroundColor: appTheme.isDark
-                      ? 'rgba(255,255,255,0.06)'
-                      : 'rgba(0,0,0,0.04)',
-                  },
-                  index < MENU_ITEMS.length - 1 && {
-                    borderBottomWidth: StyleSheet.hairlineWidth,
-                    borderBottomColor: divider,
-                  },
-                ]}
-              >
-                <Animated.View style={[styles.menuItemInner, animStyle]}>
-                  <Icon
-                    name={item.icon as any}
-                    size={20}
-                    color={item.destructive ? appTheme.colors.error : appTheme.colors.textPrimary}
-                  />
-                  <Text
-                    style={[
-                      styles.menuLabel,
-                      {
-                        color: item.destructive
-                          ? appTheme.colors.error
-                          : appTheme.colors.textPrimary,
-                      },
-                    ]}
-                  >
-                    {item.label}
-                  </Text>
-                </Animated.View>
-              </Pressable>
+                styles={styles}
+              />
             );
           })}
         </Animated.View>
@@ -293,3 +259,60 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins-Medium',
   },
 });
+
+type PlayerMenuItemRowProps = {
+  item: MenuItem;
+  index: number;
+  divider: string;
+  appTheme: ReturnType<typeof useAppTheme>;
+  onPress: () => void;
+  styles: typeof styles;
+};
+
+function PlayerMenuItemRow({ item, index, divider, appTheme, onPress, styles }: PlayerMenuItemRowProps) {
+  const scale = useSharedValue(1);
+
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  return (
+    <Pressable
+      onPressIn={() => (scale.value = withSpring(0.97, { stiffness: 300, damping: 20 }))}
+      onPressOut={() => (scale.value = withSpring(1))}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.menuItem,
+        pressed && {
+          backgroundColor: appTheme.isDark
+            ? 'rgba(255,255,255,0.06)'
+            : 'rgba(0,0,0,0.04)',
+        },
+        index < MENU_ITEMS.length - 1 && {
+          borderBottomWidth: StyleSheet.hairlineWidth,
+          borderBottomColor: divider,
+        },
+      ]}
+    >
+      <Animated.View style={[styles.menuItemInner, animStyle]}>
+        <Icon
+          name={item.icon as any}
+          size={20}
+          color={item.destructive ? appTheme.colors.error : appTheme.colors.textPrimary}
+        />
+        <Text
+          style={[
+            styles.menuLabel,
+            {
+              color: item.destructive
+                ? appTheme.colors.error
+                : appTheme.colors.textPrimary,
+            },
+          ]}
+        >
+          {item.label}
+        </Text>
+      </Animated.View>
+    </Pressable>
+  );
+}

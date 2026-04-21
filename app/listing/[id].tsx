@@ -29,8 +29,8 @@ import { PayWithFlutterwave } from 'flutterwave-react-native';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
     ActivityIndicator,
-    Pressable,
     Platform,
+    Pressable,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -83,7 +83,17 @@ export default function ListingLicenseModal() {
     const trackTitle = listing?.title || 'Untitled Track';
     const trackArtist = listing?.uploaderName || listing?.artist || 'Creator';
     const trackArtwork = listing?.artworkUrl || listing?.coverUrl || '';
-    const licenseOptions = useMemo(() => buildLicenseTierOptions(trackPriceUsd), [trackPriceUsd]);
+    const licenseOptions = useMemo(() => {
+        const generated = buildLicenseTierOptions();
+        if (generated.length > 0) return generated;
+        
+        // Fallback dynamic generator if no dynamic array
+        return [
+            { id: 'basic', title: 'Basic', price: trackPriceUsd, summary: 'Best for demos and socials' },
+            { id: 'premium', title: 'Premium', price: trackPriceUsd * 2.5, summary: 'Built for monetized releases', badge: 'Popular' },
+            { id: 'exclusive', title: 'Exclusive', price: trackPriceUsd * 7, summary: 'Highest value tier' }
+        ] as LicenseTierOption[];
+    }, [trackPriceUsd]);
     const selectedLicense = useMemo(
         () => licenseOptions.find((option) => option.id === selectedTierId) || licenseOptions[0],
         [licenseOptions, selectedTierId]

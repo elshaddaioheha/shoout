@@ -179,13 +179,6 @@ service cloud.firestore {
         allow update: if isOwner(uid); // e.g. mark as read
         allow delete: if isOwner(uid);
       }
-      // ── Merch (Seller-side) ───────────────────────────────────────────────
-      // Owner can manage their own merch subcollection.
-      match /merch/{itemId} {
-        allow read: if isAuthenticated();
-        allow create, update: if isOwner(uid);
-        allow delete: if isOwner(uid);
-      }
 
       // ── Favourites ───────────────────────────────────────────────────────
       // Only the owner can read/write their favourites.
@@ -348,21 +341,6 @@ service cloud.firestore {
         allow update: if false; // No editing messages
         allow delete: if false;
       }
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // Merch Store
-    // Public discovery — any authenticated user can read active listings.
-    // Only admins / the store owner write merch (managed via Admin SDK).
-    // ─────────────────────────────────────────────────────────────────────────
-    match /merch/{itemId} {
-      // Any authenticated user can read active listings
-      allow read: if isAuthenticated() && resource.data.active == true;
-      // Owner of the merch item can write (uploaderId matches caller)
-      allow create: if isAuthenticated()
-        && request.resource.data.uploaderId == request.auth.uid;
-      allow update, delete: if isAuthenticated()
-        && resource.data.uploaderId == request.auth.uid;
     }
 
     // ─────────────────────────────────────────────────────────────────────────

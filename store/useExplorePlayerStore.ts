@@ -1,4 +1,4 @@
-import { Audio } from 'expo-av';
+import { audioEngine } from '@/services/audioEngine';
 import { create } from 'zustand';
 
 export interface ExploreTrack {
@@ -10,25 +10,8 @@ export interface ExploreTrack {
   uploaderId?: string;
 }
 
-let isAudioModeConfigured = false;
-
-async function ensureAudioModeConfigured() {
-  if (isAudioModeConfigured) return;
-
-  await Audio.setAudioModeAsync({
-    allowsRecordingIOS: false,
-    staysActiveInBackground: true,
-    playsInSilentModeIOS: true,
-    shouldDuckAndroid: true,
-    playThroughEarpieceAndroid: false,
-  });
-
-  isAudioModeConfigured = true;
-}
-
 interface ExplorePlayerState {
   currentTrack: ExploreTrack | null;
-  sound: Audio.Sound | null;
   isPlaying: boolean;
   isBuffering: boolean;
   position: number;
@@ -44,10 +27,11 @@ interface ExplorePlayerState {
 }
 
 let playbackLoadToken = 0;
+let progressListener: any = null;
+let stateListener: any = null;
 
 export const useExplorePlayerStore = create<ExplorePlayerState>((set, get) => ({
   currentTrack: null,
-  sound: null,
   isPlaying: false,
   isBuffering: false,
   position: 0,
@@ -65,17 +49,8 @@ export const useExplorePlayerStore = create<ExplorePlayerState>((set, get) => ({
     playbackLoadToken++;
     const currentToken = playbackLoadToken;
 
-    const previousSound = get().sound;
-
     try {
-      if (previousSound) {
-        try {
-          await previousSound.stopAsync();
-          await previousSound.unloadAsync();
-        } catch (_) {
-          // Best effort cleanup of prior sound instance.
-        }
-      }
+      await get().clearTrack();
 
       set({
         currentTrack: track,
@@ -83,39 +58,38 @@ export const useExplorePlayerStore = create<ExplorePlayerState>((set, get) => ({
         isPlaying: false,
         position: 0,
         duration: 0,
-        sound: null,
       });
 
       if (currentToken !== playbackLoadToken) return;
 
-      await ensureAudioModeConfigured();
+      if (!progressListener) {
+        progressListener = audioEngine.onPlaybackProgressChange((status) => {
+          set({ position: status.position, duration: status.duration });
+        });
+        stateListener = audioEngine.onPlaybackStateChange((state) => {
+          set({
+            isPlaying: state === 'playing',
+            isBuffering: state === 'buffering' || state === 'loading',
+          });
+        });
+      }
+
+      await audioEngine.setup();
 
       if (currentToken !== playbackLoadToken) return;
 
-      const { sound } = await Audio.Sound.createAsync(
-        { uri: track.url },
-        { shouldPlay: true, volume: get().volume },
-        (status) => {
-          if (!status.isLoaded) return;
-
-          set({
-            isPlaying: status.isPlaying,
-            isBuffering: status.isBuffering ?? false,
-            position: status.positionMillis ?? 0,
-            duration: status.durationMillis ?? 0,
-          });
-        }
-      );
+      await audioEngine.load({
+        url: track.url,
+        title: track.title,
+        artist: track.artist,
+        artwork: track.artworkUrl,
+      });
+      await audioEngine.setVolume(get().volume);
 
       if (currentToken !== playbackLoadToken) {
-        // We swiped away while it was loading. Unload instantly.
-        try {
-          await sound.unloadAsync();
-        } catch (_) {}
+        await audioEngine.unload();
         return;
       }
-
-      set({ sound, isBuffering: false, isPlaying: true });
     } catch (error) {
       console.error('Explore player failed to load track:', error);
       if (currentToken === playbackLoadToken) {
@@ -125,15 +99,15 @@ export const useExplorePlayerStore = create<ExplorePlayerState>((set, get) => ({
   },
 
   togglePlayPause: async () => {
-    const { sound, isPlaying } = get();
-    if (!sound) return;
+    const { isPlaying, currentTrack } = get();
+    if (!currentTrack) return;
 
     try {
       if (isPlaying) {
-        await sound.pauseAsync();
+        await audioEngine.pause();
         set({ isPlaying: false });
       } else {
-        await sound.playAsync();
+        await audioEngine.play();
         set({ isPlaying: true });
       }
     } catch (error) {
@@ -142,12 +116,12 @@ export const useExplorePlayerStore = create<ExplorePlayerState>((set, get) => ({
   },
 
   seekTo: async (position) => {
-    const { sound } = get();
-    if (!sound) return;
+    const { currentTrack } = get();
+    if (!currentTrack) return;
 
     try {
       const clamped = Math.max(0, position);
-      await sound.setPositionAsync(clamped);
+      await audioEngine.seek(clamped);
       set({ position: clamped });
     } catch (error) {
       console.error('Explore player seek failed:', error);
@@ -155,11 +129,11 @@ export const useExplorePlayerStore = create<ExplorePlayerState>((set, get) => ({
   },
 
   clearTrack: async () => {
-    const { sound } = get();
-    if (sound) {
+    const { currentTrack } = get();
+    if (currentTrack) {
       try {
-        await sound.stopAsync();
-        await sound.unloadAsync();
+        await audioEngine.stop();
+        await audioEngine.unload();
       } catch (_) {
         // Best effort cleanup.
       }
@@ -167,7 +141,6 @@ export const useExplorePlayerStore = create<ExplorePlayerState>((set, get) => ({
 
     set({
       currentTrack: null,
-      sound: null,
       isPlaying: false,
       isBuffering: false,
       position: 0,

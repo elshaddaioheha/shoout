@@ -8,27 +8,26 @@
  * - Add to cart or proceed to checkout
  */
 
-import React, { useMemo } from 'react';
-import {
-  Animated,
-  Dimensions,
-  Modal,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-  Image,
-} from 'react-native';
-import { useAppTheme } from '@/hooks/use-app-theme';
-import { adaptLegacyStyles, adaptLegacyColor } from '@/utils/legacyThemeAdapter';
+import LicenseTierPicker from '@/components/LicenseTierPicker';
 import { Icon } from '@/components/ui/Icon';
 import { IconButton } from '@/components/ui/IconButton';
-import LicenseTierPicker from '@/components/LicenseTierPicker';
+import { useAppTheme } from '@/hooks/use-app-theme';
 import { useCartStore } from '@/store/useCartStore';
-import { useToastStore } from '@/store/useToastStore';
-import { buildLicenseTierOptions, buildLicenseCartItemId } from '@/utils/licenseTiers';
 import { usePlaybackStore } from '@/store/usePlaybackStore';
+import { useToastStore } from '@/store/useToastStore';
+import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
+import { buildLicenseCartItemId, buildLicenseTierOptions } from '@/utils/licenseTiers';
+import React, { useMemo } from 'react';
+import {
+    Animated,
+    Image,
+    Modal,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
+} from 'react-native';
 
 interface TrackPreviewModalProps {
   visible: boolean;
@@ -87,7 +86,16 @@ export default function TrackPreviewModal({
 
   if (!track) return null;
 
-  const licenseOptions = useMemo(() => buildLicenseTierOptions(track.price), [track.price]);
+  const licenseOptions = useMemo(() => {
+    const generated = buildLicenseTierOptions();
+    if (generated.length > 0) return generated;
+
+    return [
+      { id: 'basic', title: 'Basic', price: track.price, summary: 'Best for demos and socials' },
+      { id: 'premium', title: 'Premium', price: track.price * 2.5, summary: 'Built for monetized releases', badge: 'Popular' },
+      { id: 'exclusive', title: 'Exclusive', price: track.price * 7, summary: 'Highest value tier' }
+    ] as any[];
+  }, [track.price]);
   const selectedLicense = licenseOptions.find((opt) => opt.id === selectedLicenseId) || licenseOptions[1];
   const trackArtwork = track.artworkUrl || track.coverUrl;
   const trackUrl = track.audioUrl || track.url || '';

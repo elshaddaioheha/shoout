@@ -1,20 +1,31 @@
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { useReducedMotion } from '@/hooks/use-reduced-motion';
-import { authMotionEasing, getAuthMotionDurations } from '@/utils/authMotion';
 import { setHasSeenOnboarding } from '@/utils/authFlow';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
-  Animated,
-  Image,
-  Pressable,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Dimensions,
+    Image,
+    Pressable,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+    ViewToken,
 } from 'react-native';
+import Animated, {
+    Extrapolation,
+    interpolate,
+    interpolateColor,
+    useAnimatedScrollHandler,
+    useAnimatedStyle,
+    useSharedValue,
+    type SharedValue
+} from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 type OnboardingSlide = {
   key: string;
@@ -24,8 +35,6 @@ type OnboardingSlide = {
   asset: any;
   imageScale: number;
 };
-
-const AUTO_ADVANCE_MS = 2800;
 
 const slides: OnboardingSlide[] = [
   {
@@ -74,112 +83,111 @@ const slides: OnboardingSlide[] = [
   },
 ];
 
+const ProgressPill = ({
+  index,
+  scrollX,
+  appTheme,
+  slidesCount,
+}: {
+  index: number;
+  scrollX: SharedValue<number>;
+  appTheme: any;
+  slidesCount: number;
+}) => {
+  const animatedStyle = useAnimatedStyle(() => {
+    const minWidth = 8;
+    const maxWidth = 58;
+
+    const width = interpolate(
+      scrollX.value,
+      [(index - 1) * SCREEN_WIDTH, index * SCREEN_WIDTH, (index + 1) * SCREEN_WIDTH],
+      [minWidth, maxWidth, minWidth],
+      Extrapolation.CLAMP
+    );
+
+    const backgroundColor = interpolateColor(
+      scrollX.value,
+      [(index - 1) * SCREEN_WIDTH, index * SCREEN_WIDTH, (index + 1) * SCREEN_WIDTH],
+      [
+        appTheme.isDark ? '#504A4A' : '#D8CFCC',
+        appTheme.colors.primary,
+        appTheme.isDark ? '#504A4A' : '#D8CFCC',
+      ]
+    );
+
+    return {
+      width,
+      backgroundColor,
+    };
+  });
+
+  return <Animated.View style={[styles.progressPill, animatedStyle]} />;
+};
+
+const SlideItem = ({ slide, index, appTheme }: { slide: OnboardingSlide; index: number; appTheme: any }) => {
+  return (
+    <View style={[styles.slideContainer, { width: SCREEN_WIDTH }]}>
+      <View style={styles.header}>
+        {slide.kicker ? (
+          <Text style={[styles.kicker, { color: appTheme.colors.textSecondary }]}>{slide.kicker}</Text>
+        ) : null}
+
+        <View style={styles.titleBlock}>
+          {slide.lines.map((line, lineIndex) => (
+            <Text
+              key={`${slide.key}-line-${lineIndex}`}
+              style={[styles.title, { color: appTheme.colors.textPrimary }]}
+            >
+              {line.map((part, partIndex) => (
+                <Text
+                  key={`${slide.key}-part-${lineIndex}-${partIndex}`}
+                  style={{ color: part.accent ? appTheme.colors.primary : appTheme.colors.textPrimary }}
+                >
+                  {part.text}
+                </Text>
+              ))}
+            </Text>
+          ))}
+        </View>
+
+        <Text style={[styles.body, { color: appTheme.colors.textSecondary }]}>{slide.body}</Text>
+      </View>
+
+      <View style={styles.imageStage}>
+        <View style={[styles.imageWrap, { transform: [{ scale: slide.imageScale }] }]}>
+          <Image source={slide.asset} style={styles.image} resizeMode="contain" />
+        </View>
+      </View>
+    </View>
+  );
+};
+
 export default function OnboardingScreen() {
   const appTheme = useAppTheme();
   const reduceMotion = useReducedMotion();
   const router = useRouter();
-  const durations = getAuthMotionDurations(reduceMotion);
-  const [index, setIndex] = useState(0);
+
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const flatListRef = useRef<Animated.FlatList<OnboardingSlide>>(null);
+  const scrollX = useSharedValue(0);
+
   const hasCompletedRef = useRef(false);
-  const isTransitioningRef = useRef(false);
-  const contentOpacity = useRef(new Animated.Value(0)).current;
-  const contentTranslateY = useRef(new Animated.Value(28)).current;
-  const headerOpacity = useRef(new Animated.Value(1)).current;
-  const headerTranslateY = useRef(new Animated.Value(0)).current;
-  const imageOpacity = useRef(new Animated.Value(1)).current;
-  const imageTranslateX = useRef(new Animated.Value(0)).current;
-  const progressAnim = useRef(slides.map((_, slideIndex) => new Animated.Value(slideIndex === 0 ? 1 : 0))).current;
-  const slide = slides[index];
 
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(contentOpacity, {
-        toValue: 1,
-        duration: durations.contentEnter,
-        easing: authMotionEasing.standard,
-        useNativeDriver: true,
-      }),
-      Animated.timing(contentTranslateY, {
-        toValue: 0,
-        duration: durations.contentEnter,
-        easing: authMotionEasing.emphasized,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [contentOpacity, contentTranslateY, durations.contentEnter]);
+  const onScroll = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      scrollX.value = event.contentOffset.x;
+    },
+  });
 
-  const goToIndex = (targetIndex: number) => {
-    if (targetIndex === index || isTransitioningRef.current) return;
+  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
+    if (viewableItems[0]) {
+      setCurrentIndex(viewableItems[0].index ?? 0);
+    }
+  }).current;
 
-    isTransitioningRef.current = true;
-
-    Animated.parallel([
-      Animated.timing(headerOpacity, {
-        toValue: 0.42,
-        duration: Math.max(110, durations.slideChange - 110),
-        easing: authMotionEasing.standard,
-        useNativeDriver: true,
-      }),
-      Animated.timing(headerTranslateY, {
-        toValue: targetIndex > index ? -8 : 8,
-        duration: durations.slideChange,
-        easing: authMotionEasing.standard,
-        useNativeDriver: true,
-      }),
-      Animated.timing(imageOpacity, {
-        toValue: 0,
-        duration: Math.max(110, durations.slideChange - 80),
-        easing: authMotionEasing.standard,
-        useNativeDriver: true,
-      }),
-      Animated.timing(imageTranslateX, {
-        toValue: targetIndex > index ? -16 : 16,
-        duration: durations.slideChange,
-        easing: authMotionEasing.standard,
-        useNativeDriver: true,
-      }),
-      ...progressAnim.map((anim, slideIndex) =>
-        Animated.timing(anim, {
-          toValue: slideIndex === targetIndex ? 1 : 0,
-          duration: durations.progress,
-          easing: authMotionEasing.standard,
-          useNativeDriver: false,
-        })
-      ),
-    ]).start(() => {
-      headerTranslateY.setValue(targetIndex > index ? 8 : -8);
-      imageTranslateX.setValue(targetIndex > index ? 16 : -16);
-      setIndex(targetIndex);
-      Animated.parallel([
-        Animated.timing(headerOpacity, {
-          toValue: 1,
-          duration: durations.slideChange,
-          easing: authMotionEasing.standard,
-          useNativeDriver: true,
-        }),
-        Animated.timing(headerTranslateY, {
-          toValue: 0,
-          duration: durations.slideChange,
-          easing: authMotionEasing.emphasized,
-          useNativeDriver: true,
-        }),
-        Animated.timing(imageOpacity, {
-          toValue: 1,
-          duration: durations.slideChange,
-          easing: authMotionEasing.standard,
-          useNativeDriver: true,
-        }),
-        Animated.timing(imageTranslateX, {
-          toValue: 0,
-          duration: durations.slideChange,
-          easing: authMotionEasing.emphasized,
-          useNativeDriver: true,
-        }),
-      ]).start(() => {
-        isTransitioningRef.current = false;
-      });
-    });
-  };
+  const viewabilityConfig = useRef({
+    itemVisiblePercentThreshold: 50,
+  }).current;
 
   const finishOnboarding = async () => {
     if (hasCompletedRef.current) return;
@@ -188,128 +196,69 @@ export default function OnboardingScreen() {
     router.replace('/(auth)/login');
   };
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (hasCompletedRef.current || isTransitioningRef.current) return;
-
-      if (index < slides.length - 1) {
-        goToIndex(index + 1);
-        return;
-      }
-
+  const handleNext = () => {
+    if (currentIndex < slides.length - 1) {
+      flatListRef.current?.scrollToIndex({
+        index: currentIndex + 1,
+        animated: !reduceMotion,
+      });
+    } else {
       void finishOnboarding();
-    }, AUTO_ADVANCE_MS);
-
-    return () => clearTimeout(timer);
-  }, [index]);
-
-  const handleNext = async () => {
-    if (index === slides.length - 1) {
-      await finishOnboarding();
-      return;
     }
-    goToIndex(index + 1);
   };
 
-  const progressWidths = useMemo(
-    () =>
-      progressAnim.map((anim) =>
-        anim.interpolate({
-          inputRange: [0, 1],
-          outputRange: [8, 58],
-        })
-      ),
-    [progressAnim]
-  );
+  const goToIndex = (index: number) => {
+    flatListRef.current?.scrollToIndex({
+      index,
+      animated: !reduceMotion,
+    });
+  };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: appTheme.colors.background }]}>
       <StatusBar barStyle={appTheme.isDark ? 'light-content' : 'dark-content'} />
 
-      <Animated.View
-        style={[
-          styles.inner,
-          {
-            opacity: contentOpacity,
-            transform: [{ translateY: contentTranslateY }],
-          },
-        ]}
-      >
-        <Animated.View
-          style={[
-            styles.header,
-            {
-              opacity: headerOpacity,
-              transform: [{ translateY: headerTranslateY }],
-            },
-          ]}
-        >
-          {slide.kicker ? <Text style={[styles.kicker, { color: appTheme.colors.textSecondary }]}>{slide.kicker}</Text> : null}
-
-          <View style={styles.titleBlock}>
-            {slide.lines.map((line, lineIndex) => (
-              <Text key={`${slide.key}-line-${lineIndex}`} style={[styles.title, { color: appTheme.colors.textPrimary }]}>
-                {line.map((part, partIndex) => (
-                  <Text
-                    key={`${slide.key}-part-${lineIndex}-${partIndex}`}
-                    style={{ color: part.accent ? appTheme.colors.primary : appTheme.colors.textPrimary }}
-                  >
-                    {part.text}
-                  </Text>
-                ))}
-              </Text>
-            ))}
-          </View>
-
-          <Text style={[styles.body, { color: appTheme.colors.textSecondary }]}>{slide.body}</Text>
-
+      <View style={styles.inner}>
+        <Animated.FlatList
+          ref={flatListRef}
+          data={slides}
+          renderItem={({ item, index }) => <SlideItem slide={item} index={index} appTheme={appTheme} />}
+          keyExtractor={(item) => item.key}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          pagingEnabled
+          bounces={false}
+          onScroll={onScroll}
+          scrollEventThrottle={16}
+          onViewableItemsChanged={onViewableItemsChanged}
+          viewabilityConfig={viewabilityConfig}
+        />
+        
+        <View style={styles.bottomSection}>
           <View style={styles.progressRow}>
-            {progressWidths.map((width, progressIndex) => (
-              <Pressable key={`progress-${progressIndex}`} onPress={() => goToIndex(progressIndex)} hitSlop={10}>
-                <Animated.View
-                  style={[
-                    styles.progressPill,
-                    {
-                      width,
-                      backgroundColor:
-                        progressIndex === index ? appTheme.colors.primary : appTheme.isDark ? '#504A4A' : '#D8CFCC',
-                    },
-                  ]}
-                />
+            {slides.map((_, index) => (
+              <Pressable key={`progress-${index}`} onPress={() => goToIndex(index)} hitSlop={10}>
+                <ProgressPill index={index} scrollX={scrollX} appTheme={appTheme} slidesCount={slides.length} />
               </Pressable>
             ))}
           </View>
-        </Animated.View>
 
-        <View style={styles.imageStage}>
-          <Animated.View
-            style={[
-              styles.imageWrap,
-              {
-                opacity: imageOpacity,
-                transform: [{ translateX: imageTranslateX }, { scale: slide.imageScale }],
-              },
-            ]}
-          >
-            <Image source={slide.asset} style={styles.image} resizeMode="contain" />
-          </Animated.View>
+          <View style={styles.footer}>
+            <TouchableOpacity onPress={finishOnboarding} activeOpacity={0.8}>
+              <Text style={[styles.skipText, { color: appTheme.colors.textPrimary }]}>Skip</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.nextButton, { backgroundColor: appTheme.colors.primary }]}
+              activeOpacity={0.9}
+              onPress={handleNext}
+            >
+              <Text style={styles.nextText}>{currentIndex === slides.length - 1 ? 'Get Started' : 'Next'}</Text>
+              <Text style={styles.nextArrow}>→</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-
-        <View style={styles.footer}>
-          <TouchableOpacity onPress={finishOnboarding} activeOpacity={0.8}>
-            <Text style={[styles.skipText, { color: appTheme.colors.textPrimary }]}>Skip</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.nextButton, { backgroundColor: appTheme.colors.primary }]}
-            activeOpacity={0.9}
-            onPress={handleNext}
-          >
-            <Text style={styles.nextText}>{index === slides.length - 1 ? 'Get Started' : 'Next'}</Text>
-            <Text style={styles.nextArrow}>→</Text>
-          </TouchableOpacity>
-        </View>
-      </Animated.View>
+      </View>
     </SafeAreaView>
   );
 }
@@ -320,9 +269,11 @@ const styles = StyleSheet.create({
   },
   inner: {
     flex: 1,
-    paddingHorizontal: 20,
     paddingTop: 24,
     paddingBottom: 36,
+  },
+  slideContainer: {
+    paddingHorizontal: 20,
   },
   header: {
     gap: 14,
@@ -346,6 +297,9 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins-Regular',
     fontSize: 16,
     lineHeight: 26,
+  },
+  bottomSection: {
+    paddingHorizontal: 20,
   },
   progressRow: {
     flexDirection: 'row',
@@ -401,8 +355,8 @@ const styles = StyleSheet.create({
   },
   nextArrow: {
     color: '#FFFFFF',
-    fontSize: 24,
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: 18,
     lineHeight: 24,
-    marginTop: -1,
   },
 });

@@ -1,3 +1,4 @@
+import FallbackErrorScreen from '@/components/FallbackErrorScreen';
 import GlobalToast from '@/components/GlobalToast';
 import PlayerContainer from '@/components/player/PlayerContainer';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -18,6 +19,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useCallback, useEffect, useRef } from 'react';
+import { ErrorBoundary } from 'react-error-boundary';
 import { Animated, Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
@@ -183,9 +185,10 @@ export default function RootLayout() {
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <Animated.View style={{ flex: 1, opacity: contentOpacity }} onLayout={onRootLayout}>
-        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+    <ErrorBoundary FallbackComponent={FallbackErrorScreen}>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <Animated.View style={{ flex: 1, opacity: contentOpacity }} onLayout={onRootLayout}>
+          <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
           <Stack
           initialRouteName="index"
           screenOptions={{
@@ -235,7 +238,6 @@ export default function RootLayout() {
           <Stack.Screen name="vault/track/[id]" />
           <Stack.Screen name="chat/index" />
           <Stack.Screen name="chat/[id]" />
-          <Stack.Screen name="merch/index" />
           <Stack.Screen name="profile/[id]" />
           <Stack.Screen
             name="listing/[id]"
@@ -254,5 +256,6 @@ export default function RootLayout() {
         </ThemeProvider>
       </Animated.View>
     </GestureHandlerRootView>
+    </ErrorBoundary>
   );
 }

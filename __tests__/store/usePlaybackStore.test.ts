@@ -73,7 +73,7 @@ beforeEach(() => {
     position: 0,
     duration: 0,
     volume: 1,
-    sound: null,
+    
     repeatMode: 'off',
     queue: [],
     currentTrackIndex: -1,
