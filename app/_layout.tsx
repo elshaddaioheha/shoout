@@ -37,7 +37,6 @@ if (Platform.OS !== 'web') {
     // Ignore splash state errors; they should never block app render.
   });
 }
-
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const router = useRouter();
@@ -157,6 +156,7 @@ export default function RootLayout() {
     return unsubscribe;
   }, [reportStartupIssue, router]);
 
+  useEffect(() => {
     let settled = false;
     const settleAuthBootstrap = (hasUser: boolean) => {
       if (settled) {
@@ -220,14 +220,13 @@ export default function RootLayout() {
       reportStartupIssue('auth-listener', issue);
       settleAuthBootstrap(Boolean(auth.currentUser));
     }
-    }, 5000);
 
-      settled = true;
     return () => {
+      settled = true;
       unsub();
       clearTimeout(authTimeout);
+    };
   }, [reportStartupIssue, resetAuthState, setAuthResolved, setHasAuthenticatedUser, setVerifying]);
-  }, [resetAuthState, setAuthResolved, setHasAuthenticatedUser, setVerifying]);
 
   useEffect(() => {
     if (Platform.OS === 'web') {
