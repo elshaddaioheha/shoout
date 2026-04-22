@@ -14,6 +14,8 @@ export async function initNotifications() {
     handleNotification: async (_notification) => {
       return {
         shouldShowAlert: true,
+        shouldShowBanner: true,
+        shouldShowList: true,
         shouldPlaySound: true,
         shouldSetBadge: true,
       };

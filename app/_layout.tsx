@@ -9,6 +9,7 @@ import { useUIStore } from '@/store/useUIStore';
 import { useUserStore } from '@/store/useUserStore';
 import { getLastNotification, initNotifications, subscribeToNotifications } from '@/utils/notifications';
 import { notifyError, notifyWarning } from '@/utils/notify';
+import { normalizeAppPath } from '@/utils/routes';
 import { getDefaultAppModeForPlan } from '@/utils/subscriptions';
 import { hydrateSubscriptionTier } from '@/utils/subscriptionVerification';
 import { Poppins_300Light, Poppins_400Regular, Poppins_500Medium, Poppins_600SemiBold, Poppins_700Bold, useFonts } from '@expo-google-fonts/poppins';
@@ -18,14 +19,13 @@ import { Stack, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { onAuthStateChanged } from 'firebase/auth';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ErrorInfo } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
 import { Animated, Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 import { auth } from '../firebaseConfig';
 import { captureError, initMonitoring } from '../utils/monitoring';
-import { normalizeAppPath } from '@/utils/routes';
 
 if (Platform.OS !== 'web') {
   SplashScreen.setOptions({
@@ -79,7 +79,10 @@ export default function RootLayout() {
       if (Platform.OS !== 'web') {
         void initNotifications().catch((issue) => reportStartupIssue('notifications-init', issue));
       }
-      useAccessibilityStore.getState().initScreenReaderState();
+      void useAccessibilityStore
+        .getState()
+        .initScreenReaderState()
+        .catch((issue) => reportStartupIssue('accessibility-init', issue));
     } catch (issue) {
       reportStartupIssue('startup-init', issue);
     }
@@ -153,7 +156,10 @@ export default function RootLayout() {
         reportStartupIssue('notification-last-response', issue);
       });
 
-    return unsubscribe;
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
   }, [reportStartupIssue, router]);
 
   useEffect(() => {
@@ -173,7 +179,7 @@ export default function RootLayout() {
       settleAuthBootstrap(Boolean(auth.currentUser));
     }, 5000);
 
-    let unsub = () => undefined;
+    let unsub: (() => void) | null = null;
 
     try {
       unsub = onAuthStateChanged(auth, async (user) => {
@@ -223,7 +229,7 @@ export default function RootLayout() {
 
     return () => {
       settled = true;
-      unsub();
+      unsub?.();
       clearTimeout(authTimeout);
     };
   }, [reportStartupIssue, resetAuthState, setAuthResolved, setHasAuthenticatedUser, setVerifying]);
@@ -236,11 +242,17 @@ export default function RootLayout() {
     const googleWebClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID?.trim();
     if (!googleWebClientId) {
       notifyWarning('Google Sign-In not configured: EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID is missing.');
+      return;
     }
-    GoogleSignin.configure({
-      webClientId: googleWebClientId || '',
-    });
-  }, []);
+
+    try {
+      GoogleSignin.configure({
+        webClientId: googleWebClientId,
+      });
+    } catch (issue) {
+      reportStartupIssue('google-signin-config', issue);
+    }
+  }, [reportStartupIssue]);
 
   const onRootLayout = useCallback(async () => {
     if (!startupReady) return;
@@ -266,11 +278,11 @@ export default function RootLayout() {
     return null;
   }
 
-  const handleRootBoundaryError = (boundaryError: unknown, info: { componentStack: string }) => {
+  const handleRootBoundaryError = (boundaryError: unknown, info: ErrorInfo) => {
     captureError(boundaryError instanceof Error ? boundaryError : new Error('Unknown root boundary error'), {
       scope: 'root-layout-boundary',
       message: boundaryError instanceof Error ? boundaryError.message : String(boundaryError),
-      componentStack: info.componentStack,
+      componentStack: info.componentStack || '',
     });
   };
 

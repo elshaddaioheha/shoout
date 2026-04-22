@@ -1,2 +1,76 @@
-export { audioEngine } from './audioEngine.native';
-export type { AudioPlaybackState, AudioProgress, AudioSubscription, TrackOptions } from './audioEngine.types';
+import { Platform } from 'react-native';
+import type { AudioPlaybackState, AudioProgress, AudioSubscription, TrackOptions } from './audioEngine.types';
+
+type AudioEngineModule = {
+	audioEngine: {
+		setup: () => Promise<void>;
+		load: (track: TrackOptions, autoPlay?: boolean) => Promise<void>;
+		play: () => Promise<void>;
+		pause: () => Promise<void>;
+		stop: () => Promise<void>;
+		unload: () => Promise<void>;
+		seek: (positionMs: number) => Promise<void>;
+		setVolume: (volume: number) => Promise<void>;
+		onPlaybackStateChange: (callback: (state: AudioPlaybackState) => void) => AudioSubscription;
+		onPlaybackProgressChange: (callback: (progress: AudioProgress) => void) => AudioSubscription;
+		onPlaybackQueueEnded: (callback: (event: any) => void) => AudioSubscription;
+	};
+};
+
+const noopSubscription: AudioSubscription = {
+	remove: () => {
+		// no-op
+	},
+};
+
+const fallbackAudioEngine: AudioEngineModule['audioEngine'] = {
+	async setup() {
+		// no-op
+	},
+	async load() {
+		throw new Error('Audio engine unavailable.');
+	},
+	async play() {
+		throw new Error('Audio engine unavailable.');
+	},
+	async pause() {
+		// no-op
+	},
+	async stop() {
+		// no-op
+	},
+	async unload() {
+		// no-op
+	},
+	async seek() {
+		// no-op
+	},
+	async setVolume() {
+		// no-op
+	},
+	onPlaybackStateChange() {
+		return noopSubscription;
+	},
+	onPlaybackProgressChange() {
+		return noopSubscription;
+	},
+	onPlaybackQueueEnded() {
+		return noopSubscription;
+	},
+};
+
+function resolveAudioEngine(): AudioEngineModule['audioEngine'] {
+	try {
+		const module = (Platform.OS === 'web'
+			? require('./audioEngine.web')
+			: require('./audioEngine.native')) as AudioEngineModule;
+		return module.audioEngine;
+	} catch (error) {
+		console.error('[audioEngine] Failed to load platform audio engine:', error);
+		return fallbackAudioEngine;
+	}
+}
+
+export const audioEngine = resolveAudioEngine();
+export type { AudioPlaybackState, AudioProgress, AudioSubscription, TrackOptions };
+

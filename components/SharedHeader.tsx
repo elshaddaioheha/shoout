@@ -39,8 +39,6 @@ export default function SharedHeader({
     viewMode,
     isModeSheetOpen,
     onModePillPress,
-    showCart,
-    cartCount,
     showMessages,
     showSearch,
     customRightContent,
@@ -53,7 +51,6 @@ export default function SharedHeader({
     const modeKey = viewMode === 'vault_pro' ? 'vault' : viewMode;
     const modeTheme = getModeSurfaceTheme(modeKey as any, appTheme.isDark);
     const accentColor = modeTheme.accent || appTheme.colors.primary;
-    const shouldShowCart = Boolean(showCart) && !isVaultMode;
     const shouldShowMessages = Boolean(showMessages) && !isVaultMode;
     const shouldShowSearch = Boolean(showSearch);
 
@@ -97,19 +94,6 @@ export default function SharedHeader({
                                     accessibilityRole="button"
                                     accessibilityLabel="Open messages"
                                 />
-                            )}
-                            {shouldShowCart && (
-                                <IconButton
-                                    style={[styles.iconButton, { marginRight: 8, backgroundColor: modeTheme.actionSurface, borderColor: modeTheme.actionBorder }]}
-                                    onPress={() => router.push(ROUTES.tabs.cart as any)}
-                                    accessibilityRole="button"
-                                    accessibilityLabel="Open cart"
-                                >
-                                    <Icon name="cart" size={18} color={appTheme.colors.textPrimary} />
-                                    {cartCount != null && cartCount > 0 && (
-                                        <View style={[styles.badge, { backgroundColor: accentColor, borderColor: appTheme.colors.background }]} />
-                                    )}
-                                </IconButton>
                             )}
                             <IconButton
                                 style={[styles.iconButton, { backgroundColor: modeTheme.actionSurface, borderColor: modeTheme.actionBorder }]}

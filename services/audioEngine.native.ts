@@ -44,7 +44,8 @@ export const audioEngine = {
       });
       isSetup = true;
     } catch (error) {
-      isSetup = true;
+      isSetup = false;
+      throw error;
     }
   },
 
