@@ -1,8 +1,8 @@
+import type { AppMode, SubscriptionPlanId } from '@/utils/subscriptions';
+import { getEffectivePlan, getFeatureFlags } from '@/utils/subscriptions';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
-import type { AppMode, SubscriptionPlanId } from '@/utils/subscriptions';
-import { getEffectivePlan, getFeatureFlags } from '@/utils/subscriptions';
 
 export type UserRole = SubscriptionPlanId;
 export type ViewMode = AppMode;
@@ -11,6 +11,7 @@ interface UserState {
     role: UserRole;
     actualRole: UserRole;
     name: string;
+    isHydrated: boolean;
     isPremium: boolean;
     activeAppMode: ViewMode;
     viewMode: ViewMode;
@@ -30,6 +31,7 @@ interface UserState {
     setPremium: (isPremium: boolean) => void;
     setViewMode: (mode: ViewMode) => void;
     setActiveAppMode: (mode: ViewMode) => void;
+    setHydrated: (isHydrated: boolean) => void;
     reset: () => void;
 }
 
@@ -56,12 +58,16 @@ const getRoleCapabilities = (role: UserRole) => {
     };
 };
 
-const createBaseState = (): Omit<UserState, 'setRole' | 'setActualRole' | 'setName' | 'setPremium' | 'setViewMode' | 'setActiveAppMode' | 'reset'> => {
+const createBaseState = (): Omit<
+    UserState,
+    'setRole' | 'setActualRole' | 'setName' | 'setPremium' | 'setViewMode' | 'setActiveAppMode' | 'setHydrated' | 'reset'
+> => {
     const role: UserRole = 'shoout';
     return {
         role,
         actualRole: role,
         name: 'User',
+        isHydrated: process.env.NODE_ENV === 'test',
         activeAppMode: 'shoout',
         viewMode: 'shoout',
         ...getRoleCapabilities(role),
@@ -82,12 +88,22 @@ export const useUserStore = create<UserState>()(
             setPremium: (isPremium) => set({ isPremium }),
             setViewMode: (viewMode) => set({ activeAppMode: viewMode, viewMode }),
             setActiveAppMode: (activeAppMode) => set({ activeAppMode, viewMode: activeAppMode }),
+            setHydrated: (isHydrated) => set({ isHydrated }),
             reset: () => set({ ...createBaseState() }),
         }),
         {
             name: STORAGE_KEY,
             storage: createJSONStorage(() => AsyncStorage),
             skipHydration: process.env.NODE_ENV === 'test',
+            onRehydrateStorage: () => {
+                useUserStore.getState().setHydrated(false);
+                return (_, error) => {
+                    if (error) {
+                        console.warn('[useUserStore] Failed to rehydrate persisted state:', error);
+                    }
+                    useUserStore.getState().setHydrated(true);
+                };
+            },
             partialize: (state): PersistedUserState => ({
                 activeAppMode: state.activeAppMode,
             }),

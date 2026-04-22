@@ -40,9 +40,14 @@ if (Platform.OS !== 'web') {
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const router = useRouter();
-  const { setVerifying, setAuthResolved, setHasAuthenticatedUser, reset: resetAuthState } = useAuthStore();
+  const setVerifying = useAuthStore((state) => state.setVerifying);
+  const setAuthResolved = useAuthStore((state) => state.setAuthResolved);
+  const setHasAuthenticatedUser = useAuthStore((state) => state.setHasAuthenticatedUser);
+  const resetAuthState = useAuthStore((state) => state.reset);
+  const isUserStoreHydrated = useUserStore((state) => state.isHydrated);
   const splashHidden = useRef(false);
   const contentOpacity = useRef(new Animated.Value(0)).current;
+  const pendingUserPersistWritesRef = useRef<Array<() => void>>([]);
   const [playerBootstrapped, setPlayerBootstrapped] = useState(false);
   const [startupFallbackReady, setStartupFallbackReady] = useState(false);
 
@@ -64,6 +69,30 @@ export default function RootLayout() {
     });
     notifyWarning(`[layout] ${scope}`, startupError);
   }, []);
+
+  const applyPersistedUserWrite = useCallback((write: () => void) => {
+    if (useUserStore.getState().isHydrated) {
+      write();
+      return;
+    }
+
+    pendingUserPersistWritesRef.current.push(write);
+  }, []);
+
+  useEffect(() => {
+    if (!isUserStoreHydrated || pendingUserPersistWritesRef.current.length === 0) {
+      return;
+    }
+
+    const pendingWrites = pendingUserPersistWritesRef.current.splice(0, pendingUserPersistWritesRef.current.length);
+    pendingWrites.forEach((write) => {
+      try {
+        write();
+      } catch (issue) {
+        reportStartupIssue('user-store-persist-queue', issue);
+      }
+    });
+  }, [isUserStoreHydrated, reportStartupIssue]);
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -185,7 +214,6 @@ export default function RootLayout() {
       unsub = onAuthStateChanged(auth, async (user) => {
         try {
           if (user) {
-            setHasAuthenticatedUser(true);
             try {
               setVerifying(true);
               await hydrateSubscriptionTier();
@@ -199,21 +227,24 @@ export default function RootLayout() {
               });
               useUserStore.getState().setActualRole('shoout');
               useUserStore.getState().setRole('shoout');
-              useUserStore.getState().setActiveAppMode('shoout');
-            } finally {
-              setVerifying(false);
+              applyPersistedUserWrite(() => {
+                useUserStore.getState().setActiveAppMode('shoout');
+              });
             }
 
             const verifiedPlan = useAuthStore.getState().actualRole || 'shoout';
             const currentMode = useUserStore.getState().activeAppMode;
             const preferredMode = currentMode === 'shoout' ? currentMode : getDefaultAppModeForPlan(verifiedPlan);
-            useUserStore.getState().setActiveAppMode(preferredMode);
+            applyPersistedUserWrite(() => {
+              useUserStore.getState().setActiveAppMode(preferredMode);
+            });
 
             const displayName = user.displayName?.trim() || 'User';
-            useUserStore.getState().setName(displayName);
+            applyPersistedUserWrite(() => {
+              useUserStore.getState().setName(displayName);
+            });
           } else {
             resetAuthState();
-            setHasAuthenticatedUser(false);
             useUserStore.getState().reset();
           }
         } catch (issue) {
@@ -231,8 +262,16 @@ export default function RootLayout() {
       settled = true;
       unsub?.();
       clearTimeout(authTimeout);
+      pendingUserPersistWritesRef.current = [];
     };
-  }, [reportStartupIssue, resetAuthState, setAuthResolved, setHasAuthenticatedUser, setVerifying]);
+  }, [
+    applyPersistedUserWrite,
+    reportStartupIssue,
+    resetAuthState,
+    setAuthResolved,
+    setHasAuthenticatedUser,
+    setVerifying,
+  ]);
 
   useEffect(() => {
     if (Platform.OS === 'web') {

@@ -1,49 +1,91 @@
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { useReducedMotion } from '@/hooks/use-reduced-motion';
 import { useAuthStore } from '@/store/useAuthStore';
-import { resolveAuthenticatedDestination, resolveUnauthenticatedDestination } from '@/utils/authFlow';
+import {
+    resolveAuthenticatedDestination,
+    resolveUnauthenticatedDestination,
+    type AuthDestination,
+} from '@/utils/authFlow';
 import { authMotionEasing, getAuthMotionDurations } from '@/utils/authMotion';
-import { useRouter } from 'expo-router';
+import { useRootNavigationState, useRouter } from 'expo-router';
 import React, { useEffect, useRef } from 'react';
 import { Animated, StatusBar, StyleSheet, View } from 'react-native';
 
 const lightSplash = require('@/assets/images/ShooutS-2-splash-light (1).jpg.jpeg');
 const darkSplash = require('@/assets/images/ShooutS-1-splash-black.jpg.jpeg');
 
+export const STARTUP_DESTINATION_TIMEOUT_MS = 3000;
+export const STARTUP_FALLBACK_DESTINATION: AuthDestination = { pathname: '/(tabs)' };
+
 function wait(duration: number) {
   return new Promise((resolve) => setTimeout(resolve, duration));
+}
+
+export async function resolveStartupDestinationWithDeadline(
+  resolveDestination: () => Promise<AuthDestination>,
+  timeoutMs: number = STARTUP_DESTINATION_TIMEOUT_MS
+): Promise<AuthDestination> {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+  try {
+    return await Promise.race([
+      resolveDestination(),
+      new Promise<AuthDestination>((resolve) => {
+        timeoutId = setTimeout(() => resolve(STARTUP_FALLBACK_DESTINATION), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeoutId !== null) {
+      clearTimeout(timeoutId);
+    }
+  }
 }
 
 export default function AuthEntryScreen() {
   const appTheme = useAppTheme();
   const reduceMotion = useReducedMotion();
   const router = useRouter();
+  const rootNavigationState = useRootNavigationState();
   const { hasAuthenticatedUser, isAuthResolved } = useAuthStore();
   const durations = getAuthMotionDurations(reduceMotion);
   const hasNavigatedRef = useRef(false);
   const opacity = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    if (!isAuthResolved || hasNavigatedRef.current) {
+    if (!isAuthResolved || !rootNavigationState?.key || hasNavigatedRef.current) {
       return;
     }
+
+    let cancelled = false;
 
     const resolveAndNavigate = async () => {
       hasNavigatedRef.current = true;
 
-      let destination: any;
+      let destination: AuthDestination;
       try {
-        destination = hasAuthenticatedUser
-          ? await resolveAuthenticatedDestination()
-          : await resolveUnauthenticatedDestination();
+        destination = await resolveStartupDestinationWithDeadline(() =>
+          hasAuthenticatedUser ? resolveAuthenticatedDestination() : resolveUnauthenticatedDestination()
+        );
       } catch (err) {
         console.error('[Startup] Failed to resolve auth destination:', err);
-        destination = { pathname: '/(tabs)/index' };
+        destination = STARTUP_FALLBACK_DESTINATION;
+      }
+
+      if (cancelled) {
+        hasNavigatedRef.current = false;
+        return;
       }
 
       await wait(durations.splashHold);
 
+      if (cancelled) {
+        hasNavigatedRef.current = false;
+        return;
+      }
+
       try {
+        let animationTimeoutId: ReturnType<typeof setTimeout> | null = null;
+
         await Promise.race([
           new Promise<void>((resolve) => {
             Animated.timing(opacity, {
@@ -51,12 +93,28 @@ export default function AuthEntryScreen() {
               duration: durations.splashExit,
               easing: authMotionEasing.standard,
               useNativeDriver: true,
-            }).start(() => resolve());
+            }).start(() => {
+              if (animationTimeoutId !== null) {
+                clearTimeout(animationTimeoutId);
+                animationTimeoutId = null;
+              }
+              resolve();
+            });
           }),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('Animation timeout')), durations.splashExit + 500))
+          new Promise<void>((_, reject) => {
+            animationTimeoutId = setTimeout(
+              () => reject(new Error('Animation timeout')),
+              durations.splashExit + 500
+            );
+          }),
         ]);
       } catch (animErr) {
         console.warn('[Startup] Animation skipped or timed out:', animErr);
+      }
+
+      if (cancelled) {
+        hasNavigatedRef.current = false;
+        return;
       }
 
       router.replace(destination as any);
@@ -65,15 +123,21 @@ export default function AuthEntryScreen() {
     resolveAndNavigate().catch((globalErr) => {
       console.error('[Startup] Critical error resolving splash navigation:', globalErr);
       hasNavigatedRef.current = false;
-      router.replace('/(auth)/login');
+      if (!cancelled) {
+        router.replace('/(auth)/login');
+      }
     });
+
+    return () => {
+      cancelled = true;
+    };
   }, [
     durations.splashExit,
     durations.splashHold,
     hasAuthenticatedUser,
     isAuthResolved,
     opacity,
-    reduceMotion,
+    rootNavigationState?.key,
     router,
   ]);
 
