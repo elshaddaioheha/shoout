@@ -293,25 +293,31 @@ export default function RootLayout() {
     }
   }, [reportStartupIssue]);
 
-  const onRootLayout = useCallback(async () => {
-    if (!startupReady) return;
-    if (splashHidden.current) return;
-    splashHidden.current = true;
-
-    if (Platform.OS !== 'web') {
-      try {
-        await SplashScreen.hideAsync();
-      } catch (splashError) {
-        notifyWarning('[layout] Failed to hide splash screen', splashError);
-      }
+  useEffect(() => {
+    if (!startupReady || splashHidden.current) {
+      return;
     }
 
-    Animated.timing(contentOpacity, {
-      toValue: 1,
-      duration: 250,
-      useNativeDriver: true,
-    }).start();
-  }, [startupReady, contentOpacity]);
+    splashHidden.current = true;
+
+    const hideSplashAndReveal = async () => {
+      if (Platform.OS !== 'web') {
+        try {
+          await SplashScreen.hideAsync();
+        } catch (splashError) {
+          notifyWarning('[layout] Failed to hide splash screen', splashError);
+        }
+      }
+
+      Animated.timing(contentOpacity, {
+        toValue: 1,
+        duration: 250,
+        useNativeDriver: true,
+      }).start();
+    };
+
+    void hideSplashAndReveal();
+  }, [contentOpacity, startupReady]);
 
   if (!startupReady) {
     return null;
@@ -328,7 +334,7 @@ export default function RootLayout() {
   return (
     <ErrorBoundary FallbackComponent={FallbackErrorScreen} onError={handleRootBoundaryError}>
       <GestureHandlerRootView style={{ flex: 1 }}>
-        <Animated.View style={{ flex: 1, opacity: contentOpacity }} onLayout={onRootLayout}>
+        <Animated.View style={{ flex: 1, opacity: contentOpacity }}>
           <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
           <Stack
           initialRouteName="index"

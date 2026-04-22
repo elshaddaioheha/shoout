@@ -19,7 +19,18 @@ async function uploadFileFromUri(uri: string, path: string, metadata?: Record<st
   const response = await fetch(uri);
   const blob = await response.blob();
   const storageRef = ref(storage, path);
-  await uploadBytes(storageRef, blob, metadata ? { customMetadata: metadata } : undefined);
+  const lowerPath = path.toLowerCase();
+  const inferredContentType = blob.type
+    || (lowerPath.endsWith('.m4a') ? 'audio/mp4' : null)
+    || (lowerPath.endsWith('.mp3') ? 'audio/mpeg' : null)
+    || (lowerPath.endsWith('.wav') ? 'audio/wav' : null)
+    || (lowerPath.endsWith('.aac') ? 'audio/aac' : null)
+    || 'application/octet-stream';
+
+  await uploadBytes(storageRef, blob, {
+    contentType: inferredContentType,
+    ...(metadata ? { customMetadata: metadata } : {}),
+  });
   return getDownloadURL(storageRef);
 }
 

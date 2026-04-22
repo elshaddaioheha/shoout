@@ -1,5 +1,6 @@
 import ActionSheet from '@/components/ActionSheet';
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
+import SettingsHeader from '@/components/settings/SettingsHeader';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { usePlaybackStore } from '@/store/usePlaybackStore';
 import { useToastStore } from '@/store/useToastStore';
@@ -10,7 +11,6 @@ import { useRouter } from 'expo-router';
 import { collection, deleteDoc, doc, onSnapshot, orderBy, query } from 'firebase/firestore';
 import {
     CheckCircle2,
-    ChevronLeft,
     Clock,
     DollarSign,
     Edit3,
@@ -23,7 +23,6 @@ import {
     Trash2
 } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
-import SettingsHeader from '@/components/settings/SettingsHeader';
 import {
     ActivityIndicator,
     Alert,
@@ -204,6 +203,7 @@ export default function BeatsStoreManagement() {
                             <BeatCard
                                 beat={item}
                                 onDelete={() => handleDeleteBeat(item.id)}
+                                onEdit={openEditFlow}
                                 styles={styles}
                                 appTheme={appTheme}
                             />
@@ -223,7 +223,7 @@ export default function BeatsStoreManagement() {
     );
 }
 
-function BeatCard({ beat, onDelete, styles, appTheme }: any) {
+function BeatCard({ beat, onDelete, onEdit, styles, appTheme }: any) {
     const setTrack = usePlaybackStore(state => state.setTrack);
     const status = beat.published === true ? 'Published' : 'Unpublished';
     const [menuOpen, setMenuOpen] = useState(false);
@@ -255,7 +255,7 @@ function BeatCard({ beat, onDelete, styles, appTheme }: any) {
                     title={beat.title}
                     options={[
                         { label: 'Listen Preview', icon: <Play size={18} color={appTheme.colors.textPrimary} />, onPress: () => setTrack({ id: beat.id, title: beat.title, artist: 'My Track', url: beat.audioUrl, uploaderId: beat.uploaderId }) },
-                        { label: 'Edit Details', icon: <Edit3 size={18} color={appTheme.colors.textPrimary} />, onPress: openEditFlow },
+                        { label: 'Edit Details', icon: <Edit3 size={18} color={appTheme.colors.textPrimary} />, onPress: onEdit },
                         { label: 'Delete', icon: <Trash2 size={18} color="#FF4D4D" />, onPress: onDelete, destructive: true },
                     ]}
                 />
@@ -299,7 +299,7 @@ function BeatCard({ beat, onDelete, styles, appTheme }: any) {
                     <Play size={18} color={appTheme.colors.textPrimary} />
                     <Text style={styles.cardActionText}>Listen</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.cardActionButton} onPress={openEditFlow}>
+                <TouchableOpacity style={styles.cardActionButton} onPress={onEdit}>
                     <Edit3 size={18} color={appTheme.colors.textPrimary} />
                     <Text style={styles.cardActionText}>Edit</Text>
                 </TouchableOpacity>

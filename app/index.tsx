@@ -46,13 +46,14 @@ export default function AuthEntryScreen() {
   const reduceMotion = useReducedMotion();
   const router = useRouter();
   const rootNavigationState = useRootNavigationState();
+  const isNavigationReady = Boolean(rootNavigationState?.key);
   const { hasAuthenticatedUser, isAuthResolved } = useAuthStore();
   const durations = getAuthMotionDurations(reduceMotion);
   const hasNavigatedRef = useRef(false);
   const opacity = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    if (!isAuthResolved || !rootNavigationState?.key || hasNavigatedRef.current) {
+    if (!isAuthResolved || !isNavigationReady || hasNavigatedRef.current) {
       return;
     }
 
@@ -135,9 +136,9 @@ export default function AuthEntryScreen() {
     durations.splashExit,
     durations.splashHold,
     hasAuthenticatedUser,
+    isNavigationReady,
     isAuthResolved,
     opacity,
-    rootNavigationState?.key,
     router,
   ]);
 

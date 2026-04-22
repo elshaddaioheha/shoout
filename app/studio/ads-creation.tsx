@@ -494,6 +494,7 @@ function CompactAdPreview({ headline, trackTitle, coverUrl }: { headline: string
 function AudioAdPreview({ trackTitle, coverUrl }: { trackTitle?: string; coverUrl?: string }) {
   const styles = useAdsStyles();
   const appTheme = useAppTheme();
+  const modeTheme = getModeSurfaceTheme('studio', appTheme.isDark);
 
   return (
     <View style={styles.audioWrap}>

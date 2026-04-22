@@ -1,13 +1,14 @@
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
+import { colors } from '@/constants/colors';
 import { FontFamily } from '@/constants/theme';
 import { auth, db } from '@/firebaseConfig';
 import { useAppTheme } from '@/hooks/use-app-theme';
+import { useAuthStore } from '@/store/useAuthStore';
 import { useCartStore } from '@/store/useCartStore';
 import { useLayoutMetricsStore } from '@/store/useLayoutMetricsStore';
 import { useToastStore } from '@/store/useToastStore';
 import { adaptLegacyColor, adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { formatUsd } from '@/utils/pricing';
-import { colors } from '@/constants/colors';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import {
@@ -64,6 +65,7 @@ export default function CartScreen() {
 
     const router = useRouter();
     const { items, removeItem, clearCart, total } = useCartStore();
+    const hasAuthenticatedUser = useAuthStore((state) => state.hasAuthenticatedUser);
     const bottomTabBarHeight = useLayoutMetricsStore((state) => state.bottomTabBarHeight);
     const [bestSellers, setBestSellers] = useState<MarketplaceItem[]>([]);
     const [bestSellerLoading, setBestSellerLoading] = useState(true);
@@ -107,7 +109,7 @@ export default function CartScreen() {
             unsubMarket();
             unsubPurchases();
         };
-    }, [auth.currentUser?.uid]);
+    }, [hasAuthenticatedUser]);
 
 
     const handleCheckout = async () => {

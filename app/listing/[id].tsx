@@ -10,6 +10,7 @@ import {
     buildLicenseCartItemId,
     buildLicenseTierOptions,
     type LicenseTierId,
+    type LicenseTierOption,
 } from '@/utils/licenseTiers';
 import { BlurView } from 'expo-blur';
 import { Image } from 'expo-image';

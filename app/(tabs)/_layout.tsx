@@ -1,3 +1,4 @@
+import FallbackErrorScreen from '@/components/FallbackErrorScreen';
 import ModeSelectorSheet from '@/components/ModeSelectorSheet';
 import ModeTransitionOverlay from '@/components/ModeTransitionOverlay';
 import ResponsiveBottomTabBar from '@/components/ResponsiveBottomTabBar';
@@ -8,10 +9,9 @@ import { captureError } from '@/utils/monitoring';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Tabs, usePathname } from 'expo-router';
 import React, { createContext, useCallback, useContext, useEffect, useRef } from 'react';
-import { InteractionManager, StyleSheet } from 'react-native';
 import { ErrorBoundary } from 'react-error-boundary';
+import { InteractionManager, StyleSheet } from 'react-native';
 import Animated, { interpolate, useAnimatedStyle, type SharedValue } from 'react-native-reanimated';
-import FallbackErrorScreen from '@/components/FallbackErrorScreen';
 
 const TRANSITION_READY_SETTLE_MS = 450;
 
@@ -193,8 +193,7 @@ export default function TabLayout() {
           ]}
         >
           <Tabs
-            key={viewMode}
-            tabBar={(props: BottomTabBarProps) => <ResponsiveBottomTabBar key={viewMode} {...props} />}
+            tabBar={(props: BottomTabBarProps) => <ResponsiveBottomTabBar {...props} />}
             screenOptions={{
               headerShown: false,
             }}

@@ -1,13 +1,13 @@
-import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { verifyRoleViaCustomClaims } from '@/utils/subscriptionVerification';
+import { Slot, useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
 
 const ALLOWED_ROLES = ['admin', 'moderator', 'auditor'];
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
+export default function AdminLayout() {
   const appTheme = useAppTheme();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
@@ -57,5 +57,5 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     );
   }
 
-  return <>{children}</>;
+  return <Slot />;
 }

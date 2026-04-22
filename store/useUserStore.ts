@@ -2,7 +2,7 @@ import type { AppMode, SubscriptionPlanId } from '@/utils/subscriptions';
 import { getEffectivePlan, getFeatureFlags } from '@/utils/subscriptions';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
-import { createJSONStorage, persist } from 'zustand/middleware';
+import { createJSONStorage, persist, type StateStorage } from 'zustand/middleware';
 
 export type UserRole = SubscriptionPlanId;
 export type ViewMode = AppMode;
@@ -40,6 +40,17 @@ interface PersistedUserState {
 }
 
 const STORAGE_KEY = 'shoouts-user-preferences-v4';
+const canUseBrowserStorage = typeof window !== 'undefined';
+
+const noopStorage: StateStorage = {
+    getItem: () => null,
+    setItem: () => {
+        // No-op for non-browser runtimes (server-side web rendering).
+    },
+    removeItem: () => {
+        // No-op for non-browser runtimes (server-side web rendering).
+    },
+};
 
 const getRoleCapabilities = (role: UserRole) => {
     const flags = getFeatureFlags(role);
@@ -93,15 +104,15 @@ export const useUserStore = create<UserState>()(
         }),
         {
             name: STORAGE_KEY,
-            storage: createJSONStorage(() => AsyncStorage),
-            skipHydration: process.env.NODE_ENV === 'test',
-            onRehydrateStorage: () => {
-                useUserStore.getState().setHydrated(false);
-                return (_, error) => {
+            storage: createJSONStorage(() => (canUseBrowserStorage ? AsyncStorage : noopStorage)),
+            skipHydration: process.env.NODE_ENV === 'test' || !canUseBrowserStorage,
+            onRehydrateStorage: (state) => {
+                state?.setHydrated(false);
+                return (rehydratedState, error) => {
                     if (error) {
                         console.warn('[useUserStore] Failed to rehydrate persisted state:', error);
                     }
-                    useUserStore.getState().setHydrated(true);
+                    rehydratedState?.setHydrated(true);
                 };
             },
             partialize: (state): PersistedUserState => ({
