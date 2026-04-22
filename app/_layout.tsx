@@ -7,9 +7,8 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { usePlaybackStore } from '@/store/usePlaybackStore';
 import { useUIStore } from '@/store/useUIStore';
 import { useUserStore } from '@/store/useUserStore';
-import { getLastNotification, initNotifications, subscribeToNotifications } from '@/utils/notifications';
+import { initNotifications } from '@/utils/notifications';
 import { notifyError, notifyWarning } from '@/utils/notify';
-import { normalizeAppPath } from '@/utils/routes';
 import { getDefaultAppModeForPlan } from '@/utils/subscriptions';
 import { hydrateSubscriptionTier } from '@/utils/subscriptionVerification';
 import { Poppins_300Light, Poppins_400Regular, Poppins_500Medium, Poppins_600SemiBold, Poppins_700Bold, useFonts } from '@expo-google-fonts/poppins';
@@ -24,6 +23,7 @@ import { ErrorBoundary } from 'react-error-boundary';
 import { Animated, Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { auth } from '../firebaseConfig';
 import { captureError, initMonitoring } from '../utils/monitoring';
 
@@ -37,38 +37,190 @@ if (Platform.OS !== 'web') {
     // Ignore splash state errors; they should never block app render.
   });
 }
-export default function RootLayout() {
-  const colorScheme = useColorScheme();
-  const router = useRouter();
+
+function NullStartupFallback() {
+  return null;
+}
+
+function toStartupError(issue: unknown, scope: string) {
+  return issue instanceof Error ? issue : new Error(`[${scope}] ${String(issue ?? 'Unknown startup issue')}`);
+}
+
+function StartupProcessBoundary({
+  scope,
+  onError,
+  children,
+}: {
+  scope: string;
+  onError: (scope: string, issue: unknown) => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <ErrorBoundary
+      FallbackComponent={NullStartupFallback}
+      onError={(boundaryError, info) => {
+        captureError(boundaryError, {
+          scope,
+          phase: 'startup-process-boundary',
+          componentStack: info.componentStack || '',
+        });
+        onError(scope, boundaryError);
+      }}
+    >
+      {children}
+    </ErrorBoundary>
+  );
+}
+
+function MonitoringStartup({ reportStartupIssue }: { reportStartupIssue: (scope: string, issue: unknown) => void }) {
+  const [fatalError, setFatalError] = useState<Error | null>(null);
+
+  if (fatalError) {
+    throw fatalError;
+  }
+
+  useEffect(() => {
+    try {
+      initMonitoring();
+    } catch (issue) {
+      const startupError = toStartupError(issue, 'monitoring-init');
+      reportStartupIssue('monitoring-init', startupError);
+      setFatalError(startupError);
+    }
+  }, [reportStartupIssue]);
+
+  return null;
+}
+
+function NotificationsStartup({ reportStartupIssue }: { reportStartupIssue: (scope: string, issue: unknown) => void }) {
+  const [fatalError, setFatalError] = useState<Error | null>(null);
+
+  if (fatalError) {
+    throw fatalError;
+  }
+
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      return;
+    }
+
+    void initNotifications().catch((issue) => {
+      const startupError = toStartupError(issue, 'notifications-init');
+      reportStartupIssue('notifications-init', startupError);
+      setFatalError(startupError);
+    });
+  }, [reportStartupIssue]);
+
+  return null;
+}
+
+function AccessibilityStartup({ reportStartupIssue }: { reportStartupIssue: (scope: string, issue: unknown) => void }) {
+  const [fatalError, setFatalError] = useState<Error | null>(null);
+
+  if (fatalError) {
+    throw fatalError;
+  }
+
+  useEffect(() => {
+    void useAccessibilityStore
+      .getState()
+      .initScreenReaderState()
+      .catch((issue) => {
+        const startupError = toStartupError(issue, 'accessibility-init');
+        reportStartupIssue('accessibility-init', startupError);
+        setFatalError(startupError);
+      });
+  }, [reportStartupIssue]);
+
+  return null;
+}
+
+function GoogleSigninStartup({ reportStartupIssue }: { reportStartupIssue: (scope: string, issue: unknown) => void }) {
+  const [fatalError, setFatalError] = useState<Error | null>(null);
+
+  if (fatalError) {
+    throw fatalError;
+  }
+
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      return;
+    }
+
+    const googleWebClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID?.trim();
+    if (!googleWebClientId) {
+      notifyWarning('Google Sign-In not configured: EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID is missing.');
+      return;
+    }
+
+    try {
+      GoogleSignin.configure({
+        webClientId: googleWebClientId,
+      });
+    } catch (issue) {
+      const startupError = toStartupError(issue, 'google-signin-config');
+      reportStartupIssue('google-signin-config', startupError);
+      setFatalError(startupError);
+    }
+  }, [reportStartupIssue]);
+
+  return null;
+}
+
+function PlayerBootstrapStartup({ reportStartupIssue }: { reportStartupIssue: (scope: string, issue: unknown) => void }) {
+  const [fatalError, setFatalError] = useState<Error | null>(null);
+  const [playerBootstrapped, setPlayerBootstrapped] = useState(false);
+
+  if (fatalError) {
+    throw fatalError;
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const bootstrapPlayerState = async () => {
+      try {
+        // Always boot with a clean player UI/audio state to avoid carry-over.
+        useUIStore.getState().hidePlayer();
+        useUIStore.getState().setModeTransitioning(false);
+        await usePlaybackStore.getState().clearTrack();
+      } catch (issue) {
+        const startupError = toStartupError(issue, 'player-bootstrap');
+        reportStartupIssue('player-bootstrap', startupError);
+        setFatalError(startupError);
+      } finally {
+        if (!cancelled) {
+          setPlayerBootstrapped(true);
+        }
+      }
+    };
+
+    void bootstrapPlayerState();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [reportStartupIssue]);
+
+  if (!playerBootstrapped) {
+    return null;
+  }
+
+  return <PlayerContainer />;
+}
+
+function AuthBootstrapStartup({ reportStartupIssue }: { reportStartupIssue: (scope: string, issue: unknown) => void }) {
   const setVerifying = useAuthStore((state) => state.setVerifying);
   const setAuthResolved = useAuthStore((state) => state.setAuthResolved);
   const setHasAuthenticatedUser = useAuthStore((state) => state.setHasAuthenticatedUser);
   const resetAuthState = useAuthStore((state) => state.reset);
   const isUserStoreHydrated = useUserStore((state) => state.isHydrated);
-  const splashHidden = useRef(false);
-  const contentOpacity = useRef(new Animated.Value(0)).current;
   const pendingUserPersistWritesRef = useRef<Array<() => void>>([]);
-  const [playerBootstrapped, setPlayerBootstrapped] = useState(false);
-  const [startupFallbackReady, setStartupFallbackReady] = useState(false);
+  const [fatalError, setFatalError] = useState<Error | null>(null);
 
-  const [fontsLoaded, fontError] = useFonts({
-    'Poppins-Light': Poppins_300Light,
-    'Poppins-Regular': Poppins_400Regular,
-    'Poppins-Medium': Poppins_500Medium,
-    'Poppins-SemiBold': Poppins_600SemiBold,
-    'Poppins-Bold': Poppins_700Bold,
-  });
-
-  const [loaded, error] = [fontsLoaded, fontError];
-  const startupReady = loaded || error || startupFallbackReady;
-  const reportStartupIssue = useCallback((scope: string, issue: unknown) => {
-    const startupError = issue instanceof Error ? issue : new Error(String(issue ?? 'Unknown startup issue'));
-    captureError(startupError, {
-      scope,
-      phase: 'startup',
-    });
-    notifyWarning(`[layout] ${scope}`, startupError);
-  }, []);
+  if (fatalError) {
+    throw fatalError;
+  }
 
   const applyPersistedUserWrite = useCallback((write: () => void) => {
     if (useUserStore.getState().isHydrated) {
@@ -89,107 +241,12 @@ export default function RootLayout() {
       try {
         write();
       } catch (issue) {
-        reportStartupIssue('user-store-persist-queue', issue);
+        const startupError = toStartupError(issue, 'user-store-persist-queue');
+        reportStartupIssue('user-store-persist-queue', startupError);
+        setFatalError(startupError);
       }
     });
   }, [isUserStoreHydrated, reportStartupIssue]);
-
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      setStartupFallbackReady(true);
-    }, 4000);
-
-    return () => clearTimeout(timeout);
-  }, []);
-
-  useEffect(() => {
-    try {
-      initMonitoring();
-      if (Platform.OS !== 'web') {
-        void initNotifications().catch((issue) => reportStartupIssue('notifications-init', issue));
-      }
-      void useAccessibilityStore
-        .getState()
-        .initScreenReaderState()
-        .catch((issue) => reportStartupIssue('accessibility-init', issue));
-    } catch (issue) {
-      reportStartupIssue('startup-init', issue);
-    }
-  }, [reportStartupIssue]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const bootstrapPlayerState = async () => {
-      try {
-        // Always boot with a clean player UI/audio state to avoid carry-over.
-        useUIStore.getState().hidePlayer();
-        useUIStore.getState().setModeTransitioning(false);
-        await usePlaybackStore.getState().clearTrack();
-      } catch (issue) {
-        reportStartupIssue('player-bootstrap', issue);
-      } finally {
-        if (!cancelled) {
-          setPlayerBootstrapped(true);
-        }
-      }
-    };
-
-    void bootstrapPlayerState();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [reportStartupIssue]);
-
-  useEffect(() => {
-    if (Platform.OS === 'web') {
-      return;
-    }
-
-    let cancelled = false;
-
-    const unsubscribe = subscribeToNotifications((notification) => {
-      try {
-        const data = (notification as any)?.request?.content?.data as any;
-        const route = normalizeAppPath(data?.route);
-        if (route) {
-          router.push(route as any);
-        } else if (data?.route) {
-          reportStartupIssue('notification-route', new Error('Notification route could not be normalized.'));
-        }
-      } catch (issue) {
-        reportStartupIssue('notification-navigation', issue);
-      }
-    });
-
-    void getLastNotification()
-      .then((response) => {
-        if (cancelled || !response) {
-          return;
-        }
-
-        try {
-          const data = (response as any)?.notification?.request?.content?.data as any;
-          const route = normalizeAppPath(data?.route);
-          if (route) {
-            router.push(route as any);
-          } else if (data?.route) {
-            reportStartupIssue('notification-initial-route', new Error('Initial notification route could not be normalized.'));
-          }
-        } catch (issue) {
-          reportStartupIssue('notification-initial-navigation', issue);
-        }
-      })
-      .catch((issue) => {
-        reportStartupIssue('notification-last-response', issue);
-      });
-
-    return () => {
-      cancelled = true;
-      unsubscribe();
-    };
-  }, [reportStartupIssue, router]);
 
   useEffect(() => {
     let settled = false;
@@ -248,13 +305,17 @@ export default function RootLayout() {
             useUserStore.getState().reset();
           }
         } catch (issue) {
-          reportStartupIssue('auth-bootstrap', issue);
+          const startupError = toStartupError(issue, 'auth-bootstrap');
+          reportStartupIssue('auth-bootstrap', startupError);
+          setFatalError(startupError);
         } finally {
           settleAuthBootstrap(Boolean(user));
         }
       });
     } catch (issue) {
-      reportStartupIssue('auth-listener', issue);
+      const startupError = toStartupError(issue, 'auth-listener');
+      reportStartupIssue('auth-listener', startupError);
+      setFatalError(startupError);
       settleAuthBootstrap(Boolean(auth.currentUser));
     }
 
@@ -273,25 +334,42 @@ export default function RootLayout() {
     setVerifying,
   ]);
 
+  return null;
+}
+export default function RootLayout() {
+  const colorScheme = useColorScheme();
+  const router = useRouter();
+  const splashHidden = useRef(false);
+  const contentOpacity = useRef(new Animated.Value(0)).current;
+  const [startupFallbackReady, setStartupFallbackReady] = useState(false);
+
+  const [fontsLoaded, fontError] = useFonts({
+    'Poppins-Light': Poppins_300Light,
+    'Poppins-Regular': Poppins_400Regular,
+    'Poppins-Medium': Poppins_500Medium,
+    'Poppins-SemiBold': Poppins_600SemiBold,
+    'Poppins-Bold': Poppins_700Bold,
+  });
+
+  const [loaded, error] = [fontsLoaded, fontError];
+  const startupReady = loaded || error || startupFallbackReady;
+  const reportStartupIssue = useCallback((scope: string, issue: unknown) => {
+    const startupError = issue instanceof Error ? issue : new Error(String(issue ?? 'Unknown startup issue'));
+    captureError(startupError, {
+      scope,
+      phase: 'startup',
+    });
+    notifyWarning(`[layout] ${scope}`, startupError);
+  }, []);
+
   useEffect(() => {
-    if (Platform.OS === 'web') {
-      return;
-    }
+    const timeout = setTimeout(() => {
+      setStartupFallbackReady(true);
+    }, 4000);
 
-    const googleWebClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID?.trim();
-    if (!googleWebClientId) {
-      notifyWarning('Google Sign-In not configured: EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID is missing.');
-      return;
-    }
+    return () => clearTimeout(timeout);
+  }, []);
 
-    try {
-      GoogleSignin.configure({
-        webClientId: googleWebClientId,
-      });
-    } catch (issue) {
-      reportStartupIssue('google-signin-config', issue);
-    }
-  }, [reportStartupIssue]);
 
   useEffect(() => {
     if (!startupReady || splashHidden.current) {
@@ -333,77 +411,96 @@ export default function RootLayout() {
 
   return (
     <ErrorBoundary FallbackComponent={FallbackErrorScreen} onError={handleRootBoundaryError}>
-      <GestureHandlerRootView style={{ flex: 1 }}>
-        <Animated.View style={{ flex: 1, opacity: contentOpacity }}>
-          <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-          <Stack
-          initialRouteName="index"
-          screenOptions={{
-            headerShown: false,
-            animation: 'fade',
-            gestureEnabled: true,
-            fullScreenGestureEnabled: true,
-          }}
-        >
-          <Stack.Screen name="index" options={{ animation: 'none' }} />
-          <Stack.Screen name="(auth)/onboarding" options={{ animation: 'fade_from_bottom' }} />
-          <Stack.Screen name="(auth)/role-selection" options={{ animation: 'fade_from_bottom' }} />
-          <Stack.Screen name="(auth)/login" options={{ animation: 'fade_from_bottom' }} />
-          <Stack.Screen name="(auth)/signup" options={{ animation: 'fade_from_bottom' }} />
-          <Stack.Screen name="(auth)/studio-creation" options={{ animation: 'fade_from_bottom' }} />
-          <Stack.Screen name="(auth)/forgot-password" />
-          <Stack.Screen name="(auth)/forgot-password-code" />
-          <Stack.Screen name="(auth)/reset-password" />
-          <Stack.Screen name="(auth)/signup-otp" options={{ animation: 'fade_from_bottom' }} />
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="admin" />
-          <Stack.Screen name="settings/payment-methods" options={{ animation: 'slide_from_right' }} />
-          <Stack.Screen name="settings/subscriptions" options={{ animation: 'slide_from_right' }} />
-          <Stack.Screen name="settings/downloads" options={{ animation: 'slide_from_right' }} />
-          <Stack.Screen name="settings/localization" options={{ animation: 'slide_from_right' }} />
-          <Stack.Screen name="settings/help-center" options={{ animation: 'slide_from_right' }} />
-          <Stack.Screen name="settings/appearance" options={{ animation: 'slide_from_right' }} />
-          <Stack.Screen name="settings/notifications" options={{ animation: 'slide_from_right' }} />
-          <Stack.Screen name="settings/privacy" options={{ animation: 'slide_from_right' }} />
-          <Stack.Screen name="notifications" />
-          <Stack.Screen name="studio/analytics" />
-          <Stack.Screen name="studio/ads-intro" />
-          <Stack.Screen name="studio/ads-creation" />
-          <Stack.Screen name="studio/ads-success" />
-          <Stack.Screen name="studio/ads-example" />
-          <Stack.Screen name="studio/earnings" />
-          <Stack.Screen name="studio/upload" />
-          <Stack.Screen name="studio/withdraw" />
-          <Stack.Screen name="studio/messages" />
-          <Stack.Screen name="studio/message-thread" />
-          <Stack.Screen name="studio/settings" />
-          <Stack.Screen name="vault/upload" />
-          <Stack.Screen name="vault/convert" />
-          <Stack.Screen name="vault/record" />
-          <Stack.Screen name="vault/links" />
-          <Stack.Screen name="vault/updates" />
-          <Stack.Screen name="vault/folder/[id]" />
-          <Stack.Screen name="vault/track/[id]" />
-          <Stack.Screen name="chat/index" />
-          <Stack.Screen name="chat/[id]" />
-          <Stack.Screen name="profile/[id]" />
-          <Stack.Screen
-            name="listing/[id]"
-            options={{
-              headerShown: false,
-              presentation: 'transparentModal',
-              animation: 'slide_from_bottom',
-              contentStyle: { backgroundColor: 'transparent' },
-            }}
-          />
-          <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-          </Stack>
-          <GlobalToast />
-          {playerBootstrapped && <PlayerContainer />}
-          <StatusBar style="auto" />
-        </ThemeProvider>
-      </Animated.View>
-    </GestureHandlerRootView>
+      <SafeAreaProvider>
+        <GestureHandlerRootView style={{ flex: 1 }}>
+          <Animated.View style={{ flex: 1, opacity: contentOpacity }}>
+            <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+              <StartupProcessBoundary scope="monitoring-init" onError={reportStartupIssue}>
+                <MonitoringStartup reportStartupIssue={reportStartupIssue} />
+              </StartupProcessBoundary>
+              <StartupProcessBoundary scope="notifications-init" onError={reportStartupIssue}>
+                <NotificationsStartup reportStartupIssue={reportStartupIssue} />
+              </StartupProcessBoundary>
+              <StartupProcessBoundary scope="accessibility-init" onError={reportStartupIssue}>
+                <AccessibilityStartup reportStartupIssue={reportStartupIssue} />
+              </StartupProcessBoundary>
+              <StartupProcessBoundary scope="google-signin-config" onError={reportStartupIssue}>
+                <GoogleSigninStartup reportStartupIssue={reportStartupIssue} />
+              </StartupProcessBoundary>
+              <StartupProcessBoundary scope="auth-bootstrap" onError={reportStartupIssue}>
+                <AuthBootstrapStartup reportStartupIssue={reportStartupIssue} />
+              </StartupProcessBoundary>
+              <StartupProcessBoundary scope="player-bootstrap" onError={reportStartupIssue}>
+                <PlayerBootstrapStartup reportStartupIssue={reportStartupIssue} />
+              </StartupProcessBoundary>
+              <Stack
+                initialRouteName="index"
+                screenOptions={{
+                  headerShown: false,
+                  animation: 'fade',
+                  gestureEnabled: true,
+                  fullScreenGestureEnabled: true,
+                }}
+              >
+                <Stack.Screen name="index" options={{ animation: 'none' }} />
+                <Stack.Screen name="(auth)/onboarding" options={{ animation: 'fade_from_bottom' }} />
+                <Stack.Screen name="(auth)/role-selection" options={{ animation: 'fade_from_bottom' }} />
+                <Stack.Screen name="(auth)/login" options={{ animation: 'fade_from_bottom' }} />
+                <Stack.Screen name="(auth)/signup" options={{ animation: 'fade_from_bottom' }} />
+                <Stack.Screen name="(auth)/studio-creation" options={{ animation: 'fade_from_bottom' }} />
+                <Stack.Screen name="(auth)/forgot-password" />
+                <Stack.Screen name="(auth)/forgot-password-code" />
+                <Stack.Screen name="(auth)/reset-password" />
+                <Stack.Screen name="(auth)/signup-otp" options={{ animation: 'fade_from_bottom' }} />
+                <Stack.Screen name="(tabs)" />
+                <Stack.Screen name="admin" />
+                <Stack.Screen name="settings/payment-methods" options={{ animation: 'slide_from_right' }} />
+                <Stack.Screen name="settings/subscriptions" options={{ animation: 'slide_from_right' }} />
+                <Stack.Screen name="settings/downloads" options={{ animation: 'slide_from_right' }} />
+                <Stack.Screen name="settings/localization" options={{ animation: 'slide_from_right' }} />
+                <Stack.Screen name="settings/help-center" options={{ animation: 'slide_from_right' }} />
+                <Stack.Screen name="settings/appearance" options={{ animation: 'slide_from_right' }} />
+                <Stack.Screen name="settings/notifications" options={{ animation: 'slide_from_right' }} />
+                <Stack.Screen name="settings/privacy" options={{ animation: 'slide_from_right' }} />
+                <Stack.Screen name="notifications" />
+                <Stack.Screen name="studio/analytics" />
+                <Stack.Screen name="studio/ads-intro" />
+                <Stack.Screen name="studio/ads-creation" />
+                <Stack.Screen name="studio/ads-success" />
+                <Stack.Screen name="studio/ads-example" />
+                <Stack.Screen name="studio/earnings" />
+                <Stack.Screen name="studio/upload" />
+                <Stack.Screen name="studio/withdraw" />
+                <Stack.Screen name="studio/messages" />
+                <Stack.Screen name="studio/message-thread" />
+                <Stack.Screen name="studio/settings" />
+                <Stack.Screen name="vault/upload" />
+                <Stack.Screen name="vault/convert" />
+                <Stack.Screen name="vault/record" />
+                <Stack.Screen name="vault/links" />
+                <Stack.Screen name="vault/updates" />
+                <Stack.Screen name="vault/folder/[id]" />
+                <Stack.Screen name="vault/track/[id]" />
+                <Stack.Screen name="chat/index" />
+                <Stack.Screen name="chat/[id]" />
+                <Stack.Screen name="profile/[id]" />
+                <Stack.Screen
+                  name="listing/[id]"
+                  options={{
+                    headerShown: false,
+                    presentation: 'transparentModal',
+                    animation: 'slide_from_bottom',
+                    contentStyle: { backgroundColor: 'transparent' },
+                  }}
+                />
+                <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+              </Stack>
+              <GlobalToast />
+              <StatusBar style="auto" />
+            </ThemeProvider>
+          </Animated.View>
+        </GestureHandlerRootView>
+      </SafeAreaProvider>
     </ErrorBoundary>
   );
 }

@@ -1,40 +1,131 @@
 import { useAppSwitcherContext } from '@/app/(tabs)/_layout';
 import SafeScreenWrapper from '@/components/SafeScreenWrapper';
 import SharedHeader from '@/components/SharedHeader';
+import { colors } from '@/constants/colors';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { usePublishedUploads, type PublishedUpload } from '@/hooks/usePublishedUploads';
 import { useCartStore } from '@/store/useCartStore';
 import { useExplorePlayerStore } from '@/store/useExplorePlayerStore';
+import { useLayoutMetricsStore } from '@/store/useLayoutMetricsStore';
 import { usePlaybackStore } from '@/store/usePlaybackStore';
 import { useToastStore } from '@/store/useToastStore';
-import { adaptLegacyColor, adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
+import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { formatUsd } from '@/utils/pricing';
+import { useIsFocused } from '@react-navigation/native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Heart, Music, Search, ShoppingCart, ThumbsDown } from 'lucide-react-native';
-import { useIsFocused } from '@react-navigation/native';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Heart, Music, Play, ShoppingCart, ThumbsDown } from 'lucide-react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   FlatList,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   useWindowDimensions,
   View,
-  ViewToken,
+  type ViewToken,
 } from 'react-native';
 
-import { colors } from '@/constants/colors';
+const HEADER_HEIGHT = 60;
 
 type DiscoverItem = PublishedUpload;
 type ExploreFeedItem = DiscoverItem & { feedKey: string };
+type ExploreItemProps = {
+  item: ExploreFeedItem;
+  contentHeight: number;
+  width: number;
+  appTheme: ReturnType<typeof useAppTheme>;
+  likedTracks: Record<string, boolean>;
+  handleLike: (item: DiscoverItem) => void;
+  handleDislike: (item: DiscoverItem) => void;
+  handlePurchase: (item: DiscoverItem) => void;
+  togglePlayPause: () => Promise<void>;
+};
 
 const SHOOUT_BLUE = colors.shooutPrimary;
 
 function useExploreStyles() {
   const appTheme = useAppTheme();
   return React.useMemo(() => StyleSheet.create(adaptLegacyStyles(legacyStyles, appTheme) as any), [appTheme]);
+}
+
+function ExploreItem({ item, contentHeight, width, appTheme, likedTracks, handleLike, handleDislike, handlePurchase, togglePlayPause }: ExploreItemProps) {
+  const styles = useExploreStyles();
+  const isPlaying = useExplorePlayerStore((state) => state.isPlaying);
+  const exploreCurrentTrack = useExplorePlayerStore((state) => state.currentTrack);
+  const explorePosition = useExplorePlayerStore((state) => state.position);
+  const exploreDuration = useExplorePlayerStore((state) => state.duration);
+
+  const progressPct =
+    exploreCurrentTrack?.id === item.id && exploreDuration > 0
+      ? Math.min(1, Math.max(0, explorePosition / exploreDuration))
+      : 0;
+
+  return (
+    <TouchableOpacity activeOpacity={1} onPress={togglePlayPause} style={[styles.explorePage, { width, height: contentHeight }]}>
+      {!isPlaying && (
+        <View style={styles.playPauseOverlay}>
+          <Play size={64} color="rgba(255, 255, 255, 0.8)" />
+        </View>
+      )}
+      <View style={styles.exploreArtworkWrap}>
+        {item.artworkUrl ? (
+          <Image source={{ uri: item.artworkUrl }} style={styles.fillImage} contentFit="cover" />
+        ) : (
+          <View style={styles.exploreFallback}>
+            <Music size={48} color={appTheme.colors.textSecondary} />
+          </View>
+        )}
+        <LinearGradient
+          colors={['transparent', 'rgba(0,0,0,0.4)', 'rgba(0,0,0,0.92)']}
+          style={styles.exploreGradient}
+        />
+      </View>
+
+      <View style={styles.exploreActions}>
+        <TouchableOpacity
+          style={[
+            styles.exploreActionBtn,
+            likedTracks[item.id] && styles.exploreActionBtnActive
+          ]}
+          onPress={() => handleLike(item)}
+          activeOpacity={0.85}
+        >
+          <Heart size={28} color="#FFFFFF" fill={likedTracks[item.id] ? '#EC5C39' : 'transparent'} />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.exploreActionBtn}
+          onPress={() => handleDislike(item)}
+          activeOpacity={0.85}
+        >
+          <ThumbsDown size={28} color="#FFFFFF" />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.exploreActionBtn}
+          onPress={() => handlePurchase(item)}
+          activeOpacity={0.85}
+        >
+          <ShoppingCart size={28} color="#FFFFFF" />
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.exploreMetaBlock}>
+        <Text style={[styles.exploreTitle, { color: '#FFFFFF' }]} numberOfLines={1}>
+          {item.title}
+        </Text>
+        <Text style={[styles.exploreArtist, { color: 'rgba(255,255,255,0.86)' }]} numberOfLines={1}>
+          {item.uploaderName} • {item.genre}
+        </Text>
+        <Text style={[styles.explorePrice, { color: '#FDE3DA' }]}>{formatUsd(item.price || 0)}</Text>
+      </View>
+
+      <View style={styles.feedProgressTrack}>
+        <View style={[styles.feedProgressFill, { width: `${progressPct * 100}%` }]} />
+      </View>
+    </TouchableOpacity>
+  );
 }
 
 export default function ExploreScreen() {
@@ -44,6 +135,8 @@ export default function ExploreScreen() {
   const { width, height } = useWindowDimensions();
   const { openSheet, isModeSheetOpen, viewMode } = useAppSwitcherContext();
   const { showToast } = useToastStore();
+  const { bottomTabBarHeight } = useLayoutMetricsStore();
+  const contentHeight = height - HEADER_HEIGHT - bottomTabBarHeight;
 
   const cartCount = useCartStore((state) => state.items.length);
   const addItem = useCartStore((state) => state.addItem);
@@ -59,10 +152,8 @@ export default function ExploreScreen() {
   const stockIsPlaying = usePlaybackStore((state) => state.isPlaying);
   const pauseStockPlayback = usePlaybackStore((state) => state.togglePlayPause);
 
-  const exploreCurrentTrack = useExplorePlayerStore((state) => state.currentTrack);
-  const explorePosition = useExplorePlayerStore((state) => state.position);
-  const exploreDuration = useExplorePlayerStore((state) => state.duration);
   const clearExploreTrack = useExplorePlayerStore((state) => state.clearTrack);
+  const togglePlayPause = useExplorePlayerStore((state) => state.togglePlayPause);
   const setExploreImmersiveMode = useExplorePlayerStore((state) => state.setImmersiveMode);
 
   const [likedTracks, setLikedTracks] = useState<Record<string, boolean>>({});
@@ -159,12 +250,12 @@ export default function ExploreScreen() {
       });
   }).current;
 
-  const handleLike = (item: ExploreFeedItem) => {
+  const handleLike = (item: DiscoverItem) => {
     setLikedTracks((prev) => ({ ...prev, [item.id]: !prev[item.id] }));
     showToast(likedTracks[item.id] ? 'Removed like.' : 'Liked track.', 'success');
   };
 
-  const handleDislike = (item: ExploreFeedItem) => {
+  const handleDislike = (item: DiscoverItem) => {
     setDislikedTracks((prev) => ({ ...prev, [item.id]: true }));
     showToast('Track disliked. Skipping...', 'info');
 
@@ -186,72 +277,18 @@ export default function ExploreScreen() {
   };
 
   const renderExploreItem = ({ item }: { item: ExploreFeedItem }) => {
-    const progressPct =
-      exploreCurrentTrack?.id === item.id && exploreDuration > 0
-        ? Math.min(1, Math.max(0, explorePosition / exploreDuration))
-        : 0;
-
     return (
-      <View style={[styles.explorePage, { width, height: height - 148 }]}>
-        <View style={styles.exploreArtworkWrap}>
-          {item.artworkUrl ? (
-            <Image source={{ uri: item.artworkUrl }} style={styles.fillImage} contentFit="cover" />
-          ) : (
-            <View style={styles.exploreFallback}>
-              <Music size={48} color={appTheme.colors.textSecondary} />
-            </View>
-          )}
-          <LinearGradient
-            colors={['transparent', 'rgba(0,0,0,0.4)', 'rgba(0,0,0,0.92)']}
-            style={styles.exploreGradient}
-          />
-        </View>
-
-        <View style={styles.exploreMetaBlock}>
-          <Text style={[styles.exploreTitle, { color: '#FFFFFF' }]} numberOfLines={1}>
-            {item.title}
-          </Text>
-          <Text style={[styles.exploreArtist, { color: 'rgba(255,255,255,0.86)' }]} numberOfLines={1}>
-            {item.uploaderName} • {item.genre}
-          </Text>
-          <Text style={[styles.explorePrice, { color: '#FDE3DA' }]}>{formatUsd(item.price || 0)}</Text>
-        </View>
-
-        <View style={styles.exploreActions}>
-          <TouchableOpacity
-            style={[
-              styles.exploreActionBtn,
-              { borderColor: 'rgba(255,255,255,0.28)', backgroundColor: 'rgba(20,15,16,0.35)' },
-              likedTracks[item.id] && styles.exploreActionBtnActive
-            ]}
-            onPress={() => handleLike(item)}
-            activeOpacity={0.85}
-          >
-            <Heart size={22} color="#FFFFFF" fill={likedTracks[item.id] ? '#EC5C39' : 'transparent'} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.exploreActionBtn, { borderColor: 'rgba(255,255,255,0.28)', backgroundColor: 'rgba(20,15,16,0.35)' }]}
-            onPress={() => handleDislike(item)}
-            activeOpacity={0.85}
-          >
-            <ThumbsDown size={22} color="#FFFFFF" />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.explorePurchaseBtn, { borderColor: 'rgba(255,255,255,0.6)', backgroundColor: '#F8D5CB' }]}
-            onPress={() => handlePurchase(item)}
-            activeOpacity={0.85}
-          >
-            <ShoppingCart size={18} color="#140F10" />
-            <Text style={[styles.explorePurchaseLabel, { color: '#140F10' }]}>Purchase</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.feedProgressTrack}>
-          <View style={[styles.feedProgressFill, { width: `${progressPct * 100}%` }]} />
-        </View>
-      </View>
+      <ExploreItem
+        item={item}
+        contentHeight={contentHeight}
+        width={width}
+        appTheme={appTheme}
+        likedTracks={likedTracks}
+        handleLike={handleLike}
+        handleDislike={handleDislike}
+        handlePurchase={handlePurchase}
+        togglePlayPause={togglePlayPause}
+      />
     );
   };
 
@@ -302,8 +339,8 @@ export default function ExploreScreen() {
             }
             getItemLayout={(_, index) => ({
               index,
-              length: height - 148,
-              offset: (height - 148) * index,
+              length: contentHeight,
+              offset: contentHeight * index,
             })}
           />
         )}
@@ -566,6 +603,14 @@ const legacyStyles = {
   explorePage: {
     position: 'relative',
     overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  playPauseOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
   },
   exploreArtworkWrap: {
     ...StyleSheet.absoluteFillObject,
@@ -582,7 +627,7 @@ const legacyStyles = {
   exploreMetaBlock: {
     position: 'absolute',
     left: 18,
-    right: 18,
+    right: 100,
     bottom: 34,
   },
   exploreTitle: {
@@ -606,40 +651,16 @@ const legacyStyles = {
   exploreActions: {
     position: 'absolute',
     right: 14,
-    bottom: 98,
+    bottom: 34,
     alignItems: 'center',
-    gap: 12,
+    gap: 20,
   },
   exploreActionBtn: {
-    width: 50,
-    height: 50,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.28)',
-    backgroundColor: 'rgba(20,15,16,0.35)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   exploreActionBtnActive: {
-    borderColor: 'rgba(236,92,57,0.62)',
-    backgroundColor: 'rgba(236,92,57,0.24)',
-  },
-  explorePurchaseBtn: {
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    height: 46,
-    backgroundColor: '#F8D5CB',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.6)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-    gap: 6,
-  },
-  explorePurchaseLabel: {
-    color: '#140F10',
-    fontFamily: 'Poppins-Bold',
-    fontSize: 12,
+    transform: [{ scale: 1.1 }],
   },
   feedProgressTrack: {
     position: 'absolute',

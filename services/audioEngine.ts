@@ -59,6 +59,8 @@ const fallbackAudioEngine: AudioEngineModule['audioEngine'] = {
 	},
 };
 
+let resolvedAudioEngine: AudioEngineModule['audioEngine'] | null = null;
+
 function resolveAudioEngine(): AudioEngineModule['audioEngine'] {
 	try {
 		const module = (Platform.OS === 'web'
@@ -71,6 +73,26 @@ function resolveAudioEngine(): AudioEngineModule['audioEngine'] {
 	}
 }
 
-export const audioEngine = resolveAudioEngine();
+function getAudioEngine(): AudioEngineModule['audioEngine'] {
+	if (!resolvedAudioEngine) {
+		resolvedAudioEngine = resolveAudioEngine();
+	}
+
+	return resolvedAudioEngine;
+}
+
+export const audioEngine: AudioEngineModule['audioEngine'] = {
+	setup: () => getAudioEngine().setup(),
+	load: (track: TrackOptions, autoPlay?: boolean) => getAudioEngine().load(track, autoPlay),
+	play: () => getAudioEngine().play(),
+	pause: () => getAudioEngine().pause(),
+	stop: () => getAudioEngine().stop(),
+	unload: () => getAudioEngine().unload(),
+	seek: (positionMs: number) => getAudioEngine().seek(positionMs),
+	setVolume: (volume: number) => getAudioEngine().setVolume(volume),
+	onPlaybackStateChange: (callback: (state: AudioPlaybackState) => void) => getAudioEngine().onPlaybackStateChange(callback),
+	onPlaybackProgressChange: (callback: (progress: AudioProgress) => void) => getAudioEngine().onPlaybackProgressChange(callback),
+	onPlaybackQueueEnded: (callback: (event: any) => void) => getAudioEngine().onPlaybackQueueEnded(callback),
+};
 export type { AudioPlaybackState, AudioProgress, AudioSubscription, TrackOptions };
 

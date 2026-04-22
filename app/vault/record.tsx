@@ -113,6 +113,8 @@ export default function VaultRecordScreen() {
       return;
     }
 
+    console.log('Uploading for user ID:', auth.currentUser.uid);
+
     if (!recordingUri) {
       showToast('Record audio first.', 'error');
       return;
