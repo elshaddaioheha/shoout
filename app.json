@@ -32,6 +32,17 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
+      "expo-router",
+      "expo-font",
+      "expo-splash-screen",
+      "expo-notifications",
+      "@react-native-google-signin/google-signin",
+      [
+        "@stripe/stripe-react-native",
+        {
+          "merchantIdentifier": "merchant.com.shoouts"
+        }
+      ],
       [
         "expo-audio",
         {
@@ -55,8 +66,7 @@
       "policy": "appVersion"
     },
     "updates": {
-      "checkAutomatically": "ON_LOAD",
-      "fallbackToCacheTimeout": 0
+      "enabled": false
     },
     "owner": "oheha-dev"
   }

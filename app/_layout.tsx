@@ -73,19 +73,12 @@ function StartupProcessBoundary({
 }
 
 function MonitoringStartup({ reportStartupIssue }: { reportStartupIssue: (scope: string, issue: unknown) => void }) {
-  const [fatalError, setFatalError] = useState<Error | null>(null);
-
-  if (fatalError) {
-    throw fatalError;
-  }
-
   useEffect(() => {
     try {
       initMonitoring();
     } catch (issue) {
       const startupError = toStartupError(issue, 'monitoring-init');
       reportStartupIssue('monitoring-init', startupError);
-      setFatalError(startupError);
     }
   }, [reportStartupIssue]);
 
@@ -93,12 +86,6 @@ function MonitoringStartup({ reportStartupIssue }: { reportStartupIssue: (scope:
 }
 
 function NotificationsStartup({ reportStartupIssue }: { reportStartupIssue: (scope: string, issue: unknown) => void }) {
-  const [fatalError, setFatalError] = useState<Error | null>(null);
-
-  if (fatalError) {
-    throw fatalError;
-  }
-
   useEffect(() => {
     if (Platform.OS === 'web') {
       return;
@@ -107,7 +94,6 @@ function NotificationsStartup({ reportStartupIssue }: { reportStartupIssue: (sco
     void initNotifications().catch((issue) => {
       const startupError = toStartupError(issue, 'notifications-init');
       reportStartupIssue('notifications-init', startupError);
-      setFatalError(startupError);
     });
   }, [reportStartupIssue]);
 
@@ -115,12 +101,6 @@ function NotificationsStartup({ reportStartupIssue }: { reportStartupIssue: (sco
 }
 
 function AccessibilityStartup({ reportStartupIssue }: { reportStartupIssue: (scope: string, issue: unknown) => void }) {
-  const [fatalError, setFatalError] = useState<Error | null>(null);
-
-  if (fatalError) {
-    throw fatalError;
-  }
-
   useEffect(() => {
     void useAccessibilityStore
       .getState()
@@ -128,7 +108,6 @@ function AccessibilityStartup({ reportStartupIssue }: { reportStartupIssue: (sco
       .catch((issue) => {
         const startupError = toStartupError(issue, 'accessibility-init');
         reportStartupIssue('accessibility-init', startupError);
-        setFatalError(startupError);
       });
   }, [reportStartupIssue]);
 
@@ -136,12 +115,6 @@ function AccessibilityStartup({ reportStartupIssue }: { reportStartupIssue: (sco
 }
 
 function GoogleSigninStartup({ reportStartupIssue }: { reportStartupIssue: (scope: string, issue: unknown) => void }) {
-  const [fatalError, setFatalError] = useState<Error | null>(null);
-
-  if (fatalError) {
-    throw fatalError;
-  }
-
   useEffect(() => {
     if (Platform.OS === 'web') {
       return;
@@ -160,7 +133,6 @@ function GoogleSigninStartup({ reportStartupIssue }: { reportStartupIssue: (scop
     } catch (issue) {
       const startupError = toStartupError(issue, 'google-signin-config');
       reportStartupIssue('google-signin-config', startupError);
-      setFatalError(startupError);
     }
   }, [reportStartupIssue]);
 
@@ -168,12 +140,7 @@ function GoogleSigninStartup({ reportStartupIssue }: { reportStartupIssue: (scop
 }
 
 function PlayerBootstrapStartup({ reportStartupIssue }: { reportStartupIssue: (scope: string, issue: unknown) => void }) {
-  const [fatalError, setFatalError] = useState<Error | null>(null);
   const [playerBootstrapped, setPlayerBootstrapped] = useState(false);
-
-  if (fatalError) {
-    throw fatalError;
-  }
 
   useEffect(() => {
     let cancelled = false;
@@ -187,7 +154,6 @@ function PlayerBootstrapStartup({ reportStartupIssue }: { reportStartupIssue: (s
       } catch (issue) {
         const startupError = toStartupError(issue, 'player-bootstrap');
         reportStartupIssue('player-bootstrap', startupError);
-        setFatalError(startupError);
       } finally {
         if (!cancelled) {
           setPlayerBootstrapped(true);

@@ -14,8 +14,12 @@ import { Animated, StatusBar, StyleSheet, View } from 'react-native';
 const lightSplash = require('@/assets/images/ShooutS-2-splash-light (1).jpg.jpeg');
 const darkSplash = require('@/assets/images/ShooutS-1-splash-black.jpg.jpeg');
 
-export const STARTUP_DESTINATION_TIMEOUT_MS = 3000;
-export const STARTUP_FALLBACK_DESTINATION: AuthDestination = { pathname: '/(tabs)' };
+export const STARTUP_DESTINATION_TIMEOUT_MS = 8000;
+export const STARTUP_FALLBACK_DESTINATION: AuthDestination = { pathname: '/(auth)/login' };
+
+export function getStartupFallbackDestination(hasAuthenticatedUser: boolean): AuthDestination {
+  return hasAuthenticatedUser ? { pathname: '/(tabs)' } : STARTUP_FALLBACK_DESTINATION;
+}
 
 function wait(duration: number) {
   return new Promise((resolve) => setTimeout(resolve, duration));
@@ -23,7 +27,8 @@ function wait(duration: number) {
 
 export async function resolveStartupDestinationWithDeadline(
   resolveDestination: () => Promise<AuthDestination>,
-  timeoutMs: number = STARTUP_DESTINATION_TIMEOUT_MS
+  timeoutMs: number = STARTUP_DESTINATION_TIMEOUT_MS,
+  fallbackDestination: AuthDestination = STARTUP_FALLBACK_DESTINATION
 ): Promise<AuthDestination> {
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
@@ -31,7 +36,7 @@ export async function resolveStartupDestinationWithDeadline(
     return await Promise.race([
       resolveDestination(),
       new Promise<AuthDestination>((resolve) => {
-        timeoutId = setTimeout(() => resolve(STARTUP_FALLBACK_DESTINATION), timeoutMs);
+        timeoutId = setTimeout(() => resolve(fallbackDestination), timeoutMs);
       }),
     ]);
   } finally {
@@ -61,15 +66,18 @@ export default function AuthEntryScreen() {
 
     const resolveAndNavigate = async () => {
       hasNavigatedRef.current = true;
+      const fallbackDestination = getStartupFallbackDestination(hasAuthenticatedUser);
 
       let destination: AuthDestination;
       try {
         destination = await resolveStartupDestinationWithDeadline(() =>
-          hasAuthenticatedUser ? resolveAuthenticatedDestination() : resolveUnauthenticatedDestination()
+          hasAuthenticatedUser ? resolveAuthenticatedDestination() : resolveUnauthenticatedDestination(),
+          STARTUP_DESTINATION_TIMEOUT_MS,
+          fallbackDestination
         );
       } catch (err) {
         console.error('[Startup] Failed to resolve auth destination:', err);
-        destination = STARTUP_FALLBACK_DESTINATION;
+        destination = fallbackDestination;
       }
 
       if (cancelled) {

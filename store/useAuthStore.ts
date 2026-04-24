@@ -72,7 +72,6 @@ export const useAuthStore = create<AuthState>((set) => ({
   reset: () =>
     set({
       actualRole: null,
-      isAuthResolved: false,
       hasAuthenticatedUser: false,
       subscriptionTier: null,
       isSubscribed: false,
