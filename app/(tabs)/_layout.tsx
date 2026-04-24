@@ -8,7 +8,7 @@ import { useUIStore } from '@/store/useUIStore';
 import { captureError } from '@/utils/monitoring';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Tabs, usePathname } from 'expo-router';
-import React, { createContext, useCallback, useContext, useEffect, useRef } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef, type ErrorInfo } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
 import { InteractionManager, StyleSheet } from 'react-native';
 import Animated, { interpolate, useAnimatedStyle, type SharedValue } from 'react-native-reanimated';
@@ -160,7 +160,7 @@ export default function TabLayout() {
     };
   }, [clearReadySignal]);
 
-  const handleTransitionBoundaryError = useCallback((error: unknown, info: { componentStack: string }) => {
+  const handleTransitionBoundaryError = useCallback((error: unknown, info: ErrorInfo) => {
     captureError(error instanceof Error ? error : new Error('Unknown tabs boundary error'), {
       scope: 'tabs-mode-transition-boundary',
       message: error instanceof Error ? error.message : String(error),
@@ -171,7 +171,7 @@ export default function TabLayout() {
       transitioning,
       waitingForRender,
       pathname: pathname ?? '',
-      componentStack: info.componentStack,
+      componentStack: info.componentStack ?? undefined,
     });
   }, [pathname, transitionSourceMode, transitionTargetMode, transitionToken, transitioning, viewMode, waitingForRender]);
 

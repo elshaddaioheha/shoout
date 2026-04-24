@@ -1,14 +1,12 @@
-# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
-
 # dependencies
 node_modules/
 
 # Expo
 .expo/
-.expo-start.log
 dist/
 web-build/
 expo-env.d.ts
+.expo-start.log
 
 # Native
 .kotlin/
@@ -27,7 +25,6 @@ expo-env.d.ts
 npm-debug.*
 yarn-debug.*
 yarn-error.*
-fix.js
 
 # macOS
 .DS_Store
@@ -37,7 +34,7 @@ fix.js
 .env
 .env*.local
 
-# Firebase Extension secrets (see extensions/*.env.example)
+# Firebase Extension secrets
 extensions/*.env
 
 # typescript
@@ -45,10 +42,11 @@ extensions/*.env
 GoogleService-Info.plist
 google-services.json
 serviceAccountKey.json
+!android/app/google-services.json
+!google-services.json
+
+# docs and scratch files
 *.md
+fix.js
 
 app-example
-
-# generated native folders
-/ios
-/android

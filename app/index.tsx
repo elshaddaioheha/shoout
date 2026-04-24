@@ -86,6 +86,12 @@ export default function AuthEntryScreen() {
 
       try {
         let animationTimeoutId: ReturnType<typeof setTimeout> | null = null;
+        const animationTimeoutPromise = new Promise<void>((_, reject) => {
+          animationTimeoutId = setTimeout(
+            () => reject(new Error('Animation timeout')),
+            durations.splashExit + 500
+          );
+        });
 
         await Promise.race([
           new Promise<void>((resolve) => {
@@ -102,12 +108,7 @@ export default function AuthEntryScreen() {
               resolve();
             });
           }),
-          new Promise<void>((_, reject) => {
-            animationTimeoutId = setTimeout(
-              () => reject(new Error('Animation timeout')),
-              durations.splashExit + 500
-            );
-          }),
+          animationTimeoutPromise,
         ]);
       } catch (animErr) {
         console.warn('[Startup] Animation skipped or timed out:', animErr);

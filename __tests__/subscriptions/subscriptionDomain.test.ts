@@ -13,8 +13,8 @@ describe('subscription domain access rules', () => {
         expect(flags.maxVaultUploads).toBe(0);
     });
 
-    it('shoout cannot access vault mode', () => {
-        expect(canAccessAppMode('shoout', 'vault')).toBe(false);
+    it('shoout can preview vault mode in the switcher', () => {
+        expect(canAccessAppMode('shoout', 'vault')).toBe(true);
     });
 
     it('all users can preview studio and hybrid modes', () => {

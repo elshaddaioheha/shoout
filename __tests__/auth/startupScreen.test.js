@@ -1,4 +1,4 @@
-import { render, waitFor } from '@testing-library/react-native';
+import { cleanup, render } from '@testing-library/react-native/pure';
 import React from 'react';
 import { Animated } from 'react-native';
 import AuthEntryScreen, {
@@ -53,6 +53,19 @@ jest.mock('@/utils/authFlow', () => ({
 
 const mockedResolveAuthenticatedDestination = resolveAuthenticatedDestination;
 
+async function flushMicrotasks() {
+  await Promise.resolve();
+  await Promise.resolve();
+}
+
+async function finishStartupNavigation() {
+  await flushMicrotasks();
+  jest.runOnlyPendingTimers();
+  await flushMicrotasks();
+  jest.runOnlyPendingTimers();
+  await flushMicrotasks();
+}
+
 describe('startup destination deadline', () => {
   beforeEach(() => {
     jest.useFakeTimers();
@@ -60,6 +73,7 @@ describe('startup destination deadline', () => {
   });
 
   afterEach(() => {
+    jest.runOnlyPendingTimers();
     jest.useRealTimers();
   });
 
@@ -97,7 +111,9 @@ describe('AuthEntryScreen startup orchestration', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+    jest.runOnlyPendingTimers();
     jest.useRealTimers();
+    cleanup();
   });
 
   it('does not navigate before root navigation state is ready', () => {
@@ -115,11 +131,9 @@ describe('AuthEntryScreen startup orchestration', () => {
     render(<AuthEntryScreen />);
 
     jest.advanceTimersByTime(STARTUP_DESTINATION_TIMEOUT_MS + 10);
-    jest.runOnlyPendingTimers();
+    await finishStartupNavigation();
 
-    await waitFor(() => {
-      expect(mockReplace).toHaveBeenCalledWith(STARTUP_FALLBACK_DESTINATION);
-    });
+    expect(mockReplace).toHaveBeenCalledWith(STARTUP_FALLBACK_DESTINATION);
   });
 
   it('navigates to resolved authenticated destination on success', async () => {
@@ -127,11 +141,9 @@ describe('AuthEntryScreen startup orchestration', () => {
 
     render(<AuthEntryScreen />);
 
-    jest.runAllTimers();
+    await finishStartupNavigation();
 
-    await waitFor(() => {
-      expect(mockReplace).toHaveBeenCalledWith({ pathname: '/(auth)/studio-creation' });
-    });
+    expect(mockReplace).toHaveBeenCalledWith({ pathname: '/(auth)/studio-creation' });
   });
 
   it('clears animation timeout timer when animation resolves first', async () => {
@@ -150,11 +162,9 @@ describe('AuthEntryScreen startup orchestration', () => {
 
     render(<AuthEntryScreen />);
 
-    jest.runAllTimers();
+    await finishStartupNavigation();
 
-    await waitFor(() => {
-      expect(mockReplace).toHaveBeenCalledWith({ pathname: '/(tabs)/index' });
-    });
+    expect(mockReplace).toHaveBeenCalledWith({ pathname: '/(tabs)/index' });
 
     expect(animationTimerIds.length).toBeGreaterThan(0);
     animationTimerIds.forEach((timerId) => {

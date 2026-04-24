@@ -1,4 +1,5 @@
 import { auth, db } from '@/firebaseConfig';
+import { onAuthStateChanged } from 'firebase/auth';
 import { collection, doc, onSnapshot, orderBy, query, where } from 'firebase/firestore';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -38,9 +39,18 @@ export function useStudioWorkspaceData() {
   const [transactions, setTransactions] = useState<TransactionRow[]>([]);
   const [followersCount, setFollowersCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [uid, setUid] = useState<string | null>(() => auth.currentUser?.uid ?? null);
 
   useEffect(() => {
-    if (!auth.currentUser) {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUid(user?.uid ?? null);
+    });
+
+    return unsubscribe;
+  }, []);
+
+  useEffect(() => {
+    if (!uid) {
       setTracks([]);
       setTransactions([]);
       setFollowersCount(0);
@@ -48,7 +58,6 @@ export function useStudioWorkspaceData() {
       return;
     }
 
-    const uid = auth.currentUser.uid;
     setLoading(true);
 
     const uploadsQuery = query(
@@ -81,7 +90,7 @@ export function useStudioWorkspaceData() {
       unsubTransactions();
       unsubUser();
     };
-  }, []);
+  }, [uid]);
 
   const totalPlays = useMemo(
     () => tracks.reduce((sum, track) => sum + Number(track.listenCount || 0), 0),

@@ -28,10 +28,10 @@ const fallbackAudioEngine: AudioEngineModule['audioEngine'] = {
 		// no-op
 	},
 	async load() {
-		throw new Error('Audio engine unavailable.');
+		// no-op
 	},
 	async play() {
-		throw new Error('Audio engine unavailable.');
+		// no-op
 	},
 	async pause() {
 		// no-op

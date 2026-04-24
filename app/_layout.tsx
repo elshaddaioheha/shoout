@@ -14,7 +14,7 @@ import { hydrateSubscriptionTier } from '@/utils/subscriptionVerification';
 import { Poppins_300Light, Poppins_400Regular, Poppins_500Medium, Poppins_600SemiBold, Poppins_700Bold, useFonts } from '@expo-google-fonts/poppins';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack, useRouter } from 'expo-router';
+import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -215,12 +215,7 @@ function AuthBootstrapStartup({ reportStartupIssue }: { reportStartupIssue: (sco
   const setHasAuthenticatedUser = useAuthStore((state) => state.setHasAuthenticatedUser);
   const resetAuthState = useAuthStore((state) => state.reset);
   const isUserStoreHydrated = useUserStore((state) => state.isHydrated);
-  const pendingUserPersistWritesRef = useRef<Array<() => void>>([]);
-  const [fatalError, setFatalError] = useState<Error | null>(null);
-
-  if (fatalError) {
-    throw fatalError;
-  }
+  const pendingUserPersistWritesRef = useRef<(() => void)[]>([]);
 
   const applyPersistedUserWrite = useCallback((write: () => void) => {
     if (useUserStore.getState().isHydrated) {
@@ -243,7 +238,7 @@ function AuthBootstrapStartup({ reportStartupIssue }: { reportStartupIssue: (sco
       } catch (issue) {
         const startupError = toStartupError(issue, 'user-store-persist-queue');
         reportStartupIssue('user-store-persist-queue', startupError);
-        setFatalError(startupError);
+        notifyWarning('[layout] user-store-persist-queue', startupError);
       }
     });
   }, [isUserStoreHydrated, reportStartupIssue]);
@@ -307,7 +302,7 @@ function AuthBootstrapStartup({ reportStartupIssue }: { reportStartupIssue: (sco
         } catch (issue) {
           const startupError = toStartupError(issue, 'auth-bootstrap');
           reportStartupIssue('auth-bootstrap', startupError);
-          setFatalError(startupError);
+          notifyWarning('[layout] auth-bootstrap', startupError);
         } finally {
           settleAuthBootstrap(Boolean(user));
         }
@@ -315,7 +310,7 @@ function AuthBootstrapStartup({ reportStartupIssue }: { reportStartupIssue: (sco
     } catch (issue) {
       const startupError = toStartupError(issue, 'auth-listener');
       reportStartupIssue('auth-listener', startupError);
-      setFatalError(startupError);
+      notifyWarning('[layout] auth-listener', startupError);
       settleAuthBootstrap(Boolean(auth.currentUser));
     }
 
@@ -338,7 +333,6 @@ function AuthBootstrapStartup({ reportStartupIssue }: { reportStartupIssue: (sco
 }
 export default function RootLayout() {
   const colorScheme = useColorScheme();
-  const router = useRouter();
   const splashHidden = useRef(false);
   const contentOpacity = useRef(new Animated.Value(0)).current;
   const [startupFallbackReady, setStartupFallbackReady] = useState(false);

@@ -57,6 +57,7 @@ describe('SubscriptionsScreen UI and flow tests', () => {
 
     beforeEach(() => {
         jest.clearAllMocks();
+        process.env.EXPO_PUBLIC_FLUTTERWAVE_PUBLIC_KEY = 'test-flutterwave-public-key';
         jest.spyOn(Alert, 'alert');
         (useUserStore as unknown as jest.Mock).mockReturnValue({
             role: 'vault',
@@ -100,4 +101,3 @@ describe('SubscriptionsScreen UI and flow tests', () => {
         expect(Alert.alert).not.toHaveBeenCalled();
     });
 });
-

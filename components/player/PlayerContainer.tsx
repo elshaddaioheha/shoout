@@ -6,16 +6,14 @@ import { useUIStore } from '@/store/useUIStore';
 import { useUserStore } from '@/store/useUserStore';
 import * as Haptics from 'expo-haptics';
 import React, { useCallback, useEffect, useRef } from 'react';
-import { Platform, StyleSheet, useWindowDimensions } from 'react-native';
+import { StyleSheet, useWindowDimensions } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { Extrapolation, interpolate, runOnJS, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const SPRING_CONFIG = { damping: 22, stiffness: 240, mass: 0.8 };
 
 export default function PlayerContainer() {
   const { height } = useWindowDimensions();
-  const insets = useSafeAreaInsets();
   const bottomTabBarHeight = useLayoutMetricsStore((s) => s.bottomTabBarHeight);
   const activeAppMode = useUserStore((s) => s.activeAppMode);
   const track = usePlaybackStore((s) => s.currentTrack);

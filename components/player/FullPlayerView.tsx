@@ -4,7 +4,6 @@ import { PlayerMenuSheet } from '@/components/player/PlayerMenuSheet';
 import { SeekBar } from '@/components/player/SeekBar';
 import { TrackInfo } from '@/components/player/TrackInfo';
 import { Icon } from '@/components/ui/Icon';
-import { IconButton } from '@/components/ui/IconButton';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { usePlaybackStore } from '@/store/usePlaybackStore';
 import { useUIStore } from '@/store/useUIStore';

@@ -64,7 +64,7 @@ describe('fetchVerifiedSubscriptionTier', () => {
     expect(mockSetActualRole).toHaveBeenCalledWith('studio');
   });
 
-  it('downgrades to vault when subscribed but expiresAt is in the past', async () => {
+  it('downgrades to shoout when subscribed but expiresAt is in the past', async () => {
     const past = Date.now() - 60_000;
     (getDoc as jest.Mock).mockResolvedValue({
       exists: () => true,
@@ -75,14 +75,14 @@ describe('fetchVerifiedSubscriptionTier', () => {
       }),
     });
 
-    await expect(fetchVerifiedSubscriptionTier()).resolves.toBe('vault');
-    expect(mockSetActualRole).toHaveBeenCalledWith('vault');
+    await expect(fetchVerifiedSubscriptionTier()).resolves.toBe('shoout');
+    expect(mockSetActualRole).toHaveBeenCalledWith('shoout');
   });
 
-  it('defaults to vault when no subscription document exists', async () => {
+  it('defaults to shoout when no subscription document exists', async () => {
     (getDoc as jest.Mock).mockResolvedValue({ exists: () => false });
 
-    await expect(fetchVerifiedSubscriptionTier()).resolves.toBe('vault');
-    expect(mockSetActualRole).toHaveBeenCalledWith('vault');
+    await expect(fetchVerifiedSubscriptionTier()).resolves.toBe('shoout');
+    expect(mockSetActualRole).toHaveBeenCalledWith('shoout');
   });
 });

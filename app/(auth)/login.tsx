@@ -298,7 +298,7 @@ export default function LoginScreen() {
                     </View>
 
                     <View style={styles.footer}>
-                        <Text style={[styles.footerText, isLightMode && { color: lightMutedText }]}>Didn't have an account? </Text>
+                        <Text style={[styles.footerText, isLightMode && { color: lightMutedText }]}>Did not have an account? </Text>
                         <TouchableOpacity onPress={() => router.push('/(auth)/signup')}>
                             <Text style={styles.registerText}>Register</Text>
                         </TouchableOpacity>

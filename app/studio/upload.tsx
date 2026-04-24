@@ -11,6 +11,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import { onAuthStateChanged } from 'firebase/auth';
 import { addDoc, collection, doc, getDoc, getDocs, limit, orderBy, query, serverTimestamp, setDoc, writeBatch } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getDownloadURL, ref, uploadBytesResumable } from 'firebase/storage';
@@ -240,11 +241,11 @@ export default function UploadScreen() {
     });
 
     const [folderName, setFolderName] = useState('');
-    const [folders, setFolders] = useState<Array<{ id: string; name: string }>>([]);
+    const [folders, setFolders] = useState<{ id: string; name: string }[]>([]);
     const [selectedFolderId, setSelectedFolderId] = useState('');
     const [showFolderPicker, setShowFolderPicker] = useState(false);
 
-    const [existingTracks, setExistingTracks] = useState<Array<{ id: string; title: string }>>([]);
+    const [existingTracks, setExistingTracks] = useState<{ id: string; title: string }[]>([]);
     const [selectedTrackIds, setSelectedTrackIds] = useState<string[]>([]);
     const [showTrackPicker, setShowTrackPicker] = useState(false);
     const trackPickerSlide = useRef(new Animated.Value(40)).current;
@@ -321,7 +322,7 @@ export default function UploadScreen() {
     });
 
     useEffect(() => {
-        const unsub = auth.onAuthStateChanged((user) => setIsLoggedIn(!!user));
+        const unsub = onAuthStateChanged(auth, (user) => setIsLoggedIn(!!user));
         return unsub;
     }, []);
 
@@ -881,11 +882,11 @@ export default function UploadScreen() {
         const handleShare = async () => {
             try {
                 await Share.share({
-                    message: `🎵 Listen to "${uploadedTitle}" on Shoouts: ${shareUrl}`,
+                    message: `Listen to ${uploadedTitle} on Shoouts: ${shareUrl}`,
                     url: shareUrl,
                     title: uploadedTitle,
                 });
-            } catch (e) {
+            } catch {
                 showToast('Copy this link: ' + shareUrl, 'info');
             }
         };
@@ -899,8 +900,8 @@ export default function UploadScreen() {
                             </View>
                         </View>
                     </View>
-                    <Text style={styles.splashTitle}>Track Published! 🎉</Text>
-                    <Text style={styles.splashSub}>Your track "{uploadedTitle}" is now live on Shoout.</Text>
+                    <Text style={styles.splashTitle}>Track Published!</Text>
+                    <Text style={styles.splashSub}>Your track {uploadedTitle} is now live on Shoout.</Text>
                     <View style={styles.splashLinkBox}>
                         <Link2 size={16} color={accentColor} />
                         <Text style={styles.splashLinkText} numberOfLines={1} selectable>{shareUrl}</Text>
