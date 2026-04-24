@@ -1,23 +1,23 @@
-import { usePlaybackStore } from '@/store/usePlaybackStore';
-import { useAppTheme } from '@/hooks/use-app-theme';
-import { useAccessibilityStore } from '@/store/useAccessibilityStore';
-import { typography } from '@/constants/typography';
-import { useReducedMotion } from '@/hooks/use-reduced-motion';
-import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { Icon } from '@/components/ui/Icon';
 import { IconButton } from '@/components/ui/IconButton';
-import { BlurView } from 'expo-blur';
+import { typography } from '@/constants/typography';
+import { useAppTheme } from '@/hooks/use-app-theme';
+import { useReducedMotion } from '@/hooks/use-reduced-motion';
+import { useAccessibilityStore } from '@/store/useAccessibilityStore';
+import { usePlaybackStore } from '@/store/usePlaybackStore';
+import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import * as Haptics from 'expo-haptics';
 import React from 'react';
 import {
-  Image,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-  useWindowDimensions,
+    Pressable,
+    StyleSheet,
+    Text,
+    View,
+    useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+const MINI_WAVE_BARS = [5, 10, 8, 13, 7, 15, 6, 12, 9, 14, 7, 11, 6, 10, 8, 13];
 
 type VaultMiniPlayerProps = {
   onPress?: () => void;
@@ -39,7 +39,7 @@ export default function VaultMiniPlayer({ onPress }: VaultMiniPlayerProps) {
     isPlaying,
     isBuffering,
     togglePlayPause,
-    clearTrack,
+    playNextTrack,
     position,
     duration,
   } = usePlaybackStore();
@@ -56,24 +56,25 @@ export default function VaultMiniPlayer({ onPress }: VaultMiniPlayerProps) {
     togglePlayPause();
   }, [reduceMotion, togglePlayPause]);
 
-  const handleClearTrack = React.useCallback((e?: PressEventWithStop) => {
+  const handleSkipNext = React.useCallback((e?: PressEventWithStop) => {
     e?.stopPropagation?.();
     if (!reduceMotion) {
-      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
-    clearTrack();
-  }, [clearTrack, reduceMotion]);
+    void playNextTrack();
+  }, [playNextTrack, reduceMotion]);
 
   if (!currentTrack) return null;
 
-  const launcherWidth = Math.min(124, width - 44);
-  const maxSafeWidth = Math.floor(width / 2 - launcherWidth / 2 - 24);
-  const playerWidth = Math.max(120, Math.min(220, maxSafeWidth));
+  const playerWidth = Math.max(288, width - 20);
   const bottomPos = Math.max(insets.bottom, 14) + 16;
   const progress = duration > 0 ? Math.min(100, (position / duration) * 100) : 0;
-  const glassBackground = appTheme.isDark ? 'rgba(20, 15, 16, 0.46)' : 'rgba(255,255,255,0.72)';
-  const glassBorder = appTheme.colors.borderStrong;
-  const blurIntensity = reduceMotion ? 0 : 34;
+  const glassBackground = '#000000';
+  const glassBorder = 'rgba(255,255,255,0.14)';
+  const shooutBlue = appTheme.colors.shooutPrimary;
+  const primaryControlBg = shooutBlue;
+  const activeBars = Math.max(1, Math.round((progress / 100) * MINI_WAVE_BARS.length));
+  const inactiveWaveColor = appTheme.isDark ? 'rgba(255,255,255,0.28)' : 'rgba(20,15,16,0.24)';
 
   return (
     <Pressable
@@ -82,6 +83,7 @@ export default function VaultMiniPlayer({ onPress }: VaultMiniPlayerProps) {
         {
           bottom: bottomPos,
           width: playerWidth,
+          left: 10,
           backgroundColor: glassBackground,
           borderColor: glassBorder,
         },
@@ -89,68 +91,67 @@ export default function VaultMiniPlayer({ onPress }: VaultMiniPlayerProps) {
       onPress={onPress}
       android_ripple={{ color: appTheme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(23,18,19,0.06)' }}
     >
-      <BlurView intensity={blurIntensity} tint={appTheme.isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
-
       <View style={styles.content}>
-        <View style={styles.artworkContainer}>
-          {currentTrack.artworkUrl ? (
-            <Image source={{ uri: currentTrack.artworkUrl }} style={styles.artwork} />
+        <IconButton
+          style={[styles.primaryControlButton, { backgroundColor: primaryControlBg }]}
+          onPress={handleTogglePlayPause}
+          accessibilityRole="button"
+          accessibilityLabel={isPlaying ? 'Pause playback' : 'Play track'}
+          accessibilityState={{ busy: isBuffering }}
+          accessibilityHint={screenReaderEnabled ? 'Toggles playback in Vault mini player.' : undefined}
+        >
+          {isBuffering ? (
+            <View style={styles.bufferingDot} />
+          ) : isPlaying ? (
+            <Icon
+              name="pause"
+              size={20}
+              color="#FFFFFF"
+              fill
+              iosAnimation={reduceMotion ? undefined : { effect: 'scale', wholeSymbol: true, speed: 1 }}
+            />
           ) : (
-            <Icon name="music" size={16} color={appTheme.colors.primary} />
+            <Icon
+              name="play"
+              size={20}
+              color="#FFFFFF"
+              fill
+              iosAnimation={reduceMotion ? undefined : { effect: 'scale', wholeSymbol: true, speed: 1 }}
+            />
           )}
-        </View>
+        </IconButton>
 
         <View style={styles.textContainer}>
-          <Text style={styles.title} numberOfLines={1}>{currentTrack.title}</Text>
-          <Text style={styles.artist} numberOfLines={1}>{currentTrack.artist}</Text>
+          <Text style={[styles.title, { color: '#FFFFFF' }]} numberOfLines={1}>{currentTrack.title}</Text>
+          <Text style={[styles.artist, { color: 'rgba(255,255,255,0.72)' }]} numberOfLines={1}>{currentTrack.artist}</Text>
         </View>
 
-        <View style={styles.controls}>
-          <IconButton
-            style={styles.controlButton}
-            onPress={handleTogglePlayPause}
-            accessibilityRole="button"
-            accessibilityLabel={isPlaying ? 'Pause playback' : 'Play track'}
-            accessibilityState={{ busy: isBuffering }}
-            accessibilityHint={screenReaderEnabled ? 'Toggles playback in Vault mini player.' : undefined}
-          >
-            {isBuffering ? (
-              <View style={styles.bufferingDot} />
-            ) : isPlaying ? (
-              <Icon
-                name="pause"
-                size={20}
-                color={appTheme.colors.textPrimary}
-                fill
-                iosAnimation={reduceMotion ? undefined : { effect: 'scale', wholeSymbol: true, speed: 1 }}
-              />
-            ) : (
-              <Icon
-                name="play"
-                size={20}
-                color={appTheme.colors.textPrimary}
-                fill
-                iosAnimation={reduceMotion ? undefined : { effect: 'scale', wholeSymbol: true, speed: 1 }}
-              />
-            )}
-          </IconButton>
-
-          <IconButton
-            style={styles.controlButton}
-            onPress={handleClearTrack}
-            icon="x"
-            size={16}
-            color={appTheme.colors.textDisabled}
-            accessibilityRole="button"
-            accessibilityLabel="Clear track"
-            accessibilityHint={screenReaderEnabled ? 'Removes the current track from Vault mini player.' : undefined}
-            iosAnimation={reduceMotion ? undefined : { effect: 'pulse', wholeSymbol: true, speed: 1.05 }}
-          />
+        <View style={styles.waveformRow}>
+          {MINI_WAVE_BARS.map((barHeight, index) => (
+            <View
+              key={`vault-mini-wave-${index}`}
+              style={[
+                styles.waveformBar,
+                {
+                  height: barHeight,
+                  backgroundColor: index < activeBars ? shooutBlue : inactiveWaveColor,
+                },
+              ]}
+            />
+          ))}
         </View>
-      </View>
 
-      <View style={styles.progressTrack}>
-        <View style={[styles.progressFill, { width: `${progress}%` as any }]} />
+        <IconButton
+          style={[styles.trailingControlButton, { backgroundColor: 'rgba(106,167,255,0.16)' }]}
+          onPress={handleSkipNext}
+          icon="skip-forward"
+          size={20}
+          color={shooutBlue}
+          accessibilityRole="button"
+          accessibilityLabel="Skip to next track"
+          accessibilityHint={screenReaderEnabled ? 'Skips to the next track in queue.' : undefined}
+          iosAnimation={reduceMotion ? undefined : { effect: 'pulse', wholeSymbol: true, speed: 1.05 }}
+        />
       </View>
     </Pressable>
   );
@@ -159,56 +160,67 @@ export default function VaultMiniPlayer({ onPress }: VaultMiniPlayerProps) {
 const legacyStyles = {
   container: {
     position: 'absolute',
-    left: 12,
-    height: 58,
-    borderRadius: 14,
+    height: 80,
+    borderRadius: 40,
     overflow: 'hidden',
     backgroundColor: 'rgba(26, 21, 24, 0.92)',
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
     zIndex: 42,
+    shadowColor: '#000000',
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 8,
   },
   content: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    justifyContent: 'space-between',
-    paddingBottom: 3,
+    paddingHorizontal: 10,
+    gap: 8,
+    paddingBottom: 6,
   },
-  artworkContainer: {
-    width: 34,
-    height: 34,
-    borderRadius: 8,
-    backgroundColor: 'rgba(236, 92, 57, 0.12)',
+  primaryControlButton: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     alignItems: 'center',
     justifyContent: 'center',
-    overflow: 'hidden',
-    marginRight: 8,
-  },
-  artwork: {
-    width: '100%',
-    height: '100%',
   },
   textContainer: {
     flex: 1,
-    marginRight: 4,
+    marginRight: 2,
   },
   title: {
-    ...typography.chip,
+    ...typography.body,
     color: '#FFF',
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: 13,
   },
   artist: {
     ...typography.small,
     color: 'rgba(255,255,255,0.6)',
+    fontSize: 10.5,
   },
-  controls: {
-    flexDirection: 'row',
+  trailingControlButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     alignItems: 'center',
-    gap: 2,
+    justifyContent: 'center',
   },
-  controlButton: {
-    borderRadius: 18,
+  waveformRow: {
+    width: 56,
+    height: 18,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    marginRight: 2,
+  },
+  waveformBar: {
+    width: 2,
+    borderRadius: 1,
   },
   bufferingDot: {
     width: 18,
@@ -217,18 +229,5 @@ const legacyStyles = {
     borderWidth: 2,
     borderColor: '#fff',
     borderTopColor: 'transparent',
-  },
-  progressTrack: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 2,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: '#EC5C39',
-    borderRadius: 1,
   },
 };

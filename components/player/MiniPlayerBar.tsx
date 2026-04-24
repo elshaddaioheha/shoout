@@ -1,19 +1,15 @@
 import { Icon } from '@/components/ui/Icon';
-import { IconButton } from '@/components/ui/IconButton';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { usePlaybackStore } from '@/store/usePlaybackStore';
-import { BlurView } from 'expo-blur';
-import { Image } from 'expo-image';
-import React, { memo, useCallback, useEffect } from 'react';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { memo, useCallback } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
-  Easing,
-  interpolate,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
-  withTiming,
 } from 'react-native-reanimated';
+
+const MINI_WAVE_BARS = [5, 10, 8, 13, 7, 15, 6, 12, 9, 14, 7, 11, 6, 10, 8, 13];
 
 // ─── Animated press helper ──────────────────────────────────────────────────
 type PressConfig = { scaleDown?: number; stiffness?: number; damping?: number };
@@ -68,14 +64,6 @@ function MiniPlayerBarBase({ onExpand }: Props) {
   const togglePlayPause = usePlaybackStore((s) => s.togglePlayPause);
   const playNextTrack = usePlaybackStore((s) => s.playNextTrack);
   const rawProgress = duration > 0 ? Math.max(0, Math.min(1, position / duration)) : 0;
-  const progressValue = useSharedValue(rawProgress);
-  const progressTrackWidth = useSharedValue(0);
-  const progressStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: interpolate(progressValue.value, [0, 1], [-progressTrackWidth.value / 2, 0]) },
-      { scaleX: progressValue.value },
-    ],
-  }));
 
   const onPlayPause = useCallback(() => {
     void togglePlayPause();
@@ -87,63 +75,60 @@ function MiniPlayerBarBase({ onExpand }: Props) {
     onExpand();
   }, [onExpand]);
 
-  useEffect(() => {
-    progressValue.value = withTiming(rawProgress, { duration: 250, easing: Easing.linear });
-  }, [rawProgress, progressValue]);
-
   if (!currentTrack) return null;
 
-  const bgColor = appTheme.isDark ? 'rgba(26, 21, 22, 0.97)' : 'rgba(255, 255, 255, 0.97)';
-  const borderColor = appTheme.isDark ? 'rgba(255,255,255,0.12)' : 'rgba(20,15,16,0.12)';
+  const bgColor = '#000000';
+  const borderColor = 'rgba(255,255,255,0.14)';
+  const shooutBlue = appTheme.colors.shooutPrimary;
+  const primaryControlBg = shooutBlue;
+  const activeBars = Math.max(1, Math.round(rawProgress * MINI_WAVE_BARS.length));
+  const inactiveWaveColor = appTheme.isDark ? 'rgba(255,255,255,0.28)' : 'rgba(20,15,16,0.24)';
 
   return (
-    <View style={[styles.container, { borderColor, backgroundColor: Platform.OS === 'ios' ? 'transparent' : bgColor }]}>
-      {Platform.OS === 'ios' && (
-        <BlurView intensity={35} tint={appTheme.isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFillObject} />
-      )}
+    <View style={[styles.container, { borderColor, backgroundColor: bgColor }]}> 
       <View style={styles.content}>
-        <IconButton onPress={onExpandPress} style={styles.expandButton}>
-          {currentTrack?.artworkUrl ? (
-            <Image source={{ uri: currentTrack.artworkUrl }} contentFit="cover" style={styles.artwork} transition={300} />
-          ) : (
-            <Icon name="music" size={20} color={appTheme.colors.textSecondary} />
-          )}
-        </IconButton>
-        <Pressable style={styles.texts} onPress={onExpandPress} hitSlop={8}>
-          <Text style={[styles.title, { color: appTheme.colors.textPrimary }]} numberOfLines={1}>{currentTrack?.title || 'No track selected'}</Text>
-          <Text style={[styles.artist, { color: appTheme.colors.textSecondary }]} numberOfLines={1}>{currentTrack?.artist || 'Start playback to continue'}</Text>
-        </Pressable>
         <AnimatedBtn
           onPress={onPlayPause}
-          style={styles.control}
-          pressConfig={{ scaleDown: 0.88 }}
+          style={[styles.primaryControl, { backgroundColor: primaryControlBg }]}
+          pressConfig={{ scaleDown: 0.9 }}
+          hitSlop={6}
         >
           {isBuffering ? (
-            <Icon name="refresh-ccw" size={20} color={appTheme.colors.textPrimary} />
+            <Icon name="refresh-ccw" size={19} color="#FFFFFF" />
           ) : (
             <Icon
               name={isPlaying ? 'pause' : 'play'}
-              size={20}
-              color={appTheme.colors.textPrimary}
+              size={19}
+              color="#FFFFFF"
               fill
             />
           )}
         </AnimatedBtn>
+        <Pressable style={styles.texts} onPress={onExpandPress} hitSlop={8}>
+          <Text style={[styles.title, { color: '#FFFFFF' }]} numberOfLines={1}>{currentTrack?.title || 'No track selected'}</Text>
+          <Text style={[styles.artist, { color: 'rgba(255,255,255,0.72)' }]} numberOfLines={1}>{currentTrack?.artist || 'Start playback to continue'}</Text>
+        </Pressable>
+        <View style={styles.waveformRow}>
+          {MINI_WAVE_BARS.map((barHeight, index) => (
+            <View
+              key={`mini-wave-${index}`}
+              style={[
+                styles.waveformBar,
+                {
+                  height: barHeight,
+                  backgroundColor: index < activeBars ? shooutBlue : inactiveWaveColor,
+                },
+              ]}
+            />
+          ))}
+        </View>
         <AnimatedBtn
           onPress={onNext}
-          style={styles.control}
+          style={[styles.trailingControl, { backgroundColor: 'rgba(106,167,255,0.16)' }]}
           pressConfig={{ scaleDown: 0.82 }}
         >
-          <Icon name="skip-forward" size={20} color={appTheme.colors.textPrimary} fill />
+          <Icon name="skip-forward" size={20} color={shooutBlue} fill />
         </AnimatedBtn>
-      </View>
-      <View
-        style={[styles.progressTrack, { backgroundColor: appTheme.colors.surfaceMuted }]}
-        onLayout={(event) => {
-          progressTrackWidth.value = event.nativeEvent.layout.width;
-        }}
-      >
-        <Animated.View style={[styles.progressFill, { backgroundColor: appTheme.colors.primary }, progressStyle]} />
       </View>
     </View>
   );
@@ -153,45 +138,50 @@ export const MiniPlayerBar = memo(MiniPlayerBarBase);
 
 const styles = StyleSheet.create({
   container: {
-    height: 68,
-    // Rounded top corners, flat bottom so it merges with the tab bar below
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    borderBottomLeftRadius: 0,
-    borderBottomRightRadius: 0,
+    height: 80,
+    borderRadius: 40,
     overflow: 'hidden',
     borderWidth: 1,
-    borderBottomWidth: 0,
+    shadowColor: '#000000',
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 8,
   },
   content: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
     gap: 8,
   },
-  expandButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 10,
+  primaryControl: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     alignItems: 'center',
     justifyContent: 'center',
-    overflow: 'hidden',
   },
-  artwork: {
-    width: 44,
-    height: 44,
-  },
-  texts: { flex: 1 },
+  texts: { flex: 1, justifyContent: 'center' },
   title: { fontSize: 13, fontFamily: 'Poppins-SemiBold' },
-  artist: { fontSize: 12, fontFamily: 'Poppins-Regular' },
-  control: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+  artist: { fontSize: 10.5, fontFamily: 'Poppins-Regular' },
+  trailingControl: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  progressTrack: { height: 2 },
-  progressFill: { ...StyleSheet.absoluteFillObject },
+  waveformRow: {
+    width: 56,
+    height: 18,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    marginRight: 2,
+  },
+  waveformBar: {
+    width: 2,
+    borderRadius: 1,
+  },
 });
