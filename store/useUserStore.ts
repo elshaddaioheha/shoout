@@ -97,8 +97,14 @@ export const useUserStore = create<UserState>()(
             setActualRole: (actualRole) => set({ actualRole: getEffectivePlan(actualRole) as UserRole }),
             setName: (name) => set({ name }),
             setPremium: (isPremium) => set({ isPremium }),
-            setViewMode: (viewMode) => set({ activeAppMode: viewMode, viewMode }),
-            setActiveAppMode: (activeAppMode) => set({ activeAppMode, viewMode: activeAppMode }),
+            setViewMode: (viewMode) => {
+                const normalizedMode = getEffectivePlan(viewMode) as ViewMode;
+                set({ activeAppMode: normalizedMode, viewMode: normalizedMode });
+            },
+            setActiveAppMode: (activeAppMode) => {
+                const normalizedMode = getEffectivePlan(activeAppMode) as ViewMode;
+                set({ activeAppMode: normalizedMode, viewMode: normalizedMode });
+            },
             setHydrated: (isHydrated) => set({ isHydrated }),
             reset: () => set({ ...createBaseState() }),
         }),
@@ -121,11 +127,12 @@ export const useUserStore = create<UserState>()(
             merge: (persistedState, currentState) => {
                 const parsed = persistedState as { state?: Partial<PersistedUserState> } | undefined;
                 const persisted = parsed?.state;
+                const persistedMode = getEffectivePlan(persisted?.activeAppMode) as ViewMode;
 
                 return {
                     ...currentState,
-                    activeAppMode: persisted?.activeAppMode || 'shoout',
-                    viewMode: persisted?.activeAppMode || 'shoout',
+                    activeAppMode: persistedMode,
+                    viewMode: persistedMode,
                 };
             },
         }

@@ -7,7 +7,13 @@ import { useUserStore } from '@/store/useUserStore';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { notifyError } from '@/utils/notify';
 import { ROUTES } from '@/utils/routes';
-import { Audio } from 'expo-av';
+import {
+  AudioModule,
+  RecordingPresets,
+  setAudioModeAsync,
+  useAudioRecorder,
+  useAudioRecorderState,
+} from 'expo-audio';
 import { useRouter } from 'expo-router';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
@@ -51,12 +57,14 @@ export default function VaultRecordScreen() {
   const router = useRouter();
   const { showToast } = useToastStore();
   const { canUploadToVault } = useUserStore((state) => state);
+  const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const recorderState = useAudioRecorderState(audioRecorder, 250);
 
   const [title, setTitle] = useState('');
-  const [recording, setRecording] = useState<Audio.Recording | null>(null);
   const [recordingUri, setRecordingUri] = useState<string | null>(null);
-  const [durationMs, setDurationMs] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+
+  const durationMs = Math.max(0, Math.round((recorderState.currentTime || 0) * 1000));
 
   const startRecording = async () => {
     if (!canUploadToVault) {
@@ -66,26 +74,20 @@ export default function VaultRecordScreen() {
     }
 
     try {
-      const permission = await Audio.requestPermissionsAsync();
+      const permission = await AudioModule.requestRecordingPermissionsAsync();
       if (!permission.granted) {
         showToast('Microphone permission is required.', 'error');
         return;
       }
 
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
+      await setAudioModeAsync({
+        allowsRecording: true,
+        playsInSilentMode: true,
       });
 
-      const next = new Audio.Recording();
-      await next.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
-      next.setOnRecordingStatusUpdate((status) => {
-        setDurationMs(status.durationMillis || 0);
-      });
-      await next.startAsync();
+      await audioRecorder.prepareToRecordAsync();
+      audioRecorder.record();
       setRecordingUri(null);
-      setDurationMs(0);
-      setRecording(next);
     } catch (error) {
       notifyError('Start recording failed', error);
       showToast('Could not start recording.', 'error');
@@ -93,14 +95,12 @@ export default function VaultRecordScreen() {
   };
 
   const stopRecording = async () => {
-    if (!recording) return;
+    if (!recorderState.isRecording) return;
 
     try {
-      await recording.stopAndUnloadAsync();
-      const uri = recording.getURI();
-      setRecordingUri(uri || null);
-      setRecording(null);
-      await Audio.setAudioModeAsync({ allowsRecordingIOS: false, playsInSilentModeIOS: true });
+      await audioRecorder.stop();
+      setRecordingUri(audioRecorder.uri || null);
+      await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
     } catch (error) {
       notifyError('Stop recording failed', error);
       showToast('Could not finish recording.', 'error');
@@ -184,7 +184,7 @@ export default function VaultRecordScreen() {
             style={styles.input}
           />
 
-          {recording ? (
+          {recorderState.isRecording ? (
             <TouchableOpacity style={[styles.actionButton, styles.stopButton]} onPress={stopRecording} activeOpacity={0.9}>
               <Icon name="x" size={18} color="#FFFFFF" />
               <Text style={styles.actionButtonText}>Stop Recording</Text>

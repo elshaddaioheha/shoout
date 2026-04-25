@@ -25,13 +25,31 @@
         "backgroundColor": "#140F10",
         "foregroundImage": "./assets/Shoout-icon.png"
       },
-      "versionCode": 51
+      "versionCode": 57
     },
     "web": {
       "output": "static",
       "favicon": "./assets/images/favicon.png"
     },
-    "plugins": [],
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      "expo-splash-screen",
+      "expo-notifications",
+      [
+        "@stripe/stripe-react-native",
+        {
+          "merchantIdentifier": "merchant.com.shoouts"
+        }
+      ],
+      [
+        "expo-audio",
+        {
+          "enableBackgroundPlayback": true,
+          "enableBackgroundRecording": false
+        }
+      ]
+    ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": false
@@ -47,8 +65,7 @@
       "policy": "appVersion"
     },
     "updates": {
-      "checkAutomatically": "ON_LOAD",
-      "fallbackToCacheTimeout": 0
+      "enabled": false
     },
     "owner": "oheha-dev"
   }

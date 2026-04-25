@@ -1,12 +1,12 @@
-import { render, waitFor } from '@testing-library/react-native';
-import React from 'react';
-import { Animated } from 'react-native';
 import AuthEntryScreen, {
-  resolveStartupDestinationWithDeadline,
-  STARTUP_DESTINATION_TIMEOUT_MS,
-  STARTUP_FALLBACK_DESTINATION,
+    getStartupFallbackDestination,
+    resolveStartupDestinationWithDeadline,
+    STARTUP_DESTINATION_TIMEOUT_MS,
+    STARTUP_FALLBACK_DESTINATION,
 } from '@/app/index';
-import { resolveAuthenticatedDestination } from '@/utils/authFlow';
+import { resolveAuthenticatedDestination, resolveUnauthenticatedDestination } from '@/utils/authFlow';
+import { cleanup, render } from '@testing-library/react-native/pure';
+import { Animated } from 'react-native';
 
 const mockReplace = jest.fn();
 
@@ -52,6 +52,20 @@ jest.mock('@/utils/authFlow', () => ({
 }));
 
 const mockedResolveAuthenticatedDestination = resolveAuthenticatedDestination;
+const mockedResolveUnauthenticatedDestination = resolveUnauthenticatedDestination;
+
+async function flushMicrotasks() {
+  await Promise.resolve();
+  await Promise.resolve();
+}
+
+async function finishStartupNavigation() {
+  await flushMicrotasks();
+  jest.runOnlyPendingTimers();
+  await flushMicrotasks();
+  jest.runOnlyPendingTimers();
+  await flushMicrotasks();
+}
 
 describe('startup destination deadline', () => {
   beforeEach(() => {
@@ -60,10 +74,11 @@ describe('startup destination deadline', () => {
   });
 
   afterEach(() => {
+    jest.runOnlyPendingTimers();
     jest.useRealTimers();
   });
 
-  it('returns /(tabs) fallback when destination resolution exceeds 3000ms', async () => {
+  it('returns login fallback when destination resolution exceeds deadline', async () => {
     const destinationPromise = resolveStartupDestinationWithDeadline(
       () => new Promise(() => undefined),
       STARTUP_DESTINATION_TIMEOUT_MS
@@ -72,6 +87,18 @@ describe('startup destination deadline', () => {
     jest.advanceTimersByTime(STARTUP_DESTINATION_TIMEOUT_MS);
 
     await expect(destinationPromise).resolves.toEqual(STARTUP_FALLBACK_DESTINATION);
+  });
+
+  it('returns authenticated fallback when provided explicitly', async () => {
+    const destinationPromise = resolveStartupDestinationWithDeadline(
+      () => new Promise(() => undefined),
+      STARTUP_DESTINATION_TIMEOUT_MS,
+      getStartupFallbackDestination(true)
+    );
+
+    jest.advanceTimersByTime(STARTUP_DESTINATION_TIMEOUT_MS);
+
+    await expect(destinationPromise).resolves.toEqual({ pathname: '/(tabs)' });
   });
 
   it('returns resolver result when it completes before timeout', async () => {
@@ -97,7 +124,9 @@ describe('AuthEntryScreen startup orchestration', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+    jest.runOnlyPendingTimers();
     jest.useRealTimers();
+    cleanup();
   });
 
   it('does not navigate before root navigation state is ready', () => {
@@ -115,11 +144,21 @@ describe('AuthEntryScreen startup orchestration', () => {
     render(<AuthEntryScreen />);
 
     jest.advanceTimersByTime(STARTUP_DESTINATION_TIMEOUT_MS + 10);
-    jest.runOnlyPendingTimers();
+    await finishStartupNavigation();
 
-    await waitFor(() => {
-      expect(mockReplace).toHaveBeenCalledWith(STARTUP_FALLBACK_DESTINATION);
-    });
+    expect(mockReplace).toHaveBeenCalledWith({ pathname: '/(tabs)' });
+  });
+
+  it('navigates to login fallback when unauthenticated resolver misses startup deadline', async () => {
+    mockAuthState = { hasAuthenticatedUser: false, isAuthResolved: true };
+    mockedResolveUnauthenticatedDestination.mockImplementation(() => new Promise(() => undefined));
+
+    render(<AuthEntryScreen />);
+
+    jest.advanceTimersByTime(STARTUP_DESTINATION_TIMEOUT_MS + 10);
+    await finishStartupNavigation();
+
+    expect(mockReplace).toHaveBeenCalledWith(STARTUP_FALLBACK_DESTINATION);
   });
 
   it('navigates to resolved authenticated destination on success', async () => {
@@ -127,11 +166,9 @@ describe('AuthEntryScreen startup orchestration', () => {
 
     render(<AuthEntryScreen />);
 
-    jest.runAllTimers();
+    await finishStartupNavigation();
 
-    await waitFor(() => {
-      expect(mockReplace).toHaveBeenCalledWith({ pathname: '/(auth)/studio-creation' });
-    });
+    expect(mockReplace).toHaveBeenCalledWith({ pathname: '/(auth)/studio-creation' });
   });
 
   it('clears animation timeout timer when animation resolves first', async () => {
@@ -150,11 +187,9 @@ describe('AuthEntryScreen startup orchestration', () => {
 
     render(<AuthEntryScreen />);
 
-    jest.runAllTimers();
+    await finishStartupNavigation();
 
-    await waitFor(() => {
-      expect(mockReplace).toHaveBeenCalledWith({ pathname: '/(tabs)/index' });
-    });
+    expect(mockReplace).toHaveBeenCalledWith({ pathname: '/(tabs)/index' });
 
     expect(animationTimerIds.length).toBeGreaterThan(0);
     animationTimerIds.forEach((timerId) => {

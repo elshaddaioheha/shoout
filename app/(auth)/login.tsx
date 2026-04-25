@@ -1,9 +1,9 @@
 import { useAppTheme } from '@/hooks/use-app-theme';
-import { markUserNeedsRoleSelection, resolveAuthenticatedDestination } from '@/utils/authFlow';
+import { markUserNeedsRoleSelection } from '@/utils/authFlow';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import * as AppleAuthentication from 'expo-apple-authentication';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { GoogleAuthProvider, OAuthProvider, signInWithCredential, signInWithEmailAndPassword } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { Eye, EyeOff } from 'lucide-react-native';
@@ -25,7 +25,7 @@ import Svg, { Path } from 'react-native-svg';
 import { auth, db } from '../../firebaseConfig';
 import { useToastStore } from '../../store/useToastStore';
 import { getFriendlyErrorMessage } from '../../utils/errorHandler';
-import { ensureDefaultSubscriptionDoc, hydrateSubscriptionTier } from '../../utils/subscriptionVerification';
+import { ensureDefaultSubscriptionDoc } from '../../utils/subscriptionVerification';
 
 const { width } = Dimensions.get('window');
 
@@ -46,7 +46,6 @@ export default function LoginScreen() {
     const lightBorder = '#D8B9AD';
 
     const router = useRouter();
-    const { redirectTo } = useLocalSearchParams<{ redirectTo?: string }>();
     const [showPassword, setShowPassword] = useState(false);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -64,13 +63,6 @@ export default function LoginScreen() {
     const passwordInputAnimatedStyle = useAnimatedStyle(() => ({
         borderColor: passwordFocused.value ? '#007AFF' : (isLightMode ? lightBorder : '#464646'),
     }));
-
-    const getPostAuthRoute = () => {
-        if (typeof redirectTo === 'string' && redirectTo.trim().length > 0) {
-            return redirectTo;
-        }
-        return '/(tabs)';
-    };
 
     const goGuestHome = () => {
         router.replace('/(tabs)');
@@ -91,7 +83,7 @@ export default function LoginScreen() {
         setLoading(true);
         try {
             await signInWithEmailAndPassword(auth, normalizedEmail, password);
-            router.replace(await resolveAuthenticatedDestination(getPostAuthRoute()) as any);
+            router.replace('/index' as any);
         } catch (error: any) {
             if (error?.code !== 'auth/invalid-credential' && error?.code !== 'auth/invalid-login-credentials') {
                 console.error('Login error:', error.message);
@@ -127,12 +119,9 @@ export default function LoginScreen() {
                     createdAt: new Date().toISOString()
                 });
                 await ensureDefaultSubscriptionDoc(userCred.user.uid);
-                await hydrateSubscriptionTier();
-                router.replace(await resolveAuthenticatedDestination() as any);
-            } else {
-                await hydrateSubscriptionTier();
-                router.replace(await resolveAuthenticatedDestination(getPostAuthRoute()) as any);
             }
+
+            router.replace('/index' as any);
         } catch (error: any) {
             console.error('Google Sign-In error:', error.message);
             const code = String(error?.code || '');
@@ -185,12 +174,9 @@ export default function LoginScreen() {
                     createdAt: new Date().toISOString(),
                 });
                 await ensureDefaultSubscriptionDoc(userCred.user.uid);
-                await hydrateSubscriptionTier();
-                router.replace(await resolveAuthenticatedDestination() as any);
-            } else {
-                await hydrateSubscriptionTier();
-                router.replace(await resolveAuthenticatedDestination(getPostAuthRoute()) as any);
             }
+
+            router.replace('/index' as any);
         } catch (error: any) {
             if (error?.code === 'ERR_REQUEST_CANCELED') {
                 return;
@@ -298,7 +284,7 @@ export default function LoginScreen() {
                     </View>
 
                     <View style={styles.footer}>
-                        <Text style={[styles.footerText, isLightMode && { color: lightMutedText }]}>Didn't have an account? </Text>
+                        <Text style={[styles.footerText, isLightMode && { color: lightMutedText }]}>Did not have an account? </Text>
                         <TouchableOpacity onPress={() => router.push('/(auth)/signup')}>
                             <Text style={styles.registerText}>Register</Text>
                         </TouchableOpacity>

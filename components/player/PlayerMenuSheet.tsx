@@ -6,7 +6,6 @@ import { useToastStore } from '@/store/useToastStore';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect } from 'react';
 import {
-    Dimensions,
     Modal,
     Pressable,
     StyleSheet,
@@ -23,7 +22,6 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const SCREEN_HEIGHT = Dimensions.get('window').height;
 const SHEET_HEIGHT = 380;
 
 type MenuItem = {

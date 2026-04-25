@@ -6,6 +6,7 @@ import { colors } from '@/constants/colors';
 import { FontFamily, typography } from '@/constants/typography';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { ViewMode } from '@/store/useUserStore';
+import { getEffectivePlan } from '@/utils/subscriptions';
 import { adaptLegacyStyles } from '@/utils/legacyThemeAdapter';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -79,9 +80,10 @@ export default function ModePillButton({ viewMode, isOpen, onPress }: ModePillBu
 
     const chevronProgress = useSharedValue(isOpen ? 1 : 0);
     const { width } = useWindowDimensions();
-    const modeStyle = MODE_COLORS[viewMode];
-    const modeLabel = MODE_LABELS[viewMode];
-    const isHybridMode = viewMode === 'hybrid';
+    const safeViewMode = getEffectivePlan(viewMode) as ViewMode;
+    const modeStyle = MODE_COLORS[safeViewMode];
+    const modeLabel = MODE_LABELS[safeViewMode];
+    const isHybridMode = safeViewMode === 'hybrid';
     const isCompact = width < 390;
     const isHybridDark = isHybridMode && appTheme.isDark;
     const labelColor = isHybridMode ? (isHybridDark ? HYBRID_DARK.textOnPremium : HYBRID_LIGHT.text) : appTheme.colors.textPrimary;

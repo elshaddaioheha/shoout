@@ -6,16 +6,14 @@ import { useUIStore } from '@/store/useUIStore';
 import { useUserStore } from '@/store/useUserStore';
 import * as Haptics from 'expo-haptics';
 import React, { useCallback, useEffect, useRef } from 'react';
-import { Platform, StyleSheet, useWindowDimensions } from 'react-native';
+import { StyleSheet, useWindowDimensions } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { Extrapolation, interpolate, runOnJS, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const SPRING_CONFIG = { damping: 22, stiffness: 240, mass: 0.8 };
 
 export default function PlayerContainer() {
   const { height } = useWindowDimensions();
-  const insets = useSafeAreaInsets();
   const bottomTabBarHeight = useLayoutMetricsStore((s) => s.bottomTabBarHeight);
   const activeAppMode = useUserStore((s) => s.activeAppMode);
   const track = usePlaybackStore((s) => s.currentTrack);
@@ -27,10 +25,10 @@ export default function PlayerContainer() {
   const previousAppModeRef = useRef(activeAppMode);
   const hiddenByModeSwitchTrackIdRef = useRef<string | null>(null);
 
-  const miniHeight = 68;
+  const miniHeight = 80;
   const estimatedBottomPillHeight = Math.max(62, bottomTabBarHeight || 0);
-  // Sit mini player flush on top of the tab bar with zero gap so they connect
-  const miniBottom = estimatedBottomPillHeight;
+  // Keep the mini player floating above bottom controls for pill styling.
+  const miniBottom = estimatedBottomPillHeight + 4;
   const hiddenY = height + 80;
   const miniY = height - miniBottom - miniHeight;
   const fullY = 0;
@@ -201,7 +199,7 @@ export default function PlayerContainer() {
         </Animated.View>
       </GestureDetector>
       <GestureDetector gesture={miniPan}>
-        <Animated.View pointerEvents={mode === 'mini' && !isVaultMode ? 'auto' : 'none'} style={[styles.miniWrap, { top: miniY, left: 0, right: 0 }, miniStyle]}>
+        <Animated.View pointerEvents={mode === 'mini' && !isVaultMode ? 'auto' : 'none'} style={[styles.miniWrap, { top: miniY, left: 10, right: 10 }, miniStyle]}>
           <MiniPlayerBar onExpand={setFull} />
         </Animated.View>
       </GestureDetector>

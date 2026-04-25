@@ -1,4 +1,5 @@
 import { auth, db } from '@/firebaseConfig';
+import { onAuthStateChanged } from 'firebase/auth';
 import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -60,9 +61,18 @@ export function useVaultWorkspaceData() {
   const [folders, setFolders] = useState<VaultFolder[]>([]);
   const [shareLinks, setShareLinks] = useState<VaultShareLink[]>([]);
   const [loading, setLoading] = useState(true);
+  const [uid, setUid] = useState<string | null>(() => auth.currentUser?.uid ?? null);
 
   useEffect(() => {
-    if (!auth.currentUser) {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUid(user?.uid ?? null);
+    });
+
+    return unsubscribe;
+  }, []);
+
+  useEffect(() => {
+    if (!uid) {
       setUploads([]);
       setFolders([]);
       setShareLinks([]);
@@ -73,15 +83,15 @@ export function useVaultWorkspaceData() {
     setLoading(true);
 
     const uploadsQuery = query(
-      collection(db, `users/${auth.currentUser.uid}/uploads`),
+      collection(db, `users/${uid}/uploads`),
       orderBy('createdAt', 'desc')
     );
     const foldersQuery = query(
-      collection(db, `users/${auth.currentUser.uid}/folders`),
+      collection(db, `users/${uid}/folders`),
       orderBy('createdAt', 'desc')
     );
     const shareLinksQuery = query(
-      collection(db, `users/${auth.currentUser.uid}/vaultShares`),
+      collection(db, `users/${uid}/vaultShares`),
       orderBy('createdAt', 'desc')
     );
 
@@ -110,7 +120,7 @@ export function useVaultWorkspaceData() {
       unsubFolders();
       unsubShareLinks();
     };
-  }, []);
+  }, [uid]);
 
   const usedStorageGB = useMemo(() => {
     const totalBytes = uploads.reduce((sum, item) => sum + Number(item.fileSizeBytes || 0), 0);

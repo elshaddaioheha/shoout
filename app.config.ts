@@ -1,6 +1,6 @@
+import type { ConfigContext, ExpoConfig } from '@expo/config';
 import fs from 'node:fs';
 import path from 'node:path';
-import { ExpoConfig, ConfigContext } from 'expo/config';
 
 export default ({ config }: ConfigContext): ExpoConfig => {
   const buildProfile = process.env.EAS_BUILD_PROFILE?.trim();
@@ -13,7 +13,26 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   ];
   const localGoogleServicesFile = localGoogleServicesCandidates.find((candidate) => fs.existsSync(candidate));
   const googleServicesFile = process.env.GOOGLE_SERVICES_JSON || localGoogleServicesFile;
-  const plugins = (config.plugins ?? []).flatMap((plugin: any) => {
+  const stripeMerchantIdentifier = process.env.STRIPE_MERCHANT_IDENTIFIER?.trim() || 'merchant.com.shoouts';
+  const requiredPlugins: Array<string | [string, Record<string, unknown>]> = [
+    'expo-router',
+    'expo-font',
+    'expo-splash-screen',
+    'expo-notifications',
+    '@react-native-google-signin/google-signin',
+    ['@stripe/stripe-react-native', { merchantIdentifier: stripeMerchantIdentifier }],
+    'expo-image',
+  ];
+  const basePlugins = config.plugins ?? [];
+  const missingPlugins = requiredPlugins.filter(
+    (requiredPlugin) =>
+      !basePlugins.some((plugin: any) => {
+        const requiredPluginName = Array.isArray(requiredPlugin) ? requiredPlugin[0] : requiredPlugin;
+        const pluginName = Array.isArray(plugin) ? plugin[0] : plugin;
+        return pluginName === requiredPluginName;
+      })
+  );
+  const plugins = [...basePlugins, ...missingPlugins].flatMap((plugin: any) => {
     const pluginName = Array.isArray(plugin) ? plugin[0] : plugin;
 
     if (pluginName !== '@sentry/react-native/expo') {
@@ -40,6 +59,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     ...config,
     name: config.name || "Shoouts",
     slug: config.slug || "shoouts",
+    runtimeVersion: config.version || "1.0.1",
     plugins,
     extra: {
       ...config.extra,

@@ -7,7 +7,7 @@ jest.mock('@react-native-async-storage/async-storage', () =>
 );
 
 import { act, renderHook } from '@testing-library/react-native';
-import type { UserRole } from '../../store/useUserStore';
+import type { UserRole, ViewMode } from '../../store/useUserStore';
 import { useUserStore } from '../../store/useUserStore';
 
 beforeEach(() => {
@@ -17,9 +17,9 @@ beforeEach(() => {
 });
 
 describe('useUserStore default state', () => {
-    it('starts with vault role', () => {
+    it('starts with shoout role', () => {
         const { result } = renderHook(() => useUserStore());
-        expect(result.current.role).toBe('vault');
+        expect(result.current.role).toBe('shoout');
     });
 
     it('defaults to shoout app mode', () => {
@@ -32,9 +32,9 @@ describe('useUserStore default state', () => {
         expect(result.current.canSell).toBe(false);
     });
 
-    it('has 50MB storage on vault plan', () => {
+    it('has no storage on shoout plan', () => {
         const { result } = renderHook(() => useUserStore());
-        expect(result.current.storageLimitGB).toBe(0.05);
+        expect(result.current.storageLimitGB).toBe(0);
     });
 
     it('is not premium on vault tier', () => {
@@ -128,13 +128,29 @@ describe('useUserStore actions', () => {
         expect(useUserStore.getState().activeAppMode).toBe('shoout');
     });
 
+    it('normalizes invalid legacy app modes to shoout', () => {
+        const legacyMode = 'legacy-mode' as unknown as ViewMode;
+
+        act(() => {
+            useUserStore.getState().setActiveAppMode(legacyMode);
+        });
+        expect(useUserStore.getState().activeAppMode).toBe('shoout');
+        expect(useUserStore.getState().viewMode).toBe('shoout');
+
+        act(() => {
+            useUserStore.getState().setViewMode(legacyMode);
+        });
+        expect(useUserStore.getState().activeAppMode).toBe('shoout');
+        expect(useUserStore.getState().viewMode).toBe('shoout');
+    });
+
     it('reset returns to default state', () => {
         act(() => {
             useUserStore.getState().setRole('hybrid');
             useUserStore.getState().setName('Big Boss');
             useUserStore.getState().reset();
         });
-        expect(useUserStore.getState().role).toBe('vault');
+        expect(useUserStore.getState().role).toBe('shoout');
         expect(useUserStore.getState().name).toBe('User');
         expect(useUserStore.getState().isPremium).toBe(false);
         expect(useUserStore.getState().activeAppMode).toBe('shoout');

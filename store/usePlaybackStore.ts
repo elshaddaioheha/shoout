@@ -305,9 +305,12 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => ({
   clearTrack: async () => {
     invalidatePendingTrackSwitch();
     try {
+      await audioEngine.setup();
       await audioEngine.stop();
       await audioEngine.unload();
-    } catch (_) { }
+    } catch (error) {
+      captureError(error, buildPlaybackErrorContext({ action: 'clear-track' }));
+    }
     set({
       currentTrack: null,
       isPlaying: false,
